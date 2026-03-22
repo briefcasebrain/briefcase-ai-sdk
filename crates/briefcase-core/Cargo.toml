@@ -1,0 +1,59 @@
+[package]
+name = "briefcase-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/briefcase-core"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tokio = { workspace = true, optional = true }
+async-trait = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+rusqlite = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
+sha2.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+once_cell.workspace = true
+tiktoken-rs = { workspace = true, optional = true }
+parking_lot.workspace = true
+base64.workspace = true
+futures = { workspace = true, optional = true }
+flate2 = { version = "1.0", optional = true }
+zstd = { version = "0.13", optional = true }
+strsim = { version = "0.11", optional = true }
+rayon = { version = "1.10", optional = true }
+opentelemetry = { version = "0.24", optional = true, default-features = false, features = ["trace"] }
+
+[features]
+default = ["recording", "async", "storage"]
+recording = []
+replay = ["dep:strsim"]
+drift = ["dep:rayon", "dep:strsim"]
+sanitize = ["dep:regex"]
+storage = ["sqlite-storage"]
+sqlite-storage = ["dep:rusqlite"]
+vcs-storage = []
+otel = ["dep:opentelemetry", "async", "networking"]
+tokens = ["dep:tiktoken-rs"]
+async = ["dep:tokio", "dep:async-trait", "dep:futures"]
+networking = ["async", "dep:reqwest"]
+compression = ["dep:flate2", "dep:zstd"]
+
+[dev-dependencies]
+tempfile = "3.8"
+proptest = "1.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+wiremock = "0.6"
+tokio = { version = "1.0", features = ["full", "test-util"] }

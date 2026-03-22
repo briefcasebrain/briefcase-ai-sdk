@@ -1,0 +1,27 @@
+# Canonical version reconciliation map for release automation.
+# Keep exactly one canonical target.
+
+[[targets]]
+id = "workspace"
+path = "Cargo.toml"
+pattern = '(?m)^(?P<pre>version = ")(?P<version>[^"]+)(?P<post>")$'
+replacement = '{pre}{version}{post}'
+canonical = true
+
+[[targets]]
+id = "pyproject"
+path = "pyproject.toml"
+pattern = '(?m)^(?P<pre>version = ")(?P<version>[^"]+)(?P<post>")$'
+replacement = '{pre}{version}{post}'
+
+[[targets]]
+id = "python_init_version"
+path = "briefcase/__init__.py"
+pattern = '(?m)^(?P<pre>__version__ = ")(?P<version>[^"]+)(?P<post>")$'
+replacement = '{pre}{version}{post}'
+
+[[targets]]
+id = "python_native_version"
+path = "bindings/python/src/lib.rs"
+pattern = '(?m)^(?P<pre>\s*m\.add\("__version__", ")(?P<version>[^"]+)(?P<post>"\)\?;)$'
+replacement = '{pre}{version}{post}'
