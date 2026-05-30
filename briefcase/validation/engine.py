@@ -18,13 +18,9 @@ Usage:
 import time
 from typing import Any, Optional, Protocol, runtime_checkable
 
-try:
-    from opentelemetry import trace
-    HAS_OTEL = True
-    tracer = trace.get_tracer(__name__)
-except ImportError:
-    HAS_OTEL = False
-    tracer = None
+from briefcase._otel import trace, HAS_OTEL
+
+tracer = trace.get_tracer(__name__) if HAS_OTEL else None
 
 from briefcase.validation.errors import ValidationReport, ValidationError
 from briefcase.semantic_conventions.validation import *

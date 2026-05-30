@@ -16,12 +16,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 import logging
 
-try:
-    from opentelemetry import trace
-    HAS_OTEL = True
-except ImportError:
-    HAS_OTEL = False
-
 import briefcase.semantic_conventions.rag as rag_conventions  # noqa: F401
 
 logger = logging.getLogger(__name__)

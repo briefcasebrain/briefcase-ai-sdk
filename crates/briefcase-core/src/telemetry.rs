@@ -11,6 +11,19 @@ fn get_telemetry_url() -> String {
     format!("{}/v1/telemetry/usage", base.trim_end_matches('/'))
 }
 
+/// Returns true when telemetry has been disabled via the `BRIEFCASE_TELEMETRY`
+/// environment variable. Accepts `0`, `false`, `no`, `off` (case-insensitive,
+/// surrounding whitespace ignored) so the documented opt-out is forgiving.
+pub fn telemetry_disabled() -> bool {
+    match env::var("BRIEFCASE_TELEMETRY") {
+        Ok(v) => matches!(
+            v.trim().to_ascii_lowercase().as_str(),
+            "0" | "false" | "no" | "off"
+        ),
+        Err(_) => false,
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct AnonymousMetrics {
     pub sdk_version: String,
@@ -69,7 +82,7 @@ impl TelemetryEmitter {
     }
 
     pub fn emit(&self, metrics: AnonymousMetrics) {
-        if env::var("BRIEFCASE_TELEMETRY").unwrap_or_default() == "0" {
+        if telemetry_disabled() {
             return;
         }
         record_usage_span(&metrics);
@@ -77,4 +90,9 @@ impl TelemetryEmitter {
     }
 }
 
+// NOTE: `GLOBAL_EMITTER` currently has no callers — telemetry is wired but not
+// invoked anywhere, so the SDK does not emit usage metrics today. Enabling it
+// (e.g. from `init()`) is a deliberate behavior change: it begins network
+// egress and must (a) be gated on `telemetry_disabled()` *before* the emitter
+// is constructed, and (b) target an HTTPS endpoint via `BRIEFCASE_API_URL`.
 pub static GLOBAL_EMITTER: Lazy<Arc<TelemetryEmitter>> = Lazy::new(|| Arc::new(TelemetryEmitter::new()));

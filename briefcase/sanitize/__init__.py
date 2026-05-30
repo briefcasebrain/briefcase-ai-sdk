@@ -9,8 +9,9 @@ try:
     )
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
-        "briefcase.sanitize requires the 'sanitize' extra.\n"
-        "Install it with: pip install briefcase-ai[sanitize]"
+        "briefcase.sanitize could not load the native extension. "
+        "Reinstall the package (pip install --force-reinstall briefcase-ai) "
+        "or rebuild from source with 'maturin develop'."
     ) from exc
 
 __all__ = [

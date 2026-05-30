@@ -25,3 +25,9 @@ id = "python_native_version"
 path = "bindings/python/src/lib.rs"
 pattern = '(?m)^(?P<pre>\s*m\.add\("__version__", ")(?P<version>[^"]+)(?P<post>"\)\?;)$'
 replacement = '{pre}{version}{post}'
+
+[[targets]]
+id = "python_binding_core_dep"
+path = "bindings/python/Cargo.toml"
+pattern = '(?P<pre>briefcase-core = \{ version = ")(?P<version>[^"]+)(?P<post>")'
+replacement = '{pre}{version}{post}'

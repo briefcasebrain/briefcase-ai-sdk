@@ -5,13 +5,12 @@ This example demonstrates the core features of Briefcase AI using Python, includ
 ##  Installation
 
 ```bash
-# Install dependencies
-pip install briefcase-ai pandas matplotlib
+# Install the published package
+pip install briefcase-ai
 
-# Or using the development version
-cd ../../crates/python
+# Or build the development version from the repo root
+cd ../..        # repo root (contains pyproject.toml)
 maturin develop
-pip install pytest pandas matplotlib
 ```
 
 ##  Quick Start
@@ -68,7 +67,7 @@ week3_outputs = ["negative", "negative", "negative", "negative"]
 # Analyze drift
 for week, outputs in enumerate([week1_outputs, week2_outputs, week3_outputs], 1):
     metrics = calculator.calculate_drift(outputs)
-    status = calculator.get_status(metrics)
+    status = metrics.get_status(calculator)
 
     print(f"Week {week}:")
     print(f"  Consistency: {metrics.consistency_score:.2f}")
@@ -102,8 +101,8 @@ current_spend = 75.0
 status = calculator.check_budget(current_spend, budget)
 
 print(f"\nBudget Status: {status.status}")
-print(f"Spent: ${status.spent_usd:.2f} / ${status.budget_usd:.2f}")
-print(f"Remaining: ${status.remaining_usd:.2f}")
+print(f"Spent: ${status.current_spend:.2f} / ${status.budget_limit:.2f}")
+print(f"Remaining: ${status.remaining_budget:.2f}")
 ```
 
 ### 4. Data Sanitization
@@ -142,7 +141,7 @@ json_data = {
 
 json_result = sanitizer.sanitize_json(json_data)
 print(f"\nJSON Sanitization:")
-print(f"Redacted fields: {len(json_result.redactions)}")
+print(f"Redactions: {json_result.redaction_count}")
 ```
 
 ##  Advanced Examples
@@ -170,15 +169,14 @@ for i in range(5):
 
     session.add_decision(decision)
 
-print(f"Session contains {session.decision_count} decisions")
+print(f"Session contains {len(session.decisions)} decisions")
 
 # Analyze the session
-decisions_data = session.to_object()
 confidences = []
-for decision in decisions_data["decisions"]:
-    for output in decision["outputs"]:
-        if output.get("confidence"):
-            confidences.append(output["confidence"])
+for decision in session.decisions:
+    for output in decision.outputs:
+        if output.confidence is not None:
+            confidences.append(output.confidence)
 
 avg_confidence = sum(confidences) / len(confidences)
 print(f"Average confidence: {avg_confidence:.2f}")
@@ -227,16 +225,6 @@ print(f"Generated text in {result.execution_time_ms:.1f}ms")
 print(f"Tags: {result.tags}")
 ```
 
-##  Running Tests
-
-```bash
-# Run the example tests
-pytest test_examples.py -v
-
-# Run with coverage
-pytest test_examples.py --cov=. --cov-report=html
-```
-
 ##  Next Steps
 
 1. **Explore Storage**: Learn about SQLite backends
@@ -252,4 +240,4 @@ pytest test_examples.py --cov=. --cov-report=html
 
 ---
 
-** Questions? Check out the [documentation](../../docs/python/) or open an issue!**
+** Questions? Check out the [documentation](https://briefcaseai.io) or open an issue!**

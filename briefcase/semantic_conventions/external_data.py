@@ -37,3 +37,11 @@ EXTERNAL_CACHE_TTL = "external.cache.ttl"
 EXTERNAL_SNAPSHOT_ID = "external.snapshot.id"
 EXTERNAL_SNAPSHOT_TIMESTAMP = "external.snapshot.timestamp"
 EXTERNAL_SNAPSHOT_LOCATION = "external.snapshot.location"  # lakeFS path
+
+# Bitemporal metadata — see briefcase.semantic_conventions.bitemporal for the
+# full record-level convention set. These attributes let a snapshot span
+# carry the two time axes without pulling in the bitemporal module.
+EXTERNAL_DATA_VALID_TIME = "external.data.valid_time"
+EXTERNAL_DATA_TRANSACTION_TIME = "external.data.transaction_time"
+EXTERNAL_DATA_CORRECTION_OF = "external.data.correction_of"  # parent snapshot_id
+EXTERNAL_DATA_SOURCE_TRUST_LEVEL = "external.data.source_trust_level"

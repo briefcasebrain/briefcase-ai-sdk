@@ -9,17 +9,7 @@ from contextlib import contextmanager
 import threading
 import logging
 
-try:
-    from opentelemetry import trace, context
-    from opentelemetry.trace import Status, StatusCode
-    HAS_OTEL = True
-except ImportError:
-    trace = None  # type: ignore[assignment]
-    context = None  # type: ignore[assignment]
-    Status = None  # type: ignore[assignment,misc]
-    StatusCode = None  # type: ignore[assignment,misc]
-    HAS_OTEL = False
-
+from briefcase._otel import trace, context, Status, StatusCode, HAS_OTEL
 from briefcase.semantic_conventions import workflow as workflow_attrs
 
 logger = logging.getLogger(__name__)

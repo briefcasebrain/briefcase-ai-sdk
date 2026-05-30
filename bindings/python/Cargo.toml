@@ -15,7 +15,7 @@ name = "briefcase_native"
 crate-type = ["cdylib"]
 
 [dependencies]
-briefcase-core = { version = "3.0.0", path = "../../crates/briefcase-core", features = ["replay", "drift", "sanitize", "storage", "otel", "tokens", "networking", "compression"] }
+briefcase-core = { version = "3.1.0", path = "../../crates/briefcase-core", features = ["replay", "drift", "sanitize", "storage", "otel", "tokens", "networking", "compression"] }
 pyo3.workspace = true
 tokio.workspace = true
 serde_json.workspace = true

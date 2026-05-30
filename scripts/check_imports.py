@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Import-smoke test for the built wheel.
+
+Run against an *installed* briefcase-ai wheel (NOT the source tree, and NOT under
+the test suite, which mocks ``briefcase._native``). Every module in REQUIRED must
+import from a bare install; this is what catches native-binding registration
+regressions such as a missing ``add_class`` in ``bindings/python/src/lib.rs``.
+
+OPTIONAL modules are gated behind pip extras (opentelemetry, lakefs, pyiceberg);
+a missing-dependency ImportError there is treated as a skip, anything else fails.
+
+    python scripts/check_imports.py
+"""
+
+from __future__ import annotations
+
+import importlib
+import sys
+
+# Must import from a bare `pip install briefcase-ai` with no extras.
+REQUIRED = [
+    "briefcase",
+    "briefcase.cost",
+    "briefcase.drift",
+    "briefcase.sanitize",
+    "briefcase.storage",
+    "briefcase.replay",
+    "briefcase.decorators",
+    "briefcase.config",
+    "briefcase.hardware",
+    "briefcase.auto",
+    "briefcase.bitemporal",
+    "briefcase.compliance",
+    "briefcase.routing",
+    "briefcase.validation",
+    "briefcase.validate",
+    "briefcase.rag",
+    "briefcase.guardrails",
+    "briefcase.events",
+    "briefcase.correlation",
+    "briefcase.external",
+    "briefcase.external_data",
+    "briefcase.exporters",
+    "briefcase.semantic_conventions",
+]
+
+# Gated behind pip extras; skip cleanly when the extra is not installed.
+OPTIONAL = [
+    "briefcase.otel",
+    "briefcase.integrations.lakefs",
+    "briefcase.bitemporal.backends.iceberg",
+]
+
+
+def _is_missing_extra(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    return "requires the" in msg and "extra" in msg or isinstance(exc, ModuleNotFoundError)
+
+
+def main() -> int:
+    failures: list[str] = []
+
+    for name in REQUIRED:
+        try:
+            importlib.import_module(name)
+            print(f"  OK       {name}")
+        except Exception as exc:  # noqa: BLE001 - report everything
+            print(f"  FAIL     {name}: {type(exc).__name__}: {exc}")
+            failures.append(name)
+
+    for name in OPTIONAL:
+        try:
+            importlib.import_module(name)
+            print(f"  OK       {name}")
+        except Exception as exc:  # noqa: BLE001
+            if _is_missing_extra(exc):
+                print(f"  SKIP     {name} (optional extra not installed)")
+            else:
+                print(f"  FAIL     {name}: {type(exc).__name__}: {exc}")
+                failures.append(name)
+
+    if failures:
+        print(f"\nFAILED: {len(failures)} module(s) did not import: {', '.join(failures)}")
+        return 1
+    print("\nAll required public submodules import cleanly.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

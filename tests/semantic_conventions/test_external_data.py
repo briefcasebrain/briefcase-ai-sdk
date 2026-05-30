@@ -355,8 +355,8 @@ def test_snapshot_location_value():
 def test_expected_number_of_constants():
     """Test that the module has the expected number of constants."""
     constants = get_module_constants(external_data)
-    # 5 API + 5 Data + 3 ETL + 5 DB + 3 Cache + 3 Snapshot = 24
-    assert len(constants) == 24, f"Expected 24 constants, got {len(constants)}"
+    # 5 API + 5 Data + 3 ETL + 5 DB + 3 Cache + 3 Snapshot + 4 Bitemporal = 28
+    assert len(constants) == 28, f"Expected 28 constants, got {len(constants)}"
 
 
 def test_no_duplicate_values():

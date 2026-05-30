@@ -7,13 +7,7 @@ from datetime import datetime, timezone
 import logging
 import os
 
-try:
-    from opentelemetry import trace
-    HAS_OTEL = True
-except ImportError:
-    trace = None  # type: ignore[assignment]
-    HAS_OTEL = False
-
+from briefcase._otel import trace, HAS_OTEL
 from briefcase.semantic_conventions import lakefs as lakefs_attrs
 
 logger = logging.getLogger(__name__)

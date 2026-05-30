@@ -80,7 +80,7 @@ def demo_decision_tracking():
     print(f"   Input: {review_text[:50]}...")
     print(f"   Output: {sentiment_output.value} (confidence: {sentiment_output.confidence})")
     print(f"   Execution time: {execution_time:.1f}ms")
-    print(f"   Session decisions: {session.decision_count}")
+    print(f"   Session decisions: {len(session.decisions)}")
 
     return session
 
@@ -105,7 +105,7 @@ def demo_drift_detection():
 
     for period, outputs in scenarios:
         metrics = calculator.calculate_drift(outputs)
-        status = calculator.get_status(metrics)
+        status = metrics.get_status(calculator)
 
         print(f" {period}:")
         print(f"   Outputs: {outputs}")
@@ -125,7 +125,7 @@ def demo_drift_detection():
 
     print(f"   Outputs: {outputs}")
     print(f"   Agreement Rate: {strict_metrics.agreement_rate:.3f}")
-    print(f"   Status: {strict_calculator.get_status(strict_metrics)}")
+    print(f"   Status: {strict_metrics.get_status(strict_calculator)}")
 
 
 def demo_cost_analysis():
@@ -184,10 +184,10 @@ def demo_cost_analysis():
     # Monthly projection
     print(f"\n Monthly Projection (GPT-4, 5k input + 2k output daily):")
     try:
-        projection = calculator.project_monthly_cost("gpt-4", 5000, 2000, 30.0)
-        print(f"   Daily: ${projection.daily_cost:.2f}")
-        print(f"   Monthly: ${projection.monthly_cost:.2f}")
-        print(f"   Annual: ${projection.annual_cost:.2f}")
+        monthly = calculator.project_monthly_cost("gpt-4", 5000, 2000, 30.0)
+        print(f"   Monthly: ${monthly:.2f}")
+        print(f"   Daily:   ${monthly / 30:.2f}")
+        print(f"   Annual:  ${monthly * 12:.2f}")
     except Exception as e:
         print(f"    Error: {e}")
 
@@ -243,8 +243,8 @@ def demo_data_sanitization():
 
     json_result = sanitizer.sanitize_json(sensitive_config)
     print(f"   Original keys: {list(sensitive_config.keys())}")
-    print(f"   Redacted fields: {len(json_result.redactions)}")
-    print(f"   Redacted paths: {[r.path for r in json_result.redactions]}")
+    print(f"   Redactions: {json_result.redaction_count}")
+    print(f"   Sanitized: {json_result.sanitized}")
 
     # Custom pattern example
     print(f"\n Custom pattern example (Employee IDs):")
@@ -302,7 +302,7 @@ def demo_performance_monitoring():
         min_confidence = min(confidences)
 
         print(f" Batch completed:")
-        print(f"   Requests processed: {session.decision_count}")
+        print(f"   Requests processed: {len(session.decisions)}")
         print(f"   Total time: {total_time:.1f}ms")
         print(f"   Average time: {avg_time:.1f}ms")
         print(f"   Average confidence: {avg_confidence:.3f}")
@@ -337,9 +337,9 @@ def main():
 
         print("\n All demos completed successfully!")
         print("\n Next steps:")
-        print("    Check out the FastAPI example for web integration")
-        print("    Explore the chatbot example for real-world usage")
-        print("    Read the documentation at docs/python/")
+        print("    Try the validation example: ../validation/")
+        print("    Try the lakeFS versioning example: ../lakefs_versioning/")
+        print("    Read the documentation at https://briefcaseai.io")
 
     except Exception as e:
         print(f"\n Error during demo: {e}")

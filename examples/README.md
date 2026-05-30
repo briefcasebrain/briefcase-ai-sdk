@@ -6,11 +6,10 @@ Examples showing how to use the Briefcase AI SDK.
 
 ### [Python Basic](python-basic/)
 Core Python usage covering all fundamental features:
-- Decision tracking with `@capture` decorator
+- Decision tracking with `DecisionSnapshot`
 - Drift detection
 - Cost analysis
 - Data sanitization
-- Storage backends
 
 ### [Rust](rust/)
 Native Rust usage via `briefcase-core`:

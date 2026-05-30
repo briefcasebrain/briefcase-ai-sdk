@@ -27,12 +27,17 @@ jobs:
   python:
     name: Python (maturin + pytest)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Cover the full supported range declared in pyproject (requires-python >=3.9).
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -43,5 +48,15 @@ jobs:
           maturin build --release --locked
           pip install target/wheels/*.whl
 
-      - name: Run pytest
+      - name: Smoke-test public submodule imports (real built wheel)
+        # Catches native-binding registration regressions that the mocked
+        # `tests/` suite cannot see. Run from the repo root, NOT under pytest.
+        run: python scripts/check_imports.py
+
+      - name: Run native binding tests (real extension)
+        # Separate process: tests/conftest.py mocks briefcase._native globally,
+        # so these must not share an interpreter with the facade suite below.
+        run: pytest bindings/python/tests/
+
+      - name: Run Python facade tests
         run: pytest tests/

@@ -4,8 +4,9 @@ try:
     from briefcase._native import DriftCalculator, DriftMetrics
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
-        "briefcase.drift requires the 'drift' extra.\n"
-        "Install it with: pip install briefcase-ai[drift]"
+        "briefcase.drift could not load the native extension. "
+        "Reinstall the package (pip install --force-reinstall briefcase-ai) "
+        "or rebuild from source with 'maturin develop'."
     ) from exc
 
 __all__ = ["DriftCalculator", "DriftMetrics"]

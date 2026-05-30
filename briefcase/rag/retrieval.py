@@ -1,16 +1,18 @@
 """
 Instrumented retrieval that captures version provenance.
+
+.. warning::
+   :class:`InstrumentedRetriever` is a **reference implementation**. Its
+   :meth:`~InstrumentedRetriever.retrieve` returns placeholder results so the
+   provenance-capture shape can be demonstrated end to end; it performs no real
+   vector search. Subclass it and override ``retrieve`` to wire a real vector
+   store and lakeFS commit resolution.
 """
 
 from typing import List, Optional
 from dataclasses import dataclass
 import logging
-
-try:
-    from opentelemetry import trace
-    HAS_OTEL = True
-except ImportError:
-    HAS_OTEL = False
+import warnings
 
 from briefcase.semantic_conventions.rag import *
 
@@ -30,7 +32,11 @@ class RetrievalResult:
 
 class InstrumentedRetriever:
     """
-    Retriever that captures full version provenance.
+    Reference retriever that captures full version provenance.
+
+    NOTE: this base implementation returns placeholder results (see the module
+    docstring). Override :meth:`retrieve` with a real vector-store query to use
+    it in production.
     """
 
     def __init__(
@@ -53,11 +59,19 @@ class InstrumentedRetriever:
     ) -> List[RetrievalResult]:
         """
         Retrieve documents and capture version provenance.
+
+        Reference implementation: returns placeholder results and emits a
+        :class:`RuntimeWarning`. Override in a subclass for real retrieval.
         """
-        # Mock implementation
+        warnings.warn(
+            "InstrumentedRetriever.retrieve() is a reference stub that returns "
+            "placeholder results; override it with a real vector-store query.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         results = []
 
-        for i in range(min(top_k, 3)):  # Mock: return 3 results
+        for i in range(min(top_k, 3)):  # placeholder: return up to 3 stub results
             result = RetrievalResult(
                 document_id=f"doc_{i}",
                 content=f"Mock document content for query: {query}",

@@ -6,13 +6,7 @@ from typing import Optional
 from contextlib import contextmanager
 import logging
 
-try:
-    from opentelemetry import trace
-    HAS_OTEL = True
-except ImportError:
-    trace = None  # type: ignore[assignment]
-    HAS_OTEL = False
-
+from briefcase._otel import trace, HAS_OTEL
 from briefcase.integrations.lakefs.client import VersionedClient
 
 logger = logging.getLogger(__name__)

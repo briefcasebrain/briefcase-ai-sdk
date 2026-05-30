@@ -136,7 +136,7 @@ dependencies = [
 
 [[package]]
 name = "briefcase-core"
-version = "3.0.0"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -168,7 +168,7 @@ dependencies = [
 
 [[package]]
 name = "briefcase-python"
-version = "3.0.0"
+version = "3.1.0"
 dependencies = [
  "async-trait",
  "briefcase-core",

@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "briefcase-ai"
-version = "3.0.0"
+version = "3.1.0"
 description = "Open-source decision tracking for AI"
 license = "Apache-2.0"
 requires-python = ">=3.9"
@@ -32,8 +32,11 @@ events = []
 routing = []
 lakefs = ["lakefs>=0.1"]
 vcs = []
+bitemporal = []
+bitemporal-iceberg = ["pyiceberg[sql-sqlite,pyiceberg-core]>=0.9", "pyarrow>=14"]
+compliance = []
 dev = ["pytest", "pytest-mock", "pytest-asyncio", "pytest-subtests", "black", "mypy", "flake8"]
-all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,correlation,external,events,routing,lakefs,vcs]"]
+all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,correlation,external,events,routing,lakefs,vcs,bitemporal,bitemporal-iceberg,compliance]"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"

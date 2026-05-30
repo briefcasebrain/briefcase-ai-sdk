@@ -33,7 +33,9 @@ impl Sanitizer {
         );
         patterns.insert(
             PiiType::Email,
-            Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b").unwrap(),
+            // TLD class is [A-Za-z]; the older `[A-Z|a-z]` erroneously included a
+            // literal `|`, matching malformed addresses such as `a@b.c|d`.
+            Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b").unwrap(),
         );
         patterns.insert(
             PiiType::Phone,
@@ -41,11 +43,21 @@ impl Sanitizer {
         );
         patterns.insert(
             PiiType::ApiKey,
-            Regex::new(r"\b(sk-|bai_|api_|key_|AIza|AKIA|ya29\.|xox[bpoa]-)[A-Za-z0-9_-]{15,}\b")
-                .unwrap(),
+            // Common provider key prefixes. Covers OpenAI (sk-, incl. sk-ant-/sk-proj-
+            // via the sk- branch), Stripe (sk_live_/pk_live_/…), AWS (AKIA),
+            // Google (AIza, ya29.), GitHub (ghp_/gho_/ghu_/ghs_/ghr_, github_pat_),
+            // GitLab (glpat-), HuggingFace (hf_), Slack (xox[bpoa]-), and the
+            // generic api_/key_/bai_ forms.
+            Regex::new(
+                r"\b(sk-|sk_live_|sk_test_|pk_live_|pk_test_|rk_live_|bai_|api_|key_|AIza|AKIA|ya29\.|gh[opusr]_|github_pat_|glpat-|hf_|xox[bpoa]-)[A-Za-z0-9_-]{15,}\b",
+            )
+            .unwrap(),
         );
         patterns.insert(
             PiiType::IpAddress,
+            // Intentionally greedy: any dotted-quad in 0-255 range is redacted.
+            // This over-redacts version-like strings (e.g. "1.2.3.4"), which is the
+            // safe direction for a PII tool — never under-redact a real address.
             Regex::new(r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b").unwrap(),
         );
 
@@ -363,6 +375,15 @@ mod tests {
     }
 
     #[test]
+    fn test_email_tld_excludes_pipe() {
+        // Regression: the old `[A-Z|a-z]` class treated `|` as a valid TLD
+        // character, so it over-consumed `io|z` as a single TLD.
+        let sanitizer = Sanitizer::new();
+        let result = sanitizer.sanitize("x@y.io|z");
+        assert_eq!(result.sanitized, "[REDACTED_EMAIL]|z");
+    }
+
+    #[test]
     fn test_ssn_sanitization() {
         let sanitizer = Sanitizer::new();
 
@@ -410,6 +431,31 @@ mod tests {
 
         let result = sanitizer.sanitize("API key: api_1234567890abcdef");
         assert_eq!(result.sanitized, "API key: [REDACTED_API_KEY]");
+    }
+
+    #[test]
+    fn test_api_key_additional_providers() {
+        let sanitizer = Sanitizer::new();
+        // Keys are assembled at runtime from a prefix + filler body so the source
+        // contains no literal that resembles a real provider secret (avoids
+        // secret-scanner false positives on dummy test fixtures).
+        let body = "1234567890abcdefghijklmn"; // 24 chars; satisfies the {15,} body
+        let prefixes = [
+            "ghp_",        // GitHub PAT
+            "github_pat_", // GitHub fine-grained
+            "glpat-",      // GitLab
+            "sk_live_",    // Stripe secret
+            "pk_live_",    // Stripe publishable
+            "hf_",         // HuggingFace
+        ];
+        for prefix in prefixes {
+            let key = format!("{prefix}{body}");
+            let result = sanitizer.sanitize(&format!("token: {key}"));
+            assert_eq!(
+                result.sanitized, "token: [REDACTED_API_KEY]",
+                "expected {key} to be redacted"
+            );
+        }
     }
 
     #[test]

@@ -11,15 +11,22 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Callable
 import logging
 
-try:
-    from opentelemetry import trace
-    HAS_OTEL = True
-except ImportError:
-    HAS_OTEL = False
-
+from briefcase._otel import trace, HAS_OTEL
 from briefcase.semantic_conventions.external_data import *
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_path_segment(name: str) -> str:
+    """Make ``name`` safe to embed in a storage object key.
+
+    Replaces anything outside ``[A-Za-z0-9._-]`` (including path separators)
+    with ``_`` and neutralizes ``..``, so a crafted ``source_name`` cannot
+    traverse outside the ``snapshots/`` prefix in the lakeFS object key.
+    """
+    cleaned = "".join(c if (c.isalnum() or c in "._-") else "_" for c in name)
+    cleaned = cleaned.replace("..", "_")
+    return cleaned or "_"
 
 
 # ---------------------------------------------------------------------------
@@ -60,17 +67,29 @@ class SnapshotPolicy:
 class Snapshot:
     """
     Immutable record of an external data fetch.
+
+    The ``timestamp`` field is the snapshot's transaction time — when the
+    system fetched the data. ``valid_time`` is the time the data was true
+    in the real world; when omitted it defaults to ``timestamp`` for
+    backwards compatibility with callers that do not distinguish the axes.
+
+    ``source_trust_level`` is a policy hint consumed by downstream
+    governance (e.g. "primary", "derived", "unverified"). ``parent_snapshot_id``
+    carries the lineage back to a corrected snapshot when this snapshot is
+    itself a correction — see :meth:`ExternalDataTracker.correct_snapshot`.
     """
     snapshot_id: str
     source_name: str
     source_type: str  # "api" | "db" | "file"
     data_hash: str
-    timestamp: str  # ISO-8601
+    timestamp: str  # ISO-8601; transaction time
     size_bytes: int
     record_count: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     lakefs_path: Optional[str] = None
     parent_snapshot_id: Optional[str] = None
+    valid_time: Optional[str] = None  # ISO-8601; defaults to timestamp
+    source_trust_level: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v is not None}
@@ -129,11 +148,18 @@ class ExternalDataTracker:
         repository: Optional[str] = None,
         branch: str = "main",
         default_policy: Optional[SnapshotPolicy] = None,
+        sanitizer: Optional[Any] = None,
     ):
         self.lakefs = lakefs_client
         self.repository = repository
         self.branch = branch
         self._default_policy = default_policy or SnapshotPolicy()
+        # Optional PII redactor (e.g. briefcase.sanitize.Sanitizer). When set,
+        # snapshot bodies are redacted before they are persisted to lakeFS so
+        # raw external data — which may contain PII — is never stored at rest.
+        # See SECURITY.md. data_hash is still computed over the original
+        # payload, so drift detection is unaffected.
+        self._sanitizer = sanitizer
 
         # source_name -> SnapshotPolicy
         self._policies: Dict[str, SnapshotPolicy] = {}
@@ -184,12 +210,20 @@ class ExternalDataTracker:
         status_code: int = 200,
         record_count: Optional[int] = None,
         store_snapshot: bool = True,
+        valid_time: Optional[datetime] = None,
+        source_trust_level: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Track an API call and optionally store a versioned snapshot.
 
         Returns dict with: data_hash, timestamp, snapshot_id (if stored),
         snapshot_stored (bool), drift_detected (bool).
+
+        ``valid_time`` is the time the fetched data was true in the real
+        world (e.g. the "as-of" date on a Bloomberg snapshot). When
+        omitted, defaults to the fetch timestamp, preserving pre-bitemporal
+        behavior. ``source_trust_level`` is stored on the snapshot for
+        downstream governance.
         """
         span = self._start_span("external_data.track_api_call", {
             EXTERNAL_API_NAME: api_name,
@@ -237,6 +271,8 @@ class ExternalDataTracker:
                         metadata=metadata,
                         timestamp=timestamp,
                         data=response_str if self.lakefs else None,
+                        valid_time=valid_time,
+                        source_trust_level=source_trust_level,
                     )
                     result["snapshot_id"] = snapshot.snapshot_id
                     result["snapshot_stored"] = True
@@ -663,20 +699,45 @@ class ExternalDataTracker:
         metadata: Dict[str, Any],
         timestamp: datetime,
         data: Optional[str] = None,
+        valid_time: Optional[datetime] = None,
+        source_trust_level: Optional[str] = None,
+        parent_snapshot_id: Optional[str] = None,
     ) -> Snapshot:
-        """Create and store a snapshot."""
-        parent = self.get_latest_snapshot(source_name)
+        """Create and store a snapshot.
+
+        ``timestamp`` is the transaction time (when the system learned the
+        fact). ``valid_time`` is the real-world time the fact was true; when
+        ``None`` it defaults to ``timestamp`` so callers that don't
+        distinguish the axes get the pre-bitemporal behavior.
+
+        ``parent_snapshot_id``, when supplied, overrides the inferred
+        parent. Used by :meth:`correct_snapshot` to make correction lineage
+        explicit rather than relying on "latest previous snapshot".
+        """
+        inferred_parent = self.get_latest_snapshot(source_name)
+        resolved_parent = (
+            parent_snapshot_id
+            if parent_snapshot_id is not None
+            else (inferred_parent.snapshot_id if inferred_parent else None)
+        )
         snapshot_id = f"{source_name}_{data_hash[:12]}_{timestamp.strftime('%Y%m%d%H%M%S')}"
 
         lakefs_path = None
         if self.lakefs and self.repository:
-            lakefs_path = f"snapshots/{source_name}/{snapshot_id}.json"
+            lakefs_path = (
+                f"snapshots/{_safe_path_segment(source_name)}/"
+                f"{_safe_path_segment(snapshot_id)}.json"
+            )
+            body, sanitized = self._redact_for_storage(data)
+            if sanitized:
+                # Record on the snapshot that the stored body was redacted.
+                metadata = {**metadata, "sanitized": True}
             try:
                 self.lakefs.upload_object(
                     self.repository,
                     self.branch,
                     lakefs_path,
-                    data or json.dumps(metadata),
+                    body if body is not None else json.dumps(metadata),
                 )
             except Exception as e:
                 logger.warning(f"Failed to upload snapshot to lakeFS: {e}")
@@ -692,7 +753,9 @@ class ExternalDataTracker:
             record_count=record_count,
             metadata=metadata,
             lakefs_path=lakefs_path,
-            parent_snapshot_id=parent.snapshot_id if parent else None,
+            parent_snapshot_id=resolved_parent,
+            valid_time=(valid_time or timestamp).isoformat(),
+            source_trust_level=source_trust_level,
         )
 
         self._snapshots.setdefault(source_name, []).append(snapshot)
@@ -705,6 +768,29 @@ class ExternalDataTracker:
 
         return snapshot
 
+    def _redact_for_storage(self, data: Optional[str]) -> tuple:
+        """Redact a snapshot body before it is persisted.
+
+        Returns ``(body, sanitized)``. With no sanitizer configured the data
+        is returned unchanged and ``sanitized`` is ``False``. With a sanitizer
+        configured the redacted text is returned and ``sanitized`` is ``True``.
+
+        Fails closed: if redaction raises, no raw payload is persisted (``body``
+        is ``None`` so the caller stores metadata only) — raw, potentially
+        PII-bearing data never reaches storage on the error path.
+        """
+        if data is None or self._sanitizer is None:
+            return data, False
+        try:
+            return self._sanitizer.sanitize(data).sanitized, True
+        except Exception as e:  # pragma: no cover - defensive
+            logger.warning(
+                "PII sanitizer failed; persisting metadata only to avoid "
+                "storing unredacted data: %s",
+                e,
+            )
+            return None, True
+
     def _find_snapshot(self, snapshot_id: str) -> Optional[Snapshot]:
         """Find a snapshot by ID across all sources."""
         for snaps in self._snapshots.values():
@@ -712,6 +798,63 @@ class ExternalDataTracker:
                 if snap.snapshot_id == snapshot_id:
                     return snap
         return None
+
+    # ------------------------------------------------------------------
+    # Corrections (append-only)
+    # ------------------------------------------------------------------
+
+    def correct_snapshot(
+        self,
+        parent_snapshot_id: str,
+        corrected_data: Any,
+        *,
+        source: Optional[str] = None,
+        record_count: Optional[int] = None,
+    ) -> Snapshot:
+        """Append a correction for an existing snapshot.
+
+        The correction shares ``source_name`` and ``valid_time`` with the
+        parent snapshot but gets a fresh transaction time. This matches the
+        Bloomberg-correction pattern: original belief is preserved; the
+        correction supersedes it only for queries whose transaction-time
+        clamp is at or after the correction.
+
+        Never mutates the parent. Raises :class:`LookupError` if the parent
+        cannot be found.
+        """
+        parent = self._find_snapshot(parent_snapshot_id)
+        if parent is None:
+            raise LookupError(
+                f"cannot correct unknown snapshot {parent_snapshot_id!r}"
+            )
+
+        data_str = json.dumps(corrected_data, sort_keys=True, default=str)
+        data_hash = hashlib.sha256(data_str.encode()).hexdigest()
+        size_bytes = len(data_str.encode())
+        timestamp = datetime.now(timezone.utc)
+
+        parent_valid_time = (
+            datetime.fromisoformat(parent.valid_time)
+            if parent.valid_time
+            else datetime.fromisoformat(parent.timestamp)
+        )
+
+        metadata = dict(parent.metadata)
+        metadata["correction_of"] = parent.snapshot_id
+
+        return self._create_snapshot(
+            source_name=parent.source_name,
+            source_type=parent.source_type,
+            data_hash=data_hash,
+            size_bytes=size_bytes,
+            record_count=record_count if record_count is not None else parent.record_count,
+            metadata=metadata,
+            timestamp=timestamp,
+            data=data_str if self.lakefs else None,
+            valid_time=parent_valid_time,
+            source_trust_level=parent.source_trust_level,
+            parent_snapshot_id=parent.snapshot_id,
+        )
 
     # ------------------------------------------------------------------
     # OpenTelemetry helpers

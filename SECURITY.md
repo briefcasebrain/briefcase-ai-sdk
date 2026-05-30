@@ -4,6 +4,7 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 3.1.x   | Yes                |
 | 3.0.x   | Yes                |
 | < 3.0   | No                 |
 
@@ -13,7 +14,7 @@ If you discover a security vulnerability, please report it responsibly.
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
-Instead, email **security@briefcaseai.org** with:
+Instead, email **security@briefcasebrain.com** with:
 
 1. A description of the vulnerability
 2. Steps to reproduce
@@ -36,5 +37,9 @@ When using Briefcase SDK:
 
 - Never commit API keys or secrets to source control
 - Use environment variables for all secrets
-- Enable PII sanitization (via Rust `Sanitizer`) before logging decision snapshots
+- Enable PII sanitization (via the Rust `Sanitizer`) before logging decision snapshots
+- When persisting external-data snapshots, pass a sanitizer so raw payloads are
+  redacted before they are written to durable storage:
+  `ExternalDataTracker(lakefs_client=..., sanitizer=briefcase.sanitize.Sanitizer())`.
+  Without it, raw responses (which may contain PII) are stored verbatim.
 - Pin dependency versions in production deployments

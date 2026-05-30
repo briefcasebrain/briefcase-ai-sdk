@@ -109,8 +109,14 @@ fn _native(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Core functionality
     m.add_class::<PyDriftCalculator>()?;
+    m.add_class::<PyDriftMetrics>()?;
     m.add_class::<PyCostCalculator>()?;
+    m.add_class::<PyCostEstimate>()?;
+    m.add_class::<PyBudgetStatus>()?;
     m.add_class::<PySanitizer>()?;
+    m.add_class::<PySanitizationResult>()?;
+    m.add_class::<PyJsonSanitizationResult>()?;
+    m.add_class::<PyRedaction>()?;
     m.add_class::<PyReplayEngine>()?;
     m.add_class::<PyReplayPolicy>()?;
     m.add_class::<PyReplayResult>()?;
@@ -134,7 +140,7 @@ fn _native(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(tokens::count_tokens_batch, m)?)?;
 
     // Add module metadata
-    m.add("__version__", "3.0.0")?;
+    m.add("__version__", "3.1.0")?;
     m.add("__author__", "Briefcase AI")?;
 
     Ok(())

@@ -78,6 +78,10 @@ coverage*.json
 # Documentation
 docs/_build/
 
+# Internal design notes / staging docs — NOT for the public OSS repo
+# (enterprise RFCs, customer notes, release-handoff scaffolding)
+docs/design/
+
 # Environment
 .env
 .venv
@@ -119,3 +123,23 @@ site/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Claude / AI tooling
+.claude/
+.cursor/
+.aider*
+
+# Benchmarks and profiling
+.benchmarks/
+*.prof
+perf.data*
+
+# Jupyter / notebooks
+.ipynb_checkpoints/
+
+# Local walkthrough artifacts (examiner bundles written by users)
+examples/**/*.bundle.json
+examples/**/out/
+
+# Maturin developer builds (belt-and-suspenders; target/ is already ignored)
+target/wheels/

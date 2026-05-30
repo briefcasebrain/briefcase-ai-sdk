@@ -1,9 +1,10 @@
 """
-Shared ExportMixin for all Briefcase framework handlers.
+Shared ExportMixin for Briefcase decision-record exporters.
 
-Provides a single _trigger_export() implementation, eliminating ~150 lines
-of near-identical code duplicated across 6 handlers (LangChain, LlamaIndex,
-OpenAI Agents, AG2, AutoGen, CrewAI, PageIndex).
+Provides a single ``_trigger_export()`` implementation so any object that
+produces decision records (the ``@capture`` decorator, integration handlers,
+or custom code) can export them through one consistent, error-tolerant path
+instead of re-implementing the sync/async + background-thread logic.
 
 Usage in a handler class:
 
@@ -45,6 +46,7 @@ class ExportMixin:
             from briefcase.config import BriefcaseConfig
             return BriefcaseConfig.get().exporter
         except Exception:
+            logger.debug("Could not resolve global exporter from config", exc_info=True)
             return None
 
     def _trigger_export(self, record) -> None:
@@ -70,7 +72,7 @@ class ExportMixin:
                             finally:
                                 loop.close()
                     except Exception:
-                        pass
+                        logger.debug("Background export failed", exc_info=True)
 
                 t = threading.Thread(target=_run, daemon=True)
                 t.start()
@@ -83,4 +85,4 @@ class ExportMixin:
                     finally:
                         loop.close()
         except Exception:
-            pass
+            logger.debug("Synchronous export failed", exc_info=True)

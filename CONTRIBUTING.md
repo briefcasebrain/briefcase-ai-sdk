@@ -27,7 +27,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 The repository is a monorepo:
 
-- **Python SDK** (`briefcase/`): Pure Python package published as `briefcase-ai` on PyPI. Requires Python >=3.9.
+- **Python SDK** (`briefcase/`): Python package published as `briefcase-ai` on PyPI, backed by the Rust core through the `briefcase._native` extension. Requires Python >=3.9.
 - **Rust core** (`crates/briefcase-core/`): Core library published as `briefcase-core` on crates.io.
 - **Python bindings** (`bindings/python/`): PyO3/maturin bridge between Rust and Python.
 
@@ -42,10 +42,14 @@ pip install maturin
 maturin develop
 ```
 
-Run the full test suite:
+Run the full test suite. The facade tests under `tests/` mock the native module,
+so the native binding tests run separately against the built extension:
 
 ```bash
-pytest tests/ -v --tb=short
+maturin develop                      # build the native extension first
+pytest tests/ -v --tb=short          # Python facade (mocks briefcase._native)
+pytest bindings/python/tests/ -v     # native binding tests (real extension)
+python scripts/check_imports.py      # smoke-test that every submodule imports
 ```
 
 Lint and format:

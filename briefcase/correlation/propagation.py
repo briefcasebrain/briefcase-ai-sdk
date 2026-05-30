@@ -5,13 +5,7 @@ Utilities for propagating trace context across processes and services.
 from typing import Dict, Optional
 import logging
 
-try:
-    from opentelemetry import trace, context
-    from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-    HAS_OTEL = True
-except ImportError:
-    HAS_OTEL = False
-
+from briefcase._otel import context, TraceContextTextMapPropagator, HAS_OTEL
 from briefcase.correlation.workflow import get_current_workflow
 
 logger = logging.getLogger(__name__)
