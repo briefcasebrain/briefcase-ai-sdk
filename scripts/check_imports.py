@@ -49,6 +49,7 @@ OPTIONAL = [
     "briefcase.otel",
     "briefcase.integrations.lakefs",
     "briefcase.bitemporal.backends.iceberg",
+    "briefcase.mcp",
 ]
 
 

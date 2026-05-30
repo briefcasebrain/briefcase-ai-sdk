@@ -18,8 +18,10 @@ Usage:
 import time
 from typing import Any, Optional, Protocol, runtime_checkable
 
+from briefcase._logging import get_logger
 from briefcase._otel import trace, HAS_OTEL
 
+logger = get_logger(__name__)
 tracer = trace.get_tracer(__name__) if HAS_OTEL else None
 
 from briefcase.validation.errors import ValidationReport, ValidationError
@@ -115,8 +117,8 @@ class PromptValidationEngine:
             commit_sha = "unknown"
             try:
                 commit_sha = self.lakefs.get_commit(self.repository, self.branch)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("lakeFS commit lookup failed; using 'unknown': %s", e, exc_info=True)
 
             return ValidationReport(
                 status="passed",

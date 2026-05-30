@@ -7,12 +7,12 @@ from uuid import uuid4
 from datetime import datetime
 from contextlib import contextmanager
 import threading
-import logging
+from briefcase._logging import get_logger
 
 from briefcase._otel import trace, context, Status, StatusCode, HAS_OTEL
 from briefcase.semantic_conventions import workflow as workflow_attrs
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Thread-local storage for workflow context
 _thread_local = threading.local()

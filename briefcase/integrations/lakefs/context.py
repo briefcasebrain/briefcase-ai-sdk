@@ -4,12 +4,12 @@ Context manager for lakeFS versioned operations.
 
 from typing import Optional
 from contextlib import contextmanager
-import logging
+from briefcase._logging import get_logger
 
 from briefcase._otel import trace, HAS_OTEL
 from briefcase.integrations.lakefs.client import VersionedClient
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class VersionedContextManager:
@@ -78,7 +78,7 @@ class VersionedContextManager:
                 # Enter the span context
                 self._span_token = self._span.__enter__()
             except Exception as e:
-                logger.warning(f"Failed to create OTel span: {e}")
+                logger.debug("Failed to create OTel span: %s", e, exc_info=True)
 
         # Create instrumented lakeFS client
         self._lakefs_client = VersionedClient(
@@ -100,7 +100,7 @@ class VersionedContextManager:
             try:
                 self._span.__exit__(exc_type, exc_val, exc_tb)
             except Exception as e:
-                logger.warning(f"Failed to exit OTel span: {e}")
+                logger.debug("Failed to exit OTel span: %s", e, exc_info=True)
         return False
 
 

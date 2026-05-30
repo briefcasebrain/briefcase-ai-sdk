@@ -18,10 +18,10 @@ Usage in a handler class:
 """
 
 import asyncio
-import logging
+from briefcase._logging import get_logger
 import threading
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ExportMixin:

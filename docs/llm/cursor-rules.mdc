@@ -1,0 +1,30 @@
+---
+description: How to use the briefcase-ai SDK
+globs: ["**/*.py"]
+alwaysApply: false
+---
+
+# Using briefcase-ai
+
+Instrument functions to capture decisions:
+
+```python
+import briefcase
+briefcase.observe("console")   # "console" | "memory" | "runs.jsonl" | ExporterInstance
+
+@briefcase.capture
+def classify(text: str) -> str:
+    return text.upper()
+```
+
+Rules:
+- Call `briefcase.observe(...)` (or `briefcase.setup(exporter=...)`) ONCE at
+  startup, or `@capture` records nothing.
+- `@briefcase.capture` needs no `init()`; works on sync and async functions.
+- Sanitize PII before logging/persisting:
+  `from briefcase.sanitize import Sanitizer; Sanitizer().sanitize(text).sanitized`.
+- Tests: `@briefcase.capture(async_capture=False)` + `briefcase.observe("memory")`
+  (read `exporter.records`).
+- Logging is opt-in: `briefcase.enable_logging("DEBUG")` or `BRIEFCASE_LOG_LEVEL`.
+- Most features need no pip extra; only `otel`, `lakefs`, `bitemporal-iceberg`,
+  `mcp` do.

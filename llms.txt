@@ -1,0 +1,36 @@
+# briefcase-ai
+
+> Open-source decision tracking for AI. Instrument any Python function with a
+> decorator to capture its inputs, outputs, timing, and errors as structured
+> decision records, then ship them to an exporter. Also provides PII
+> sanitization, cost/drift analysis, prompt validation, and bitemporal evidence
+> stores. Backed by a Rust core via PyO3; `pip install briefcase-ai`.
+
+The canonical usage is three lines:
+
+```python
+import briefcase
+briefcase.observe("console")        # wire an exporter (console / memory / *.jsonl)
+
+@briefcase.capture
+def classify(text: str) -> str:     # records inputs, outputs, timing, errors
+    return text.upper()
+```
+
+`@briefcase.capture` works without `briefcase.init()`. Call `observe(...)` (or
+`setup(exporter=...)`) once at startup, or records go nowhere.
+
+## Core API
+- [README](README.md): install, quick example, extras table
+- [llms-full.txt](llms-full.txt): full copy-paste recipes (capture, exporters, sanitize, cost, drift, external data, logging)
+- Entry points: `briefcase.capture`, `briefcase.observe`, `briefcase.setup`, `briefcase.enable_logging`
+
+## Examples
+- [examples/python-basic](examples/python-basic/basic_usage.py): decision tracking, drift, cost, sanitization
+- [examples/validation](examples/validation/basic_validation.py): pluggable prompt validation
+- [examples/lakefs_versioning](examples/lakefs_versioning/basic_usage.py): versioned data access
+
+## Optional
+- Logging is opt-in: `briefcase.enable_logging("DEBUG")` or `BRIEFCASE_LOG_LEVEL=DEBUG`
+- MCP server: `pip install briefcase-ai[mcp]` then run `briefcase-mcp`
+- Extras map: native/pure-Python features (`drift`, `sanitize`, `storage`, `routing`, `bitemporal`, `compliance`, …) need no extra; only `otel`, `lakefs`, and `bitemporal-iceberg` install third-party packages.

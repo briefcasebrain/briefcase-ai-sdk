@@ -1,0 +1,182 @@
+# briefcase-ai — full usage guide for LLMs
+
+Open-source decision tracking for AI. This file is a copy-paste recipe book.
+Every snippet is runnable as written. Package import name is `briefcase`.
+
+Install: `pip install briefcase-ai`
+
+KEY RULES
+- `@briefcase.capture` records a function's inputs/outputs/timing/errors, but
+  needs an exporter or the records go nowhere. Call `briefcase.observe(...)` once.
+- `capture` does NOT require `briefcase.init()`. `init()` is only for native
+  runtime features (storage backends, snapshots).
+- Never log or persist raw PII. Use `briefcase.sanitize.Sanitizer` first.
+- Native/pure-Python features need no pip extra. Only `otel`, `lakefs`, and
+  `bitemporal-iceberg` install third-party deps.
+
+------------------------------------------------------------------------------
+## 1. Minimal capture (3 lines)
+
+```python
+import briefcase
+briefcase.observe("console")          # print each record to stderr as JSON
+
+@briefcase.capture
+def classify(text: str) -> str:
+    return text.upper()
+
+classify("hello world")               # a decision record is emitted
+```
+
+A record is a dict: decision_id, decision_type, function_name, inputs, outputs,
+started_at, ended_at, execution_time_ms, and error (if one was raised).
+
+------------------------------------------------------------------------------
+## 2. Choosing an exporter
+
+```python
+import briefcase
+from briefcase.exporters import ConsoleExporter, JSONLFileExporter, MemoryExporter
+
+briefcase.observe("console")              # ConsoleExporter() -> stderr
+briefcase.observe("runs.jsonl")           # JSONLFileExporter -> append to file
+mem = briefcase.observe("memory")         # MemoryExporter -> mem.records list
+briefcase.observe(JSONLFileExporter("/var/log/decisions.jsonl"))   # explicit
+```
+
+`observe(...)` returns the exporter; a `MemoryExporter` is handy in tests,
+notebooks, and Streamlit apps:
+
+```python
+mem = briefcase.observe("memory")
+
+@briefcase.capture(async_capture=False)   # run export inline (deterministic)
+def f(x): return x + 1
+
+f(41)
+print(mem.records[0]["function_name"])     # -> "f"
+```
+
+Custom exporter — subclass BaseExporter (methods are async):
+
+```python
+from briefcase.exporters import BaseExporter
+
+class HttpExporter(BaseExporter):
+    async def export(self, decision) -> bool:
+        # await httpx.AsyncClient().post(url, json=decision)
+        return True
+    async def flush(self) -> None: ...
+    async def close(self) -> None: ...
+
+briefcase.setup(exporter=HttpExporter())   # observe() is sugar over setup()
+```
+
+------------------------------------------------------------------------------
+## 3. Async functions and options
+
+```python
+@briefcase.capture                          # works on async defs too
+async def agenerate(prompt: str) -> str:
+    return await call_model(prompt)
+
+@briefcase.capture(
+    decision_type="risk_classification",    # default: function qualname
+    context_version="v3",                   # tag for the record
+    max_input_chars=2000,                   # truncate serialized inputs
+    max_output_chars=2000,
+    async_capture=True,                     # export off the hot path (default)
+)
+def score(claim): ...
+```
+
+------------------------------------------------------------------------------
+## 4. PII sanitization
+
+```python
+from briefcase.sanitize import Sanitizer
+
+s = Sanitizer()
+result = s.sanitize("email me at jane@acme.com or 555-123-4567")
+print(result.sanitized)                     # "[REDACTED_EMAIL] or [REDACTED_PHONE]"
+print([r.pii_type for r in result.redactions])
+
+# JSON / dicts:
+jr = s.sanitize_json({"email": "a@b.com", "ssn": "123-45-6789"})
+print(jr.sanitized)                         # nested redaction
+print(jr.redaction_count)
+
+# Custom pattern:
+s.add_pattern("employee_id", r"\bEMP-\d{6}\b")
+```
+
+------------------------------------------------------------------------------
+## 5. External data snapshots (PII-safe)
+
+```python
+from briefcase.external_data import ExternalDataTracker
+from briefcase.sanitize import Sanitizer
+
+# Pass sanitizer= so raw responses are redacted before they are persisted.
+tracker = ExternalDataTracker(lakefs_client=my_lakefs, repository="kb",
+                              sanitizer=Sanitizer())
+result = tracker.track_api_call(
+    api_name="ofac_sdn", endpoint="https://api/sdn", method="GET",
+    response_data=api_json,
+)
+print(result["data_hash"], result["snapshot_stored"])
+```
+
+------------------------------------------------------------------------------
+## 6. Cost and drift
+
+```python
+from briefcase.cost import CostCalculator
+c = CostCalculator()
+est = c.estimate_cost("gpt-4", input_tokens=1000, output_tokens=500)
+print(est.total_cost, est.input_cost, est.output_cost)
+status = c.check_budget(current_spend=75.0, budget_limit=100.0)
+print(status.status, status.percent_used, status.remaining_budget)
+
+from briefcase.drift import DriftCalculator
+d = DriftCalculator()
+m = d.calculate_drift(["positive", "positive", "negative"])
+print(m.consistency_score, m.consensus_output, m.get_status(d))   # note: get_status(calculator)
+```
+
+------------------------------------------------------------------------------
+## 7. Logging (opt-in)
+
+The library is silent by default (NullHandler). Turn it on:
+
+```python
+import briefcase
+briefcase.enable_logging("DEBUG")           # StreamHandler on the 'briefcase' logger
+briefcase.set_log_level("WARNING")
+briefcase.disable_logging()
+```
+
+Or via environment: `BRIEFCASE_LOG_LEVEL=DEBUG python app.py`.
+
+------------------------------------------------------------------------------
+## 8. Extras map (what needs a pip extra)
+
+No extra needed (native or pure-Python): replay, drift, sanitize, storage, cost,
+routing, bitemporal, compliance, validate, guardrails, correlation, events,
+external, rag.
+
+Needs an extra (third-party deps):
+- `pip install briefcase-ai[otel]`               # OpenTelemetry tracing
+- `pip install briefcase-ai[lakefs]`             # lakeFS versioned storage
+- `pip install briefcase-ai[bitemporal-iceberg]` # pyiceberg + pyarrow backend
+- `pip install briefcase-ai[mcp]`                # MCP server (briefcase-mcp)
+- `pip install briefcase-ai[all]`                # everything
+
+------------------------------------------------------------------------------
+## 9. Common pitfalls
+- Records "disappear": you didn't call `observe(...)`/`setup(exporter=...)`.
+- Non-deterministic in tests: capture exports in a background thread by default;
+  use `@briefcase.capture(async_capture=False)` for inline export.
+- `import briefcase.otel` fails: install `briefcase-ai[otel]`.
+- Logging shows nothing: it's opt-in — call `enable_logging()` or set
+  `BRIEFCASE_LOG_LEVEL`.

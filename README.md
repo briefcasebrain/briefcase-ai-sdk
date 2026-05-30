@@ -13,18 +13,43 @@ pip install briefcase-ai
 ## Quick Example
 
 ```python
-from briefcase import capture
+import briefcase
 
-@capture(decision_type="classify_text")
+briefcase.observe("console")          # send records to stderr (or "memory" / "runs.jsonl")
+
+@briefcase.capture(decision_type="classify_text")
 def classify(text: str) -> str:
     return text.upper()
 
-result = classify("hello world")
-print(result)
+classify("hello world")               # a decision record is emitted
 ```
 
 `capture` works immediately — no `briefcase.init()` required. Call `init()` only
-when you use the native runtime features (storage backends, snapshots).
+when you use the native runtime features (storage backends, snapshots). Without a
+call to `briefcase.observe(...)` (or `briefcase.setup(exporter=...)`), `@capture`
+records decisions but has nowhere to send them.
+
+**Exporters.** `briefcase.observe(...)` accepts `"console"`, `"memory"` (records
+collected on `exporter.records`), a `"*.jsonl"` path, or any
+`briefcase.exporters.BaseExporter` instance — subclass `BaseExporter` to ship
+records to your own backend.
+
+## Logging
+
+The library is silent by default (it installs only a `NullHandler`). Turn on
+visible logs explicitly:
+
+```python
+import briefcase
+briefcase.enable_logging("DEBUG")     # or set BRIEFCASE_LOG_LEVEL=DEBUG
+```
+
+## Using with AI tools (Cursor, Claude Code, Codex, …)
+
+This repo ships machine-readable usage guidance: [`llms.txt`](llms.txt) /
+[`llms-full.txt`](llms-full.txt), an [`AGENTS.md`](AGENTS.md), and copy-paste
+editor rules under [`docs/llm/`](docs/llm/). An MCP server is available via
+`pip install briefcase-ai[mcp]` then `briefcase-mcp`.
 
 ## Extras
 
@@ -47,14 +72,15 @@ when you use the native runtime features (storage backends, snapshots).
 | `bitemporal` | Bitemporal evidence store, as-of views, append-only corrections |
 | `bitemporal-iceberg` | pyiceberg-backed bitemporal store (any supported catalog) |
 | `compliance` | Examiner bundles joining decision, evidence, and policy version |
+| `mcp` | MCP server (`briefcase-mcp`) exposing the SDK to AI agents |
 | `dev` | Dev tooling: pytest, black, mypy, flake8 |
 | `all` | Installs every optional extra listed above |
 
 Most features are native- or pure-Python-backed and ship with the base package —
 their extras (`replay`, `drift`, `sanitize`, `storage`, `routing`, `bitemporal`,
 `compliance`, …) are convenience groupings that pull in **no** additional
-dependencies. Only `otel`, `lakefs`, and `bitemporal-iceberg` install third-party
-packages.
+dependencies. Only `otel`, `lakefs`, `bitemporal-iceberg`, and `mcp` install
+third-party packages.
 
 ## Enterprise features
 

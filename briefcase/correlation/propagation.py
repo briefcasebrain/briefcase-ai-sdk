@@ -3,12 +3,12 @@ Utilities for propagating trace context across processes and services.
 """
 
 from typing import Dict, Optional
-import logging
+from briefcase._logging import get_logger
 
 from briefcase._otel import context, TraceContextTextMapPropagator, HAS_OTEL
 from briefcase.correlation.workflow import get_current_workflow
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TraceContextCarrier:
@@ -49,7 +49,7 @@ class TraceContextCarrier:
             carrier = {}
 
         if not HAS_OTEL:
-            logger.warning("OpenTelemetry not available, cannot inject trace context")
+            logger.debug("OpenTelemetry not available, cannot inject trace context")
             return carrier
 
         propagator = cls._get_propagator()
@@ -82,7 +82,7 @@ class TraceContextCarrier:
             # Optionally: context.detach(token) when done
         """
         if not HAS_OTEL:
-            logger.warning("OpenTelemetry not available, cannot extract trace context")
+            logger.debug("OpenTelemetry not available, cannot extract trace context")
             return None
 
         propagator = cls._get_propagator()

@@ -4,13 +4,13 @@ Wrapped lakeFS client that automatically captures commit SHAs.
 
 from typing import Optional, Dict, Any, Tuple
 from datetime import datetime, timezone
-import logging
+from briefcase._logging import get_logger
 import os
 
 from briefcase._otel import trace, HAS_OTEL
 from briefcase.semantic_conventions import lakefs as lakefs_attrs
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class VersionedClient:
@@ -237,7 +237,7 @@ class VersionedClient:
     ):
         """Record file access in current Briefcase span."""
         if not HAS_OTEL:
-            logger.warning("OpenTelemetry not available, skipping instrumentation")
+            logger.debug("OpenTelemetry not available, skipping instrumentation")
             return
 
         try:
@@ -372,7 +372,7 @@ class VersionedClient:
     ):
         """Upload an object to lakeFS."""
         if not self._has_lakefs or not self._lakefs_client:
-            logger.info(f"Mock mode: Would upload {len(data)} bytes to {path}")
+            logger.debug("Mock mode: would upload %d bytes to %s", len(data), path)
             return
 
         try:

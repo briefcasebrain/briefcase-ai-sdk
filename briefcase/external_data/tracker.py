@@ -9,12 +9,12 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Callable
-import logging
+from briefcase._logging import get_logger
 
 from briefcase._otel import trace, HAS_OTEL
 from briefcase.semantic_conventions.external_data import *
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _safe_path_segment(name: str) -> str:
@@ -879,8 +879,8 @@ class ExternalDataTracker:
         try:
             for k, v in attributes.items():
                 span.set_attribute(k, v)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to set OTel span attributes: %s", e, exc_info=True)
 
     def _record_span_exception(self, span, exception: Exception) -> None:
         """Record an exception on a span."""
@@ -889,8 +889,8 @@ class ExternalDataTracker:
         try:
             span.set_status(trace.StatusCode.ERROR, str(exception))
             span.record_exception(exception)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to record exception on OTel span: %s", e, exc_info=True)
 
     def _end_span(self, span) -> None:
         """End a span if it exists."""
@@ -898,5 +898,5 @@ class ExternalDataTracker:
             return
         try:
             span.end()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to end OTel span: %s", e, exc_info=True)

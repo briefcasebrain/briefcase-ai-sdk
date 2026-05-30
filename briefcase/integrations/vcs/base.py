@@ -11,12 +11,12 @@ Provides common functionality for all VCS providers including:
 
 from typing import Optional, Dict, Any, Tuple, Union
 from datetime import datetime
-import logging
+from briefcase._logging import get_logger
 import os
 
 from briefcase._otel import trace, HAS_OTEL
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class VcsClientBase:

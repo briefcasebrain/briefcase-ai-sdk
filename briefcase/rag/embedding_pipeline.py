@@ -14,11 +14,11 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
-import logging
+from briefcase._logging import get_logger
 
 import briefcase.semantic_conventions.rag as rag_conventions  # noqa: F401
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------

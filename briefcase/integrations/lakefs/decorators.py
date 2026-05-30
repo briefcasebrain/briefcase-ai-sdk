@@ -4,12 +4,12 @@ Decorators for lakeFS versioned functions.
 
 import functools
 from typing import Callable, Optional
-import logging
+from briefcase._logging import get_logger
 import threading
 
 from briefcase.integrations.lakefs.context import versioned_context
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Thread-local storage for passing briefcase client
 _thread_local = threading.local()

@@ -11,12 +11,12 @@ Instrumented retrieval that captures version provenance.
 
 from typing import List, Optional
 from dataclasses import dataclass
-import logging
+from briefcase._logging import get_logger
 import warnings
 
 from briefcase.semantic_conventions.rag import *
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
