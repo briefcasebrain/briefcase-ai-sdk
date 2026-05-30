@@ -4,13 +4,18 @@ on:
   push:
     tags:
       - v*
+  # Manual trigger: rebuild and (additively) publish artifacts for the version
+  # currently in pyproject.toml — used to backfill missing wheels/sdist for an
+  # already-released version. Does not re-publish the crate or cut a release.
+  workflow_dispatch: {}
 
 permissions:
   contents: write
 
 jobs:
-  # Publish briefcase-core to crates.io
+  # Publish briefcase-core to crates.io (tag releases only).
   crates-io:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,24 +37,21 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
-  # Build and publish Python wheels to PyPI
-  pypi:
+  # Build abi3 wheels — one wheel per platform installs on CPython 3.9+.
+  wheels:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            sdist: true
           - os: macos-latest
             target: x86_64-apple-darwin
-            sdist: false
           - os: macos-latest
             target: aarch64-apple-darwin
-            sdist: false
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            sdist: false
     steps:
       - uses: actions/checkout@v4
 
@@ -57,12 +59,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Build wheels
+      - name: Build abi3 wheel
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --locked -i python3.11
-          sdist: ${{ matrix.sdist }}
+          args: --release --locked
           manylinux: auto
           rust-toolchain: stable
 
@@ -75,27 +76,39 @@ jobs:
           pip install target/wheels/*.whl
           python scripts/check_imports.py
 
-      - name: Upload wheels as artifacts
+      - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.target }}
           path: target/wheels/*.whl
 
+  # Build the source distribution (previously skipped: maturin-action has no
+  # `sdist` input — it needs a dedicated `command: sdist` invocation).
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+
       - name: Upload sdist
-        if: matrix.sdist
         uses: actions/upload-artifact@v4
         with:
           name: sdist
-          path: target/wheels/*.tar.gz
+          path: dist/*.tar.gz
 
-  # Publish all wheels to PyPI in a single job
+  # Publish all wheels + sdist to PyPI (trusted publishing).
   pypi-publish:
-    needs: pypi
+    needs: [wheels, sdist]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
     steps:
-      - name: Download all wheel artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist/
@@ -103,9 +116,14 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Additive: don't fail if some files for this version already exist
+          # (lets a manual run backfill missing wheels/sdist).
+          skip-existing: true
 
-  # Create a GitHub Release
+  # Create a GitHub Release (tag releases only).
   github-release:
+    if: github.event_name == 'push'
     needs: [crates-io, pypi-publish]
     runs-on: ubuntu-latest
     steps:

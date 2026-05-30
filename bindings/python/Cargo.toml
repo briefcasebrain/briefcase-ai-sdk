@@ -16,7 +16,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 briefcase-core = { version = "3.2.0", path = "../../crates/briefcase-core", features = ["replay", "drift", "sanitize", "storage", "otel", "tokens", "networking", "compression"] }
-pyo3.workspace = true
+# abi3-py39: build a single stable-ABI wheel that installs on CPython 3.9+.
+pyo3 = { workspace = true, features = ["abi3-py39"] }
 tokio.workspace = true
 serde_json.workspace = true
 async-trait = "0.1"
