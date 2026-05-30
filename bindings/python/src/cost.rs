@@ -1,8 +1,21 @@
 //! Python bindings for cost calculation
 
-use briefcase_core::{BudgetAlert, BudgetStatus, CostCalculator, CostEstimate};
+use briefcase_core::{
+    BudgetAlert, BudgetStatus, CostCalculator, CostEstimate, RateCard, TokenUsage,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
+
+/// Parse an optional rate-card string into a [`RateCard`], surfacing parse
+/// errors as Python `ValueError`. `None` yields the default (first-party
+/// standard) card.
+fn parse_rate_card(rate_card: Option<&str>) -> PyResult<RateCard> {
+    match rate_card {
+        None => Ok(RateCard::default()),
+        Some(s) => RateCard::parse(s)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+    }
+}
 
 /// Python wrapper for CostCalculator
 #[pyclass(name = "CostCalculator")]
@@ -20,17 +33,42 @@ impl PyCostCalculator {
         }
     }
 
-    /// Estimate cost for a model
+    /// Estimate cost for a model.
+    ///
+    /// The optional keyword-only `rate_card` selects a platform/tier/modifier
+    /// pricing scheme (e.g. `"batch"`, `"bedrock:batch"`, `"first_party:fast"`);
+    /// omitting it (or passing `"standard"`) uses first-party standard pricing.
+    /// The `cache_*_tokens` arguments bill prompt-cache reads/writes separately.
+    #[pyo3(signature = (
+        model_name,
+        input_tokens,
+        output_tokens,
+        *,
+        rate_card=None,
+        cache_read_tokens=None,
+        cache_write_5m_tokens=None,
+        cache_write_1h_tokens=None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
     fn estimate_cost(
         &self,
         model_name: String,
         input_tokens: u32,
         output_tokens: u32,
+        rate_card: Option<String>,
+        cache_read_tokens: Option<u32>,
+        cache_write_5m_tokens: Option<u32>,
+        cache_write_1h_tokens: Option<u32>,
     ) -> PyResult<PyCostEstimate> {
-        match self
-            .inner
-            .estimate_cost(&model_name, input_tokens as usize, output_tokens as usize)
-        {
+        let card = parse_rate_card(rate_card.as_deref())?;
+        let usage = TokenUsage {
+            input_tokens: input_tokens as usize,
+            output_tokens: output_tokens as usize,
+            cache_read_tokens: cache_read_tokens.unwrap_or(0) as usize,
+            cache_write_5m_tokens: cache_write_5m_tokens.unwrap_or(0) as usize,
+            cache_write_1h_tokens: cache_write_1h_tokens.unwrap_or(0) as usize,
+        };
+        match self.inner.estimate_cost_with_card(&model_name, usage, card) {
             Ok(estimate) => Ok(PyCostEstimate { inner: estimate }),
             Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                 e.to_string(),
@@ -38,17 +76,21 @@ impl PyCostCalculator {
         }
     }
 
-    /// Estimate cost from text
+    /// Estimate cost from text, optionally under a `rate_card`.
+    #[pyo3(signature = (model_name, input_text, estimated_output_tokens, *, rate_card=None))]
     fn estimate_cost_from_text(
         &self,
         model_name: String,
         input_text: String,
         estimated_output_tokens: u32,
+        rate_card: Option<String>,
     ) -> PyResult<PyCostEstimate> {
-        match self.inner.estimate_cost_from_text(
+        let card = parse_rate_card(rate_card.as_deref())?;
+        match self.inner.estimate_cost_from_text_with_card(
             &model_name,
             &input_text,
             estimated_output_tokens as usize,
+            card,
         ) {
             Ok(estimate) => Ok(PyCostEstimate { inner: estimate }),
             Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
@@ -57,19 +99,23 @@ impl PyCostCalculator {
         }
     }
 
-    /// Project monthly cost
+    /// Project monthly cost, optionally under a `rate_card`.
+    #[pyo3(signature = (model_name, daily_input_tokens, daily_output_tokens, days_per_month, *, rate_card=None))]
     fn project_monthly_cost(
         &self,
         model_name: String,
         daily_input_tokens: u32,
         daily_output_tokens: u32,
         days_per_month: f64,
+        rate_card: Option<String>,
     ) -> PyResult<f64> {
-        match self.inner.project_monthly_cost(
+        let card = parse_rate_card(rate_card.as_deref())?;
+        match self.inner.project_monthly_cost_with_card(
             &model_name,
             daily_input_tokens as usize,
             daily_output_tokens as usize,
             days_per_month,
+            card,
         ) {
             Ok(projection) => Ok(projection.monthly_cost),
             Err(e) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
@@ -159,6 +205,12 @@ impl PyCostCalculator {
         })
     }
 
+    /// Get representative rate-card identifiers accepted by `rate_card=`.
+    /// Any `platform:tier` combination plus modifiers is also valid.
+    fn get_available_rate_cards(&self) -> Vec<String> {
+        self.inner.available_rate_cards()
+    }
+
     /// String representation
     fn __repr__(&self) -> String {
         "CostCalculator()".to_string()
@@ -209,6 +261,12 @@ impl PyCostEstimate {
         self.inner.output_cost
     }
 
+    /// Get prompt-cache cost (0.0 unless cache tokens were supplied)
+    #[getter]
+    fn cache_cost(&self) -> f64 {
+        self.inner.cache_cost
+    }
+
     /// Get total cost
     #[getter]
     fn total_cost(&self) -> f64 {
@@ -235,6 +293,7 @@ impl PyCostEstimate {
             dict.set_item("output_tokens", self.inner.output_tokens)?;
             dict.set_item("input_cost", self.inner.input_cost)?;
             dict.set_item("output_cost", self.inner.output_cost)?;
+            dict.set_item("cache_cost", self.inner.cache_cost)?;
             dict.set_item("total_cost", self.inner.total_cost)?;
             dict.set_item("cost_per_token", self.cost_per_token())?;
             Ok(dict.into())

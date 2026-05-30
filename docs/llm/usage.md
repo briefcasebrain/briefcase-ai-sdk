@@ -23,7 +23,8 @@ def classify(text: str) -> str:
 | Custom export target | subclass `briefcase.exporters.BaseExporter` |
 | Redact PII | `briefcase.sanitize.Sanitizer().sanitize(text).sanitized` |
 | Track external data (PII-safe) | `briefcase.external_data.ExternalDataTracker(sanitizer=...)` |
-| Estimate model cost | `briefcase.cost.CostCalculator().estimate_cost(...)` |
+| Estimate model cost | `briefcase.cost.CostCalculator().estimate_cost(model, in, out)` |
+| Cost under a rate card | `...estimate_cost(model, in, out, rate_card="bedrock:batch")` (platform×tier×modifiers; omit for standard) |
 | Detect output drift | `briefcase.drift.DriftCalculator().calculate_drift(...)` |
 | Turn on logging | `briefcase.enable_logging("DEBUG")` / `BRIEFCASE_LOG_LEVEL` |
 

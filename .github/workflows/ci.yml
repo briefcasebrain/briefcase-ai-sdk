@@ -16,13 +16,13 @@ jobs:
           components: clippy
 
       - name: Cargo build
-        run: cargo build -p briefcase-core --locked
+        run: cargo build -p briefcase-core --locked --features drift
 
       - name: Cargo test
-        run: cargo test -p briefcase-core --locked
+        run: cargo test -p briefcase-core --locked --features drift
 
       - name: Cargo clippy
-        run: cargo clippy -p briefcase-core --locked -- -D warnings
+        run: cargo clippy -p briefcase-core --locked --features drift -- -D warnings
 
   python:
     name: Python (maturin + pytest)

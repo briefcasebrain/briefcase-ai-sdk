@@ -135,6 +135,13 @@ from briefcase.cost import CostCalculator
 c = CostCalculator()
 est = c.estimate_cost("gpt-4", input_tokens=1000, output_tokens=500)
 print(est.total_cost, est.input_cost, est.output_cost)
+
+# Current models + rate cards (platform x tier x modifiers). Omit rate_card for
+# first-party standard pricing; "batch"/"flex" are 0.5x, cache reads 0.1x, and
+# "bedrock"/"vertex"/"azure" regional endpoints or "us" residency add 10%.
+batch = c.estimate_cost("claude-opus-4-8", 500_000, 50_000, rate_card="bedrock:batch")
+print(batch.total_cost, c.get_available_rate_cards())
+
 status = c.check_budget(current_spend=75.0, budget_limit=100.0)
 print(status.status, status.percent_used, status.remaining_budget)
 

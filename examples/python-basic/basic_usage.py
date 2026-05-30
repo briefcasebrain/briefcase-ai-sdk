@@ -141,11 +141,13 @@ def demo_cost_analysis():
 
     models_to_compare = [
         "gpt-4",
-        "gpt-4-turbo",
-        "gpt-3.5-turbo",
-        "claude-3-opus",
-        "claude-3-sonnet",
-        "claude-3-haiku"
+        "gpt-5.5",
+        "gpt-5.4-mini",
+        "claude-opus-4-8",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5",
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
     ]
 
     estimates = []
@@ -166,6 +168,15 @@ def demo_cost_analysis():
         print(f"\n Cheapest: {cheapest[0]} (${cheapest[1].total_cost:.4f})")
         print(f"   Most expensive: {most_expensive[0]} (${most_expensive[1].total_cost:.4f})")
         print(f"   Potential savings: ${savings:.4f} ({(savings/most_expensive[1].total_cost)*100:.1f}%)")
+
+    # Rate cards: same model, different pricing schemes (platform x tier x modifiers)
+    print(f"\n Rate cards for claude-opus-4-8 (500k input + 50k output):")
+    for card in ["standard", "batch", "bedrock:standard,regional", "first_party:fast"]:
+        try:
+            est = calculator.estimate_cost("claude-opus-4-8", 500_000, 50_000, rate_card=card)
+            print(f"   {card:28} ${est.total_cost:.4f}")
+        except Exception as e:
+            print(f"   {card:28} Error: {str(e)[:30]}...")
 
     # Budget monitoring example
     print(f"\n Budget Monitoring:")

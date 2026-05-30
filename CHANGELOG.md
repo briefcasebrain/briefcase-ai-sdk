@@ -24,6 +24,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Normalized log levels: non-fatal OpenTelemetry/lakeFS fallbacks now log at
   `DEBUG` (with `exc_info`); previously-silent `except` blocks now emit debug logs.
 
+## [3.2.1] - 2026-05-30
+
+### Added
+- **Cost rate cards** (`briefcase.cost.CostCalculator.estimate_cost`): an optional
+  keyword-only `rate_card` selects a `platform × tier × modifier` pricing scheme —
+  platforms `first_party` / `bedrock` / `vertex` / `azure`, tiers `standard` /
+  `batch` / `cached` / `priority` / `flex`, and modifiers for long-context (>200K
+  tiered pricing), data residency (`us`, 1.1x), and fast-mode (a premium base-rate
+  override). Cards are forgiving strings such as `"batch"`, `"bedrock:batch"`, or
+  `"first_party:fast"`; batch/flex are 0.5x, cache reads are 0.1x of input, and
+  regional/residency add 10%. New keyword-only `cache_read_tokens` /
+  `cache_write_5m_tokens` / `cache_write_1h_tokens` arguments bill prompt-cache
+  usage, a `cache_cost` field is exposed on `CostEstimate`, and
+  `get_available_rate_cards()` lists representative cards. Omitting `rate_card`
+  (or passing `"standard"`) preserves the previous first-party standard pricing.
+- **Latest model pricing**: added Anthropic Claude 4.x (`claude-opus-4-8` / `4-7`
+  / `4-6` / `4-5` / `4-1`, `claude-sonnet-4-6` / `4-5`, `claude-haiku-4-5` / `3-5`),
+  OpenAI GPT-5.x (`gpt-5.5`, `gpt-5.5-pro`, `gpt-5.4`, `gpt-5.4-mini`,
+  `gpt-5.4-nano`, `gpt-5.4-pro`), and Google Gemini (`gemini-3.5-flash`,
+  `gemini-3.1-pro`, `gemini-3.1-flash-lite`, `gemini-3-flash`, `gemini-2.5-pro` /
+  `flash` / `flash-lite`) to the default pricing table. All previously available
+  models are retained.
+
+### Changed
+- `CostCalculator.estimate_cost`, `estimate_cost_from_text`, and
+  `project_monthly_cost` gained keyword-only `rate_card` (and, for `estimate_cost`,
+  cache-token) parameters. The existing positional arguments and their
+  `input_tokens` / `output_tokens` keyword names are unchanged, so existing calls
+  behave identically.
+
 ## [3.1.0] - 2026-05-30
 
 ### Added

@@ -51,15 +51,29 @@ def build_server() -> FastMCP:
         }
 
     @server.tool()
-    def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> Dict[str, Any]:
-        """Estimate the USD cost of an LLM call for a model and token counts."""
+    def estimate_cost(
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        rate_card: str | None = None,
+    ) -> Dict[str, Any]:
+        """Estimate the USD cost of an LLM call for a model and token counts.
+
+        Pass an optional ``rate_card`` (e.g. "batch", "bedrock:batch",
+        "first_party:fast") to price under a platform/tier/modifier scheme;
+        omit it for first-party standard pricing.
+        """
         from briefcase.cost import CostCalculator
 
-        est = CostCalculator().estimate_cost(model, input_tokens, output_tokens)
+        est = CostCalculator().estimate_cost(
+            model, input_tokens, output_tokens, rate_card=rate_card
+        )
         return {
             "model": model,
+            "rate_card": rate_card or "standard",
             "input_cost": est.input_cost,
             "output_cost": est.output_cost,
+            "cache_cost": est.cache_cost,
             "total_cost": est.total_cost,
         }
 
