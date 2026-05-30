@@ -56,3 +56,7 @@ features = ["pyo3/extension-module"]
 manifest-path = "bindings/python/Cargo.toml"
 module-name = "briefcase._native"
 python-source = "."
+# Bundle the license files into the sdist/wheel. maturin declares
+# `License-File: LICENSE` in the metadata, so the file must be present or PyPI
+# rejects the upload with a 400.
+include = ["LICENSE", "NOTICE"]
