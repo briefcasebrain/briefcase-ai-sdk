@@ -203,7 +203,7 @@ impl SyncStorageBackend for MemoryStorageBackend {
         }
 
         // Sort by timestamp (newest first)
-        results.sort_by(|a, b| b.metadata.timestamp.cmp(&a.metadata.timestamp));
+        results.sort_by_key(|b| std::cmp::Reverse(b.metadata.timestamp));
 
         // Apply pagination
         let offset = query.offset.unwrap_or(0);

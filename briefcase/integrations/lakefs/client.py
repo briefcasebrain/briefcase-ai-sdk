@@ -2,7 +2,7 @@
 Wrapped lakeFS client that automatically captures commit SHAs.
 """
 
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, Union
 from datetime import datetime, timezone
 from briefcase._logging import get_logger
 import os
@@ -167,7 +167,7 @@ class VersionedClient:
         self,
         path: str,
         return_metadata: bool = False
-    ) -> bytes | Tuple[bytes, Dict]:
+    ) -> Union[bytes, Tuple[bytes, Dict]]:
         """
         Read an object from lakeFS with automatic instrumentation.
 

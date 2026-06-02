@@ -28,7 +28,7 @@ def pytest_ignore_collect(collection_path, config):
             spec.loader.exec_module(mod)
     except (ImportError, ModuleNotFoundError, TypeError):
         return True  # skip this file
-    except Exception:
-        return None  # let pytest handle other errors
+    except BaseException:
+        return None  # let pytest handle outcome exceptions (e.g. pytest.skip.Exception)
 
     return None
