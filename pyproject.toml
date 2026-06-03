@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "briefcase-ai"
-version = "3.2.1"
+version = "3.2.2"
 description = "Open-source decision tracking for AI"
 license = "Apache-2.0"
 requires-python = ">=3.9"
