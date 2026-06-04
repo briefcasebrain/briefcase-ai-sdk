@@ -31,3 +31,12 @@ id = "python_binding_core_dep"
 path = "bindings/python/Cargo.toml"
 pattern = '(?P<pre>briefcase-core = \{ version = ")(?P<version>[^"]+)(?P<post>")'
 replacement = '{pre}{version}{post}'
+
+# The compat manifest the `briefcase` CLI ships: its briefcase_ai field is the SDK's own version and
+# must track the canonical version. (oci_jj_image_tag is oci-jj's version and is intentionally NOT a
+# target — it tracks the oci-jj release the SDK is pinned to.)
+[[targets]]
+id = "compat_briefcase_ai"
+path = "briefcase/cli/stack/compat.json"
+pattern = '(?P<pre>"briefcase_ai": ")(?P<version>[^"]+)(?P<post>")'
+replacement = '{pre}{version}{post}'

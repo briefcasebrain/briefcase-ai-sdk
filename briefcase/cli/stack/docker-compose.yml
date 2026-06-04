@@ -1,0 +1,137 @@
+# Briefcase bundled engine stack — pinned, published images (no source checkout, no Rust toolchain).
+#
+# This is the image-only counterpart of oci-jj's own docker-compose.yml: every first-party `build:`
+# context is replaced by a published GHCR `image:` reference, pinned by `briefcase/cli/stack/compat.json`
+# (`briefcase stack up` exports OCI_JJ_IMAGE_TAG from the manifest; the default below is a fallback).
+#
+# The private `verdict-worker` scorer is gated behind the `scorer` profile: `briefcase stack up` enables
+# it by default (needs `docker login ghcr.io` with beta read access); `briefcase stack up --no-scorer`
+# omits it — runs still enqueue, but are not scored.
+#
+# NOTE (depends on oci-jj's image-publish workflow, ADR-0060): schema migrations are baked into the
+# published oci-jj-server / postgres-init image — the bundled stack has no source tree to mount
+# `./migrations` from, unlike the in-repo compose.
+
+name: oci-jj
+
+services:
+  postgres:
+    image: apache/age:release_PG16_1.5.0
+    environment:
+      POSTGRES_USER: oci_jj
+      POSTGRES_PASSWORD: oci_jj
+      POSTGRES_DB: oci_jj
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5544:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oci_jj -d oci_jj"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: oci_jj
+      MINIO_ROOT_PASSWORD: oci_jj_secret
+    volumes:
+      - miniodata:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  registry:
+    image: registry:2
+    ports:
+      - "5050:5000"
+    volumes:
+      - regdata:/var/lib/registry
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  temporal:
+    image: temporalio/temporal:latest
+    command: ["server", "start-dev", "--ip", "0.0.0.0"]
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+
+  oci-jj-server:
+    image: ghcr.io/briefcasebrain/oci-jj-server:${OCI_JJ_IMAGE_TAG:-0.1.0}
+    environment:
+      OCI_JJ_SERVER_GRPC_ADDR: 0.0.0.0:50051
+      OCI_JJ_CATALOG_URL: postgres://oci_jj:oci_jj@postgres:5432/oci_jj
+      OCI_JJ_GRAPH_URL: postgres://oci_jj:oci_jj@postgres:5432/oci_jj
+      RUST_LOG: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "50051:50051"
+
+  gateway:
+    image: ghcr.io/briefcasebrain/oci-jj-gateway:${OCI_JJ_IMAGE_TAG:-0.1.0}
+    environment:
+      OCI_JJ_GATEWAY_ADDR: ":8080"
+      OCI_JJ_SERVER_GRPC: oci-jj-server:50051
+      OCI_JJ_BACKING_REGISTRY: http://registry:5000
+    depends_on:
+      - oci-jj-server
+      - registry
+    ports:
+      - "8080:8080"
+
+  reconstructor:
+    image: ghcr.io/briefcasebrain/oci-jj-reconstructor:${OCI_JJ_IMAGE_TAG:-0.1.0}
+    environment:
+      OCI_JJ_RECONSTRUCTOR_ADDR: ":8090"
+      OCI_JJ_SERVER_GRPC: oci-jj-server:50051
+    depends_on:
+      - oci-jj-server
+    ports:
+      - "8090:8090"
+
+  workers:
+    image: ghcr.io/briefcasebrain/oci-jj-workers:${OCI_JJ_IMAGE_TAG:-0.1.0}
+    environment:
+      OCI_JJ_SERVER_GRPC: oci-jj-server:50051
+      OCI_JJ_BACKING_REGISTRY: http://registry:5000
+      OCI_JJ_GC_INTERVAL: 5m
+      SYFT_REGISTRY_INSECURE_USE_HTTP: "true"
+    depends_on:
+      - oci-jj-server
+
+  verdict-worker:
+    # Private image (ADR-0060): pull needs `docker login ghcr.io` with a read:packages token.
+    # verdictml is baked in at publish time (ADR-0015) — no build-time token at run time.
+    image: ghcr.io/briefcasebrain/oci-jj-verdict-worker:${OCI_JJ_IMAGE_TAG:-0.1.0}
+    profiles: ["scorer"]
+    environment:
+      OCI_JJ_SERVER_GRPC: oci-jj-server:50051
+      OCI_JJ_S3_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: oci_jj
+      MINIO_ROOT_PASSWORD: oci_jj_secret
+    depends_on:
+      - oci-jj-server
+      - minio
+
+volumes:
+  pgdata:
+  miniodata:
+  regdata:

@@ -80,6 +80,20 @@ def main() -> int:
                 print(f"  FAIL     {name}: {type(exc).__name__}: {exc}")
                 failures.append(name)
 
+    # Package data for `briefcase stack` / `briefcase doctor` must ship in the wheel (maturin only
+    # bundles non-.py files listed in `[tool.maturin] include`). A missing entry silently drops them,
+    # so assert they resolve from the installed package.
+    for resource in ("docker-compose.yml", "compat.json"):
+        try:
+            from importlib.resources import files
+
+            data = (files("briefcase.cli.stack") / resource).read_text("utf-8")
+            assert data.strip(), f"{resource} is empty"
+            print(f"  OK       briefcase/cli/stack/{resource} (package data)")
+        except Exception as exc:  # noqa: BLE001
+            print(f"  FAIL     briefcase/cli/stack/{resource}: {type(exc).__name__}: {exc}")
+            failures.append(f"stack/{resource}")
+
     if failures:
         print(f"\nFAILED: {len(failures)} module(s) did not import: {', '.join(failures)}")
         return 1

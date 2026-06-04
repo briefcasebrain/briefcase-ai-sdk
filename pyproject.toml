@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "briefcase-ai"
-version = "3.2.2"
+version = "3.3.0"
 description = "Open-source decision tracking for AI"
 license = "Apache-2.0"
 requires-python = ">=3.9"
@@ -36,11 +36,16 @@ bitemporal = []
 bitemporal-iceberg = ["pyiceberg[sql-sqlite,pyiceberg-core]>=0.9", "pyarrow>=14"]
 compliance = []
 mcp = ["mcp>=1.2"]
+# The `briefcase` evaluation-run CLI talks to oci-jj-server over gRPC, discovering the schema via
+# server reflection (no generated stubs). grpcio-reflection is the PyPI wheel; the import is
+# grpc_reflection.v1alpha. The subprocess oci-jj fallback (BRIEFCASE_ENGINE=cli) needs none of these.
+run = ["grpcio>=1.60,<2", "grpcio-reflection>=1.60,<2", "protobuf>=4.25"]
 dev = ["pytest", "pytest-mock", "pytest-asyncio", "pytest-subtests", "black", "mypy", "flake8"]
-all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,correlation,external,events,routing,lakefs,vcs,bitemporal,bitemporal-iceberg,compliance,mcp]"]
+all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,correlation,external,events,routing,lakefs,vcs,bitemporal,bitemporal-iceberg,compliance,mcp,run]"]
 
 [project.scripts]
 briefcase-mcp = "briefcase.mcp.__main__:main"
+briefcase = "briefcase.cli.__main__:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
@@ -59,4 +64,13 @@ python-source = "."
 # Bundle the license files into the sdist/wheel. maturin declares
 # `License-File: LICENSE` in the metadata, so the file must be present or PyPI
 # rejects the upload with a 400.
-include = ["LICENSE", "NOTICE"]
+#
+# The `briefcase stack` command and `briefcase doctor` read these data files at runtime via
+# importlib.resources; maturin only ships non-.py files that are listed here, so they MUST be
+# enumerated explicitly (a missing entry silently drops them from the wheel — see check_imports.py).
+include = [
+    "LICENSE",
+    "NOTICE",
+    "briefcase/cli/stack/docker-compose.yml",
+    "briefcase/cli/stack/compat.json",
+]

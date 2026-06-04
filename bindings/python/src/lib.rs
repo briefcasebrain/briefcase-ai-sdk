@@ -140,7 +140,7 @@ fn _native(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(tokens::count_tokens_batch, m)?)?;
 
     // Add module metadata
-    m.add("__version__", "3.2.1")?;
+    m.add("__version__", "3.3.0")?;
     m.add("__author__", "Briefcase AI")?;
 
     Ok(())
