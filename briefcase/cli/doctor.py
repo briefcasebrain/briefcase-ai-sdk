@@ -73,22 +73,25 @@ class Doctor:
             compat = {}
 
         tag = compat.get("oci_jj_image_tag", "")
+        private = compat.get("private_preview", False)
         for img in compat.get("oci_jj_images", []):
             ref = f"{img}:{tag}"
             res = self._run(["docker", "manifest", "inspect", ref])
             if res is not None and getattr(res, "returncode", 1) == 0:
                 out.append((OK, "image", ref))
+            elif private:
+                out.append((WARN, "image", f"{ref} private preview — run: docker login ghcr.io"))
             else:
                 out.append((WARN, "image", f"{ref} not pullable yet"))
 
-        priv = compat.get("oci_jj_image_private")
-        if priv:
-            ref = f"{priv}:{tag}"
+        scorer = compat.get("oci_jj_scorer_image")
+        if scorer:
+            ref = f"{scorer}:{tag}"
             res = self._run(["docker", "manifest", "inspect", ref])
             if res is not None and getattr(res, "returncode", 1) == 0:
                 out.append((OK, "scorer image", ref))
             else:
-                out.append((WARN, "scorer image", f"{ref} needs beta access (docker login ghcr.io)"))
+                out.append((WARN, "scorer image", f"{ref} private preview (scoring) — docker login ghcr.io"))
 
         floor = compat.get("oci_jj_api_min", "v1")
         try:
@@ -126,6 +129,8 @@ def cmd_doctor(args, store, engine, stack=None) -> int:
         print("\nresolved compatibility matrix:")
         for key in ("briefcase_ai", "oci_jj_api_min", "oci_jj_image_tag", "verdictml"):
             print(f"  {key}: {compat.get(key)}")
+        if compat.get("private_preview"):
+            print("  engine images: private preview — docker login ghcr.io to pull the stack")
     except Exception:
         pass
     rc = summarize(results, strict=getattr(args, "strict", False))

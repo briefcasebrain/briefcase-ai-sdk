@@ -8,8 +8,9 @@ COMPAT = {
     "briefcase_ai": "3.3.0",
     "oci_jj_api_min": "v1",
     "oci_jj_image_tag": "0.1.0",
+    "private_preview": True,
     "oci_jj_images": ["ghcr.io/briefcasebrain/oci-jj-server"],
-    "oci_jj_image_private": "ghcr.io/briefcasebrain/oci-jj-verdict-worker",
+    "oci_jj_scorer_image": "ghcr.io/briefcasebrain/oci-jj-verdict-worker",
     "verdictml": "v0.1.0",
 }
 
