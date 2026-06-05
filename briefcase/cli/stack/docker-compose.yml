@@ -16,7 +16,9 @@ name: oci-jj
 
 services:
   postgres:
-    image: apache/age:release_PG16_1.5.0
+    # Apache AGE + Postgres 16 with the schema migrations baked in (oci-jj ADR-0062), so a fresh
+    # data dir gets the schema with no host ./migrations mount (which the wheel can't provide).
+    image: ghcr.io/briefcasebrain/oci-jj-postgres:${OCI_JJ_IMAGE_TAG:-0.1.0}
     environment:
       POSTGRES_USER: oci_jj
       POSTGRES_PASSWORD: oci_jj
