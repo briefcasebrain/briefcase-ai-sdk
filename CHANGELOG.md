@@ -164,6 +164,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `enable_logging(stream=...)` no longer assumes the handler it finds by name
   is a `StreamHandler`. A caller's own handler registered under that name made
   it raise `AttributeError: setStream`.
+- The PyPI package carries a description and project links. `readme` and
+  `[project.urls]` were absent, so the project page rendered blank with no
+  repository or changelog link; `twine check` now gates CI. `black` is dropped
+  from the `dev` extra, since the codebase is not black-formatted.
 - CI builds a wheel from the sdist and imports it. `publish.yml` uploaded the
   sdist to PyPI without ever building from it, so a manifest change could ship
   an unbuildable source distribution while the in-repo build stayed green;

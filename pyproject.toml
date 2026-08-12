@@ -6,6 +6,7 @@ build-backend = "maturin"
 name = "briefcase-ai"
 version = "4.0.0"
 description = "Open-source decision tracking for AI"
+readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.9"
 authors = [{ name = "Briefcase AI" }]
@@ -16,6 +17,12 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Rust",
 ]
+
+[project.urls]
+Homepage = "https://briefcaseai.io"
+Repository = "https://github.com/briefcasebrain/briefcase-ai-sdk"
+Changelog = "https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/CHANGELOG.md"
+Issues = "https://github.com/briefcasebrain/briefcase-ai-sdk/issues"
 
 [project.optional-dependencies]
 replay = []
@@ -46,7 +53,9 @@ mcp = ["mcp>=1.2"]
 # server reflection (no generated stubs). grpcio-reflection is the PyPI wheel; the import is
 # grpc_reflection.v1alpha. The subprocess oci-jj fallback (BRIEFCASE_ENGINE=cli) needs none of these.
 run = ["grpcio>=1.60,<2", "grpcio-reflection>=1.60,<2", "protobuf>=4.25"]
-dev = ["pytest", "pytest-mock", "pytest-asyncio", "pytest-subtests", "black", "mypy", "flake8"]
+# No black: the codebase is not black-formatted and CONTRIBUTING says not to
+# run it, so shipping it as a dev dependency only invites a 95-file diff.
+dev = ["pytest", "pytest-mock", "pytest-asyncio", "pytest-subtests", "mypy", "flake8"]
 all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,correlation,external,events,routing,lakefs,vcs,gym,evals,bitemporal,bitemporal-iceberg,compliance,mcp,run]"]
 
 [project.scripts]

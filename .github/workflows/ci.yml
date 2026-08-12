@@ -105,3 +105,12 @@ jobs:
           cd dist/briefcase_ai-*/ && maturin build --release
           pip install --force-reinstall target/wheels/*.whl
           cd "$GITHUB_WORKSPACE" && python scripts/check_imports.py
+
+      - name: Check distribution metadata
+        # Catches a blank or unrenderable PyPI description before a tag, which
+        # the publish action will happily upload.
+        if: matrix.python-version == '3.11'
+        run: |
+          pip install twine
+          maturin build --release --out dist-check
+          twine check dist-check/*
