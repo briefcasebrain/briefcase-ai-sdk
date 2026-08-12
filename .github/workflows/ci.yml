@@ -13,16 +13,36 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
 
+      - name: Cargo fmt
+        run: cargo fmt --all --check
+
+      # --all-features, not a hand-picked set: `sanitize` is not a default
+      # feature, so `--features drift` compiled out every PII-redaction test
+      # (70 of 186 tests ran) and a sanitizer regression could pass CI green.
       - name: Cargo build
-        run: cargo build -p briefcase-core --locked --features drift
+        run: cargo build -p briefcase-core --locked --all-features
 
       - name: Cargo test
-        run: cargo test -p briefcase-core --locked --features drift
+        run: cargo test -p briefcase-core --locked --all-features
 
       - name: Cargo clippy
-        run: cargo clippy -p briefcase-core --locked --features drift -- -D warnings
+        run: cargo clippy -p briefcase-core --locked --all-features -- -D warnings
+
+      # The bindings crate builds a cdylib; `extension-module` is applied by
+      # maturin for the wheel, not in Cargo.toml, so a test binary can link
+      # libpython and these tests actually run.
+      - name: Cargo test (Python bindings crate)
+        run: cargo test -p briefcase-python --locked
+
+      - name: Cargo clippy (Python bindings crate)
+        run: cargo clippy -p briefcase-python --locked -- -D warnings
+
+      # Standalone crate, so no workspace command reaches it. It had drifted to
+      # a dependency path that no longer exists and could not build at all.
+      - name: Build and run the Rust example
+        run: cargo run --manifest-path examples/rust/Cargo.toml
 
   python:
     name: Python (maturin + pytest)
@@ -48,6 +68,18 @@ jobs:
           maturin build --release --locked
           pip install target/wheels/*.whl
 
+      - name: Flake8
+        # The repo declares flake8 in the dev extra; nothing ran it, so lint
+        # debt accumulated unseen. Config lives in .flake8.
+        run: |
+          pip install flake8
+          flake8 briefcase/ scripts/ tests/ bindings/python/tests/ examples/
+
+      - name: Check version targets are reconciled
+        # A stale target aborts `version_sync.py set` at release time, which is
+        # only discovered when a release is already underway.
+        run: python scripts/version_sync.py check
+
       - name: Smoke-test public submodule imports (real built wheel)
         # Catches native-binding registration regressions that the mocked
         # `tests/` suite cannot see. Run from the repo root, NOT under pytest.
@@ -60,3 +92,16 @@ jobs:
 
       - name: Run Python facade tests
         run: pytest tests/
+
+      # The sdist is what `pip install briefcase-ai` falls back to on platforms
+      # with no wheel, and publish.yml uploads it without building from it.
+      # briefcase-core is a path dependency, so a manifest change can make the
+      # vendored source tree unbuildable while the in-repo build still works.
+      - name: Build a wheel from the sdist
+        if: matrix.python-version == '3.11'
+        run: |
+          maturin sdist --out dist
+          tar xzf dist/*.tar.gz -C dist
+          cd dist/briefcase_ai-*/ && maturin build --release
+          pip install --force-reinstall target/wheels/*.whl
+          cd "$GITHUB_WORKSPACE" && python scripts/check_imports.py

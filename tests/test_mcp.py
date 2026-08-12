@@ -4,7 +4,7 @@ import pytest
 
 pytest.importorskip("mcp", reason="briefcase-ai[mcp] not installed")
 
-from briefcase.mcp import build_server
+from briefcase.mcp import build_server  # noqa: E402  (after importorskip)
 
 
 def test_server_builds():

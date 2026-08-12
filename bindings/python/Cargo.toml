@@ -12,13 +12,21 @@ publish = false
 
 [lib]
 name = "briefcase_native"
-crate-type = ["cdylib"]
+# `rlib` alongside `cdylib` so `cargo test -p briefcase-python` has a lib target
+# to link. maturin still builds the wheel from the cdylib.
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-briefcase-core = { version = "3.3.1", path = "../../crates/briefcase-core", features = ["replay", "drift", "sanitize", "storage", "otel", "tokens", "networking", "compression"] }
+briefcase-core = { version = "4.0.0", path = "../../crates/briefcase-core", features = ["replay", "drift", "sanitize", "storage", "otel", "tokens", "networking", "compression"] }
 # abi3-py39: build a single stable-ABI wheel that installs on CPython 3.9+.
 pyo3 = { workspace = true, features = ["abi3-py39"] }
 tokio.workspace = true
 serde_json.workspace = true
 async-trait = "0.1"
 once_cell.workspace = true
+
+# Test binaries must link libpython to resolve the Python symbols a cdylib
+# leaves to the host interpreter; `auto-initialize` starts one. The workspace
+# uses resolver = "2", so this feature is NOT unified into the wheel build.
+[dev-dependencies]
+pyo3 = { workspace = true, features = ["abi3-py39", "auto-initialize"] }

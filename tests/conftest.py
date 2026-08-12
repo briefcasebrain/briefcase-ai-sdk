@@ -1,10 +1,8 @@
 import pytest
-import os
-import sys
-from pathlib import Path
 
-# Ensure we mock the compiled _core before any briefcase imports
-from . import mock_core
+# Imported for its side effect: installs the mocked compiled _core into
+# sys.modules before any briefcase import resolves it. Not an unused import.
+from . import mock_core  # noqa: F401
 
 
 @pytest.hookimpl(tryfirst=True)

@@ -42,12 +42,14 @@ REQUIRED = [
     "briefcase.external_data",
     "briefcase.exporters",
     "briefcase.semantic_conventions",
+    "briefcase.integrations.evals",
 ]
 
 # Gated behind pip extras; skip cleanly when the extra is not installed.
 OPTIONAL = [
     "briefcase.otel",
     "briefcase.integrations.lakefs",
+    "briefcase.integrations.gym",
     "briefcase.bitemporal.backends.iceberg",
     "briefcase.mcp",
 ]
