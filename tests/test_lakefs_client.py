@@ -39,7 +39,9 @@ class TestStrictInit:
             )
 
     def test_init_failure_raises_instead_of_mock(self, monkeypatch):
-        import lakefs
+        # The rest of this module exercises the strict-init guards, which need
+        # no lakefs client. Only this case patches the real one.
+        lakefs = pytest.importorskip("lakefs", reason="needs the 'lakefs' extra")
 
         def _boom(*args, **kwargs):
             raise RuntimeError("bad endpoint")

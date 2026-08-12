@@ -180,6 +180,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sdist to PyPI without ever building from it, so a manifest change could ship
   an unbuildable source distribution while the in-repo build stayed green;
   `briefcase-core` is a path dependency, which is exactly the fragile case.
+- CI-only failures fixed after the gates ran for real: two clippy lints that
+  only a newer toolchain reports (`for_kv_map`, `unnecessary_sort_by`), a test
+  using `EncodingWarning` which does not exist before 3.10, a test parsing the
+  zstd fixture without a backend installed, and a lakeFS test importing an
+  extra CI does not install.
 - `mypy briefcase/` is clean across all 90 modules and gated in CI. Settings
   live in `pyproject.toml`, with overrides for modules that genuinely carry no
   type information: the compiled extension, the optional dependencies behind

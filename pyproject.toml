@@ -94,7 +94,11 @@ filterwarnings = [
 python_version = "3.9"
 # Enforced in CI. Not strict mode: most of the codebase predates annotations, so
 # the gate is "no new type errors", not "everything is typed".
-warn_unused_ignores = true
+#
+# warn_unused_ignores stays off on purpose. Optional-dependency shims like
+# briefcase/_otel.py need `# type: ignore[assignment]` when the package is
+# installed and not when it is absent, so the setting makes the result depend on
+# which extras happen to be present.
 exclude = "^(tests|examples|bindings/python/tests)/"
 
 # Modules with no type information, for three distinct reasons: a compiled
@@ -107,12 +111,15 @@ module = [
     "briefcase.integrations.lakefs.branches",
     "pyiceberg.*",
     "pyarrow.*",
+    "opentelemetry.*",
     "grpc",
     "grpc_reflection.*",
     "google.protobuf.*",
     "lakefs.*",
     "mcp.*",
     "gymnasium.*",
+    # numpy arrives only with gymnasium, so it is absent from a bare install.
+    "numpy",
     "zstandard",
     "pyzstd",
 ]

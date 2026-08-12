@@ -249,7 +249,7 @@ impl<P: VcsProvider + 'static> StorageBackend for VcsStorageBackend<P> {
         }
 
         // Sort by timestamp (newest first)
-        results.sort_by(|a, b| b.metadata.timestamp.cmp(&a.metadata.timestamp));
+        results.sort_by_key(|r| std::cmp::Reverse(r.metadata.timestamp));
 
         Ok(results)
     }

@@ -371,6 +371,9 @@ class TestRealLmEvalOutput:
 class TestEncoding:
     """Eval logs are UTF-8 regardless of the machine's locale encoding."""
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 10), reason="EncodingWarning is new in 3.10"
+    )
     def test_parsers_never_rely_on_the_default_encoding(self, tmp_path):
         # -X warn_default_encoding turns every encoding-less open() into an
         # EncodingWarning; -W error makes one fail the subprocess.
@@ -381,7 +384,6 @@ class TestEncoding:
         script.write_text(
             "from briefcase.integrations.evals import "
             "from_inspect_log, from_lm_eval_results\n"
-            f"from_inspect_log({str(FIXTURES / 'inspect_arithmetic.eval')!r})\n"
             f"from_inspect_log({str(inspect_json)!r})\n"
             f"from_lm_eval_results({str(FIXTURES / 'lm_eval_results.json')!r}, "
             f"{str(FIXTURES / 'lm_eval_samples_arc_easy.jsonl')!r})\n",

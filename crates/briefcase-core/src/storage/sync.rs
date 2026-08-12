@@ -196,7 +196,7 @@ impl SyncStorageBackend for MemoryStorageBackend {
         let snapshots = self.snapshots.lock().unwrap();
         let mut results = Vec::new();
 
-        for (_, snapshot) in snapshots.iter() {
+        for snapshot in snapshots.values() {
             if matches_query(snapshot, &query) {
                 results.push(snapshot.clone());
             }
