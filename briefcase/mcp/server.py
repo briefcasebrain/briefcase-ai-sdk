@@ -10,14 +10,35 @@ Requires the ``mcp`` extra: ``pip install briefcase-ai[mcp]``.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 try:
     from mcp.server.fastmcp import FastMCP
-except ImportError as exc:  # pragma: no cover - exercised only without the extra
+except ImportError as exc:  # pragma: no cover - needs the extra absent or wrong
+    # Distinguish "not installed" from "installed but incompatible". mcp 2.0
+    # dropped mcp.server.fastmcp, so blaming a missing extra sent users to
+    # install a package they already had.
+    _installed: Optional[str]
+    try:
+        import mcp  # noqa: F401  (presence check only)
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            _installed = version("mcp")
+        except PackageNotFoundError:  # pragma: no cover - installed without metadata
+            _installed = "unknown"
+    except ImportError:
+        _installed = None
+
+    if _installed is None:
+        raise ImportError(
+            "briefcase.mcp requires the 'mcp' extra. "
+            "Install it with: pip install briefcase-ai[mcp]"
+        ) from exc
     raise ImportError(
-        "briefcase.mcp requires the 'mcp' extra. "
-        "Install it with: pip install briefcase-ai[mcp]"
+        f"briefcase.mcp needs mcp 1.x, but mcp {_installed} is installed and no "
+        "longer provides mcp.server.fastmcp. Install a compatible release with: "
+        'pip install "briefcase-ai[mcp]" or pip install "mcp<2"'
     ) from exc
 
 

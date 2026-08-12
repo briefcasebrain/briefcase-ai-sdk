@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- The `mcp` extra pins `mcp>=1.2,<2`. mcp 2.0 removed `mcp.server.fastmcp`,
+  which `briefcase.mcp` is built on, so a fresh `pip install briefcase-ai[mcp]`
+  resolved 2.x and broke the extra. The import guard now distinguishes "mcp is
+  not installed" from "mcp is installed but too new", naming the version it
+  found; it previously told you to install a package you already had. Found by
+  running the documentation's own snippets against the published 4.0.0 wheel.
+
 ## [4.0.0] - 2026-08-12
 
 ### Security

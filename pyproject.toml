@@ -62,7 +62,9 @@ evals = ["zstandard>=0.22; python_version < '3.14'"]
 bitemporal = []
 bitemporal-iceberg = ["pyiceberg[sql-sqlite,pyiceberg-core]>=0.9", "pyarrow>=14"]
 compliance = []
-mcp = ["mcp>=1.2"]
+# mcp 2.0 removed mcp.server.fastmcp, which briefcase.mcp is built on, so the
+# floor alone was not enough: a fresh install resolved 2.x and broke the extra.
+mcp = ["mcp>=1.2,<2"]
 # The `briefcase` evaluation-run CLI talks to oci-jj-server over gRPC, discovering the schema via
 # server reflection (no generated stubs). grpcio-reflection is the PyPI wheel; the import is
 # grpc_reflection.v1alpha. The subprocess oci-jj fallback (BRIEFCASE_ENGINE=cli) needs none of these.
