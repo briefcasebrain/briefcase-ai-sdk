@@ -169,10 +169,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   which put the crate two releases above what its dependencies require; it now
   uses `%`. README links are absolute, so they resolve in the PyPI description
   as well as on GitHub.
-- The PyPI package carries a description and project links. `readme` and
-  `[project.urls]` were absent, so the project page rendered blank with no
-  repository or changelog link; `twine check` now gates CI. `black` is dropped
-  from the `dev` extra, since the codebase is not black-formatted.
+- The PyPI package carries a description, project links, and a classifier set
+  that matches what ships. `readme` and `[project.urls]` were absent, so the
+  live 3.3.0 page renders blank today with only a Homepage link. Classifiers
+  now declare Python 3.9 through 3.13, the three wheel platforms, topics, and
+  `Typing :: Typed`, which drive PyPI's search filters. `twine check` gates
+  CI. `black` is dropped from the `dev` extra, since the codebase is not
+  black-formatted.
 - CI builds a wheel from the sdist and imports it. `publish.yml` uploaded the
   sdist to PyPI without ever building from it, so a manifest change could ship
   an unbuildable source distribution while the in-repo build stayed green;
