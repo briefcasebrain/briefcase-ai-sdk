@@ -23,6 +23,11 @@ import threading
 
 logger = get_logger(__name__)
 
+# Ceiling on how long a synchronous export may hold the caller's thread when
+# that thread is already running an event loop. Past it the record is dropped
+# rather than freezing the loop behind a slow or hung exporter.
+SYNC_EXPORT_TIMEOUT_SECONDS = 5.0
+
 
 class ExportMixin:
     """
@@ -79,10 +84,50 @@ class ExportMixin:
             else:
                 result = exporter.export(record)
                 if asyncio.iscoroutine(result):
-                    loop = asyncio.new_event_loop()
-                    try:
-                        loop.run_until_complete(result)
-                    finally:
-                        loop.close()
+                    self._run_coroutine_sync(result)
         except Exception:
-            logger.debug("Synchronous export failed", exc_info=True)
+            logger.warning("Export failed, decision record dropped", exc_info=True)
+
+    @staticmethod
+    def _run_coroutine_sync(coro) -> None:
+        """Run an export coroutine to completion before returning. When the
+        calling thread already has a running event loop, the coroutine runs on
+        a short-lived helper thread with its own loop and is joined for at most
+        SYNC_EXPORT_TIMEOUT_SECONDS, so a slow exporter cannot stall the loop.
+        Past the timeout the thread is left running, so the export still
+        completes unless the process exits first."""
+        def _run() -> None:
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(coro)
+            finally:
+                loop.close()
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            _run()
+            return
+
+        error = []
+
+        def _guarded() -> None:
+            try:
+                _run()
+            except BaseException as exc:
+                error.append(exc)
+
+        t = threading.Thread(target=_guarded, daemon=True)
+        t.start()
+        t.join(timeout=SYNC_EXPORT_TIMEOUT_SECONDS)
+        if t.is_alive():
+            logger.warning(
+                "Synchronous export exceeded %.1fs while an event loop was running; "
+                "no longer waiting. The export continues on a background daemon "
+                "thread and is lost only if the process exits first. Use "
+                "async_capture=True or a faster exporter.",
+                SYNC_EXPORT_TIMEOUT_SECONDS,
+            )
+            return
+        if error:
+            raise error[0]

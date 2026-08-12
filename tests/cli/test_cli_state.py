@@ -40,6 +40,58 @@ def test_secret_set_get_and_keys_are_redacted(store):
     assert "supersecret" not in "".join(keys)
 
 
+def test_home_and_registry_files_are_owner_only(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRIEFCASE_HOME", str(tmp_path / "home"))
+    s = Store()
+    assert (s.home.stat().st_mode & 0o777) == 0o700
+    s.set_secret("TOKEN", "supersecret")
+    assert ((s.home / "secrets.json").stat().st_mode & 0o777) == 0o600
+
+
+def test_existing_home_and_secrets_are_tightened(tmp_path, monkeypatch):
+    """A store laid down by an older version is re-secured on open."""
+    home = tmp_path / "home"
+    home.mkdir(mode=0o755)
+    secrets = home / "secrets.json"
+    secrets.write_text('{"TOKEN": "supersecret"}')
+    secrets.chmod(0o644)
+    monkeypatch.setenv("BRIEFCASE_HOME", str(home))
+
+    s = Store()
+
+    assert (s.home.stat().st_mode & 0o777) == 0o700
+    assert (secrets.stat().st_mode & 0o777) == 0o600
+    assert s.get_secrets() == {"TOKEN": "supersecret"}
+
+
+def test_tightening_skips_symlinked_registries(tmp_path, monkeypatch):
+    """A planted symlink named *.json must not chmod its target."""
+    home = tmp_path / "home"
+    home.mkdir(mode=0o755)
+    victim = tmp_path / "victim.txt"
+    victim.write_text("shared")
+    victim.chmod(0o644)
+    (home / "runs.json").symlink_to(victim)
+    monkeypatch.setenv("BRIEFCASE_HOME", str(home))
+
+    Store()
+
+    assert (victim.stat().st_mode & 0o777) == 0o644
+
+
+def test_save_survives_foreign_tmp_collision(store, tmp_path):
+    """A leftover or concurrent writer's temp file never blocks or gets deleted."""
+    import os
+
+    foreign = tmp_path / f".runs.{os.getpid()}.tmp"
+    foreign.write_text("in-flight")
+
+    store.record_run({"name": "demo", "status": "submitted"})
+
+    assert store.get_run("demo")["status"] == "submitted"
+    assert foreign.read_text() == "in-flight"
+
+
 def test_run_lifecycle(store):
     run_id = store.record_run({"name": "demo", "status": "submitted", "mode": "gate"})
     assert run_id == "demo"  # the job name is the handle

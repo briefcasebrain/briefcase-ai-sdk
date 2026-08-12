@@ -5,12 +5,12 @@ Tests for @briefcase.capture decorator.
 import asyncio
 import time
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 from briefcase.decorators import capture
 
 
-#  Helper 
+#  Helper
 
 def _make_exporter():
     exp = MagicMock()
@@ -18,7 +18,7 @@ def _make_exporter():
     return exp
 
 
-#  Sync function tests 
+#  Sync function tests
 
 class TestCaptureSync:
     def test_decorated_function_returns_original_value(self):
@@ -178,7 +178,7 @@ class TestCaptureSync:
         assert len(record["outputs"]["result"]) <= 12  # repr adds quotes
 
 
-#  Async function tests 
+#  Async function tests
 
 class TestCaptureAsync:
     def test_async_function_returns_value(self):
@@ -225,12 +225,44 @@ class TestCaptureAsync:
         assert "execution_time_ms" in record
 
 
-#  Decorator form tests 
+#  Sync export path with coroutine exporters
+
+class TestSyncExportWithAsyncExporter:
+    def test_sync_capture_with_coroutine_exporter_no_running_loop(self):
+        """A sync function exports through an async exporter synchronously."""
+        from briefcase.exporters.memory import MemoryExporter
+        mem = MemoryExporter()
+
+        @capture(exporter=mem, async_capture=False)
+        def classify(text):
+            return text.upper()
+
+        assert classify("hi") == "HI"
+        assert len(mem.records) == 1
+        assert mem.records[0]["function_name"] == "classify"
+
+    def test_sync_capture_inside_running_loop_exports_record(self):
+        """An async function with async_capture=False exports the record even
+        though the caller's event loop is running."""
+        from briefcase.exporters.memory import MemoryExporter
+        mem = MemoryExporter()
+
+        @capture(exporter=mem, async_capture=False)
+        async def decide(x):
+            return x * 2
+
+        result = asyncio.run(decide(21))
+        assert result == 42
+        assert len(mem.records) == 1
+        assert mem.records[0]["function_name"] == "decide"
+
+
+#  Decorator form tests
 
 class TestCaptureDecoratorForms:
     def test_bare_decorator_no_parens(self):
         """@capture works without parentheses."""
-        records = []
+        []
 
         @capture
         def func(x):
@@ -261,3 +293,24 @@ class TestCaptureDecoratorForms:
             return x
 
         assert documented_func.__doc__ == "My docstring."
+
+    def test_direct_call_forwards_configuration(self):
+        """capture(fn, ...) honors the keyword configuration it receives."""
+        exp = _make_exporter()
+
+        def func(x):
+            return x + 1
+
+        wrapped = capture(
+            func,
+            decision_type="direct",
+            context_version="v9",
+            exporter=exp,
+            async_capture=False,
+        )
+
+        assert wrapped(1) == 2
+        exp.export.assert_called_once()
+        record = exp.export.call_args[0][0]
+        assert record["decision_type"] == "direct"
+        assert record["context_version"] == "v9"

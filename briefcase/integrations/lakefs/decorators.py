@@ -3,7 +3,7 @@ Decorators for lakeFS versioned functions.
 """
 
 import functools
-from typing import Callable, Optional
+from typing import Callable
 from briefcase._logging import get_logger
 import threading
 
@@ -19,7 +19,8 @@ def versioned(
     repository: str,
     branch: str = "main",
     commit: str = "latest",
-    client_param: str = "versioned_client"
+    client_param: str = "versioned_client",
+    mock: bool = False,
 ):
     """
     Decorator that provides versioned context to a function.
@@ -32,6 +33,7 @@ def versioned(
         branch: Branch name (default: "main")
         commit: Commit SHA or "latest" (default: "latest")
         client_param: Parameter name for injected client (default: "versioned_client")
+        mock: Inject the offline stub client instead of connecting (default: False)
 
     Usage:
         @versioned(repository="acme", branch="main")
@@ -62,7 +64,8 @@ def versioned(
                 briefcase_client,
                 repository,
                 branch,
-                commit
+                commit,
+                mock=mock,
             ) as versioned_client:
                 # Inject as keyword argument
                 kwargs[client_param] = versioned_client
@@ -85,7 +88,7 @@ def _get_briefcase_client(kwargs: dict):
     # Try thread-local
     try:
         return getattr(_thread_local, 'briefcase_client', None)
-    except:
+    except AttributeError:
         return None
 
 

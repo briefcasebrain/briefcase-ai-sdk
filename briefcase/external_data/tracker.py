@@ -305,12 +305,17 @@ class ExternalDataTracker:
         result_data: Any = None,
         result_count: int = 0,
         store_snapshot: bool = False,
+        valid_time: Optional[datetime] = None,
+        source_trust_level: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Track a database query and optionally store result snapshot.
 
         Returns dict with: query_hash, data_hash (if result_data provided),
         result_count, timestamp, snapshot_id, snapshot_stored, drift_detected.
+
+        ``valid_time`` and ``source_trust_level`` behave as in
+        :meth:`track_api_call`.
         """
         source_name = f"{db_system}.{db_name}"
 
@@ -360,6 +365,8 @@ class ExternalDataTracker:
                             },
                             timestamp=timestamp,
                             data=data_str if self.lakefs else None,
+                            valid_time=valid_time,
+                            source_trust_level=source_trust_level,
                         )
                         result["snapshot_id"] = snapshot.snapshot_id
                         result["snapshot_stored"] = True
@@ -389,9 +396,14 @@ class ExternalDataTracker:
         file_path: Optional[str] = None,
         record_count: Optional[int] = None,
         store_snapshot: bool = True,
+        valid_time: Optional[datetime] = None,
+        source_trust_level: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Track a file fetch (S3, SFTP, local) and optionally store snapshot.
+
+        ``valid_time`` and ``source_trust_level`` behave as in
+        :meth:`track_api_call`.
         """
         span = self._start_span("external_data.track_file_fetch", {
             EXTERNAL_DATA_SOURCE: source_name,
@@ -430,7 +442,9 @@ class ExternalDataTracker:
                         record_count=record_count,
                         metadata=metadata,
                         timestamp=timestamp,
-                        data=None,  # Files are stored as-is via lakefs
+                        data=None,  # Only metadata is persisted; file bytes are not uploaded
+                        valid_time=valid_time,
+                        source_trust_level=source_trust_level,
                     )
                     result["snapshot_id"] = snapshot.snapshot_id
                     result["snapshot_stored"] = True
@@ -734,10 +748,8 @@ class ExternalDataTracker:
                 metadata = {**metadata, "sanitized": True}
             try:
                 self.lakefs.upload_object(
-                    self.repository,
-                    self.branch,
                     lakefs_path,
-                    body if body is not None else json.dumps(metadata),
+                    (body if body is not None else json.dumps(metadata)).encode("utf-8"),
                 )
             except Exception as e:
                 logger.warning(f"Failed to upload snapshot to lakeFS: {e}")
@@ -860,7 +872,7 @@ class ExternalDataTracker:
     # OpenTelemetry helpers
     # ------------------------------------------------------------------
 
-    def _start_span(self, name: str, attributes: Dict[str, Any] = None):
+    def _start_span(self, name: str, attributes: Optional[Dict[str, Any]] = None):
         """Start an OTel span if available."""
         if not HAS_OTEL:
             return None

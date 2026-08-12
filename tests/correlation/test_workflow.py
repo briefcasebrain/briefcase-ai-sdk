@@ -7,7 +7,6 @@ from unittest.mock import Mock
 from briefcase.correlation.workflow import briefcase_workflow, get_current_workflow
 
 try:
-    from opentelemetry import trace
     HAS_OTEL = True
 except ImportError:
     HAS_OTEL = False
@@ -54,12 +53,23 @@ def test_agent_registration():
         assert workflow._agent_chain == ["intake(101)", "decision(102)"]
 
 
+def test_nested_workflow_restores_outer_context():
+    """Exiting a nested workflow restores the enclosing workflow context."""
+    briefcase_client = Mock()
+
+    with briefcase_workflow("outer", briefcase_client) as outer:
+        with briefcase_workflow("inner", briefcase_client) as inner:
+            assert get_current_workflow() is inner
+        assert get_current_workflow() is outer
+    assert get_current_workflow() is None
+
+
 def test_workflow_exception_handling():
     """Test workflow handles exceptions properly."""
     briefcase_client = Mock()
 
     with pytest.raises(ValueError):
-        with briefcase_workflow("test", briefcase_client) as workflow:
+        with briefcase_workflow("test", briefcase_client):
             raise ValueError("Test error")
 
     # Workflow should still have cleaned up

@@ -216,6 +216,7 @@ class ReflectionTransport(Transport):
 
     Construction does no network I/O — the channel and the reflected descriptor pool are built lazily
     on first use (and cached per endpoint for the process), so an offline ``--dry-run`` never reflects.
+    An ``https://`` endpoint dials TLS with the system trust roots; other endpoints dial plaintext.
     """
 
     _CACHE: dict = {}
@@ -233,11 +234,30 @@ class ReflectionTransport(Transport):
         self._reflection_pb2 = reflection_pb2
         self._reflection_pb2_grpc = reflection_pb2_grpc
         self._timeout = timeout
+        use_tls = endpoint.startswith("https://")
         self.endpoint = _normalize_endpoint(endpoint)
-        self._channel_factory = channel_factory or grpc.insecure_channel
+        if channel_factory is not None:
+            self._channel_factory = channel_factory
+            transport_kind = None
+        elif use_tls:
+            self._channel_factory = self._secure_channel
+            transport_kind = "tls"
+        else:
+            self._channel_factory = grpc.insecure_channel
+            transport_kind = "plain"
+        # The cache key carries the transport kind: http and https to one
+        # authority resolve to different channels, so they must not share
+        # a _Resolved (its call objects are bound to one channel). A custom
+        # factory gets no key at all and resolves per instance: only the
+        # factory object identifies its channel, and identity is not a usable
+        # cache key (CPython reuses an id once the factory is collected).
+        self._cache_key = None if transport_kind is None else (self.endpoint, transport_kind)
         self._channel = None
         self._refl = None
         self._resolved = None
+
+    def _secure_channel(self, endpoint):
+        return self._grpc.secure_channel(endpoint, self._grpc.ssl_channel_credentials())
 
     # ---- lazy reflection → descriptor pool (cached per endpoint) ----
     def _get_resolved(self):
@@ -247,12 +267,13 @@ class ReflectionTransport(Transport):
             if self._channel is None:
                 self._channel = self._channel_factory(self.endpoint)
                 self._refl = self._reflection_pb2_grpc.ServerReflectionStub(self._channel)
-            cached = self._CACHE.get(self.endpoint)
+            cached = self._CACHE.get(self._cache_key) if self._cache_key else None
             if cached is None:
                 services = self._list_services_raw()
                 files = self._collect_files(services)
                 cached = _Resolved(_build_pool(files), services, self._channel)
-                self._CACHE[self.endpoint] = cached
+                if self._cache_key:
+                    self._CACHE[self._cache_key] = cached
             self._resolved = cached
             return cached
         except TransportUnavailable:

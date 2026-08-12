@@ -5,6 +5,7 @@ so the lifecycle is unit-tested with fakes. Handlers return a process exit code.
 """
 from __future__ import annotations
 
+import os
 import sys
 import time
 
@@ -17,10 +18,19 @@ def _split_kv(item: str):
 
 
 def _inject_env(store, secret_items, env_items) -> dict:
-    """Stored secrets, then per-run --secret, then per-run --env (later wins)."""
+    """Stored secrets, then per-run --secret, then per-run --env (later wins). A bare --secret KEY
+    takes its value from the caller's environment, keeping the value out of argv."""
     env = store.get_secrets()
     for item in (secret_items or []):
         kv = _split_kv(item)
+        if kv is None and item and "=" not in item:
+            if item in os.environ:
+                kv = (item, os.environ[item])
+            else:
+                print(
+                    f"warning: --secret {item} not found in the environment; not injected",
+                    file=sys.stderr,
+                )
         if kv:
             env[kv[0]] = kv[1]
     for item in (env_items or []):
@@ -68,11 +78,33 @@ def cmd_dataset_list(args, store, engine, stack=None) -> int:
 
 
 # ---- secrets ----
+def _read_secret_value(key: str):
+    """Read a secret value off stdin (getpass on a tty) so it never appears in argv; None if
+    no value is available."""
+    try:
+        if sys.stdin is not None and sys.stdin.isatty():
+            import getpass
+
+            value = getpass.getpass(f"value for {key}: ")
+        else:
+            value = (sys.stdin.readline() if sys.stdin is not None else "").rstrip("\n")
+    except (EOFError, OSError):
+        return None
+    return value or None
+
+
 def cmd_secret_set(args, store, engine, stack=None) -> int:
     kv = _split_kv(args.assignment)
     if kv is None:
-        print("secret must be KEY=VALUE", file=sys.stderr)
-        return 2
+        key = args.assignment
+        if not key or "=" in key:
+            print("secret must be KEY=VALUE or a bare KEY (value read from stdin)", file=sys.stderr)
+            return 2
+        value = _read_secret_value(key)
+        if value is None:
+            print(f"no value provided for {key}", file=sys.stderr)
+            return 2
+        kv = (key, value)
     store.set_secret(kv[0], kv[1])
     print(f"stored secret {kv[0]}")
     return 0

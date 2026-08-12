@@ -36,19 +36,16 @@ import fnmatch
 import re
 import time
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     Any,
-    Callable,
     Dict,
-    Generic,
     List,
     Optional,
     Protocol,
-    Sequence,
     Tuple,
-    TypeVar,
     runtime_checkable,
 )
 
@@ -146,7 +143,6 @@ class PolicySpace:
         solver — heuristic boundary probing when formal verification is
         unavailable.
         """
-        import random
         samples = []
         for attr, bound in self.context_schema.items():
             if bound.low == float("-inf") and bound.high == float("inf"):
@@ -400,14 +396,23 @@ class CacheWrapper(GuardrailWrapper):
     """LRU cache with TTL, exposed as a composable
     wrapper usable on ANY GuardrailEnv.
 
+    Holds at most max_entries results; inserting beyond the bound evicts
+    the least recently used entry.
+
     Gymnasium parallel: gymnasium.wrappers.TimeLimit caches episode length;
     this caches evaluation results.
     """
 
-    def __init__(self, env: GuardrailEnv, ttl_seconds: float = 60.0):
+    def __init__(
+        self,
+        env: GuardrailEnv,
+        ttl_seconds: float = 60.0,
+        max_entries: int = 1024,
+    ):
         super().__init__(env)
         self._ttl = ttl_seconds
-        self._store: Dict[str, Tuple[EvalResult, float]] = {}
+        self._max_entries = max_entries
+        self._store: "OrderedDict[str, Tuple[EvalResult, float]]" = OrderedDict()
 
     def evaluate(self, request: EvalRequest) -> EvalResult:
         key = request.cache_key()
@@ -415,6 +420,7 @@ class CacheWrapper(GuardrailWrapper):
         if entry is not None:
             result, inserted_at = entry
             if time.monotonic() - inserted_at <= self._ttl:
+                self._store.move_to_end(key)
                 cached = EvalResult(
                     effect=result.effect,
                     guardrail_name=result.guardrail_name,
@@ -429,6 +435,8 @@ class CacheWrapper(GuardrailWrapper):
 
         result = self.env.evaluate(request)
         self._store[key] = (result, time.monotonic())
+        while len(self._store) > self._max_entries:
+            self._store.popitem(last=False)
         return result
 
 
@@ -1252,10 +1260,15 @@ class GuardrailRegistry:
 # Module-level singleton — like gymnasium.envs.registry
 _default_registry = GuardrailRegistry()
 
+
 def register(id: str, entry_point: str, **kwargs: Any) -> None:
     """Register a guardrail in the global registry.
 
     Convenience function — equivalent to guardrail_registry.register().
+
+    Registry parameters (kwargs, namespace, description, tags,
+    max_eval_time_ms) are forwarded as-is; any other keyword arguments
+    become default constructor arguments for the guardrail.
 
     Usage:
         from briefcase.guardrails.framework import register, make
@@ -1263,7 +1276,18 @@ def register(id: str, entry_point: str, **kwargs: Any) -> None:
         register("my-guardrail-v1", "my_package:MyGuardrail", threshold=0.9)
         env = make("my-guardrail-v1")
     """
-    _default_registry.register(id=id, entry_point=entry_point, **kwargs)
+    registry_params = {
+        k: kwargs.pop(k)
+        for k in ("kwargs", "namespace", "description", "tags", "max_eval_time_ms")
+        if k in kwargs
+    }
+    ctor_kwargs = {**(registry_params.pop("kwargs", None) or {}), **kwargs}
+    _default_registry.register(
+        id=id,
+        entry_point=entry_point,
+        kwargs=ctor_kwargs or None,
+        **registry_params,
+    )
 
 
 def make(id: str, **kwargs: Any) -> GuardrailEnv:

@@ -45,6 +45,7 @@ class BriefcaseWorkflowContext:
         self._tracer = None
         self._workflow_span = None
         self._token = None
+        self._prev_context = None
         self._agent_chain: List[str] = []
         self._agent_count = 0
         self._started_at = None
@@ -75,7 +76,8 @@ class BriefcaseWorkflowContext:
             except Exception as e:
                 logger.error(f"Failed to create workflow span: {e}")
 
-        # Store in thread-local for agent access
+        # Store in thread-local for agent access, keeping any enclosing context
+        self._prev_context = getattr(_thread_local, 'workflow_context', None)
         _thread_local.workflow_context = self
 
         return self
@@ -128,9 +130,12 @@ class BriefcaseWorkflowContext:
             except Exception as e:
                 logger.error(f"Failed to finalize workflow span: {e}")
 
-        # Clear thread-local
-        if hasattr(_thread_local, 'workflow_context'):
+        # Restore the enclosing workflow context, if any
+        if self._prev_context is not None:
+            _thread_local.workflow_context = self._prev_context
+        elif hasattr(_thread_local, 'workflow_context'):
             delattr(_thread_local, 'workflow_context')
+        self._prev_context = None
 
         return False
 

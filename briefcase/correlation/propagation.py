@@ -22,9 +22,13 @@ class TraceContextCarrier:
         requests.post(url, headers=headers)
 
         # Service B: Extract context from headers
-        with TraceContextCarrier.extract(request.headers):
+        token = TraceContextCarrier.extract(request.headers)
+        try:
             # Agents automatically join the workflow
             result = agent.process(data)
+        finally:
+            if token is not None:
+                context.detach(token)
     """
 
     _propagator = None
@@ -74,12 +78,18 @@ class TraceContextCarrier:
         """
         Extract trace context from carrier and set as current context.
 
-        Returns a context token that can be used to restore the context.
+        Returns the attach token, or None when extraction is unavailable.
+        Pass a non-None token to context.detach() when the correlated work
+        finishes; skipping detach leaves the extracted context active on
+        this thread and correlates later unrelated work into the trace.
 
         Usage:
             token = TraceContextCarrier.extract(request.headers)
-            # Code here runs in the propagated trace context
-            # Optionally: context.detach(token) when done
+            try:
+                pass  # Code here runs in the propagated trace context
+            finally:
+                if token is not None:
+                    context.detach(token)
         """
         if not HAS_OTEL:
             logger.debug("OpenTelemetry not available, cannot extract trace context")

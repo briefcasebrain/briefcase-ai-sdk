@@ -4,9 +4,8 @@ Tests for external data versioning: tracker, snapshot policies, drift detection.
 
 import hashlib
 import json
-import time
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -49,6 +48,19 @@ def sample_response_v2():
 def _hash(data):
     """Helper: SHA-256 of JSON-serialized data."""
     return hashlib.sha256(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
+
+
+class VersionedClientDouble:
+    """Fake with VersionedClient's exact method signatures."""
+
+    def __init__(self):
+        self.uploads = {}
+
+    def upload_object(self, path, data, content_type="application/octet-stream"):
+        self.uploads[path] = data
+
+    def get_commit(self):
+        return "c0ffee0000000000000000000000000000000000"
 
 
 # =========================================================================
@@ -172,7 +184,8 @@ class TestPolicyManagement:
         assert t.get_policy("anything").frequency == SnapshotFrequency.DAILY
 
     def test_set_change_detector(self, tracker):
-        detector = lambda old, new: 0.5
+        def detector(old, new):
+            return 0.5
         tracker.set_change_detector("src", detector)
         assert "src" in tracker._change_detectors
 
@@ -247,9 +260,8 @@ class TestTrackApiCall:
         tracker_with_lakefs.track_api_call("ofac", "/sdn", "GET", sample_response)
         tracker_with_lakefs.lakefs.upload_object.assert_called_once()
         call_args = tracker_with_lakefs.lakefs.upload_object.call_args
-        assert call_args[0][0] == "test-repo"
-        assert call_args[0][1] == "main"
-        assert "snapshots/ofac/" in call_args[0][2]
+        assert "snapshots/ofac/" in call_args[0][0]
+        assert isinstance(call_args[0][1], bytes)
 
     def test_lakefs_upload_failure_doesnt_crash(self, tracker_with_lakefs, sample_response):
         tracker_with_lakefs.lakefs.upload_object.side_effect = Exception("connection refused")
@@ -258,6 +270,19 @@ class TestTrackApiCall:
         assert result["snapshot_stored"] is True
         snap = tracker_with_lakefs.get_latest_snapshot("ofac")
         assert snap.lakefs_path is None
+
+    def test_upload_matches_versioned_client_signature(self, sample_response):
+        """The tracker calls upload_object(path, data) as defined by
+        VersionedClient, so uploads reach a real client."""
+        lakefs = VersionedClientDouble()
+        tracker = ExternalDataTracker(
+            lakefs_client=lakefs, repository="test-repo", branch="main"
+        )
+        tracker.track_api_call("ofac", "/sdn", "GET", sample_response)
+        snap = tracker.get_latest_snapshot("ofac")
+        assert snap.lakefs_path is not None
+        assert snap.lakefs_path in lakefs.uploads
+        assert isinstance(lakefs.uploads[snap.lakefs_path], bytes)
 
     def test_parent_snapshot_linked(self, tracker, sample_response, sample_response_v2):
         tracker.track_api_call("ofac", "/sdn", "GET", sample_response)
@@ -309,6 +334,18 @@ class TestTrackDbQuery:
         r2 = tracker.track_db_query("pg", "db", "SELECT * FROM t WHERE id = 1")
         assert r1["query_hash"] != r2["query_hash"]
 
+    def test_db_snapshot_carries_valid_time_and_trust_level(self, tracker):
+        vt = datetime(2025, 6, 1, tzinfo=timezone.utc)
+        result = tracker.track_db_query(
+            "postgresql", "analytics", "SELECT *",
+            result_data=[{"id": 1}], result_count=1, store_snapshot=True,
+            valid_time=vt, source_trust_level="primary",
+        )
+        assert result["snapshot_stored"] is True
+        snap = tracker.get_latest_snapshot("postgresql.analytics")
+        assert snap.valid_time == vt.isoformat()
+        assert snap.source_trust_level == "primary"
+
 
 # =========================================================================
 # 5. track_file_fetch
@@ -323,7 +360,7 @@ class TestTrackFileFetch:
         assert result["snapshot_stored"] is True
 
     def test_file_path_in_metadata(self, tracker):
-        result = tracker.track_file_fetch("s3_export", b"data", file_path="s3://bucket/file.csv")
+        tracker.track_file_fetch("s3_export", b"data", file_path="s3://bucket/file.csv")
         snap = tracker.get_latest_snapshot("s3_export")
         assert snap.metadata["file_path"] == "s3://bucket/file.csv"
 
@@ -349,6 +386,16 @@ class TestTrackFileFetch:
         assert r2["snapshot_stored"] is True
         assert r2["drift_detected"] is True
         assert tracker.get_snapshot_count("src") == 2
+
+    def test_file_snapshot_carries_valid_time_and_trust_level(self, tracker):
+        vt = datetime(2025, 6, 1, tzinfo=timezone.utc)
+        tracker.track_file_fetch(
+            "s3_export", b"data",
+            valid_time=vt, source_trust_level="derived",
+        )
+        snap = tracker.get_latest_snapshot("s3_export")
+        assert snap.valid_time == vt.isoformat()
+        assert snap.source_trust_level == "derived"
 
 
 # =========================================================================

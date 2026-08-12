@@ -297,6 +297,7 @@ class AgentRoutingDecision:
         evaluation: PolicyEvaluationResult,
         evidence_refs: Optional[List[str]] = None,
         decision_id: Optional[str] = None,
+        decided_at: Optional[datetime] = None,
     ) -> "AgentRoutingDecision":
         return cls(
             decision_id=decision_id or str(uuid.uuid4()),
@@ -309,6 +310,7 @@ class AgentRoutingDecision:
             matched_rule_id=evaluation.matched_rule_id,
             evidence_refs=list(evidence_refs or []),
             rationale=evaluation.rationale,
+            decided_at=decided_at or _utcnow(),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -360,7 +362,14 @@ class AgentRouter:
         *,
         evidence_refs: Optional[List[str]] = None,
         as_of_transaction_time: Optional[datetime] = None,
+        decided_at: Optional[datetime] = None,
     ) -> AgentRoutingDecision:
+        """Evaluate the policy against ``context`` and record the decision.
+
+        ``decided_at`` pins the decision timestamp; it defaults to now.
+        Pin it for deterministic replay and tests, since downstream as-of
+        reconstruction (e.g. ExaminerBundle) clamps to this value.
+        """
         policy = self._registry.get(
             self._policy_id,
             as_of_transaction_time=as_of_transaction_time,
@@ -382,4 +391,5 @@ class AgentRouter:
             candidates=candidates,
             evaluation=evaluation,
             evidence_refs=evidence_refs,
+            decided_at=decided_at,
         )

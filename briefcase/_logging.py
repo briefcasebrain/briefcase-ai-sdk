@@ -94,7 +94,9 @@ def enable_logging(
         handler = logging.StreamHandler(stream if stream is not None else sys.stderr)
         handler.name = _HANDLER_NAME
         _root.addHandler(handler)
-    elif stream is not None:
+    elif stream is not None and isinstance(handler, logging.StreamHandler):
+        # Only a StreamHandler has setStream. The handler is looked up by name,
+        # so a caller's own handler under that name would otherwise crash here.
         handler.setStream(stream)
     handler.setFormatter(
         logging.Formatter(fmt or _DEFAULT_FORMAT, datefmt or _DEFAULT_DATEFMT)

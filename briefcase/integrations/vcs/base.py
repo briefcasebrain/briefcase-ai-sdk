@@ -12,7 +12,6 @@ Provides common functionality for all VCS providers including:
 from typing import Optional, Dict, Any, Tuple, Union
 from datetime import datetime
 from briefcase._logging import get_logger
-import os
 
 from briefcase._otel import trace, HAS_OTEL
 

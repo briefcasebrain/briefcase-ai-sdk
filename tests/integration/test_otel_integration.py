@@ -6,7 +6,6 @@ OpenTelemetry spans and exporters.
 """
 
 import pytest
-from datetime import datetime
 from unittest.mock import Mock
 
 try:
@@ -60,12 +59,13 @@ def test_lakefs_client_instrumentation(otel_setup):
     client = VersionedClient(
         repository="test-repo",
         branch="main",
-        briefcase_client=briefcase_client
+        briefcase_client=briefcase_client,
+        mock=True,
     )
 
     # Read object within a span
-    with tracer.start_as_current_span("test_operation") as span:
-        content = client.read_object("test.pdf")
+    with tracer.start_as_current_span("test_operation"):
+        client.read_object("test.pdf")
 
     # Verify spans
     spans = exporter.get_finished_spans()
@@ -144,7 +144,8 @@ def test_nested_spans_with_lakefs(otel_setup):
     client = VersionedClient(
         repository="test-repo",
         branch="main",
-        briefcase_client=briefcase_client
+        briefcase_client=briefcase_client,
+        mock=True,
     )
 
     # Create nested spans
@@ -182,7 +183,8 @@ def test_workflow_with_multiple_lakefs_operations(otel_setup):
         lakefs = VersionedClient(
             repository="test-repo",
             branch="main",
-            briefcase_client=briefcase_client
+            briefcase_client=briefcase_client,
+            mock=True,
         )
 
         # Read multiple files
@@ -217,7 +219,7 @@ def test_trace_context_propagation(otel_setup):
     tracer = trace.get_tracer(__name__)
 
     # Create a span and inject context
-    with tracer.start_as_current_span("source_span") as span:
+    with tracer.start_as_current_span("source_span"):
         headers = inject_trace_context()
 
     # Verify W3C Trace Context headers
@@ -283,7 +285,8 @@ def test_span_attributes_format(otel_setup):
         lakefs = VersionedClient(
             repository="test-repo",
             branch="main",
-            briefcase_client=briefcase_client
+            briefcase_client=briefcase_client,
+            mock=True,
         )
         lakefs.read_object("test.pdf")
 

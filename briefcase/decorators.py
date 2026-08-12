@@ -25,7 +25,7 @@ from typing import Any, Optional
 from briefcase._export_mixin import ExportMixin
 
 
-#  Internal export helper 
+#  Internal export helper
 
 class _RecordExporter(ExportMixin):
     """Minimal ExportMixin-backed object used by the capture decorator."""
@@ -34,7 +34,7 @@ class _RecordExporter(ExportMixin):
         self.async_capture = async_capture
 
 
-#  Decorator implementation 
+#  Decorator implementation
 
 def capture(
     fn=None,
@@ -76,15 +76,15 @@ def capture(
         async_capture:   If True (default), export runs in a background thread.
     """
     if fn is not None:
-        # Called as @capture (no arguments)  fn is the decorated function
+        # Called as @capture or capture(fn, ...); fn is the decorated function
         return _make_wrapper(
             fn,
-            decision_type=None,
-            context_version=None,
-            max_input_chars=1000,
-            max_output_chars=1000,
-            exporter=None,
-            async_capture=True,
+            decision_type=decision_type,
+            context_version=context_version,
+            max_input_chars=max_input_chars,
+            max_output_chars=max_output_chars,
+            exporter=exporter,
+            async_capture=async_capture,
         )
 
     # Called as @capture(...)  return a decorator
@@ -102,7 +102,7 @@ def capture(
     return decorator
 
 
-#  Internal wrapper factory 
+#  Internal wrapper factory
 
 def _make_wrapper(func, *, decision_type, context_version, max_input_chars,
                   max_output_chars, exporter, async_capture):

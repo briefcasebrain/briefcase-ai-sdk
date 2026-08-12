@@ -16,16 +16,15 @@ Usage:
 """
 
 import time
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from briefcase._logging import get_logger
 from briefcase._otel import trace, HAS_OTEL
+from briefcase.validation.errors import ValidationReport
+from briefcase.semantic_conventions.validation import *  # noqa: F403
 
 logger = get_logger(__name__)
 tracer = trace.get_tracer(__name__) if HAS_OTEL else None
-
-from briefcase.validation.errors import ValidationReport, ValidationError
-from briefcase.semantic_conventions.validation import *
 
 
 @runtime_checkable
@@ -63,6 +62,8 @@ class PromptValidationEngine:
         mode: str = "strict",
         semantic_validator: Any = None,
     ):
+        if mode not in ("strict", "tolerant", "warn_only"):
+            raise ValueError(f"unknown validation mode: {mode!r}")
         self.extractor = extractor
         self.resolver = resolver
         self.semantic = semantic_validator
@@ -70,6 +71,28 @@ class PromptValidationEngine:
         self.repository = repository
         self.branch = branch
         self.lakefs = lakefs_client
+
+    def _commit_sha(self) -> str:
+        """The knowledge-base commit the report is pinned to, or "unknown" when
+        the lakeFS client cannot supply one.
+
+        Accepts both client contracts: VersionedClient.get_commit() takes no
+        arguments, while older adapters take (repository, branch). Calling the
+        wrong one loses provenance silently, so the mismatch is retried rather
+        than swallowed."""
+        try:
+            return self.lakefs.get_commit()
+        except TypeError:
+            try:
+                return self.lakefs.get_commit(self.repository, self.branch)
+            except Exception as e:
+                logger.debug(
+                    "lakeFS commit lookup failed; using 'unknown': %s", e, exc_info=True
+                )
+                return "unknown"
+        except Exception as e:
+            logger.debug("lakeFS commit lookup failed; using 'unknown': %s", e, exc_info=True)
+            return "unknown"
 
     def validate(self, prompt: str) -> ValidationReport:
         """
@@ -114,11 +137,7 @@ class PromptValidationEngine:
         references = self.extractor.extract(prompt)
 
         if len(references) == 0:
-            commit_sha = "unknown"
-            try:
-                commit_sha = self.lakefs.get_commit(self.repository, self.branch)
-            except Exception as e:
-                logger.debug("lakeFS commit lookup failed; using 'unknown': %s", e, exc_info=True)
+            commit_sha = self._commit_sha()
 
             return ValidationReport(
                 status="passed",
@@ -147,11 +166,7 @@ class PromptValidationEngine:
         elapsed_ms = (time.time() - start_time) * 1000
         status = self._determine_status(all_errors, all_warnings)
 
-        commit_sha = "unknown"
-        try:
-            commit_sha = self.lakefs.get_commit(self.repository, self.branch)
-        except Exception:
-            pass
+        commit_sha = self._commit_sha()
 
         return ValidationReport(
             status=status,

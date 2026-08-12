@@ -11,7 +11,7 @@ Covers:
 
 import sys
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 from briefcase.correlation.propagation import (
     TraceContextCarrier,
     inject_trace_context,
@@ -19,9 +19,9 @@ from briefcase.correlation.propagation import (
 )
 
 
-# 
+#
 # Setup: Mock opentelemetry if not available
-# 
+#
 
 # Create mock opentelemetry modules to prevent ImportError
 if 'opentelemetry' not in sys.modules:
@@ -32,9 +32,9 @@ if 'opentelemetry' not in sys.modules:
     sys.modules['opentelemetry.trace.propagation.tracecontext'] = MagicMock()
 
 
-# 
+#
 # Fixtures and Helpers
-# 
+#
 
 def inject_mock_propagator(mock_class):
     """Helper to inject a mock propagator into the propagation module."""
@@ -62,9 +62,9 @@ def reset_propagator():
     TraceContextCarrier._propagator = original_propagator
 
 
-# 
+#
 # Tests: inject() - returns dict
-# 
+#
 
 def test_inject_returns_dict(reset_propagator):
     """Test that inject() returns a dictionary."""
@@ -96,9 +96,9 @@ def test_inject_without_otel_returns_empty_carrier(reset_propagator):
         assert len(result) == 0
 
 
-# 
+#
 # Tests: extract() - without OTel
-# 
+#
 
 def test_extract_without_otel_returns_none(reset_propagator):
     """Test that extract() returns None when OTel is not available."""
@@ -115,9 +115,9 @@ def test_extract_without_otel_with_headers_still_returns_none(reset_propagator):
         assert result is None
 
 
-# 
+#
 # Tests: inject_trace_context() convenience function
-# 
+#
 
 def test_inject_trace_context_returns_dict(reset_propagator):
     """Test that inject_trace_context() returns a dictionary."""
@@ -134,9 +134,9 @@ def test_inject_trace_context_with_headers(reset_propagator):
         assert isinstance(result, dict)
 
 
-# 
+#
 # Tests: extract_trace_context() convenience function
-# 
+#
 
 def test_extract_trace_context_accepts_dict(reset_propagator):
     """Test that extract_trace_context() accepts a dictionary."""
@@ -154,9 +154,9 @@ def test_extract_trace_context_with_traceparent(reset_propagator):
         assert result is None  # No OTel available
 
 
-# 
+#
 # Tests: inject with OTel mocking
-# 
+#
 
 @patch('briefcase.correlation.propagation.HAS_OTEL', True)
 def test_inject_with_otel_calls_propagator(reset_propagator):
@@ -246,9 +246,9 @@ def test_inject_without_workflow_no_tracestate_workflow(reset_propagator):
         restore_propagator(original)
 
 
-# 
+#
 # Tests: extract with OTel mocking
-# 
+#
 
 @patch('briefcase.correlation.propagation.HAS_OTEL', True)
 def test_extract_with_otel_calls_propagator(reset_propagator):
@@ -307,9 +307,9 @@ def test_extract_returns_context_token(reset_propagator):
             delattr(propagation_module, 'context')
 
 
-# 
+#
 # Tests: Error handling
-# 
+#
 
 @patch('briefcase.correlation.propagation.HAS_OTEL', True)
 def test_inject_handles_propagator_exception(reset_propagator):
@@ -372,9 +372,9 @@ def test_inject_handles_workflow_error(reset_propagator):
         restore_propagator(original)
 
 
-# 
+#
 # Tests: Propagator caching
-# 
+#
 
 @patch('briefcase.correlation.propagation.HAS_OTEL', True)
 def test_propagator_is_cached(reset_propagator):
@@ -426,9 +426,23 @@ def test_cached_propagator_used_for_extract(reset_propagator):
             delattr(propagation_module, 'context')
 
 
-# 
+#
+# Tests: Documented extract() contract
+#
+
+def test_extract_docs_describe_token_not_context_manager():
+    """extract() returns a raw attach token, so the docstrings must show
+    token-based usage with a required detach, not a with-statement."""
+    class_doc = TraceContextCarrier.__doc__
+    method_doc = TraceContextCarrier.extract.__doc__
+    assert "with TraceContextCarrier.extract" not in class_doc
+    assert "ptional" not in method_doc
+    assert "context.detach" in method_doc
+
+
+#
 # Tests: Multiple invocations
-# 
+#
 
 def test_multiple_inject_calls_without_otel(reset_propagator):
     """Test that multiple inject() calls work correctly without OTel."""
