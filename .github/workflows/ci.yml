@@ -75,6 +75,14 @@ jobs:
           maturin build --release --locked
           pip install target/wheels/*.whl
 
+      - name: Mypy
+        # One version is enough: python_version is pinned in pyproject, so the
+        # result does not vary across the matrix.
+        if: matrix.python-version == '3.11'
+        run: |
+          pip install mypy
+          mypy briefcase/
+
       - name: Flake8
         # The repo declares flake8 in the dev extra; nothing ran it, so lint
         # debt accumulated unseen. Config lives in .flake8.
@@ -99,6 +107,23 @@ jobs:
 
       - name: Run Python facade tests
         run: pytest tests/
+
+      # Examples rot silently when nothing runs them: the Rust example had
+      # drifted to a dependency path that no longer existed. These are offline.
+      - name: Run the Python examples
+        if: matrix.python-version == '3.11'
+        run: |
+          pip install "gymnasium>=0.29"
+          for f in examples/python-basic/basic_usage.py \
+                   examples/validation/basic_validation.py \
+                   examples/validation/validation_modes.py \
+                   examples/lakefs_versioning/basic_usage.py \
+                   examples/multi_agent_correlation/sync_workflow.py \
+                   examples/eval_runs/main.py \
+                   examples/rl_gym/main.py; do
+            echo "--- $f"; python "$f" > /dev/null
+          done
+          python examples/python-basic/cli_model_example.py --prompt "ci smoke test" > /dev/null
 
       # The sdist is what `pip install briefcase-ai` falls back to on platforms
       # with no wheel, and publish.yml uploads it without building from it.

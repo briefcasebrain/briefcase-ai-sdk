@@ -50,6 +50,7 @@ cargo test -p briefcase-core --all-features
 cargo clippy -p briefcase-core --all-features -- -D warnings
 cargo test -p briefcase-python --locked          # bindings crate unit tests
 flake8 briefcase/ scripts/ tests/ bindings/python/tests/ examples/
+mypy briefcase/
 ```
 
 Conventions:

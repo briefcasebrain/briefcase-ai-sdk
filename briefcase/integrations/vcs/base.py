@@ -78,8 +78,8 @@ class VcsClientBase:
         self.extra = extra
 
         # Version tracking
-        self.version = None
-        self._version_metadata = {}
+        self.version: Optional[str] = None
+        self._version_metadata: Dict[str, Any] = {}
 
         # Initialize provider-specific client (to be implemented by subclasses)
         self._provider_client = None
@@ -102,7 +102,7 @@ class VcsClientBase:
         """
         start_time = datetime.now()
         content = b""
-        metadata = {
+        metadata: Dict[str, Any] = {
             "path": path,
             "provider": self.provider_type,
             "repository": self.repository,

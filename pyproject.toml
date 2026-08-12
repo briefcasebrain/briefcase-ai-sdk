@@ -90,6 +90,38 @@ filterwarnings = [
     "ignore::pytest.PytestUnknownMarkWarning",
 ]
 
+[tool.mypy]
+python_version = "3.9"
+# Enforced in CI. Not strict mode: most of the codebase predates annotations, so
+# the gate is "no new type errors", not "everything is typed".
+warn_unused_ignores = true
+exclude = "^(tests|examples|bindings/python/tests)/"
+
+# Modules with no type information, for three distinct reasons: a compiled
+# extension (briefcase._native), an optional dependency the extras gate
+# (pyiceberg, pyarrow, grpc, protobuf), and a module that ships only in the
+# commercial package (lakefs.branches).
+[[tool.mypy.overrides]]
+module = [
+    "briefcase._native",
+    "briefcase.integrations.lakefs.branches",
+    "pyiceberg.*",
+    "pyarrow.*",
+    "grpc",
+    "grpc_reflection.*",
+    "google.protobuf.*",
+    "lakefs.*",
+    "mcp.*",
+    "gymnasium.*",
+    "zstandard",
+    "pyzstd",
+]
+ignore_missing_imports = true
+# Do not analyze inside third-party packages: several ship py.typed and use
+# syntax newer than this project's floor, which would fail the run on their
+# source rather than ours.
+follow_imports = "skip"
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
 manifest-path = "bindings/python/Cargo.toml"

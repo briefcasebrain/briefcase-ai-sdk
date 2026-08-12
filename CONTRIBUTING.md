@@ -68,9 +68,15 @@ CI enforces this and the tree is clean, so any new finding is yours. Settings
 live in `.flake8`; the `per-file-ignores` there cover the semantic-convention
 modules, which exist to be star-imported.
 
-`mypy briefcase/` is not clean repo-wide and is not enforced. It is clean for
-`briefcase/integrations/evals` and `briefcase/integrations/gym`; keep those two
-that way (`mypy briefcase/integrations/evals briefcase/integrations/gym`).
+```bash
+mypy briefcase/
+```
+
+Also enforced, and clean. Settings are in `pyproject.toml`; the overrides there
+cover modules with no type information (the compiled `briefcase._native`, the
+optional dependencies behind extras, and the enterprise-only lakeFS module).
+This is not strict mode: the gate is "no new type errors", not "everything is
+annotated".
 
 The codebase is **not** black-formatted, and running `black` would rewrite most
 of it, including merging wrapped strings onto worse lines. Do not run it.

@@ -180,6 +180,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sdist to PyPI without ever building from it, so a manifest change could ship
   an unbuildable source distribution while the in-repo build stayed green;
   `briefcase-core` is a path dependency, which is exactly the fragile case.
+- `mypy briefcase/` is clean across all 90 modules and gated in CI. Settings
+  live in `pyproject.toml`, with overrides for modules that genuinely carry no
+  type information: the compiled extension, the optional dependencies behind
+  extras, and the enterprise-only lakeFS module. Fixing the backlog corrected
+  `BitemporalRecord.source`, annotated as `str` while both backends declare the
+  column nullable and both readers can yield `None`.
+- CI runs every Python example. Nothing did, which is how the Rust example came
+  to reference a dependency path that no longer existed.
 - Lint and format gates now exist and pass. `cargo fmt --all --check` runs in
   CI (19 files had drifted); `flake8` runs over the package, scripts, tests, and
   examples with config in `.flake8` (0 issues, from 1016 at defaults). The dev

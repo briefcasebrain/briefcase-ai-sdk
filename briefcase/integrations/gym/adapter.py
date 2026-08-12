@@ -215,7 +215,7 @@ class GuardrailGymEnv(gymnasium.Env):
         return sorted(values) + [_UNKNOWN]
 
     def _observation(self, request: EvalRequest) -> Dict[str, Any]:
-        context = np.zeros(len(self._context_keys), dtype=np.float64)
+        context: Any = np.zeros(len(self._context_keys), dtype=np.float64)
         for position, key in enumerate(self._context_keys):
             value = request.context.get(key)
             if isinstance(value, (int, float)) and not isinstance(value, bool):

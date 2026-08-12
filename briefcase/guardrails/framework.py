@@ -119,7 +119,7 @@ class PolicySpace:
         rng = random.Random(seed)
         results = []
         for _ in range(n):
-            ctx = {}
+            ctx: Dict[str, Any] = {}
             for attr, bound in self.context_schema.items():
                 lo = max(bound.low, -1e6)
                 hi = min(bound.high, 1e6)

@@ -160,7 +160,7 @@ def _zstd_decompressor() -> Optional[Callable[[bytes], bytes]]:
     except ImportError:
         pass
     try:
-        import pyzstd  # type: ignore[import-not-found]
+        import pyzstd
 
         return pyzstd.decompress
     except ImportError:

@@ -75,7 +75,7 @@ class BitemporalRecord:
     valid_time: datetime
     transaction_time: datetime
     value: Any
-    source: str
+    source: Optional[str]
     decision: Optional[str] = None
     source_trust_level: Optional[str] = None
     parent_record_id: Optional[str] = None
@@ -91,7 +91,7 @@ class BitemporalRecord:
         key: str,
         valid_time: datetime,
         value: Any,
-        source: str,
+        source: Optional[str],
         *,
         transaction_time: Optional[datetime] = None,
         decision: Optional[str] = None,
