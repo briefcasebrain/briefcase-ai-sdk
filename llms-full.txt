@@ -177,13 +177,49 @@ Needs an extra (third-party deps):
 - `pip install briefcase-ai[lakefs]`             # lakeFS versioned storage
 - `pip install briefcase-ai[bitemporal-iceberg]` # pyiceberg + pyarrow backend
 - `pip install briefcase-ai[mcp]`                # MCP server (briefcase-mcp)
+- `pip install briefcase-ai[gym]`                # Gymnasium bridge
+- `pip install briefcase-ai[evals]`              # zstd, for inspect-ai .eval logs
 - `pip install briefcase-ai[all]`                # everything
+
+------------------------------------------------------------------------------
+## 8b. RL and evaluation bridges
+
+`briefcase.integrations.evals` (stdlib only; the `evals` extra adds `zstandard`
+so inspect-ai `.eval` archives can be read on Python < 3.14):
+
+```python
+from briefcase.integrations.evals import EvalRun, from_inspect_log, replay
+
+with EvalRun("gsm8k", model="claude-opus-5") as run:      # -> eval.case records
+    run.log_case("q1", inputs=q, outputs=a, passed=a == target)
+run.summary()                                            # pass_rate, scores, cost
+
+replay(from_inspect_log("logs/run.eval"))                # inspect-ai .json/.eval
+replay(from_lm_eval_results("results.json", "samples.jsonl"))   # lm-eval-harness
+```
+
+`briefcase.integrations.gym` (needs the `gym` extra):
+
+```python
+from briefcase.integrations.gym import GuardrailGymEnv, capture_episodes
+
+env = GuardrailGymEnv(guardrail, tasks, injections)  # single-step bandit
+obs, info = env.reset(seed=0)
+obs, reward, terminated, truncated, info = env.step(0)   # 0 = clean request
+
+capture_episodes(gymnasium.make("CartPole-v1"))          # -> rl.step/rl.episode
+```
+
+Decision types these emit: `eval.case`, `eval.run`, `rl.step`, `rl.episode`.
+They flow through the configured exporter like any `@capture` record.
 
 ------------------------------------------------------------------------------
 ## 9. Common pitfalls
 - Records "disappear": you didn't call `observe(...)`/`setup(exporter=...)`.
 - Non-deterministic in tests: capture exports in a background thread by default;
-  use `@briefcase.capture(async_capture=False)` for inline export.
+  use `@briefcase.capture(async_capture=False)` for inline export. Same for
+  `capture_episodes(env, async_capture=False)`; `EvalRun` already defaults to
+  synchronous export because batch jobs exit immediately.
 - `import briefcase.otel` fails: install `briefcase-ai[otel]`.
 - Logging shows nothing: it's opt-in — call `enable_logging()` or set
   `BRIEFCASE_LOG_LEVEL`.

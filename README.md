@@ -34,6 +34,39 @@ collected on `exporter.records`), a `"*.jsonl"` path, or any
 `briefcase.exporters.BaseExporter` instance — subclass `BaseExporter` to ship
 records to your own backend.
 
+## Evaluations and RL
+
+Two bridges emit decision records from work that is not a single function call.
+Both use the exporter you already configured.
+
+```python
+from briefcase.integrations.evals import EvalRun, from_inspect_log, replay
+
+with EvalRun("gsm8k", model="claude-opus-5") as run:   # one eval.case per case,
+    run.log_case("q1", inputs=q, outputs=a, passed=a == target)   # one eval.run
+print(run.summary()["pass_rate"])
+
+replay(from_inspect_log("logs/2026-08-12_gsm8k.eval"))  # inspect-ai .json/.eval
+```
+
+The parsers are stdlib only and never import the eval framework, so a log can be
+replayed on a machine that has neither installed. See
+[`examples/eval_runs/`](examples/eval_runs/).
+
+```python
+from briefcase.integrations.gym import GuardrailGymEnv, capture_episodes
+
+env = GuardrailGymEnv(guardrail, tasks, injections)  # a guardrail as a gym.Env
+env = capture_episodes(env)                          # rl.step / rl.episode records
+```
+
+Needs `pip install briefcase-ai[gym]`. See [`examples/rl_gym/`](examples/rl_gym/).
+
+`capture_episodes` exports on a background thread by default, since step capture
+is on the hot path. A script that exits right after `close()` can lose its
+records; pass `capture_episodes(env, async_capture=False)` in short runs.
+`EvalRun` already defaults to `async_capture=False` for that reason.
+
 ## Logging
 
 The library is silent by default (it installs only a `NullHandler`). Turn on
@@ -69,6 +102,8 @@ editor rules under [`docs/llm/`](docs/llm/). An MCP server is available via
 | `routing` | Router protocol, agent router, versioned policy registry |
 | `lakefs` | lakeFS versioned storage client |
 | `vcs` | VCS client base protocol |
+| `gym` | Gymnasium bridge: guardrail env adapter and RL episode capture |
+| `evals` | Eval-harness bridge: `EvalRun` logger, inspect-ai / lm-eval parsers (adds `zstandard` for `.eval` archives on Python < 3.14) |
 | `bitemporal` | Bitemporal evidence store, as-of views, append-only corrections |
 | `bitemporal-iceberg` | pyiceberg-backed bitemporal store (any supported catalog) |
 | `compliance` | Examiner bundles joining decision, evidence, and policy version |
@@ -79,8 +114,8 @@ editor rules under [`docs/llm/`](docs/llm/). An MCP server is available via
 Most features are native- or pure-Python-backed and ship with the base package —
 their extras (`replay`, `drift`, `sanitize`, `storage`, `routing`, `bitemporal`,
 `compliance`, …) are convenience groupings that pull in **no** additional
-dependencies. Only `otel`, `lakefs`, `bitemporal-iceberg`, and `mcp` install
-third-party packages.
+dependencies. Only `otel`, `lakefs`, `bitemporal-iceberg`, `gym`, `evals`, and
+`mcp` install third-party packages.
 
 ## Enterprise features
 

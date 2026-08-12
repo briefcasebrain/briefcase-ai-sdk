@@ -29,8 +29,11 @@ def classify(text: str) -> str:     # records inputs, outputs, timing, errors
 - [examples/python-basic](examples/python-basic/basic_usage.py): decision tracking, drift, cost, sanitization
 - [examples/validation](examples/validation/basic_validation.py): pluggable prompt validation
 - [examples/lakefs_versioning](examples/lakefs_versioning/basic_usage.py): versioned data access
+- [examples/eval_runs](examples/eval_runs/main.py): eval results as decision records, inspect-ai / lm-eval replay
+- [examples/rl_gym](examples/rl_gym/main.py): Gymnasium bridge for guardrails, RL episode capture
 
 ## Optional
 - Logging is opt-in: `briefcase.enable_logging("DEBUG")` or `BRIEFCASE_LOG_LEVEL=DEBUG`
 - MCP server: `pip install briefcase-ai[mcp]` then run `briefcase-mcp`
-- Extras map: native/pure-Python features (`drift`, `sanitize`, `storage`, `routing`, `bitemporal`, `compliance`, …) need no extra; only `otel`, `lakefs`, and `bitemporal-iceberg` install third-party packages.
+- Extras map: native/pure-Python features (`drift`, `sanitize`, `storage`, `routing`, `bitemporal`, `compliance`, …) need no extra; only `otel`, `lakefs`, `bitemporal-iceberg`, `gym`, `evals`, and `mcp` install third-party packages.
+- Eval and RL bridges: `briefcase.integrations.evals` (EvalRun, inspect-ai / lm-eval log replay) and `briefcase.integrations.gym` (guardrail env adapter, episode capture) emit the `eval.case`, `eval.run`, `rl.step`, and `rl.episode` decision types.
