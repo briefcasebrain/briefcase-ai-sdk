@@ -86,10 +86,26 @@ impl PySanitizer {
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
     }
 
-    /// Remove pattern
+    /// Remove a pattern by name; accepts the built-in names reported by
+    /// `pii_type` ("email", "ssn", ...) as well as custom pattern names.
+    /// A custom pattern shadowing a built-in name is removed first, so every
+    /// pattern stays removable; a second call then removes the built-in.
     fn remove_pattern(&mut self, pattern_name: String) -> bool {
-        // Convert string to PiiType for removal
-        let pii_type = PiiType::Custom(pattern_name);
+        if self
+            .inner
+            .remove_pattern(&PiiType::Custom(pattern_name.clone()))
+        {
+            return true;
+        }
+        let pii_type = match pattern_name.as_str() {
+            "ssn" => PiiType::Ssn,
+            "credit_card" => PiiType::CreditCard,
+            "email" => PiiType::Email,
+            "phone" => PiiType::Phone,
+            "api_key" => PiiType::ApiKey,
+            "ip_address" => PiiType::IpAddress,
+            _ => return false,
+        };
         self.inner.remove_pattern(&pii_type)
     }
 

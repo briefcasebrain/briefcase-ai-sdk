@@ -52,10 +52,32 @@ class TestSanitizer:
         plain = sanitizer.sanitize("Employee ID: EMP-123456")
         assert "[REDACTED_EMPLOYEE_ID]" not in plain.sanitized
 
-    def test_remove_builtin_pattern_returns_false(self):
+    def test_remove_builtin_pattern_disables_redaction(self):
         sanitizer = Sanitizer()
         removed = sanitizer.remove_pattern("email")
-        assert removed is False
+        assert removed is True
+
+        result = sanitizer.sanitize("Contact john@example.com")
+        assert result.sanitized == "Contact john@example.com"
+
+    def test_remove_unknown_pattern_returns_false(self):
+        sanitizer = Sanitizer()
+        assert sanitizer.remove_pattern("never_added") is False
+
+    def test_remove_pattern_prefers_custom_over_builtin(self):
+        """A custom pattern shadowing a built-in name is removed first; the
+        built-in keeps redacting until a second remove call."""
+        sanitizer = Sanitizer()
+        sanitizer.add_pattern("email", r"\buser-\d{4}\b")
+
+        assert sanitizer.remove_pattern("email") is True
+        result = sanitizer.sanitize("user-1234 wrote to john@example.com")
+        assert "user-1234" in result.sanitized  # custom pattern gone
+        assert "john@example.com" not in result.sanitized  # built-in intact
+
+        assert sanitizer.remove_pattern("email") is True  # now the built-in
+        result = sanitizer.sanitize("Contact john@example.com")
+        assert result.sanitized == "Contact john@example.com"
 
     def test_enable_disable(self):
         sanitizer = Sanitizer()
