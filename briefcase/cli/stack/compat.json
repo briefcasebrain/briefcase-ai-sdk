@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "briefcase_ai": "4.0.0",
+  "briefcase_ai": "4.0.1",
   "oci_jj_api_min": "v1",
   "oci_jj_image_tag": "0.1.0",
   "registry": "ghcr.io",
