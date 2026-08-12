@@ -188,5 +188,79 @@ class TestIntegration:
         assert storage.health_check() is True
 
 
+class TestPythonToJsonConversion:
+    def test_tuple_value_records_as_list(self):
+        inp = Input("args", (1, 2), "tuple")
+        assert inp.value == [1, 2]
+
+    def test_unsupported_type_raises_type_error(self):
+        with pytest.raises(TypeError):
+            Input("payload", {1, 2, 3}, "set")
+
+    def test_non_string_dict_key_raises_type_error(self):
+        with pytest.raises(TypeError):
+            Input("mapping", {1: "a"}, "dict")
+
+    def test_large_int_round_trips_exactly(self):
+        big = 2**63  # exceeds i64::MAX but fits u64
+        inp = Input("count", big, "int")
+        assert inp.value == big
+        assert isinstance(inp.value, int)
+
+    @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_float_raises_type_error(self, value):
+        """JSON has no NaN or Infinity. Storing null instead is indistinguishable
+        from a field that was never computed, so it raises like every other
+        value with no JSON equivalent."""
+        with pytest.raises(TypeError):
+            Input("score", value, "float")
+
+    def test_non_finite_float_nested_in_a_dict_raises(self):
+        with pytest.raises(TypeError):
+            Input("metrics", {"drift_score": float("nan")}, "dict")
+
+    def test_finite_floats_still_convert(self):
+        assert Input("score", 0.5, "float").value == 0.5
+        assert Input("score", -1.5e300, "float").value == -1.5e300
+
+    def test_datetime_converts_to_an_iso_string(self):
+        """datetime has exactly one JSON form and appears in most real
+        payloads, so raising on it would reject ordinary captures."""
+        from datetime import datetime, timezone
+
+        moment = datetime(2026, 8, 12, 7, 30, tzinfo=timezone.utc)
+        assert Input("seen_at", moment, "datetime").value == moment.isoformat()
+
+    def test_date_and_time_convert_to_iso_strings(self):
+        from datetime import date, time
+
+        assert Input("day", date(2026, 8, 12), "date").value == "2026-08-12"
+        assert Input("at", time(7, 30), "time").value == "07:30:00"
+
+    def test_uuid_converts_to_its_canonical_string(self):
+        import uuid
+
+        value = uuid.UUID("12345678-1234-5678-1234-567812345678")
+        assert Input("trace", value, "uuid").value == str(value)
+
+    def test_datetime_nested_in_a_dict_converts(self):
+        from datetime import datetime, timezone
+
+        moment = datetime(2026, 8, 12, 7, 30, tzinfo=timezone.utc)
+        assert Input("meta", {"seen_at": moment}, "dict").value == {
+            "seen_at": moment.isoformat()
+        }
+
+    def test_types_without_one_obvious_json_form_still_raise(self):
+        """A set has no defined order and a non-str key has no JSON spelling,
+        so these keep raising rather than guessing."""
+        with pytest.raises(TypeError):
+            Input("payload", {1, 2, 3}, "set")
+        with pytest.raises(TypeError):
+            Input("mapping", {1: "a"}, "dict")
+        with pytest.raises(TypeError):
+            Input("obj", object(), "object")
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

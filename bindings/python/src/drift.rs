@@ -106,10 +106,10 @@ impl PyDriftMetrics {
         }
     }
 
-    /// Get total samples (outliers count as proxy)
+    /// Get the number of outputs the metrics were computed over
     #[getter]
     fn total_samples(&self) -> usize {
-        self.inner.outliers.len()
+        self.inner.total_samples
     }
 
     /// Get consensus confidence

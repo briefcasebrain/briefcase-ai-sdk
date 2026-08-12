@@ -72,6 +72,12 @@ class TestDriftCalculator:
         assert "outliers" in obj
         assert "total_samples" in obj
 
+    def test_total_samples_counts_inputs_not_outliers(self):
+        calculator = DriftCalculator()
+        metrics = calculator.calculate_drift(["a", "b", "a"])
+        assert metrics.total_samples == 3
+        assert metrics.to_dict()["total_samples"] == 3
+
 
 class TestDriftIntegration:
     def test_threshold_impact(self):
