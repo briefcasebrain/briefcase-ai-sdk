@@ -53,13 +53,16 @@ impl From<ValidatedClient> for PyValidatedClient {
 /// Validates an API key against the server and caches the result.
 ///
 /// Example:
-///     import briefcase
-///     from briefcase import _native
 ///
-///     briefcase.init()
-///     client = _native.BriefcaseClient("sk-my-key", "http://localhost:8080")
-///     print(client.client_id)
-///     print(client.has_permission("read"))
+/// ```python
+/// import briefcase
+/// from briefcase import _native
+///
+/// briefcase.init()
+/// client = _native.BriefcaseClient("sk-my-key", "http://localhost:8080")
+/// print(client.client_id)
+/// print(client.has_permission("read"))
+/// ```
 #[pyclass(name = "BriefcaseClient")]
 pub struct PyBriefcaseClient {
     inner: BriefcaseClient,
@@ -73,14 +76,19 @@ impl PyBriefcaseClient {
     ///     api_key: Your Briefcase AI API key.
     ///     server_url: The Briefcase server URL.
     ///     cache_ttl_secs: How long to cache validation results (default: 3600).
+    ///     allow_insecure_http: Permit plain http to a non-loopback server,
+    ///         which sends the API key in cleartext (default: False).
     #[new]
-    #[pyo3(signature = (api_key, server_url, cache_ttl_secs=3600))]
-    fn new(api_key: String, server_url: String, cache_ttl_secs: u64) -> PyResult<Self> {
-        let config = ClientConfig {
-            timeout_secs: 30,
-            cache_ttl_secs,
-            max_retries: 3,
-        };
+    #[pyo3(signature = (api_key, server_url, cache_ttl_secs=3600, allow_insecure_http=false))]
+    fn new(
+        api_key: String,
+        server_url: String,
+        cache_ttl_secs: u64,
+        allow_insecure_http: bool,
+    ) -> PyResult<Self> {
+        let mut config = ClientConfig::default();
+        config.cache_ttl_secs = cache_ttl_secs;
+        config.allow_insecure_http = allow_insecure_http;
         let inner = block_on_result(BriefcaseClient::with_config(&api_key, &server_url, config))?;
         Ok(Self { inner })
     }

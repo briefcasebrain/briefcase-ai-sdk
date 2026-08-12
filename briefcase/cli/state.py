@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 from pathlib import Path
 
@@ -21,7 +22,25 @@ class Store:
             env = os.environ.get("BRIEFCASE_HOME")
             home = Path(env) if env else Path.home() / ".briefcase"
         self.home = Path(home)
-        self.home.mkdir(parents=True, exist_ok=True)
+        # Owner-only: the store holds secret values, so nothing here is group/world readable.
+        # Opening the store tightens the directory and any registry it finds.
+        self.home.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if os.name == "posix":
+            self._restrict(self.home, 0o700)
+            for existing in self.home.glob("*.json"):
+                self._restrict(existing, 0o600)
+
+    @staticmethod
+    def _restrict(path: Path, mode: int) -> None:
+        # Symlinks are skipped: chmod follows them, and a planted link must
+        # not change the mode of a file outside the store.
+        try:
+            if path.is_symlink():
+                return
+            if (path.stat().st_mode & 0o777) != mode:
+                path.chmod(mode)
+        except OSError:
+            pass
 
     # ---- low-level JSON store (atomic) ----
     def _path(self, name: str) -> Path:
@@ -37,13 +56,19 @@ class Store:
         # Serialize first so a non-serializable payload raises *before* we touch any file — the
         # existing registry is left intact and no temp file lingers (see test_failed_save_*).
         data = json.dumps(obj, indent=2, sort_keys=True)
-        tmp = self.home / f".{name}.{os.getpid()}.tmp"
+        # mkstemp gives a per-call unique 0600 temp file, so concurrent writers
+        # never collide; os.replace carries the mode onto the final file.
+        fd, tmp = tempfile.mkstemp(dir=self.home, prefix=f".{name}.", suffix=".tmp")
         try:
-            tmp.write_text(data)
+            with os.fdopen(fd, "w") as f:
+                f.write(data)
             os.replace(tmp, self._path(name))  # atomic on POSIX
-        finally:
-            if tmp.exists():
-                tmp.unlink()
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except FileNotFoundError:
+                pass
+            raise
 
     # ---- datasets ----
     def register_dataset(self, name: str, uri: str) -> dict:

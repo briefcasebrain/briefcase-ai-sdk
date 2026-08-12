@@ -1,3 +1,4 @@
+use briefcase_core::storage::{SnapshotQuery, SqliteBackend, StorageBackend};
 use briefcase_core::*;
 use serde_json::json;
 
@@ -106,6 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("   Created replay policy: {}", policy.name);
     println!("   Policy rules: {}", policy.rules.len());
+    println!("   Replay mode: {:?}", replay_engine.default_mode());
 
     println!("\n All examples completed successfully!");
     Ok(())

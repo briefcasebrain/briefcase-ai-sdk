@@ -29,7 +29,10 @@ impl Sanitizer {
         );
         patterns.insert(
             PiiType::CreditCard,
-            Regex::new(r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b").unwrap(),
+            // 13-19 digit card numbers, contiguous or grouped by single spaces
+            // or hyphens (covers 4-4-4-4, Amex 4-6-5, Diners 4-6-4). Which
+            // candidates are redacted is decided by `is_card_candidate`.
+            Regex::new(r"\b\d{4}[-\s]?\d{4,6}[-\s]?\d{4,5}(?:[-\s]?\d{1,4})?\b").unwrap(),
         );
         patterns.insert(
             PiiType::Email,
@@ -110,6 +113,9 @@ impl Sanitizer {
 
         for (pii_type, regex) in &self.patterns {
             for mat in regex.find_iter(text) {
+                if !is_redactable(pii_type, text, &mat) {
+                    continue;
+                }
                 all_matches.push((mat.start(), mat.end(), pii_type.clone()));
             }
         }
@@ -237,6 +243,9 @@ impl Sanitizer {
 
         for (pii_type, regex) in &self.patterns {
             for mat in regex.find_iter(text) {
+                if !is_redactable(pii_type, text, &mat) {
+                    continue;
+                }
                 matches.push(PiiMatch {
                     pii_type: pii_type.clone(),
                     start: mat.start(),
@@ -288,6 +297,95 @@ impl Default for Sanitizer {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Whether a pattern match is redacted, for the types whose regex alone is
+/// too loose to decide.
+fn is_redactable(pii_type: &PiiType, text: &str, mat: &regex::Match<'_>) -> bool {
+    match pii_type {
+        // Every digit pattern here can match a prefix of a longer identifier:
+        // the card and phone patterns span `-`-grouped digits (so they bite
+        // into a UUID), and the bare SSN branch is `\d{9}`. Redacting part of
+        // an identifier is worse than redacting none of it, so a match that
+        // continues into more digits is not PII.
+        PiiType::CreditCard => {
+            is_card_candidate(mat.as_str()) && is_standalone_run(text, mat.start(), mat.end())
+        }
+        PiiType::Phone | PiiType::Ssn => is_standalone_run(text, mat.start(), mat.end()),
+        _ => true,
+    }
+}
+
+/// Whether a match stands alone rather than continuing into a longer run of
+/// digits, directly or across a single `-`.
+fn is_standalone_run(text: &str, start: usize, end: usize) -> bool {
+    let mut before = text[..start].chars().rev();
+    let mut after = text[end..].chars();
+    !continues(before.next(), before.next()) && !continues(after.next(), after.next())
+}
+
+/// Whether `adjacent`, optionally across one hyphen, reaches another digit.
+///
+/// Only `-` counts as a continuation. Whitespace separates two distinct values
+/// far more often than it groups one (`4111111111111111 5500000000000004` is
+/// two cards), so treating it as a continuation leaves both in the clear.
+fn continues(adjacent: Option<char>, beyond: Option<char>) -> bool {
+    match adjacent {
+        Some(c) if c.is_ascii_digit() => true,
+        Some('-') => beyond.is_some_and(|c| c.is_ascii_digit()),
+        _ => false,
+    }
+}
+
+/// Whether a card-shaped match is redacted as a credit card. A 16 digit run
+/// is redacted on shape alone; other lengths must pass the Luhn checksum and
+/// start with a card issuer digit, because Luhn alone accepts roughly one in
+/// ten arbitrary digit runs and would swallow timestamps and identifiers.
+/// Non-ASCII decimal digits defeat the Luhn check, so any match containing
+/// them is redacted outright; over-redaction is the safe direction.
+fn is_card_candidate(candidate: &str) -> bool {
+    let ascii_digits = candidate.chars().filter(char::is_ascii_digit).count();
+    let all_digits = candidate.chars().filter(|c| c.is_numeric()).count();
+    if all_digits != ascii_digits {
+        return true;
+    }
+    ascii_digits == 16 || (luhn_valid(candidate) && has_issuer_prefix(candidate))
+}
+
+/// Whether the run starts with a major-issuer digit: 3 (Amex, Diners, JCB),
+/// 4 (Visa), 5 (Mastercard, Maestro), or 6 (Discover, UnionPay, Maestro).
+/// Epoch-millisecond timestamps and snowflake identifiers start with 1, 7, 8,
+/// or 9, so this keeps them out without dropping any issued card range.
+fn has_issuer_prefix(candidate: &str) -> bool {
+    matches!(
+        candidate.chars().find(char::is_ascii_digit),
+        Some('3'..='6')
+    )
+}
+
+/// Luhn checksum over the digits in `candidate`, ignoring separator
+/// characters. Requires at least 13 digits so shorter numeric runs never
+/// qualify as card numbers.
+fn luhn_valid(candidate: &str) -> bool {
+    let mut sum = 0u32;
+    let mut digits = 0usize;
+    for c in candidate.chars().rev() {
+        let Some(d) = c.to_digit(10) else { continue };
+        sum += if digits % 2 == 1 {
+            let doubled = d * 2;
+            if doubled > 9 {
+                doubled - 9
+            } else {
+                doubled
+            }
+        } else {
+            d
+        };
+        digits += 1;
+    }
+    // `%` rather than `u32::is_multiple_of`, which is stable only from 1.87
+    // and would raise this crate's MSRV two releases above its dependencies'.
+    digits >= 13 && sum % 10 == 0
 }
 
 #[derive(Debug, Clone)]
@@ -404,11 +502,182 @@ mod tests {
     fn test_credit_card_sanitization() {
         let sanitizer = Sanitizer::new();
 
+        let result = sanitizer.sanitize("Card number: 4532-0151-1283-0366");
+        assert_eq!(result.sanitized, "Card number: [REDACTED_CREDIT_CARD]");
+
+        let result = sanitizer.sanitize("Card: 4532015112830366");
+        assert_eq!(result.sanitized, "Card: [REDACTED_CREDIT_CARD]");
+    }
+
+    #[test]
+    fn test_credit_card_16_digit_redacted_without_luhn() {
+        let sanitizer = Sanitizer::new();
+
+        // 16 digit runs are redacted on shape alone, so a mistyped or
+        // synthetic card number never survives sanitization.
         let result = sanitizer.sanitize("Card number: 4532-1234-5678-9012");
         assert_eq!(result.sanitized, "Card number: [REDACTED_CREDIT_CARD]");
 
         let result = sanitizer.sanitize("Card: 4532123456789012");
         assert_eq!(result.sanitized, "Card: [REDACTED_CREDIT_CARD]");
+    }
+
+    #[test]
+    fn test_credit_card_non_ascii_digits_redacted() {
+        let sanitizer = Sanitizer::new();
+
+        // Fullwidth digits: Luhn cannot be computed, so the run is redacted.
+        let result = sanitizer.sanitize("Card: ４５３２０１５１１２８３０３６６");
+        assert_eq!(result.sanitized, "Card: [REDACTED_CREDIT_CARD]");
+
+        // Arabic-Indic digits.
+        let result = sanitizer.sanitize("Card: ٤٥٣٢٠١٥١١٢٨٣٠٣٦٦");
+        assert_eq!(result.sanitized, "Card: [REDACTED_CREDIT_CARD]");
+    }
+
+    #[test]
+    fn test_credit_card_15_digit_amex() {
+        let sanitizer = Sanitizer::new();
+
+        let result = sanitizer.sanitize("Amex: 378282246310005");
+        assert_eq!(result.sanitized, "Amex: [REDACTED_CREDIT_CARD]");
+
+        let result = sanitizer.sanitize("Amex: 3782-822463-10005");
+        assert_eq!(result.sanitized, "Amex: [REDACTED_CREDIT_CARD]");
+
+        let result = sanitizer.sanitize("Amex: 3782 822463 10005");
+        assert_eq!(result.sanitized, "Amex: [REDACTED_CREDIT_CARD]");
+    }
+
+    #[test]
+    fn test_credit_card_14_digit_diners() {
+        let sanitizer = Sanitizer::new();
+
+        let result = sanitizer.sanitize("Diners: 30569309025904");
+        assert_eq!(result.sanitized, "Diners: [REDACTED_CREDIT_CARD]");
+
+        let result = sanitizer.sanitize("Diners: 3056-930902-5904");
+        assert_eq!(result.sanitized, "Diners: [REDACTED_CREDIT_CARD]");
+    }
+
+    #[test]
+    fn test_credit_card_13_digit() {
+        let sanitizer = Sanitizer::new();
+
+        let result = sanitizer.sanitize("Visa: 4222222222222");
+        assert_eq!(result.sanitized, "Visa: [REDACTED_CREDIT_CARD]");
+    }
+
+    #[test]
+    fn test_credit_card_luhn_valid_non_card_prefixes_are_kept() {
+        let sanitizer = Sanitizer::new();
+
+        // Luhn passes on roughly one in ten arbitrary digit runs, so it cannot
+        // gate redaction alone: these are an epoch-millisecond timestamp and
+        // snowflake-shaped identifiers, and redacting them destroys real data.
+        for value in ["1699999999996", "9876543210987", "1234567890123456785"] {
+            let text = format!("id {}", value);
+            let result = sanitizer.sanitize(&text);
+            assert_eq!(result.sanitized, text, "{} was redacted as a card", value);
+        }
+    }
+
+    #[test]
+    fn test_adjacent_pii_is_all_redacted() {
+        let sanitizer = Sanitizer::new();
+
+        // A separator between two values is a delimiter, not a continuation.
+        // Treating it as one leaves both values in the clear, which is the
+        // worst outcome available: a silent PII leak on a green test run.
+        for (input, expected) in [
+            (
+                "cards 4111111111111111 5500000000000004",
+                "cards [REDACTED_CREDIT_CARD] [REDACTED_CREDIT_CARD]",
+            ),
+            (
+                "cards 4111111111111111, 5500000000000004",
+                "cards [REDACTED_CREDIT_CARD], [REDACTED_CREDIT_CARD]",
+            ),
+            (
+                "cards 4111111111111111\n5500000000000004",
+                "cards [REDACTED_CREDIT_CARD]\n[REDACTED_CREDIT_CARD]",
+            ),
+            (
+                "phones 555-123-4567 555-987-6543",
+                "phones [REDACTED_PHONE] [REDACTED_PHONE]",
+            ),
+            (
+                "ssns 123-45-6789 987-65-4321",
+                "ssns [REDACTED_SSN] [REDACTED_SSN]",
+            ),
+        ] {
+            assert_eq!(
+                sanitizer.sanitize(input).sanitized,
+                expected,
+                "input: {}",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_pii_after_an_unrelated_number_is_redacted() {
+        let sanitizer = Sanitizer::new();
+
+        // The digit before the space belongs to a different value entirely.
+        let result = sanitizer.sanitize("order 12 4111111111111111");
+        assert_eq!(result.sanitized, "order 12 [REDACTED_CREDIT_CARD]");
+    }
+
+    #[test]
+    fn test_uuid_is_not_split_into_card_redactions() {
+        let sanitizer = Sanitizer::new();
+
+        // An all-numeric UUID is hyphen-grouped like a card, and its first 16
+        // digits pass the 16-digit shape rule. Redacting part of it leaves a
+        // mangled identifier that is worse than either extreme.
+        let text = "trace 12345678-1234-5678-1234-567812345678";
+        assert_eq!(sanitizer.sanitize(text).sanitized, text);
+    }
+
+    #[test]
+    fn test_card_inside_a_longer_hyphenated_run_is_kept() {
+        let sanitizer = Sanitizer::new();
+
+        let text = "order 4111-1111-1111-1111-9999";
+        assert_eq!(sanitizer.sanitize(text).sanitized, text);
+    }
+
+    #[test]
+    fn test_credit_card_19_digit_with_card_prefix_redacted() {
+        let sanitizer = Sanitizer::new();
+
+        let result = sanitizer.sanitize("Visa: 4000000000000000006");
+        assert_eq!(result.sanitized, "Visa: [REDACTED_CREDIT_CARD]");
+    }
+
+    #[test]
+    fn test_credit_card_luhn_filter() {
+        let sanitizer = Sanitizer::new();
+
+        // 13 digit epoch-millisecond timestamp: fails Luhn, so it is not
+        // classified as a credit card.
+        let matches = sanitizer.contains_pii("1699999999998");
+        assert!(
+            !matches
+                .iter()
+                .any(|m| matches!(m.pii_type, PiiType::CreditCard)),
+            "non-Luhn digits misclassified as credit card"
+        );
+
+        // Passes the Luhn checksum: must be classified as a credit card.
+        let matches = sanitizer.contains_pii("4111111111111111");
+        assert!(
+            matches
+                .iter()
+                .any(|m| matches!(m.pii_type, PiiType::CreditCard)),
+            "valid card number not classified as credit card"
+        );
     }
 
     #[test]

@@ -2,9 +2,7 @@
 
 use crate::models::{PyDecisionSnapshot, PySnapshot, PySnapshotQuery};
 use crate::runtime::{get_runtime, PythonAsyncExt};
-use briefcase_core::storage::{
-    buffered::BufferedBackend, SqliteBackend, StorageBackend,
-};
+use briefcase_core::storage::{buffered::BufferedBackend, SqliteBackend, StorageBackend};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use std::sync::Arc;

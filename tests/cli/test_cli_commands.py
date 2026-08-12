@@ -1,4 +1,5 @@
 """Command handlers: dependency-injected store + engine, no globals."""
+import io
 from argparse import Namespace
 
 import pytest
@@ -42,10 +43,34 @@ def test_dataset_register_and_list(store, capsys):
     assert "xor" in capsys.readouterr().out
 
 
-def test_secret_set_requires_kv(store):
-    assert commands.cmd_secret_set(Namespace(assignment="NOEQUALS"), store, None) == 2
+def test_secret_set_requires_key(store):
+    assert commands.cmd_secret_set(Namespace(assignment="=v"), store, None) == 2
     assert commands.cmd_secret_set(Namespace(assignment="K=V"), store, None) == 0
     assert store.get_secrets() == {"K": "V"}
+
+
+def test_secret_set_bare_key_reads_value_from_stdin(store, monkeypatch):
+    monkeypatch.setattr("sys.stdin", io.StringIO("hunter2\n"))
+    assert commands.cmd_secret_set(Namespace(assignment="TOKEN"), store, None) == 0
+    assert store.get_secrets() == {"TOKEN": "hunter2"}
+
+
+class _TtyStdin(io.StringIO):
+    def isatty(self):
+        return True
+
+
+def test_secret_set_bare_key_prompts_getpass_on_tty(store, monkeypatch):
+    monkeypatch.setattr("sys.stdin", _TtyStdin())
+    monkeypatch.setattr("getpass.getpass", lambda prompt="": "hunter2")
+    assert commands.cmd_secret_set(Namespace(assignment="TOKEN"), store, None) == 0
+    assert store.get_secrets() == {"TOKEN": "hunter2"}
+
+
+def test_secret_set_bare_key_without_input_errors(store, monkeypatch):
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    assert commands.cmd_secret_set(Namespace(assignment="TOKEN"), store, None) == 2
+    assert store.get_secrets() == {}
 
 
 def test_run_submit_gate_resolves_uri_injects_secrets_records_run(store):
@@ -73,6 +98,16 @@ def test_run_submit_gate_resolves_uri_injects_secrets_records_run(store):
     assert run["status"] == "submitted"
     assert run["dataset_uri"] == "synthetic://xor"
     assert run["mode"] == "gate"
+
+
+def test_inject_env_bare_secret_reads_environ(store, monkeypatch, capsys):
+    monkeypatch.setenv("HUNT_TOKEN", "from-env")
+    monkeypatch.delenv("MISSING_TOKEN", raising=False)
+    env = commands._inject_env(store, ["HUNT_TOKEN", "MISSING_TOKEN"], None)
+    assert env["HUNT_TOKEN"] == "from-env"
+    assert "MISSING_TOKEN" not in env
+    # the drop is surfaced at submit time, where it is diagnosable
+    assert "MISSING_TOKEN" in capsys.readouterr().err
 
 
 def test_run_submit_hunt_uses_hunt_argv(store):

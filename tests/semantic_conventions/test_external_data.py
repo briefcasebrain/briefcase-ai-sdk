@@ -12,13 +12,12 @@ Covers:
   - Snapshot metadata constants
 """
 
-import pytest
 from briefcase.semantic_conventions import external_data
 
 
-# 
+#
 # Helper function
-# 
+#
 
 def get_module_constants(module):
     """Get all uppercase constants from a module."""
@@ -29,9 +28,9 @@ def get_module_constants(module):
     }
 
 
-# 
+#
 # Tests: All constants defined
-# 
+#
 
 def test_external_api_name_defined():
     """Test that EXTERNAL_API_NAME is defined."""
@@ -153,9 +152,9 @@ def test_external_snapshot_location_defined():
     assert hasattr(external_data, 'EXTERNAL_SNAPSHOT_LOCATION')
 
 
-# 
+#
 # Tests: All constants are strings
-# 
+#
 
 def test_all_constants_are_strings():
     """Test that all constants are strings."""
@@ -164,9 +163,9 @@ def test_all_constants_are_strings():
         assert isinstance(value, str), f"{name} is not a string, got {type(value)}"
 
 
-# 
+#
 # Tests: Naming convention (external.*)
-# 
+#
 
 def test_all_constants_follow_naming_convention():
     """Test that all constants follow external.* naming convention."""
@@ -224,9 +223,9 @@ def test_snapshot_constants_have_correct_prefix():
     assert external_data.EXTERNAL_SNAPSHOT_LOCATION.startswith("external.snapshot")
 
 
-# 
+#
 # Tests: Specific constant values
-# 
+#
 
 def test_api_name_value():
     """Test EXTERNAL_API_NAME value."""
@@ -348,9 +347,9 @@ def test_snapshot_location_value():
     assert external_data.EXTERNAL_SNAPSHOT_LOCATION == "external.snapshot.location"
 
 
-# 
+#
 # Tests: Constant count and coverage
-# 
+#
 
 def test_expected_number_of_constants():
     """Test that the module has the expected number of constants."""
@@ -366,9 +365,9 @@ def test_no_duplicate_values():
     assert len(values) == len(set(values)), "Duplicate constant values found"
 
 
-# 
+#
 # Tests: Semantic grouping
-# 
+#
 
 def test_api_group_completeness():
     """Test that all API-related constants are present."""

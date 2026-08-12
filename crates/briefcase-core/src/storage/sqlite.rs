@@ -18,8 +18,16 @@ pub struct SqliteBackend {
 }
 
 impl SqliteBackend {
-    /// Create or open a SQLite database at the given path
+    /// Create or open a SQLite database at the given path.
+    ///
+    /// On Unix a new database file is created owner-only (0600) before SQLite
+    /// opens it, so it is never readable by other users at any point; existing
+    /// files and WAL siblings are tightened best-effort (a file another owner
+    /// shares with this process stays usable even though chmod fails).
+    /// Directory permissions are the caller's responsibility.
     pub fn new(path: impl AsRef<Path>) -> Result<Self, StorageError> {
+        let path = path.as_ref();
+        Self::precreate_owner_only(path);
         let conn = Connection::open(path).map_err(|e| {
             StorageError::ConnectionError(format!("Failed to open database: {}", e))
         })?;
@@ -34,8 +42,51 @@ impl SqliteBackend {
             Self::run_migrations(&conn_guard)?;
         }
 
+        Self::restrict_file_permissions(path);
+
         Ok(backend)
     }
+
+    /// Create the database file with mode 0600 if it does not exist yet.
+    /// SQLite treats an empty file as an empty database. Failures are left
+    /// for Connection::open to surface with its own error.
+    #[cfg(unix)]
+    fn precreate_owner_only(path: &Path) {
+        use std::os::unix::fs::OpenOptionsExt;
+
+        let _ = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(path);
+    }
+
+    #[cfg(not(unix))]
+    fn precreate_owner_only(_path: &Path) {}
+
+    /// Best-effort: restrict the database file and any existing -wal/-shm
+    /// siblings to owner-only access. SQLite creates future siblings with the
+    /// database file's permissions.
+    #[cfg(unix)]
+    fn restrict_file_permissions(path: &Path) {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut targets = vec![path.to_path_buf()];
+        for suffix in ["-wal", "-shm"] {
+            let mut os = path.as_os_str().to_os_string();
+            os.push(suffix);
+            targets.push(std::path::PathBuf::from(os));
+        }
+
+        for target in targets {
+            if target.exists() {
+                let _ = std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600));
+            }
+        }
+    }
+
+    #[cfg(not(unix))]
+    fn restrict_file_permissions(_path: &Path) {}
 
     /// Create an in-memory database (for testing)
     pub fn in_memory() -> Result<Self, StorageError> {
@@ -191,14 +242,24 @@ impl SqliteBackend {
         // Add ordering and pagination
         sql.push_str(" ORDER BY created_at DESC");
 
-        if let Some(limit) = query.limit {
-            sql.push_str(" LIMIT ?");
-            params_vec.push(limit.to_string());
-        }
+        // Content filters run in Rust after the SQL query; when any are
+        // present, pagination also runs in Rust so LIMIT/OFFSET consumes
+        // filtered matches instead of raw rows.
+        let has_content_filters = query.function_name.is_some()
+            || query.module_name.is_some()
+            || query.model_name.is_some()
+            || query.tags.is_some();
 
-        if let Some(offset) = query.offset {
-            sql.push_str(" OFFSET ?");
-            params_vec.push(offset.to_string());
+        if !has_content_filters {
+            if let Some(limit) = query.limit {
+                sql.push_str(" LIMIT ?");
+                params_vec.push(limit.to_string());
+            }
+
+            if let Some(offset) = query.offset {
+                sql.push_str(" OFFSET ?");
+                params_vec.push(offset.to_string());
+            }
         }
 
         // Execute query
@@ -215,6 +276,18 @@ impl SqliteBackend {
             .query_map(param_refs.as_slice(), |row| row.get::<_, String>(0))
             .map_err(|e| StorageError::ConnectionError(format!("Query failed: {}", e)))?;
 
+        // With content filters the page is cut in Rust, so the scan stops as
+        // soon as it holds offset+limit matches. Without that bound a limited
+        // query over a large table would deserialize every row in the range
+        // before discarding all but the page.
+        let wanted = if has_content_filters {
+            query
+                .limit
+                .map(|limit| limit.saturating_add(query.offset.unwrap_or(0)))
+        } else {
+            None
+        };
+
         let mut snapshots = Vec::new();
         for row in rows {
             let data_json =
@@ -225,6 +298,20 @@ impl SqliteBackend {
             // Apply additional filters that require checking the snapshot content
             if self.matches_query_filters(&snapshot, &query) {
                 snapshots.push(snapshot);
+                if wanted.is_some_and(|wanted| snapshots.len() >= wanted) {
+                    break;
+                }
+            }
+        }
+
+        if has_content_filters {
+            let offset = query.offset.unwrap_or(0);
+            if offset >= snapshots.len() {
+                return Ok(Vec::new());
+            }
+            snapshots.drain(..offset);
+            if let Some(limit) = query.limit {
+                snapshots.truncate(limit);
             }
         }
 
@@ -464,6 +551,109 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decisions[0].function_name, "test_function");
+    }
+
+    #[tokio::test]
+    async fn test_query_content_filter_with_pagination_keeps_matches() {
+        let backend = SqliteBackend::in_memory().unwrap();
+
+        let make = |fn_name: &str, hours_ago: i64| {
+            let mut snapshot = Snapshot::new(SnapshotType::Session);
+            snapshot.add_decision(DecisionSnapshot::new(fn_name));
+            snapshot.metadata.timestamp = chrono::Utc::now() - chrono::Duration::hours(hours_ago);
+            snapshot
+        };
+
+        // Only the oldest of three snapshots matches the filter
+        backend.save(&make("target", 3)).await.unwrap();
+        backend.save(&make("other", 2)).await.unwrap();
+        backend.save(&make("other", 1)).await.unwrap();
+
+        let query = SnapshotQuery::new()
+            .with_function_name("target")
+            .with_limit(2);
+        let results = backend.query(query).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decisions[0].function_name, "target");
+
+        // Offset applies to filtered matches, not raw rows
+        let query = SnapshotQuery::new()
+            .with_function_name("target")
+            .with_offset(1);
+        let results = backend.query(query).await.unwrap();
+        assert_eq!(results.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_query_content_filter_stops_once_the_page_is_full() {
+        // A content-filtered query must stop reading as soon as it has
+        // offset+limit matches, rather than deserializing every row in the
+        // range and truncating afterwards. The unreadable older row stands in
+        // for the rows a large table would otherwise pay to deserialize: if
+        // the scan reaches it, the query fails instead of returning the page.
+        let backend = SqliteBackend::in_memory().unwrap();
+
+        let make = |hours_ago: i64| {
+            let mut snapshot = Snapshot::new(SnapshotType::Session);
+            snapshot.add_decision(DecisionSnapshot::new("target"));
+            snapshot.metadata.timestamp = chrono::Utc::now() - chrono::Duration::hours(hours_ago);
+            snapshot
+        };
+
+        backend.save(&make(1)).await.unwrap();
+        backend.save(&make(2)).await.unwrap();
+        {
+            let conn = backend.conn.lock().unwrap();
+            conn.execute(
+                "INSERT INTO snapshots (id, snapshot_type, created_at, data_json) \
+                 VALUES ('poison', 'Session', '1999-01-01 00:00:00.000', 'not json')",
+                [],
+            )
+            .unwrap();
+        }
+
+        let query = SnapshotQuery::new()
+            .with_function_name("target")
+            .with_limit(2);
+        let results = backend.query(query).await.unwrap();
+        assert_eq!(results.len(), 2);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_new_creates_owner_only_files() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("decisions.db");
+        let _backend = SqliteBackend::new(&db_path).unwrap();
+
+        let mode = std::fs::metadata(&db_path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "db file mode {:o}", mode);
+
+        for suffix in ["-wal", "-shm"] {
+            let sibling = dir.path().join(format!("decisions.db{}", suffix));
+            if sibling.exists() {
+                let mode = std::fs::metadata(&sibling).unwrap().permissions().mode() & 0o777;
+                assert_eq!(mode, 0o600, "{} mode {:o}", sibling.display(), mode);
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_new_tightens_existing_loose_file() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("decisions.db");
+        drop(SqliteBackend::new(&db_path).unwrap());
+        std::fs::set_permissions(&db_path, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        drop(SqliteBackend::new(&db_path).unwrap());
+
+        let mode = std::fs::metadata(&db_path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "db file mode {:o}", mode);
     }
 
     #[tokio::test]

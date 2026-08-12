@@ -8,7 +8,6 @@ import pytest
 from briefcase.bitemporal import (
     BitemporalRecord,
     InMemoryBitemporalStore,
-    append_correction,
 )
 from briefcase.compliance import ExaminerBundle, BundleIntegrityError
 from briefcase.routing import (
@@ -65,6 +64,7 @@ def _build_scenario():
     decision = router.route(
         {"sanctioned": False, "jurisdiction": "US"},
         evidence_refs=[ofac_clean.record_id],
+        decided_at=_ts(1),
     )
     return evidence, reg, decision, ofac_clean
 

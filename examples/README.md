@@ -33,6 +33,17 @@ Workflow correlation across multiple agents:
 - BriefcaseWorkflowContext
 - Trace propagation
 
+### [RL Gym](rl_gym/)
+Gymnasium bridge for guardrails (needs the `gym` extra):
+- GuardrailBenchmark baseline
+- GuardrailGymEnv as a policy training surface
+- EpisodeCaptureWrapper recording rollouts
+
+### [Eval Runs](eval_runs/)
+Evaluation results as decision records:
+- EvalRun context manager
+- inspect-ai and lm-eval-harness log replay
+
 ## Running Examples
 
 ```bash

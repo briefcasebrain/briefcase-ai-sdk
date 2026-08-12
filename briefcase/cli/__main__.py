@@ -37,8 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     # secret
     sec = sub.add_parser("secret", help="Store and list secrets.").add_subparsers(dest="sub")
-    sec_set = sec.add_parser("set", help="Store a secret as KEY=VALUE.")
-    sec_set.add_argument("assignment", metavar="KEY=VALUE")
+    sec_set = sec.add_parser("set", help="Store a secret.")
+    sec_set.add_argument(
+        "assignment", metavar="KEY[=VALUE]",
+        help="A bare KEY reads the value from stdin (getpass on a tty), keeping it out of argv.",
+    )
     sec_set.set_defaults(func=commands.cmd_secret_set)
     sec.add_parser("list", help="List secret keys (values never shown).").set_defaults(
         func=commands.cmd_secret_list
@@ -54,7 +57,10 @@ def build_parser() -> argparse.ArgumentParser:
     submit.add_argument("--checkpoint", help="Baseline ref to score against.")
     submit.add_argument("--metric", default="f1", help="Verdict metric (default f1).")
     submit.add_argument("--mode", choices=("gate", "hunt"), default="gate")
-    submit.add_argument("--secret", action="append", metavar="KEY=VALUE", help="Inject a secret.")
+    submit.add_argument(
+        "--secret", action="append", metavar="KEY[=VALUE]",
+        help="Inject a secret; a bare KEY takes its value from $KEY in the caller's environment.",
+    )
     submit.add_argument("--env", action="append", metavar="KEY=VALUE", help="Set an env var.")
     submit.set_defaults(func=commands.cmd_run_submit)
 

@@ -9,13 +9,12 @@ Covers:
   - Correlation attribute constants
 """
 
-import pytest
 from briefcase.semantic_conventions import workflow
 
 
-# 
+#
 # Helper function
-# 
+#
 
 def get_module_constants(module):
     """Get all uppercase constants from a module."""
@@ -26,9 +25,9 @@ def get_module_constants(module):
     }
 
 
-# 
+#
 # Tests: All constants defined
-# 
+#
 
 def test_workflow_id_defined():
     """Test that WORKFLOW_ID is defined."""
@@ -90,9 +89,9 @@ def test_parent_span_id_defined():
     assert hasattr(workflow, 'PARENT_SPAN_ID')
 
 
-# 
+#
 # Tests: All constants are strings
-# 
+#
 
 def test_all_constants_are_strings():
     """Test that all constants are strings."""
@@ -101,9 +100,9 @@ def test_all_constants_are_strings():
         assert isinstance(value, str), f"{name} is not a string, got {type(value)}"
 
 
-# 
+#
 # Tests: Naming convention (workflow.*, agent.*, trace.*, parent.*)
-# 
+#
 
 def test_all_constants_follow_naming_convention():
     """Test that all constants follow expected naming conventions."""
@@ -142,9 +141,9 @@ def test_parent_constant_has_correct_prefix():
     assert workflow.PARENT_SPAN_ID.startswith("parent.")
 
 
-# 
+#
 # Tests: Specific constant values
-# 
+#
 
 def test_workflow_id_value():
     """Test WORKFLOW_ID value."""
@@ -206,9 +205,9 @@ def test_parent_span_id_value():
     assert workflow.PARENT_SPAN_ID == "parent.span_id"
 
 
-# 
+#
 # Tests: Constant count and coverage
-# 
+#
 
 def test_expected_number_of_constants():
     """Test that the module has the expected number of constants."""
@@ -224,9 +223,9 @@ def test_no_duplicate_values():
     assert len(values) == len(set(values)), "Duplicate constant values found"
 
 
-# 
+#
 # Tests: Semantic grouping
-# 
+#
 
 def test_workflow_group_completeness():
     """Test that all workflow-level constants are present."""
@@ -264,9 +263,9 @@ def test_correlation_group_completeness():
     assert all(isinstance(c, str) for c in correlation_constants)
 
 
-# 
+#
 # Tests: Logical relationships and usage patterns
-# 
+#
 
 def test_workflow_and_agent_constants_relate():
     """Test that workflow and agent constants form a coherent model."""

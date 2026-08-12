@@ -2,6 +2,7 @@
 Tests for validation semantic conventions.
 """
 
+
 def test_validation_constants_exist():
     """Verify all validation constants are defined."""
     from briefcase.semantic_conventions.validation import (

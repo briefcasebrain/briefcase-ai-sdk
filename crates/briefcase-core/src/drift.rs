@@ -2,8 +2,10 @@ use crate::models::Output;
 use std::collections::HashMap;
 use strsim::normalized_levenshtein;
 
-
+/// Non-exhaustive: an output type, read field-by-field; future additions are
+/// not breaking changes.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct DriftMetrics {
     pub consistency_score: f64, // 0.0 - 1.0, higher = more consistent
     pub agreement_rate: f64,    // Percentage of outputs that match
@@ -11,6 +13,7 @@ pub struct DriftMetrics {
     pub consensus_output: Option<String>,
     pub consensus_confidence: ConsensusConfidence,
     pub outliers: Vec<usize>, // Indices of outlier outputs
+    pub total_samples: usize, // Number of outputs the metrics were computed over
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,6 +64,7 @@ impl DriftCalculator {
                 consensus_output: None,
                 consensus_confidence: ConsensusConfidence::None,
                 outliers: Vec::new(),
+                total_samples: 0,
             };
         }
 
@@ -72,6 +76,7 @@ impl DriftCalculator {
                 consensus_output: Some(outputs[0].clone()),
                 consensus_confidence: ConsensusConfidence::High,
                 outliers: Vec::new(),
+                total_samples: 1,
             };
         }
 
@@ -109,6 +114,7 @@ impl DriftCalculator {
             consensus_output,
             consensus_confidence,
             outliers,
+            total_samples: outputs.len(),
         }
     }
 
@@ -412,6 +418,28 @@ mod tests {
     }
 
     #[test]
+    fn test_total_samples_counts_inputs() {
+        let calculator = DriftCalculator::new();
+
+        assert_eq!(calculator.calculate_drift(&[]).total_samples, 0);
+
+        let one = vec!["a".to_string()];
+        assert_eq!(calculator.calculate_drift(&one).total_samples, 1);
+
+        let many = vec![
+            "answer one".to_string(),
+            "answer one".to_string(),
+            "something else entirely".to_string(),
+        ];
+        let metrics = calculator.calculate_drift(&many);
+        assert_eq!(metrics.total_samples, 3);
+        assert!(
+            metrics.total_samples >= metrics.outliers.len(),
+            "sample count must not be the outlier count"
+        );
+    }
+
+    #[test]
     fn test_drift_status() {
         let calculator = DriftCalculator::new();
 
@@ -422,6 +450,7 @@ mod tests {
             consensus_output: Some("test".to_string()),
             consensus_confidence: ConsensusConfidence::High,
             outliers: Vec::new(),
+            total_samples: 3,
         };
         assert_eq!(
             calculator.get_status(&high_consistency),
@@ -435,6 +464,7 @@ mod tests {
             consensus_output: Some("test".to_string()),
             consensus_confidence: ConsensusConfidence::Medium,
             outliers: Vec::new(),
+            total_samples: 3,
         };
         assert_eq!(
             calculator.get_status(&medium_consistency),
@@ -448,6 +478,7 @@ mod tests {
             consensus_output: Some("test".to_string()),
             consensus_confidence: ConsensusConfidence::Low,
             outliers: Vec::new(),
+            total_samples: 3,
         };
         assert_eq!(
             calculator.get_status(&low_consistency),

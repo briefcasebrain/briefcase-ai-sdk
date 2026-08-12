@@ -13,7 +13,6 @@ Run: python basic_usage.py
 
 import sys
 import time
-from typing import List, Dict, Any
 
 try:
     from briefcase import (
@@ -170,7 +169,7 @@ def demo_cost_analysis():
         print(f"   Potential savings: ${savings:.4f} ({(savings/most_expensive[1].total_cost)*100:.1f}%)")
 
     # Rate cards: same model, different pricing schemes (platform x tier x modifiers)
-    print(f"\n Rate cards for claude-opus-4-8 (500k input + 50k output):")
+    print("\n Rate cards for claude-opus-4-8 (500k input + 50k output):")
     for card in ["standard", "batch", "bedrock:standard,regional", "first_party:fast"]:
         try:
             est = calculator.estimate_cost("claude-opus-4-8", 500_000, 50_000, rate_card=card)
@@ -179,7 +178,7 @@ def demo_cost_analysis():
             print(f"   {card:28} Error: {str(e)[:30]}...")
 
     # Budget monitoring example
-    print(f"\n Budget Monitoring:")
+    print("\n Budget Monitoring:")
     budget_scenarios = [
         (45.0, 100.0),   # OK
         (85.0, 100.0),   # Warning
@@ -193,7 +192,7 @@ def demo_cost_analysis():
         print(f"   {icon} ${spent:5.1f} / ${budget:5.1f} ({status.percent_used:5.1f}%) - {status.status.upper()}")
 
     # Monthly projection
-    print(f"\n Monthly Projection (GPT-4, 5k input + 2k output daily):")
+    print("\n Monthly Projection (GPT-4, 5k input + 2k output daily):")
     try:
         monthly = calculator.project_monthly_cost("gpt-4", 5000, 2000, 30.0)
         print(f"   Monthly: ${monthly:.2f}")
@@ -258,7 +257,7 @@ def demo_data_sanitization():
     print(f"   Sanitized: {json_result.sanitized}")
 
     # Custom pattern example
-    print(f"\n Custom pattern example (Employee IDs):")
+    print("\n Custom pattern example (Employee IDs):")
     sanitizer.add_pattern("employee_id", r"\bEMP-\d{6}\b")
 
     employee_text = "Employee EMP-123456 reported the issue to manager EMP-789012"
@@ -312,7 +311,7 @@ def demo_performance_monitoring():
         avg_confidence = sum(confidences) / len(confidences)
         min_confidence = min(confidences)
 
-        print(f" Batch completed:")
+        print(" Batch completed:")
         print(f"   Requests processed: {len(session.decisions)}")
         print(f"   Total time: {total_time:.1f}ms")
         print(f"   Average time: {avg_time:.1f}ms")
@@ -321,14 +320,14 @@ def demo_performance_monitoring():
 
         # Check for performance issues
         if avg_time > 50:
-            print(f"    Performance alert: Average response time high")
+            print("    Performance alert: Average response time high")
         if min_confidence < 0.8:
-            print(f"    Quality alert: Low confidence detected")
+            print("    Quality alert: Low confidence detected")
 
         return session
 
     # Run performance demo
-    batch_session = simulate_ai_batch_processing(5)
+    simulate_ai_batch_processing(5)
 
 
 def main():

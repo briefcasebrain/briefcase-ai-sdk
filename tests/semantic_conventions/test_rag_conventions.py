@@ -12,13 +12,12 @@ Covers:
   - Version drift detection constants
 """
 
-import pytest
 from briefcase.semantic_conventions import rag
 
 
-# 
+#
 # Helper function
-# 
+#
 
 def get_module_constants(module):
     """Get all uppercase constants from a module."""
@@ -29,9 +28,9 @@ def get_module_constants(module):
     }
 
 
-# 
+#
 # Tests: All constants defined
-# 
+#
 
 def test_rag_document_id_defined():
     """Test that RAG_DOCUMENT_ID is defined."""
@@ -158,9 +157,9 @@ def test_rag_version_drift_reason_defined():
     assert hasattr(rag, 'RAG_VERSION_DRIFT_REASON')
 
 
-# 
+#
 # Tests: All constants are strings
-# 
+#
 
 def test_all_constants_are_strings():
     """Test that all constants are strings."""
@@ -169,9 +168,9 @@ def test_all_constants_are_strings():
         assert isinstance(value, str), f"{name} is not a string, got {type(value)}"
 
 
-# 
+#
 # Tests: Naming convention (rag.*)
-# 
+#
 
 def test_all_constants_follow_naming_convention():
     """Test that all constants follow rag.* naming convention."""
@@ -230,9 +229,9 @@ def test_version_drift_constants_have_correct_prefix():
     assert rag.RAG_VERSION_DRIFT_REASON.startswith("rag.version")
 
 
-# 
+#
 # Tests: Specific constant values
-# 
+#
 
 def test_document_id_value():
     """Test RAG_DOCUMENT_ID value."""
@@ -359,9 +358,9 @@ def test_version_drift_reason_value():
     assert rag.RAG_VERSION_DRIFT_REASON == "rag.version.drift.reason"
 
 
-# 
+#
 # Tests: Constant count and coverage
-# 
+#
 
 def test_expected_number_of_constants():
     """Test that the module has the expected number of constants."""
@@ -377,9 +376,9 @@ def test_no_duplicate_values():
     assert len(values) == len(set(values)), "Duplicate constant values found"
 
 
-# 
+#
 # Tests: Semantic grouping
-# 
+#
 
 def test_document_group_completeness():
     """Test that all document-related constants are present."""

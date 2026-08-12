@@ -271,8 +271,6 @@ def cmd_next(targets: list[Target], bump: str) -> int:
     return 0
 
 
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Synchronize version strings across all package surfaces."

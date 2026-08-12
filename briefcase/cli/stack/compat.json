@@ -1,11 +1,12 @@
 {
   "schema": 1,
-  "briefcase_ai": "3.3.0",
+  "briefcase_ai": "4.0.0",
   "oci_jj_api_min": "v1",
   "oci_jj_image_tag": "0.1.0",
   "registry": "ghcr.io",
   "private_preview": true,
   "oci_jj_images": [
+    "ghcr.io/briefcasebrain/oci-jj-postgres",
     "ghcr.io/briefcasebrain/oci-jj-server",
     "ghcr.io/briefcasebrain/oci-jj-gateway",
     "ghcr.io/briefcasebrain/oci-jj-reconstructor",

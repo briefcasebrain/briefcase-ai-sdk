@@ -2,8 +2,6 @@
 Tests for lakeFS semantic conventions.
 """
 
-import pytest
-
 
 def test_lakefs_conventions():
     """Ensure all convention constants are defined and unique."""

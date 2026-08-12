@@ -24,8 +24,8 @@ class _FakeLakeFS:
     def __init__(self):
         self.objects = {}
 
-    def upload_object(self, repository, branch, path, body):
-        self.objects[path] = body
+    def upload_object(self, path, data, content_type="application/octet-stream"):
+        self.objects[path] = data.decode("utf-8") if isinstance(data, bytes) else data
 
 
 class _Result:

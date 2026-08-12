@@ -4,8 +4,8 @@ use crate::models::PyDecisionSnapshot;
 use crate::runtime::{PythonAsyncExt, PythonAsyncVecExt};
 use crate::storage::PySqliteBackend;
 use briefcase_core::{
-    storage::SqliteBackend,
-    ReplayEngine, ReplayMode, ReplayPolicy, ReplayResult, ReplayStats, ReplayStatus,
+    storage::SqliteBackend, ReplayEngine, ReplayMode, ReplayPolicy, ReplayResult, ReplayStats,
+    ReplayStatus,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
@@ -105,6 +105,7 @@ impl PyReplayEngine {
     }
 
     /// Batch replay multiple snapshots
+    #[pyo3(signature = (snapshot_ids, mode=None, max_concurrent=None))]
     fn replay_batch(
         &self,
         snapshot_ids: Vec<String>,
@@ -130,11 +131,27 @@ impl PyReplayEngine {
         let engine = self.inner.clone();
 
         // Use the global runtime and handle Python object creation outside async
-        let results = PythonAsyncVecExt::block_on_python(engine.replay_batch(
+        // On a partial failure the raise carries the results already computed,
+        // so a caller does not lose the whole batch to one bad snapshot id.
+        let results = PythonAsyncVecExt::block_on_python_partitioned(engine.replay_batch(
             &snapshot_ids,
             replay_mode,
             max_concurrent.unwrap_or(4),
-        ))?;
+        ))?
+        .into_result(|err, successes| {
+            Python::with_gil(|py| {
+                let list = PyList::empty(py);
+                for replay_result in successes {
+                    list.append(Py::new(
+                        py,
+                        PyReplayResult {
+                            inner: replay_result.clone(),
+                        },
+                    )?)?;
+                }
+                err.setattr("results", list)
+            })
+        })?;
 
         Python::with_gil(|py| {
             let list = PyList::empty(py);

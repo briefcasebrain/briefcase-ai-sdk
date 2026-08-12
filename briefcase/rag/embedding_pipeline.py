@@ -310,9 +310,7 @@ class VersionedEmbeddingPipeline:
         if self.lakefs and self.repository:
             path = f"manifests/{index_name}/{manifest_id}.json"
             try:
-                self.lakefs.upload_object(
-                    self.repository, self.branch, path, manifest.to_json()
-                )
+                self.lakefs.upload_object(path, manifest.to_json().encode("utf-8"))
             except Exception as e:
                 logger.warning(f"Failed to upload manifest to lakeFS: {e}")
 

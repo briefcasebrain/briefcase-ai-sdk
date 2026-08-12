@@ -50,23 +50,50 @@ maturin develop                      # build the native extension first
 pytest tests/ -v --tb=short          # Python facade (mocks briefcase._native)
 pytest bindings/python/tests/ -v     # native binding tests (real extension)
 python scripts/check_imports.py      # smoke-test that every submodule imports
+python scripts/version_sync.py check # version strings agree across targets
 ```
 
-Lint and format:
+The two pytest runs must stay in separate processes: `tests/conftest.py`
+installs a mock `briefcase._native` for the whole interpreter, so sharing one
+with the binding tests makes them assert against mocks. A bare `pytest` runs
+only `tests/` (`testpaths` in `pyproject.toml`).
+
+Lint:
 
 ```bash
-black briefcase/ tests/
-flake8 briefcase/ tests/
+flake8 briefcase/ scripts/ tests/ bindings/python/tests/ examples/
+```
+
+CI enforces this and the tree is clean, so any new finding is yours. Settings
+live in `.flake8`; the `per-file-ignores` there cover the semantic-convention
+modules, which exist to be star-imported.
+
+```bash
 mypy briefcase/
 ```
+
+Also enforced, and clean. Settings are in `pyproject.toml`; the overrides there
+cover modules with no type information (the compiled `briefcase._native`, the
+optional dependencies behind extras, and the enterprise-only lakeFS module).
+This is not strict mode: the gate is "no new type errors", not "everything is
+annotated".
+
+The codebase is **not** black-formatted, and running `black` would rewrite most
+of it, including merging wrapped strings onto worse lines. Do not run it.
 
 ### Rust
 
 ```bash
-cargo test -p briefcase-core --locked
-cargo clippy -p briefcase-core --locked -- -D warnings
-cargo fmt --all -- --check
+cargo fmt --all --check
+cargo test -p briefcase-core --locked --all-features
+cargo clippy -p briefcase-core --locked --all-features -- -D warnings
+cargo test -p briefcase-python --locked          # bindings crate unit tests
+cargo clippy -p briefcase-python --locked -- -D warnings
+cargo run --manifest-path examples/rust/Cargo.toml   # standalone example crate
 ```
+
+`--all-features` is not optional: `sanitize` is not a default feature, so a
+narrower run silently compiles out every PII-redaction test.
 
 ## Pull Request Guidelines
 

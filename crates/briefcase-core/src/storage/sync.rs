@@ -103,9 +103,9 @@ impl SyncStorageBackend for SyncSqliteBackend {
     fn flush(&self) -> Result<FlushResult, StorageError> {
         let conn_guard = self.inner.conn.lock().unwrap();
 
-        // Force WAL checkpoint
+        // Force WAL checkpoint; the pragma returns a status row
         conn_guard
-            .execute("PRAGMA wal_checkpoint(TRUNCATE)", [])
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))
             .map_err(|e| {
                 StorageError::ConnectionError(format!("Failed to checkpoint WAL: {}", e))
             })?;
@@ -196,7 +196,7 @@ impl SyncStorageBackend for MemoryStorageBackend {
         let snapshots = self.snapshots.lock().unwrap();
         let mut results = Vec::new();
 
-        for (_, snapshot) in snapshots.iter() {
+        for snapshot in snapshots.values() {
             if matches_query(snapshot, &query) {
                 results.push(snapshot.clone());
             }
@@ -208,13 +208,9 @@ impl SyncStorageBackend for MemoryStorageBackend {
         // Apply pagination
         let offset = query.offset.unwrap_or(0);
         let limit = query.limit.unwrap_or(usize::MAX);
+        let end = offset.saturating_add(limit).min(results.len());
 
-        let end = std::cmp::min(offset + limit, results.len());
-        if offset < results.len() {
-            Ok(results[offset..end].to_vec())
-        } else {
-            Ok(Vec::new())
-        }
+        Ok(results.get(offset..end).unwrap_or(&[]).to_vec())
     }
 
     fn delete(&self, snapshot_id: &str) -> Result<bool, StorageError> {
@@ -363,6 +359,33 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].decisions[0].function_name, "test_function");
+    }
+
+    #[test]
+    fn test_memory_backend_query_offset_without_limit() {
+        let backend = MemoryStorageBackend::new();
+        for _ in 0..3 {
+            backend.save(&create_test_snapshot()).unwrap();
+        }
+
+        let query = SnapshotQuery::new().with_offset(1);
+        let results = backend.query(query).unwrap();
+        assert_eq!(results.len(), 2);
+
+        let query = SnapshotQuery::new().with_offset(5);
+        let results = backend.query(query).unwrap();
+        assert_eq!(results.len(), 0);
+    }
+
+    #[cfg(feature = "sqlite-storage")]
+    #[test]
+    fn test_sync_sqlite_flush_on_file_db() {
+        let dir = tempfile::tempdir().unwrap();
+        let backend = SyncSqliteBackend::new(dir.path().join("test.db")).unwrap();
+        backend.save(&create_test_snapshot()).unwrap();
+
+        let result = backend.flush().unwrap();
+        assert_eq!(result.snapshots_written, 1);
     }
 
     #[cfg(feature = "sqlite-storage")]

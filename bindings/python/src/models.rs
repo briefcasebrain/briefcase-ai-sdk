@@ -646,7 +646,16 @@ impl PySnapshotQuery {
     }
 }
 
-/// Helper function to convert Python objects to serde_json::Value
+/// Name of a Python object's type, for error messages.
+fn python_type_name(any: &Bound<'_, PyAny>) -> String {
+    any.get_type()
+        .name()
+        .map(|n| n.to_string())
+        .unwrap_or_else(|_| "<unknown>".to_string())
+}
+
+/// Helper function to convert Python objects to serde_json::Value.
+/// Raises TypeError for values (or dict keys) that have no JSON equivalent.
 pub fn python_to_json_value(obj: PyObject, py: Python<'_>) -> PyResult<serde_json::Value> {
     if obj.is_none(py) {
         return Ok(serde_json::Value::Null);
@@ -660,21 +669,38 @@ pub fn python_to_json_value(obj: PyObject, py: Python<'_>) -> PyResult<serde_jso
     if let Ok(i) = obj.extract::<i64>(py) {
         return Ok(serde_json::Value::from(i));
     }
+    if let Ok(u) = obj.extract::<u64>(py) {
+        return Ok(serde_json::Value::from(u));
+    }
     if let Ok(f) = obj.extract::<f64>(py) {
-        return Ok(serde_json::Value::from(f));
+        // serde_json maps NaN and +/-Infinity to null, which reads back as a
+        // field that was never computed. Raise instead, like every other value
+        // with no JSON equivalent.
+        return serde_json::Number::from_f64(f)
+            .map(serde_json::Value::Number)
+            .ok_or_else(|| {
+                pyo3::exceptions::PyTypeError::new_err(format!(
+                    "cannot convert non-finite float {} to JSON",
+                    f
+                ))
+            });
     }
     // Handle dict
     if let Ok(dict) = obj.downcast_bound::<pyo3::types::PyDict>(py) {
         let mut map = serde_json::Map::new();
         for (k, v) in dict.iter() {
-            if let Ok(key) = k.extract::<String>() {
-                let val = python_to_json_value(v.unbind(), py)?;
-                map.insert(key, val);
-            }
+            let key = k.extract::<String>().map_err(|_| {
+                pyo3::exceptions::PyTypeError::new_err(format!(
+                    "dict keys must be str to convert to JSON, got {}",
+                    python_type_name(&k)
+                ))
+            })?;
+            let val = python_to_json_value(v.unbind(), py)?;
+            map.insert(key, val);
         }
         return Ok(serde_json::Value::Object(map));
     }
-    // Handle list/tuple
+    // Handle list
     if let Ok(list) = obj.downcast_bound::<pyo3::types::PyList>(py) {
         let mut arr = Vec::new();
         for item in list.iter() {
@@ -682,7 +708,34 @@ pub fn python_to_json_value(obj: PyObject, py: Python<'_>) -> PyResult<serde_jso
         }
         return Ok(serde_json::Value::Array(arr));
     }
-    Ok(serde_json::Value::Null)
+    // Handle tuple
+    if let Ok(tuple) = obj.downcast_bound::<pyo3::types::PyTuple>(py) {
+        let mut arr = Vec::new();
+        for item in tuple.iter() {
+            arr.push(python_to_json_value(item.unbind(), py)?);
+        }
+        return Ok(serde_json::Value::Array(arr));
+    }
+    // Types with exactly one obvious JSON spelling are converted rather than
+    // rejected: date/time objects via isoformat(), UUIDs via str(). They are
+    // ordinary contents of a captured payload, so raising on them would reject
+    // otherwise valid records. Anything whose JSON form would be a guess (a
+    // set has no defined order, an arbitrary object no spelling at all) still
+    // raises instead of being silently nulled.
+    let bound = obj.bind(py);
+    if let Ok(iso) = bound.call_method0("isoformat") {
+        if let Ok(s) = iso.extract::<String>() {
+            return Ok(serde_json::Value::String(s));
+        }
+    }
+    if bound.get_type().name().is_ok_and(|name| name == "UUID") {
+        return Ok(serde_json::Value::String(bound.str()?.extract::<String>()?));
+    }
+
+    Err(pyo3::exceptions::PyTypeError::new_err(format!(
+        "cannot convert Python object of type {} to JSON",
+        python_type_name(bound)
+    )))
 }
 
 /// Helper function to convert serde_json::Value to Python objects
@@ -696,6 +749,8 @@ pub fn json_value_to_python(value: serde_json::Value, py: Python<'_>) -> PyResul
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
                 Ok(i.into_pyobject(py).unwrap().unbind().into())
+            } else if let Some(u) = n.as_u64() {
+                Ok(u.into_pyobject(py).unwrap().unbind().into())
             } else if let Some(f) = n.as_f64() {
                 Ok(f.into_pyobject(py).unwrap().unbind().into())
             } else {

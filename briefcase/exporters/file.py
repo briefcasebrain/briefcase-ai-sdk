@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Optional, TextIO, Union
 
 from briefcase.exporters.base import BaseExporter
 
@@ -25,7 +25,7 @@ class JSONLFileExporter(BaseExporter):
     def __init__(self, path: Union[str, Path]) -> None:
         self._path = Path(path)
         self._lock = threading.Lock()
-        self._fh = None  # type: ignore[var-annotated]
+        self._fh: Optional[TextIO] = None
         parent = self._path.parent
         if parent and not parent.exists():
             parent.mkdir(parents=True, exist_ok=True)

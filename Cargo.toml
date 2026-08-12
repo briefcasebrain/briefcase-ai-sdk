@@ -6,8 +6,11 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.3.0"
+version = "4.0.0"
 edition = "2021"
+# Set by the dependency graph (uuid and getrandom both require 1.85), not by
+# taste. CI builds on exactly this toolchain so it cannot drift upward unnoticed.
+rust-version = "1.85"
 license = "Apache-2.0"
 description = "Open-source decision tracking for AI"
 repository = "https://github.com/briefcasebrain/briefcase-ai-sdk"
@@ -31,7 +34,10 @@ anyhow = "1.0"
 thiserror = "2.0"
 base64 = "0.22"
 futures = "0.3"
-pyo3 = { version = "0.24", features = ["extension-module"] }
+# `extension-module` is NOT enabled here: it tells pyo3 to leave Python symbols
+# to the host interpreter, which makes every test binary unlinkable. maturin
+# supplies it for the wheel via `[tool.maturin] features` in pyproject.toml.
+pyo3 = { version = "0.24" }
 once_cell = "1.19"
 tiktoken-rs = "0.6"
 parking_lot = "0.12"

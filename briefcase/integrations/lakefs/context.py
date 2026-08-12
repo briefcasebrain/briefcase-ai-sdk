@@ -20,7 +20,9 @@ class VersionedContextManager:
         1. Explicit parameters
         2. briefcase_client.config dict
         3. Environment variables (LAKEFS_ENDPOINT, LAKEFS_ACCESS_KEY, LAKEFS_PRIVATE_KEY)
-        4. Default endpoint
+
+    ``mock=True`` yields the offline stub client instead of connecting; see
+    ``VersionedClient``.
 
     Usage:
         with versioned_context(client, "acme", "main") as versioned:
@@ -37,6 +39,7 @@ class VersionedContextManager:
         lakefs_access_key: Optional[str] = None,
         lakefs_secret_key: Optional[str] = None,
         require_live: bool = False,
+        mock: bool = False,
     ):
         self.briefcase_client = briefcase_client
         self.repository = repository
@@ -56,6 +59,7 @@ class VersionedContextManager:
         self.lakefs_access_key = lakefs_access_key
         self.lakefs_secret_key = lakefs_secret_key
         self.require_live = require_live
+        self.mock = mock
 
         self._lakefs_client = None
         self._span = None
@@ -90,6 +94,7 @@ class VersionedContextManager:
             lakefs_access_key=self.lakefs_access_key,
             lakefs_secret_key=self.lakefs_secret_key,
             require_live=self.require_live,
+            mock=self.mock,
         )
 
         return self._lakefs_client

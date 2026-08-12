@@ -18,6 +18,9 @@ pub use sqlite::SqliteBackend;
 pub use sync::SyncSqliteBackend;
 pub use sync::{MemoryStorageBackend, SyncStorageBackend};
 
+/// Persistence contract for snapshots and decisions. Backends store payloads
+/// verbatim; PII sanitization is the capture layer's responsibility and runs
+/// before data reaches a backend.
 #[cfg(feature = "async")]
 #[async_trait]
 pub trait StorageBackend: Send + Sync {

@@ -12,7 +12,6 @@ Provides common functionality for all VCS providers including:
 from typing import Optional, Dict, Any, Tuple, Union
 from datetime import datetime
 from briefcase._logging import get_logger
-import os
 
 from briefcase._otel import trace, HAS_OTEL
 
@@ -79,8 +78,8 @@ class VcsClientBase:
         self.extra = extra
 
         # Version tracking
-        self.version = None
-        self._version_metadata = {}
+        self.version: Optional[str] = None
+        self._version_metadata: Dict[str, Any] = {}
 
         # Initialize provider-specific client (to be implemented by subclasses)
         self._provider_client = None
@@ -103,7 +102,7 @@ class VcsClientBase:
         """
         start_time = datetime.now()
         content = b""
-        metadata = {
+        metadata: Dict[str, Any] = {
             "path": path,
             "provider": self.provider_type,
             "repository": self.repository,

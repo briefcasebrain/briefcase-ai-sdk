@@ -9,12 +9,12 @@ Instrumented retrieval that captures version provenance.
    store and lakeFS commit resolution.
 """
 
-from typing import List, Optional
+from typing import List
 from dataclasses import dataclass
 from briefcase._logging import get_logger
 import warnings
 
-from briefcase.semantic_conventions.rag import *
+from briefcase.semantic_conventions.rag import *  # noqa: F401,F403
 
 logger = get_logger(__name__)
 

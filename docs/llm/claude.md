@@ -19,4 +19,4 @@ def classify(text: str) -> str:
   `briefcase.observe("memory")` (inspect `exporter.records`).
 - Logging is opt-in: `briefcase.enable_logging("DEBUG")` or `BRIEFCASE_LOG_LEVEL`.
 - Most features need no pip extra; only `otel`, `lakefs`, `bitemporal-iceberg`,
-  `mcp` do. Full recipes: the package's `llms-full.txt`.
+  `gym`, `evals`, `mcp` do. Full recipes: the package's `llms-full.txt`.

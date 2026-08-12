@@ -5,6 +5,11 @@ This example demonstrates three patterns for capturing lakeFS commit SHAs:
 1. Context manager (recommended)
 2. Decorator
 3. Direct client usage
+
+It runs offline with mock=True. Against a real lakeFS server, drop mock=True
+and configure the endpoint and credentials (explicit parameters or the
+LAKEFS_ENDPOINT / LAKEFS_ACCESS_KEY / LAKEFS_PRIVATE_KEY environment
+variables); construction raises if either is missing.
 """
 
 from briefcase.integrations.lakefs import (
@@ -12,17 +17,11 @@ from briefcase.integrations.lakefs import (
     versioned,
     VersionedClient
 )
-from unittest.mock import Mock
 
 
-# Mock Briefcase client for this example
+# Stand-in for an authenticated Briefcase client; unused in mock mode
 class MockBriefcaseClient:
-    def __init__(self):
-        self.config = {
-            "lakefs_endpoint": "https://briefcaseai.us-east-1.lakefscloud.io/api/v1",
-            "lakefs_access_key": "your_access_key",
-            "lakefs_secret_key": "your_secret_key"
-        }
+    pass
 
 
 client = MockBriefcaseClient()
@@ -32,7 +31,7 @@ client = MockBriefcaseClient()
 print("Pattern 1: Context Manager")
 print("-" * 50)
 
-with versioned_context(client, "acme-workspace", "main") as lakefs:
+with versioned_context(client, "acme-workspace", "main", mock=True) as lakefs:
     # All file access within this context is automatically tracked
     policy_doc = lakefs.read_object("policies/aetna_medical_necessity_2025_Q1.pdf")
     guidelines = lakefs.read_object("guidelines/cms_coverage_v2.json")
@@ -49,7 +48,7 @@ print("Pattern 2: Decorator")
 print("-" * 50)
 
 
-@versioned(repository="acme-workspace", branch="main")
+@versioned(repository="acme-workspace", branch="main", mock=True)
 def evaluate_prior_auth(claim_data: dict, versioned_client=None) -> dict:
     """
     Evaluate prior authorization using versioned policy documents.
@@ -87,7 +86,8 @@ print("-" * 50)
 versioned_client = VersionedClient(
     repository="acme-workspace",
     branch="main",
-    briefcase_client=client
+    briefcase_client=client,
+    mock=True
 )
 
 # Read multiple files
@@ -107,7 +107,7 @@ print("=" * 50)
 print("All patterns complete!")
 print("=" * 50)
 print()
-print("Note: This example uses mock mode. In production:")
+print("Note: This example uses mock=True. In production:")
 print("  1. Install lakefs SDK: pip install lakefs")
-print("  2. Configure lakefs endpoint and credentials")
-print("  3. Telemetry will be captured with OpenTelemetry")
+print("  2. Set LAKEFS_ENDPOINT, LAKEFS_ACCESS_KEY, LAKEFS_PRIVATE_KEY")
+print("  3. Drop mock=True; all reads then carry real commit SHAs")

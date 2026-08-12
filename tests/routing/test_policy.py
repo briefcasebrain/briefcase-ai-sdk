@@ -240,3 +240,21 @@ def test_agent_routing_decision_serialises():
     assert dd["selected"] == "USDC"
     # decided_at is serialized as ISO-8601 string.
     assert isinstance(dd["decided_at"], str)
+
+
+def test_agent_router_pins_decided_at_when_given():
+    reg = PolicyRegistry()
+    reg.publish(_v1(), valid_from=_ts(0))
+    router = AgentRouter(reg, use_case="x", policy_id="stablecoin_router")
+    d = router.route({"jurisdiction": "US"}, decided_at=_ts(1))
+    assert d.decided_at == _ts(1)
+
+
+def test_agent_router_defaults_decided_at_to_now():
+    reg = PolicyRegistry()
+    reg.publish(_v1(), valid_from=_ts(0))
+    router = AgentRouter(reg, use_case="x", policy_id="stablecoin_router")
+    before = datetime.now(UTC)
+    d = router.route({"jurisdiction": "US"})
+    after = datetime.now(UTC)
+    assert before <= d.decided_at <= after

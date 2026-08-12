@@ -1,0 +1,13 @@
+[flake8]
+max-line-length = 120
+# E203/W503 conflict with black's slicing and line-break style.
+extend-ignore = E203, W503
+exclude = .git,__pycache__,build,dist,target,.venv,venv
+
+# The semantic-convention modules exist to be star-imported: they are flat
+# namespaces of OTel attribute-name constants, and enumerating them at each
+# call site would be noise. F403/F405 are the cost of that deliberate choice.
+per-file-ignores =
+    briefcase/external_data/tracker.py:F403,F405
+    briefcase/validation/engine.py:F403,F405
+    briefcase/rag/retrieval.py:F403,F405
