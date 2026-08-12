@@ -164,6 +164,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `enable_logging(stream=...)` no longer assumes the handler it finds by name
   is a `StreamHandler`. A caller's own handler registered under that name made
   it raise `AttributeError: setStream`.
+- The workspace declares `rust-version = "1.85"`, and CI builds on exactly that
+  toolchain. The Luhn check used `u32::is_multiple_of`, stable only from 1.87,
+  which put the crate two releases above what its dependencies require; it now
+  uses `%`. README links are absolute, so they resolve in the PyPI description
+  as well as on GitHub.
 - The PyPI package carries a description and project links. `readme` and
   `[project.urls]` were absent, so the project page rendered blank with no
   repository or changelog link; `twine check` now gates CI. `black` is dropped

@@ -18,6 +18,13 @@ jobs:
       - name: Cargo fmt
         run: cargo fmt --all --check
 
+      # Builds on exactly the declared rust-version, so a dependency bump or a
+      # newly stabilized method cannot raise the floor without failing here.
+      - name: Build on the declared MSRV
+        run: |
+          rustup toolchain install 1.85.0 --profile minimal
+          cargo +1.85.0 check -p briefcase-core --locked --all-features
+
       # --all-features, not a hand-picked set: `sanitize` is not a default
       # feature, so `--features drift` compiled out every PII-redaction test
       # (70 of 186 tests ran) and a sanitizer regression could pass CI green.

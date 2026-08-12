@@ -383,7 +383,9 @@ fn luhn_valid(candidate: &str) -> bool {
         };
         digits += 1;
     }
-    digits >= 13 && sum.is_multiple_of(10)
+    // `%` rather than `u32::is_multiple_of`, which is stable only from 1.87
+    // and would raise this crate's MSRV two releases above its dependencies'.
+    digits >= 13 && sum % 10 == 0
 }
 
 #[derive(Debug, Clone)]

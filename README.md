@@ -51,7 +51,7 @@ replay(from_inspect_log("logs/2026-08-12_gsm8k.eval"))  # inspect-ai .json/.eval
 
 The parsers are stdlib only and never import the eval framework, so a log can be
 replayed on a machine that has neither installed. See
-[`examples/eval_runs/`](examples/eval_runs/).
+[`examples/eval_runs/`](https://github.com/briefcasebrain/briefcase-ai-sdk/tree/main/examples/eval_runs/).
 
 ```python
 from briefcase.integrations.gym import GuardrailGymEnv, capture_episodes
@@ -60,7 +60,7 @@ env = GuardrailGymEnv(guardrail, tasks, injections)  # a guardrail as a gym.Env
 env = capture_episodes(env)                          # rl.step / rl.episode records
 ```
 
-Needs `pip install briefcase-ai[gym]`. See [`examples/rl_gym/`](examples/rl_gym/).
+Needs `pip install briefcase-ai[gym]`. See [`examples/rl_gym/`](https://github.com/briefcasebrain/briefcase-ai-sdk/tree/main/examples/rl_gym/).
 
 `capture_episodes` exports on a background thread by default, since step capture
 is on the hot path. A script that exits right after `close()` can lose its
@@ -79,9 +79,9 @@ briefcase.enable_logging("DEBUG")     # or set BRIEFCASE_LOG_LEVEL=DEBUG
 
 ## Using with AI tools (Cursor, Claude Code, Codex, …)
 
-This repo ships machine-readable usage guidance: [`llms.txt`](llms.txt) /
-[`llms-full.txt`](llms-full.txt), an [`AGENTS.md`](AGENTS.md), and copy-paste
-editor rules under [`docs/llm/`](docs/llm/). An MCP server is available via
+This repo ships machine-readable usage guidance: [`llms.txt`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/llms.txt) /
+[`llms-full.txt`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/llms-full.txt), an [`AGENTS.md`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/AGENTS.md), and copy-paste
+editor rules under [`docs/llm/`](https://github.com/briefcasebrain/briefcase-ai-sdk/tree/main/docs/llm/). An MCP server is available via
 `pip install briefcase-ai[mcp]` then `briefcase-mcp`.
 
 ## Extras
@@ -108,7 +108,7 @@ editor rules under [`docs/llm/`](docs/llm/). An MCP server is available via
 | `bitemporal-iceberg` | pyiceberg-backed bitemporal store (any supported catalog) |
 | `compliance` | Examiner bundles joining decision, evidence, and policy version |
 | `mcp` | MCP server (`briefcase-mcp`) exposing the SDK to AI agents |
-| `dev` | Dev tooling: pytest, black, mypy, flake8 |
+| `dev` | Dev tooling: pytest, mypy, flake8 |
 | `all` | Installs every optional extra listed above |
 
 Most features are native- or pure-Python-backed and ship with the base package —
@@ -152,4 +152,4 @@ export BRIEFCASE_TELEMETRY=0   # also accepts: false, no, off (case-insensitive)
 
 - Docs: [briefcaseai.io](https://briefcaseai.io)
 - GitHub: [github.com/briefcasebrain/briefcase-ai-sdk](https://github.com/briefcasebrain/briefcase-ai-sdk)
-- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Contributing: [CONTRIBUTING.md](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/CONTRIBUTING.md)
