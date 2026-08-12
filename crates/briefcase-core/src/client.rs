@@ -2,7 +2,9 @@
 //!
 //! The `BriefcaseClient` validates an API key against the Briefcase server,
 //! caches the result, and provides permission-gated access to storage and
-//! other SDK features.
+//! other SDK features. Plain http server URLs are accepted only for loopback
+//! hosts; remote servers require https unless
+//! [`ClientConfig::allow_insecure_http`] is set.
 //!
 //! # Example
 //!
@@ -11,7 +13,7 @@
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let client = BriefcaseClient::new("sk-my-key", "http://localhost:8080").await?;
+//! let client = BriefcaseClient::new("sk-my-key", "https://briefcase.example.com").await?;
 //! println!("Authenticated as: {}", client.client_id());
 //! assert!(client.has_permission("read"));
 //! # Ok(())
@@ -52,7 +54,11 @@ pub struct AuthResponse {
 }
 
 /// Configuration for the client's HTTP behaviour and cache policy.
+///
+/// Non-exhaustive: construct via `ClientConfig::default()` and set fields, so
+/// future additions are not breaking changes.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ClientConfig {
     /// HTTP request timeout in seconds (default: 30).
     pub timeout_secs: u64,
@@ -60,6 +66,9 @@ pub struct ClientConfig {
     pub cache_ttl_secs: u64,
     /// Maximum number of HTTP retries on transient errors (default: 3).
     pub max_retries: u32,
+    /// Allow plain http to non-loopback hosts (default: false). The API key
+    /// travels in the request body, so enabling this sends it in cleartext.
+    pub allow_insecure_http: bool,
 }
 
 impl Default for ClientConfig {
@@ -68,6 +77,7 @@ impl Default for ClientConfig {
             timeout_secs: 30,
             cache_ttl_secs: 3600,
             max_retries: 3,
+            allow_insecure_http: false,
         }
     }
 }
@@ -96,6 +106,21 @@ pub enum ClientError {
     #[cfg(feature = "sqlite-storage")]
     #[error("Storage error: {0}")]
     Storage(#[from] StorageError),
+}
+
+/// True for hosts that resolve to the local machine: "localhost" or a
+/// loopback IP (127.0.0.0/8, ::1). IPv6 hosts arrive bracketed from the URL
+/// parser and are unbracketed before parsing.
+fn is_loopback_host(host: &str) -> bool {
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+    let bare = host
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host);
+    bare.parse::<std::net::IpAddr>()
+        .is_ok_and(|ip| ip.is_loopback())
 }
 
 //  BriefcaseClient
@@ -157,9 +182,41 @@ impl BriefcaseClient {
                 "Server URL must not be empty".into(),
             ));
         }
+        // The API key travels in the request body, so plain http is only
+        // accepted for loopback hosts unless the caller opts in explicitly.
+        if !config.allow_insecure_http {
+            if let Ok(parsed) = reqwest::Url::parse(server_url.trim()) {
+                if parsed.scheme() == "http" && !parsed.host_str().is_some_and(is_loopback_host) {
+                    return Err(ClientError::InvalidArgument(
+                        "Server URL uses http with a non-loopback host; the API key would be sent in cleartext. Use https, or set ClientConfig.allow_insecure_http.".into(),
+                    ));
+                }
+            }
+        }
+
+        // Redirects re-send the key-bearing POST body on 307/308, so the same
+        // loopback-or-opt-in rule applies to every hop, not just the
+        // configured URL.
+        let redirect_policy = if config.allow_insecure_http {
+            reqwest::redirect::Policy::default()
+        } else {
+            reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.previous().len() >= 10 {
+                    return attempt.error("too many redirects");
+                }
+                let next = attempt.url();
+                if next.scheme() == "http" && !next.host_str().is_some_and(is_loopback_host) {
+                    return attempt.error(
+                        "refusing redirect to plain http on a non-loopback host; the API key would be sent in cleartext",
+                    );
+                }
+                attempt.follow()
+            })
+        };
 
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(config.timeout_secs))
+            .redirect(redirect_policy)
             .build()
             .map_err(|e| ClientError::ServerUnreachable(e.to_string()))?;
 
@@ -435,6 +492,7 @@ mod tests {
                 timeout_secs: 1,
                 cache_ttl_secs: 60,
                 max_retries: 0, // don't retry  fast test
+                ..Default::default()
             },
         )
         .await;
@@ -462,6 +520,7 @@ mod tests {
                 timeout_secs: 2,
                 cache_ttl_secs: 60,
                 max_retries: 0,
+                ..Default::default()
             },
         )
         .await;
@@ -511,6 +570,154 @@ mod tests {
         }
     }
 
+    //  Transport security
+
+    #[tokio::test]
+    async fn test_http_non_loopback_allowed_when_opted_in() {
+        // 192.0.2.1 is TEST-NET-1: unroutable, so the attempt fails at the
+        // network layer rather than at the transport-security gate.
+        let result = BriefcaseClient::with_config(
+            "sk-test",
+            "http://192.0.2.1:9",
+            ClientConfig {
+                timeout_secs: 1,
+                cache_ttl_secs: 60,
+                max_retries: 0,
+                allow_insecure_http: true,
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(
+            !matches!(result.unwrap_err(), ClientError::InvalidArgument(_)),
+            "opt-in must bypass the http rejection"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_redirect_to_remote_http_is_refused() {
+        // A trusted endpoint answering with a downgrade redirect must not
+        // cause the key-bearing body to be re-sent over remote plain http.
+        // 192.0.2.1 is TEST-NET-1, so if the redirect were followed the
+        // attempt would fail at the network layer with a non-redirect error.
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/auth/validate"))
+            .respond_with(
+                ResponseTemplate::new(307)
+                    .insert_header("location", "http://192.0.2.1:9/api/v1/auth/validate"),
+            )
+            .mount(&server)
+            .await;
+
+        let result = BriefcaseClient::with_config(
+            "sk-test",
+            &server.uri(),
+            ClientConfig {
+                timeout_secs: 2,
+                cache_ttl_secs: 60,
+                max_retries: 0,
+                ..Default::default()
+            },
+        )
+        .await;
+
+        let msg = result.unwrap_err().to_string();
+        assert!(msg.contains("redirect"), "Got: {}", msg);
+    }
+
+    #[tokio::test]
+    async fn test_http_non_loopback_rejected() {
+        // 192.0.2.1 is TEST-NET-1: never routable, so no key ever leaves.
+        let result = BriefcaseClient::with_config(
+            "sk-test",
+            "http://192.0.2.1:9",
+            ClientConfig {
+                timeout_secs: 1,
+                cache_ttl_secs: 60,
+                max_retries: 0,
+                ..Default::default()
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ClientError::InvalidArgument(msg) => {
+                assert!(msg.contains("https"), "Got: {}", msg);
+            }
+            other => panic!("Expected InvalidArgument, got: {}", other),
+        }
+
+        // Same rejection for a hostname; no DNS lookup or connection happens.
+        let result = BriefcaseClient::with_config(
+            "sk-test",
+            "http://api.example.com:8080",
+            ClientConfig {
+                timeout_secs: 1,
+                cache_ttl_secs: 60,
+                max_retries: 0,
+                ..Default::default()
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ClientError::InvalidArgument(msg) => {
+                assert!(msg.contains("https"), "Got: {}", msg);
+            }
+            other => panic!("Expected InvalidArgument, got: {}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_http_loopback_allowed() {
+        // Loopback http passes the transport check and fails at connect time.
+        for url in ["http://localhost:1", "http://127.0.0.1:1", "http://[::1]:1"] {
+            let result = BriefcaseClient::with_config(
+                "sk-test",
+                url,
+                ClientConfig {
+                    timeout_secs: 1,
+                    cache_ttl_secs: 60,
+                    max_retries: 0,
+                    ..Default::default()
+                },
+            )
+            .await;
+
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                ClientError::ServerUnreachable(_) => {} // expected
+                other => panic!("Expected ServerUnreachable for {}, got: {}", url, other),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_https_non_loopback_allowed() {
+        // https passes the transport check regardless of host.
+        let result = BriefcaseClient::with_config(
+            "sk-test",
+            "https://192.0.2.1:9",
+            ClientConfig {
+                timeout_secs: 1,
+                cache_ttl_secs: 60,
+                max_retries: 0,
+                ..Default::default()
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ClientError::ServerUnreachable(_) => {} // expected
+            other => panic!("Expected ServerUnreachable, got: {}", other),
+        }
+    }
+
     //  Cache behaviour
 
     #[tokio::test]
@@ -555,6 +762,7 @@ mod tests {
                 timeout_secs: 5,
                 cache_ttl_secs: 0, // immediate expiry
                 max_retries: 0,
+                ..Default::default()
             },
         )
         .await
@@ -802,6 +1010,7 @@ mod tests {
                     timeout_secs: 5,
                     cache_ttl_secs: 0, // force revalidation each time
                     max_retries: 0,
+                    ..Default::default()
                 },
             )
             .await
@@ -838,6 +1047,7 @@ mod tests {
                 timeout_secs: 2,
                 cache_ttl_secs: 60,
                 max_retries: 0,
+                ..Default::default()
             },
         )
         .await;
@@ -875,6 +1085,7 @@ mod tests {
                 timeout_secs: 2,
                 cache_ttl_secs: 60,
                 max_retries: 0,
+                ..Default::default()
             },
         )
         .await;

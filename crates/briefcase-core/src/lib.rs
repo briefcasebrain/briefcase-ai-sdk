@@ -84,10 +84,7 @@ pub mod replay;
 pub mod sanitization;
 
 // Storage module only available with storage features
-#[cfg(any(
-    feature = "sqlite-storage",
-    feature = "vcs-storage"
-))]
+#[cfg(any(feature = "sqlite-storage", feature = "vcs-storage"))]
 /// Storage backends for persisting decisions and snapshots
 pub mod storage;
 
@@ -118,10 +115,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum BriefcaseError {
-    #[cfg(any(
-        feature = "sqlite-storage",
-        feature = "vcs-storage"
-    ))]
+    #[cfg(any(feature = "sqlite-storage", feature = "vcs-storage"))]
     #[error("Storage error: {0}")]
     Storage(#[from] storage::StorageError),
 

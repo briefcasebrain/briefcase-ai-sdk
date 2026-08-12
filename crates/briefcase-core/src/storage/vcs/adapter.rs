@@ -58,12 +58,27 @@ impl<P: VcsProvider> VcsStorageBackend<P> {
 
     // --- Path helpers ---
 
-    fn snapshot_path(snapshot_id: &str) -> String {
-        format!("snapshots/{}.json", snapshot_id)
+    /// Reject IDs that could escape the object namespace when interpolated
+    /// into a path. Valid IDs are UUIDs and never contain separators or
+    /// dot sequences.
+    fn validate_id(id: &str) -> Result<(), StorageError> {
+        if id.is_empty() || id.contains('/') || id.contains('\\') || id.contains("..") {
+            return Err(StorageError::InvalidQuery(format!(
+                "invalid object id: {:?}",
+                id
+            )));
+        }
+        Ok(())
     }
 
-    fn decision_path(decision_id: &str) -> String {
-        format!("decisions/{}.json", decision_id)
+    fn snapshot_path(snapshot_id: &str) -> Result<String, StorageError> {
+        Self::validate_id(snapshot_id)?;
+        Ok(format!("snapshots/{}.json", snapshot_id))
+    }
+
+    fn decision_path(decision_id: &str) -> Result<String, StorageError> {
+        Self::validate_id(decision_id)?;
+        Ok(format!("decisions/{}.json", decision_id))
     }
 
     // --- Serialization helpers ---
@@ -180,20 +195,20 @@ impl<P: VcsProvider + 'static> StorageBackend for VcsStorageBackend<P> {
 
     async fn save_decision(&self, decision: &DecisionSnapshot) -> Result<String, StorageError> {
         let decision_id = decision.metadata.snapshot_id.to_string();
-        let path = Self::decision_path(&decision_id);
+        let path = Self::decision_path(&decision_id)?;
         let data = Self::serialize_decision(decision)?;
         self.provider.write_object(&path, &data).await?;
         Ok(decision_id)
     }
 
     async fn load(&self, snapshot_id: &str) -> Result<Snapshot, StorageError> {
-        let path = Self::snapshot_path(snapshot_id);
+        let path = Self::snapshot_path(snapshot_id)?;
         let data = self.provider.read_object(&path).await?;
         Self::deserialize_snapshot(&data)
     }
 
     async fn load_decision(&self, decision_id: &str) -> Result<DecisionSnapshot, StorageError> {
-        let path = Self::decision_path(decision_id);
+        let path = Self::decision_path(decision_id)?;
         let data = self.provider.read_object(&path).await?;
         Self::deserialize_decision(&data)
     }
@@ -208,7 +223,11 @@ impl<P: VcsProvider + 'static> StorageBackend for VcsStorageBackend<P> {
 
         for path in &paths {
             // Extract snapshot ID from path: "snapshots/abc123.json" -> "abc123"
-            let snapshot_id = match path.split('/').next_back().and_then(|f| f.strip_suffix(".json")) {
+            let snapshot_id = match path
+                .split('/')
+                .next_back()
+                .and_then(|f| f.strip_suffix(".json"))
+            {
                 Some(id) => id,
                 None => continue,
             };
@@ -236,7 +255,7 @@ impl<P: VcsProvider + 'static> StorageBackend for VcsStorageBackend<P> {
     }
 
     async fn delete(&self, snapshot_id: &str) -> Result<bool, StorageError> {
-        let path = Self::snapshot_path(snapshot_id);
+        let path = Self::snapshot_path(snapshot_id)?;
         self.provider.delete_object(&path).await
     }
 
@@ -263,7 +282,7 @@ impl<P: VcsProvider + 'static> StorageBackend for VcsStorageBackend<P> {
 
         for snapshot in &pending {
             let snapshot_id = snapshot.metadata.snapshot_id.to_string();
-            let path = Self::snapshot_path(&snapshot_id);
+            let path = Self::snapshot_path(&snapshot_id)?;
             let data = Self::serialize_snapshot(snapshot)?;
             total_bytes += data.len();
             self.provider.write_object(&path, &data).await?;
@@ -932,14 +951,42 @@ mod tests {
 
     #[test]
     fn test_snapshot_path_format() {
-        let path = VcsStorageBackend::<MockProvider>::snapshot_path("abc123");
+        let path = VcsStorageBackend::<MockProvider>::snapshot_path("abc123").unwrap();
         assert_eq!(path, "snapshots/abc123.json");
     }
 
     #[test]
     fn test_decision_path_format() {
-        let path = VcsStorageBackend::<MockProvider>::decision_path("def456");
+        let path = VcsStorageBackend::<MockProvider>::decision_path("def456").unwrap();
         assert_eq!(path, "decisions/def456.json");
+    }
+
+    // --- ID validation tests ---
+
+    #[tokio::test]
+    async fn test_traversal_ids_rejected() {
+        let backend = VcsStorageBackend::new(MockProvider::new());
+
+        for id in ["../clients/by-key/abc", "a/b", "a\\b", "..", ""] {
+            assert!(
+                matches!(backend.load(id).await, Err(StorageError::InvalidQuery(_))),
+                "load accepted id {:?}",
+                id
+            );
+            assert!(
+                matches!(
+                    backend.load_decision(id).await,
+                    Err(StorageError::InvalidQuery(_))
+                ),
+                "load_decision accepted id {:?}",
+                id
+            );
+            assert!(
+                matches!(backend.delete(id).await, Err(StorageError::InvalidQuery(_))),
+                "delete accepted id {:?}",
+                id
+            );
+        }
     }
 
     // --- Multi-decision snapshot tests ---

@@ -131,7 +131,6 @@ pub fn hash_api_key(api_key: &str) -> String {
     result.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
-
 //  Local (in-memory) implementation
 
 /// Resolves clients from a static list  typically parsed from env vars.
@@ -559,5 +558,4 @@ mod tests {
         let cp = FallbackControlPlane::new(Box::new(primary), Box::new(secondary));
         assert_eq!(cp.backend_name(), "fallback");
     }
-
 }
