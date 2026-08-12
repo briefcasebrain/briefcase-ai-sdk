@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "briefcase-ai"
-version = "3.3.1"
+version = "4.0.0"
 description = "Open-source decision tracking for AI"
 license = "Apache-2.0"
 requires-python = ">=3.9"
@@ -32,6 +32,12 @@ events = []
 routing = []
 lakefs = ["lakefs>=0.1"]
 vcs = []
+gym = ["gymnasium>=0.29"]
+# The parsers themselves are stdlib only. inspect-ai writes .eval archives with
+# zstd-compressed zip entries (method 93), which stdlib zipfile decodes only on
+# Python 3.14+; the backend is loaded lazily, so a bare install still imports
+# and still reads .json logs and lm-eval results.
+evals = ["zstandard>=0.22; python_version < '3.14'"]
 bitemporal = []
 bitemporal-iceberg = ["pyiceberg[sql-sqlite,pyiceberg-core]>=0.9", "pyarrow>=14"]
 compliance = []
@@ -41,13 +47,18 @@ mcp = ["mcp>=1.2"]
 # grpc_reflection.v1alpha. The subprocess oci-jj fallback (BRIEFCASE_ENGINE=cli) needs none of these.
 run = ["grpcio>=1.60,<2", "grpcio-reflection>=1.60,<2", "protobuf>=4.25"]
 dev = ["pytest", "pytest-mock", "pytest-asyncio", "pytest-subtests", "black", "mypy", "flake8"]
-all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,correlation,external,events,routing,lakefs,vcs,bitemporal,bitemporal-iceberg,compliance,mcp,run]"]
+all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,correlation,external,events,routing,lakefs,vcs,gym,evals,bitemporal,bitemporal-iceberg,compliance,mcp,run]"]
 
 [project.scripts]
 briefcase-mcp = "briefcase.mcp.__main__:main"
 briefcase = "briefcase.cli.__main__:main"
 
 [tool.pytest.ini_options]
+# `tests/` mocks briefcase._native process-wide, so it cannot share an
+# interpreter with bindings/python/tests/ (which needs the real extension).
+# A bare `pytest` therefore collects only the facade suite; CI passes each
+# path explicitly, and an explicit path overrides testpaths.
+testpaths = ["tests"]
 asyncio_mode = "strict"
 markers = [
     "integration: marks tests requiring external services",
