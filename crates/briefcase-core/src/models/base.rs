@@ -272,6 +272,10 @@ impl DecisionSnapshot {
             self.metadata.compute_checksum(&b);
         }
     }
+    /// Hash of the question: function name, input names and values, and the
+    /// model name. Two decisions with the same inputs share a fingerprint
+    /// whatever they answered, which is what makes it useful for grouping and
+    /// lookup. To detect a changed answer, use [`Self::content_hash`].
     pub fn fingerprint(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.function_name.as_bytes());
@@ -288,6 +292,100 @@ impl DecisionSnapshot {
         }
         format!("{:x}", hasher.finalize())
     }
+
+    /// Hash of everything that was decided: inputs, outputs, model parameters
+    /// and their values, module, tags, and any error.
+    ///
+    /// Volatile metadata (snapshot id, timestamps, execution time, the rolling
+    /// `metadata.checksum`) is excluded, so the digest depends only on content
+    /// and a verifier holding the record can recompute it. Map keys are sorted
+    /// so construction order does not change the result.
+    ///
+    /// The hash is unkeyed. It detects corruption and casual edits; anyone who
+    /// can rewrite the record can also recompute the digest, so store it
+    /// somewhere the record's holder cannot reach when it has to stand up to a
+    /// motivated party.
+    pub fn content_hash(&self) -> String {
+        let mut hasher = Sha256::new();
+        let mut field = |label: &str, value: &str| {
+            // Length-prefix each part so no concatenation of one field can
+            // impersonate another.
+            hasher.update(label.as_bytes());
+            hasher.update(value.len().to_le_bytes());
+            hasher.update(value.as_bytes());
+        };
+
+        field("function_name", &self.function_name);
+        field("module_name", self.module_name.as_deref().unwrap_or(""));
+
+        for i in &self.inputs {
+            field("input.name", &i.name);
+            field("input.type", &i.data_type);
+            field("input.value", &canonical_json(&i.value));
+        }
+        for o in &self.outputs {
+            field("output.name", &o.name);
+            field("output.type", &o.data_type);
+            field("output.value", &canonical_json(&o.value));
+            field(
+                "output.confidence",
+                &o.confidence.map(|c| c.to_string()).unwrap_or_default(),
+            );
+        }
+
+        if let Some(p) = &self.model_parameters {
+            field("model.name", &p.model_name);
+            field("model.version", p.model_version.as_deref().unwrap_or(""));
+            field("model.provider", p.provider.as_deref().unwrap_or(""));
+            for (k, v) in sorted_pairs(&p.parameters) {
+                field("model.param", k);
+                field("model.param.value", &canonical_json(v));
+            }
+            for (k, v) in sorted_pairs(&p.hyperparameters) {
+                field("model.hyper", k);
+                field("model.hyper.value", &canonical_json(v));
+            }
+        }
+
+        let mut tags: Vec<_> = self.tags.iter().collect();
+        tags.sort_by(|a, b| a.0.cmp(b.0));
+        for (k, v) in tags {
+            field("tag", k);
+            field("tag.value", v);
+        }
+
+        field("error", self.error.as_deref().unwrap_or(""));
+        field("error_type", self.error_type.as_deref().unwrap_or(""));
+
+        format!("{:x}", hasher.finalize())
+    }
+}
+
+/// Serialize a value with object keys sorted, so two structurally equal values
+/// hash the same however they were built.
+fn canonical_json(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::Object(map) => {
+            let mut keys: Vec<_> = map.keys().collect();
+            keys.sort();
+            let parts: Vec<String> = keys
+                .into_iter()
+                .map(|k| format!("{}:{}", k, canonical_json(&map[k])))
+                .collect();
+            format!("{{{}}}", parts.join(","))
+        }
+        serde_json::Value::Array(items) => {
+            let parts: Vec<String> = items.iter().map(canonical_json).collect();
+            format!("[{}]", parts.join(","))
+        }
+        other => other.to_string(),
+    }
+}
+
+fn sorted_pairs(map: &HashMap<String, serde_json::Value>) -> Vec<(&String, &serde_json::Value)> {
+    let mut pairs: Vec<_> = map.iter().collect();
+    pairs.sort_by(|a, b| a.0.cmp(b.0));
+    pairs
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -332,4 +430,87 @@ pub enum SnapshotType {
 
 fn default_schema_version() -> String {
     "1.0".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn decision(answer: &str) -> DecisionSnapshot {
+        DecisionSnapshot::new("classify_ticket")
+            .add_input(Input::new("text", json!("reset my password"), "string"))
+            .add_output(Output::new("category", json!(answer), "string"))
+            .with_model_parameters(
+                ModelParameters::new("claude-opus-4-5").with_parameter("temperature", json!(0.0)),
+            )
+    }
+
+    #[test]
+    fn fingerprint_identifies_the_inputs_not_the_answer() {
+        // Documented behavior: the fingerprint groups the same question asked twice.
+        assert_eq!(
+            decision("billing").fingerprint(),
+            decision("shipping").fingerprint()
+        );
+    }
+
+    #[test]
+    fn content_hash_covers_the_outputs() {
+        assert_ne!(
+            decision("billing").content_hash(),
+            decision("shipping").content_hash()
+        );
+    }
+
+    #[test]
+    fn content_hash_is_stable_for_identical_content() {
+        assert_eq!(
+            decision("billing").content_hash(),
+            decision("billing").content_hash()
+        );
+    }
+
+    #[test]
+    fn content_hash_ignores_construction_order() {
+        let a = DecisionSnapshot::new("f")
+            .add_input(Input::new("x", json!(1), "int"))
+            .with_module("m");
+        let b = DecisionSnapshot::new("f")
+            .with_module("m")
+            .add_input(Input::new("x", json!(1), "int"));
+        assert_eq!(a.content_hash(), b.content_hash());
+    }
+
+    #[test]
+    fn content_hash_covers_model_parameter_values() {
+        let cold = DecisionSnapshot::new("f").with_model_parameters(
+            ModelParameters::new("m").with_parameter("temperature", json!(0.0)),
+        );
+        let hot = DecisionSnapshot::new("f").with_model_parameters(
+            ModelParameters::new("m").with_parameter("temperature", json!(1.0)),
+        );
+        assert_ne!(cold.content_hash(), hot.content_hash());
+        // The fingerprint hashes only the model name, so it cannot see this.
+        assert_eq!(cold.fingerprint(), hot.fingerprint());
+    }
+
+    #[test]
+    fn content_hash_covers_tags_and_errors() {
+        let plain = decision("billing");
+        let tagged = decision("billing").add_tag("environment", "production");
+        let failed = decision("billing").with_error("boom", None);
+        assert_ne!(plain.content_hash(), tagged.content_hash());
+        assert_ne!(plain.content_hash(), failed.content_hash());
+    }
+
+    #[test]
+    fn content_hash_ignores_volatile_metadata() {
+        // Two records of the same decision differ in id and timestamp; the hash is
+        // over what was decided, so a verifier can recompute it from the content.
+        let a = decision("billing");
+        let mut b = decision("billing");
+        b.metadata.snapshot_id = uuid::Uuid::new_v4();
+        assert_eq!(a.content_hash(), b.content_hash());
+    }
 }

@@ -35,11 +35,83 @@ impl PyBufferedBackend {
         })
     }
 
-    /// Save a decision snapshot
+    /// Buffer a decision and return its id. The write lands when the batch
+    /// fills or `flush()` is called, whichever comes first.
     fn save_decision(&self, decision: PyRef<PyDecisionSnapshot>) -> PyResult<String> {
         let backend = self.inner.clone();
         let decision_inner = decision.inner.clone();
         backend.save_decision(&decision_inner).block_on_python()
+    }
+
+    /// Write every buffered decision to the wrapped backend now.
+    /// Returns how many decisions were written.
+    fn flush(&self) -> PyResult<usize> {
+        let backend = self.inner.clone();
+        backend
+            .flush()
+            .block_on_python()
+            .map(|r| r.snapshots_written)
+    }
+
+    /// Decisions accepted but not yet written.
+    fn pending(&self) -> usize {
+        self.inner.pending()
+    }
+
+    fn load(&self, snapshot_id: String) -> PyResult<PySnapshot> {
+        self.inner
+            .load(&snapshot_id)
+            .block_on_python()
+            .map(|s| PySnapshot { inner: s })
+    }
+
+    /// Load a decision, including one still sitting in the buffer.
+    fn load_decision(&self, decision_id: String) -> PyResult<PyDecisionSnapshot> {
+        self.inner
+            .load_decision(&decision_id)
+            .block_on_python()
+            .map(|d| PyDecisionSnapshot { inner: d })
+    }
+
+    /// Query the wrapped backend. Buffered decisions are not visible until
+    /// they are flushed.
+    fn query(&self, query: PyRef<PySnapshotQuery>) -> PyResult<PyObject> {
+        let snapshots = self.inner.query(query.inner.clone()).block_on_python()?;
+        Python::with_gil(|py| {
+            let list = PyList::empty(py);
+            for s in snapshots {
+                list.append(Py::new(py, PySnapshot { inner: s })?)?;
+            }
+            Ok(list.into())
+        })
+    }
+
+    fn delete(&self, id: String) -> PyResult<bool> {
+        self.inner.delete(&id).block_on_python()
+    }
+
+    fn health_check(&self) -> PyResult<bool> {
+        self.inner.health_check().block_on_python()
+    }
+
+    fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    /// Flush on the way out, so `with BufferedBackend(...)` cannot lose a
+    /// partial batch.
+    fn __exit__(
+        &self,
+        _exc_type: PyObject,
+        _exc_value: PyObject,
+        _traceback: PyObject,
+    ) -> PyResult<bool> {
+        self.flush()?;
+        Ok(false)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("BufferedBackend(pending={})", self.inner.pending())
     }
 }
 

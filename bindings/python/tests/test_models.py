@@ -264,3 +264,30 @@ class TestPythonToJsonConversion:
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+def _decision(answer):
+    d = DecisionSnapshot("classify_ticket")
+    d.add_input(Input("text", "reset my password", "string"))
+    d.add_output(Output("category", answer, "string"))
+    return d
+
+
+def test_fingerprint_identifies_the_inputs_not_the_answer():
+    """Documented behavior: it groups the same question asked twice."""
+    assert _decision("billing").fingerprint() == _decision("shipping").fingerprint()
+
+
+def test_content_hash_covers_the_answer():
+    assert _decision("billing").content_hash() != _decision("shipping").content_hash()
+
+
+def test_content_hash_is_stable_for_identical_content():
+    assert _decision("billing").content_hash() == _decision("billing").content_hash()
+
+
+def test_content_hash_covers_tags():
+    plain = _decision("billing")
+    tagged = _decision("billing")
+    tagged.add_tag("environment", "production")
+    assert plain.content_hash() != tagged.content_hash()

@@ -30,6 +30,22 @@ pub trait StorageBackend: Send + Sync {
     /// Save a single decision snapshot
     async fn save_decision(&self, decision: &DecisionSnapshot) -> Result<String, StorageError>;
 
+    /// Save many decisions in one round trip, returning their ids in order.
+    ///
+    /// The default writes them one at a time. Backends that can commit a group
+    /// atomically should override this; [`buffered::BufferedBackend`] is built
+    /// on it.
+    async fn save_decisions(
+        &self,
+        decisions: &[DecisionSnapshot],
+    ) -> Result<Vec<String>, StorageError> {
+        let mut ids = Vec::with_capacity(decisions.len());
+        for decision in decisions {
+            ids.push(self.save_decision(decision).await?);
+        }
+        Ok(ids)
+    }
+
     /// Load a snapshot by ID
     async fn load(&self, snapshot_id: &str) -> Result<Snapshot, StorageError>;
 

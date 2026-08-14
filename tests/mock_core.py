@@ -28,6 +28,8 @@ class MockDecision:
 
     def fingerprint(self): return "mock-fingerprint"
 
+    def content_hash(self): return "mock-content-hash"
+
 
 class MockHardware:
     def __init__(self, t, n):

@@ -2,6 +2,7 @@
 Tests for the guardrail framework wrappers and registry helpers.
 """
 
+import time
 
 from briefcase.guardrails.framework import (
     BaseGuardrailEnv,
@@ -9,6 +10,7 @@ from briefcase.guardrails.framework import (
     Effect,
     EvalRequest,
     EvalResult,
+    TimeoutWrapper,
     _default_registry,
     register,
 )
@@ -90,3 +92,49 @@ def test_module_register_splits_registry_params_from_ctor_kwargs():
         assert spec.description == "desc"
     finally:
         _default_registry._specs.pop(guardrail_id, None)
+
+
+class SlowEnv(BaseGuardrailEnv):
+    """Allows everything, after a delay."""
+
+    _name = "slow"
+
+    def __init__(self, delay_seconds):
+        self.delay = delay_seconds
+        self.completed = 0
+
+    def evaluate(self, request):
+        time.sleep(self.delay)
+        self.completed += 1
+        return EvalResult(effect=Effect.ALLOW, guardrail_name=self._name)
+
+
+def test_timeout_wrapper_returns_before_a_slow_guardrail_finishes():
+    """The deadline bounds the caller's wait, not just the reported effect."""
+    env = SlowEnv(2.0)
+    wrapper = TimeoutWrapper(env, max_ms=50.0)
+
+    start = time.monotonic()
+    result = wrapper.evaluate(_request(0))
+    elapsed_ms = (time.monotonic() - start) * 1000.0
+
+    assert result.effect is Effect.DENY
+    assert result.metadata["timeout"] is True
+    assert elapsed_ms < 1000.0, f"waited {elapsed_ms:.0f}ms for a 50ms deadline"
+
+
+def test_timeout_wrapper_passes_a_fast_result_through():
+    env = SlowEnv(0.0)
+    wrapper = TimeoutWrapper(env, max_ms=5000.0)
+
+    result = wrapper.evaluate(_request(0))
+
+    assert result.effect is Effect.ALLOW
+    assert result.metadata.get("timeout") is None
+    assert env.completed == 1
+
+
+def test_timeout_wrapper_fallback_effect_is_configurable():
+    wrapper = TimeoutWrapper(SlowEnv(2.0), max_ms=50.0, fallback_effect=Effect.ALLOW)
+
+    assert wrapper.evaluate(_request(0)).effect is Effect.ALLOW
