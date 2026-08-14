@@ -4,6 +4,63 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-08-13
+
+Five surfaces described behavior they did not have. Each is now implemented and
+covered by a test that was watched failing against the old code.
+
+### Added
+- `ReplayEngine.with_executor(fn)` (Python and Rust) makes a replay re-execute.
+  `fn` receives the recorded inputs as a dict and returns the current build's
+  outputs, either as a dict of names to values or a single value recorded as
+  `result`. `outputs_match` and every policy rule now compare a fresh answer
+  against the recorded one.
+- `DecisionSnapshot.content_hash()` hashes what was decided: inputs, outputs,
+  model parameters and their values, module, tags, and any error. Ids,
+  timestamps, and execution time are excluded so a verifier holding the record
+  can recompute it. Map keys are sorted, so construction order does not change
+  the digest.
+- `StorageBackend::save_decisions` writes many decisions in one round trip.
+  `SqliteBackend` commits them in a single transaction.
+- `BufferedBackend` gains `flush()`, `pending()`, the read methods, and the
+  context-manager protocol in Python.
+
+### Changed
+- `BufferedBackend` batches. Decisions are held until `buffer_size` accumulate,
+  then committed together; previously every `save_decision` waited for its own
+  write, so `buffer_size` bounded queued writes rather than grouping them.
+  `save_decision` still returns a usable id immediately and `load_decision`
+  finds a decision that is still buffered. Pending decisions live in memory, so
+  use the context manager or call `flush()`; dropping a backend with unflushed
+  decisions warns on stderr.
+- `TimeoutWrapper` enforces its deadline. Evaluation runs on a worker thread and
+  the wrapper stops waiting at `max_ms`; a guardrail blocking 5s under a 50ms
+  deadline now returns `DENY` in about 55ms rather than after 5s. Python cannot
+  cancel the call, so the guardrail keeps running and its answer is discarded.
+  Costs about 45us per evaluation.
+- A replay with no executor reports status `"pending"` with `outputs_match`
+  `False`, where it previously reported `"success"` with `outputs_match` `True`.
+  Nothing was compared, and "not checked" must not read as "verified".
+- Replay policy rules are evaluated. `with_exact_match` compares the recorded
+  and replayed values; `with_similarity_threshold` scores them by normalized
+  Levenshtein distance. Both previously passed unconditionally, and a similarity
+  rule only reported a violation when its threshold was at or below 0.5, with a
+  constant as the actual value. Rules on a replay that did not re-execute report
+  `actual: "not replayed"` rather than passing.
+- Replay policy fields resolve against named outputs. `with_exact_match("category")`
+  now finds the output called `category`; field lookup previously recognized only
+  `function_name`, `execution_time_ms`, and `output`, so any other rule silently
+  matched nothing.
+- `BufferedBackend.flush()` reports the decisions that call wrote.
+  `SqliteBackend.flush()` returns the table's whole row count, which was being
+  added to it.
+
+### Note on `fingerprint()`
+`fingerprint()` is unchanged and still hashes only the function name, inputs, and
+model name, so stored fingerprints stay valid. It identifies the question, not the
+answer; documentation that called it tamper-evident was wrong. Use
+`content_hash()` when a changed output has to be detectable.
+
 ## [4.0.1] - 2026-08-12
 
 ### Fixed

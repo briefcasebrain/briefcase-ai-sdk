@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import fnmatch
 import re
+import threading
 import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -441,11 +442,19 @@ class CacheWrapper(GuardrailWrapper):
 
 
 class TimeoutWrapper(GuardrailWrapper):
-    """Hard timeout with configurable fallback effect.
+    """Deadline with a configurable fallback effect.
 
-    If evaluation exceeds max_ms, returns fallback_effect (default: DENY,
-    preserving deny-by-default). Like gymnasium.wrappers.TimeLimit but for
-    wall-clock time rather than step count.
+    Evaluation runs on a worker thread and the caller waits at most max_ms for
+    it. Past the deadline the wrapper returns fallback_effect (default: DENY,
+    preserving deny-by-default) without waiting any longer.
+
+    Python cannot cancel a running call, so the wrapped guardrail keeps
+    executing on its daemon thread and its result is discarded. The deadline
+    bounds the caller's wait, not the guardrail's work: a guardrail that blocks
+    forever leaks one thread per evaluation.
+
+    The worker thread costs about 45us per evaluation. Stack CacheWrapper
+    inside this one when that matters.
     """
 
     def __init__(
@@ -459,19 +468,34 @@ class TimeoutWrapper(GuardrailWrapper):
         self._fallback = fallback_effect
 
     def evaluate(self, request: EvalRequest) -> EvalResult:
+        outcome: List[Any] = []
+
+        def _run() -> None:
+            try:
+                outcome.append((True, self.env.evaluate(request)))
+            except BaseException as exc:  # surfaced to the caller below
+                outcome.append((False, exc))
+
         start = time.monotonic()
-        result = self.env.evaluate(request)
+        worker = threading.Thread(target=_run, daemon=True)
+        worker.start()
+        worker.join(timeout=self._max_ms / 1000.0)
         elapsed_ms = (time.monotonic() - start) * 1000.0
-        if elapsed_ms > self._max_ms:
+
+        if worker.is_alive() or not outcome:
             return EvalResult(
                 effect=self._fallback,
                 guardrail_name=self.name,
-                reason=f"Timeout: {elapsed_ms:.1f}ms > {self._max_ms}ms",
+                reason=f"Timeout: exceeded {self._max_ms}ms deadline",
                 eval_time_ms=elapsed_ms,
-                metadata={"timeout": True, "original_effect": result.effect.value},
+                metadata={"timeout": True},
             )
-        result.eval_time_ms = elapsed_ms
-        return result
+
+        succeeded, value = outcome[0]
+        if not succeeded:
+            raise value
+        value.eval_time_ms = elapsed_ms
+        return value
 
 
 class AuditWrapper(GuardrailWrapper):

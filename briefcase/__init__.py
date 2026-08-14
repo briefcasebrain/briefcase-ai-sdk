@@ -1,6 +1,6 @@
 """Briefcase AI — Open-source decision tracking for AI."""
 
-__version__ = "4.0.1"
+__version__ = "4.1.0"
 
 # Configure the library logger first (NullHandler by default; opt-in output via
 # enable_logging() or BRIEFCASE_LOG_LEVEL) before any submodule logs.

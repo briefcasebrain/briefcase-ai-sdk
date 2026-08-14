@@ -1,14 +1,82 @@
 //! Python bindings for replay functionality
 
-use crate::models::PyDecisionSnapshot;
+use crate::models::{json_value_to_python, python_to_json_value, PyDecisionSnapshot};
 use crate::runtime::{PythonAsyncExt, PythonAsyncVecExt};
 use crate::storage::PySqliteBackend;
+use async_trait::async_trait;
+use briefcase_core::models::{ExecutionContext, Input, ModelParameters, Output};
+use briefcase_core::replay::{ExecutionConfig, ExecutionResult, ModelExecutor, ReplayError};
 use briefcase_core::{
     storage::SqliteBackend, ReplayEngine, ReplayMode, ReplayPolicy, ReplayResult, ReplayStats,
     ReplayStatus,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
+use std::collections::HashMap;
+
+/// Re-executes a decision by calling back into Python.
+///
+/// The callable receives the recorded inputs as a dict of name to value and
+/// returns the outputs the current build produces: either a dict of name to
+/// value, or a bare value taken as the single output named `result`.
+struct PyCallableExecutor {
+    callable: PyObject,
+}
+
+#[async_trait]
+impl ModelExecutor for PyCallableExecutor {
+    async fn execute(
+        &self,
+        inputs: &[Input],
+        _model_params: Option<&ModelParameters>,
+        _context: &ExecutionContext,
+        _config: &ExecutionConfig,
+    ) -> Result<ExecutionResult, ReplayError> {
+        let started = std::time::Instant::now();
+        let outputs = Python::with_gil(|py| -> PyResult<Vec<Output>> {
+            let recorded = PyDict::new(py);
+            for input in inputs {
+                recorded.set_item(&input.name, json_value_to_python(input.value.clone(), py)?)?;
+            }
+            let returned = self.callable.call1(py, (recorded,))?;
+
+            // A dict names each output; anything else is one output.
+            if let Ok(mapping) = returned.bind(py).downcast::<PyDict>() {
+                let mut outs = Vec::with_capacity(mapping.len());
+                for (key, value) in mapping.iter() {
+                    outs.push(Output::new(
+                        key.extract::<String>()?,
+                        python_to_json_value(value.unbind(), py)?,
+                        "string",
+                    ));
+                }
+                Ok(outs)
+            } else {
+                Ok(vec![Output::new(
+                    "result",
+                    python_to_json_value(returned, py)?,
+                    "string",
+                )])
+            }
+        })
+        .map_err(|e| ReplayError::ExecutionError(format!("Replay executor raised: {e}")))?;
+
+        Ok(ExecutionResult {
+            outputs,
+            execution_time_ms: started.elapsed().as_secs_f64() * 1000.0,
+            metadata: HashMap::new(),
+            raw_response: None,
+        })
+    }
+
+    fn supports_model(&self, _model_name: &str) -> bool {
+        true
+    }
+
+    fn executor_name(&self) -> &str {
+        "python-callable"
+    }
+}
 
 /// Python wrapper for ReplayEngine
 #[pyclass(name = "ReplayEngine")]
@@ -32,6 +100,28 @@ impl PyReplayEngine {
                 ))
             }
         })
+    }
+
+    /// Re-run each replayed decision through `executor`, so `outputs_match`
+    /// and any policy compare a real answer against the recorded one.
+    ///
+    /// `executor` is called with a dict of the recorded input names and values
+    /// and returns the current outputs, either as a dict or as a single value.
+    /// Without one, a replay loads the snapshot and reports status "pending".
+    fn with_executor(&mut self, executor: PyObject) -> PyResult<()> {
+        Python::with_gil(|py| {
+            if !executor.bind(py).is_callable() {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "executor must be callable",
+                ));
+            }
+            Ok(())
+        })?;
+        self.inner
+            .set_executor(std::sync::Arc::new(PyCallableExecutor {
+                callable: executor,
+            }));
+        Ok(())
     }
 
     /// Get default replay mode

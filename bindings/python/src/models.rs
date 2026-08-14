@@ -536,8 +536,17 @@ impl PyDecisionSnapshot {
         })
     }
 
+    /// Hash of the inputs and model name. Identifies the same question asked
+    /// again; does not change when the answer changes.
     fn fingerprint(&self) -> String {
         self.inner.fingerprint()
+    }
+
+    /// Hash of everything decided: inputs, outputs, model parameters, tags,
+    /// and any error. Excludes ids and timestamps so a holder of the record
+    /// can recompute it.
+    fn content_hash(&self) -> String {
+        self.inner.content_hash()
     }
 }
 

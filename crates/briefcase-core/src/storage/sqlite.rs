@@ -195,6 +195,52 @@ impl SqliteBackend {
         self.save_internal(&snapshot)
     }
 
+    /// Write many decisions inside one transaction, so a batch costs one
+    /// commit rather than one per decision. Either all rows land or none do.
+    pub fn save_decisions_internal(
+        &self,
+        decisions: &[DecisionSnapshot],
+    ) -> Result<Vec<String>, StorageError> {
+        let mut conn_guard = self.conn.lock().unwrap();
+        let tx = conn_guard
+            .transaction()
+            .map_err(|e| StorageError::ConnectionError(format!("Failed to begin: {}", e)))?;
+
+        let mut ids = Vec::with_capacity(decisions.len());
+        for decision in decisions {
+            let snapshot = Snapshot {
+                metadata: decision.metadata.clone(),
+                decisions: vec![decision.clone()],
+                snapshot_type: SnapshotType::Decision,
+            };
+            let snapshot_id = snapshot.metadata.snapshot_id.to_string();
+            let data_json = serde_json::to_string(&snapshot)
+                .map_err(|e| StorageError::SerializationError(e.to_string()))?;
+
+            tx.execute(
+                r#"
+            INSERT OR REPLACE INTO snapshots (
+                id, snapshot_type, data_json, created_at, created_by, checksum
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            "#,
+                params![
+                    snapshot_id,
+                    format!("{:?}", snapshot.snapshot_type),
+                    data_json,
+                    snapshot.metadata.timestamp.to_rfc3339(),
+                    snapshot.metadata.created_by,
+                    snapshot.metadata.checksum,
+                ],
+            )
+            .map_err(|e| StorageError::ConnectionError(format!("Failed to insert: {}", e)))?;
+            ids.push(snapshot_id);
+        }
+
+        tx.commit()
+            .map_err(|e| StorageError::ConnectionError(format!("Failed to commit: {}", e)))?;
+        Ok(ids)
+    }
+
     pub fn load_internal(&self, snapshot_id: &str) -> Result<Snapshot, StorageError> {
         let conn_guard = self.conn.lock().unwrap();
 
@@ -391,6 +437,18 @@ impl StorageBackend for SqliteBackend {
         let self_clone = self.clone();
 
         task::spawn_blocking(move || self_clone.save_decision_internal(&decision_clone))
+            .await
+            .map_err(|e| StorageError::ConnectionError(format!("Task join error: {}", e)))?
+    }
+
+    async fn save_decisions(
+        &self,
+        decisions: &[DecisionSnapshot],
+    ) -> Result<Vec<String>, StorageError> {
+        let batch = decisions.to_vec();
+        let self_clone = self.clone();
+
+        task::spawn_blocking(move || self_clone.save_decisions_internal(&batch))
             .await
             .map_err(|e| StorageError::ConnectionError(format!("Task join error: {}", e)))?
     }

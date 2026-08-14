@@ -1,4 +1,4 @@
-use crate::models::DecisionSnapshot;
+use crate::models::{DecisionSnapshot, Output};
 
 #[cfg(feature = "sqlite-storage")]
 use crate::storage::StorageBackend;
@@ -133,6 +133,45 @@ pub struct PolicyViolation {
     pub message: String,
 }
 
+/// The outputs a replay produced, or `None` when nothing re-executed.
+#[cfg(feature = "sqlite-storage")]
+fn replayed_outputs(result: &ReplayResult) -> Option<Vec<Output>> {
+    let value = result.replay_output.as_ref()?;
+    serde_json::from_value::<Vec<Output>>(value.clone()).ok()
+}
+
+/// Resolve a rule's field against a replay's outputs. `output` and an empty
+/// field both mean "the first output", matching `extract_field_value`.
+#[cfg(feature = "sqlite-storage")]
+fn field_from_outputs(outputs: &[Output], field: &str) -> Option<serde_json::Value> {
+    if field == "output" || field.is_empty() {
+        return outputs.first().map(|o| o.value.clone());
+    }
+    outputs
+        .iter()
+        .find(|o| o.name == field)
+        .map(|o| o.value.clone())
+}
+
+/// Render a JSON value for a violation message: strings unquoted, everything
+/// else as compact JSON.
+#[cfg(feature = "sqlite-storage")]
+fn value_text(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
+}
+
+#[cfg(feature = "sqlite-storage")]
+fn text_similarity(a: &str, b: &str) -> f64 {
+    if a == b {
+        1.0
+    } else {
+        strsim::normalized_levenshtein(a, b)
+    }
+}
+
 #[cfg(feature = "sqlite-storage")]
 #[derive(Clone)]
 pub struct ReplayEngine<S: StorageBackend> {
@@ -167,6 +206,13 @@ impl<S: StorageBackend> ReplayEngine<S> {
     pub fn with_executor(mut self, executor: std::sync::Arc<dyn ModelExecutor>) -> Self {
         self.executor = Some(executor);
         self
+    }
+
+    /// Set the executor in place, for callers holding the engine behind a
+    /// `&mut` (the Python binding, chiefly).
+    #[cfg(feature = "async")]
+    pub fn set_executor(&mut self, executor: std::sync::Arc<dyn ModelExecutor>) {
+        self.executor = Some(executor);
     }
 
     /// Get a reference to the current executor, if any
@@ -241,10 +287,10 @@ impl<S: StorageBackend> ReplayEngine<S> {
     ) -> Result<ReplayResult, ReplayError> {
         let mut result = self.replay(snapshot_id, mode, None).await?;
 
-        // Apply policy validation
-        let violations = self
-            .validate_against_policy(&result.original_snapshot, policy)
-            .await?;
+        // Rules are checked against what the replay produced, so a policy can
+        // only pass when something actually re-executed.
+        let replayed = replayed_outputs(&result);
+        let violations = self.check_policy(&result.original_snapshot, replayed.as_deref(), policy);
         result.policy_violations = violations;
 
         if !result.policy_violations.is_empty() {
@@ -450,20 +496,18 @@ impl<S: StorageBackend> ReplayEngine<S> {
         // Simulate some processing time
         tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
 
-        let outputs_match = match mode {
-            ReplayMode::Strict => true,   // In simulation, always match
-            ReplayMode::Tolerant => true, // In simulation, always match
-            ReplayMode::ValidationOnly => true,
-        };
+        // Nothing re-executed, so there is no second answer to compare
+        // against. Reporting a match here would turn "not checked" into
+        // "verified", which is the one thing a replay must never do.
+        let outputs_match = false;
+        let _ = mode;
 
         Ok(ReplayResult {
-            status: if outputs_match {
-                ReplayStatus::Success
-            } else {
-                ReplayStatus::Failed
-            },
+            // Pending, not Failed: the decision did not disagree, it was never
+            // re-run. Set an executor with `with_executor` to get a verdict.
+            status: ReplayStatus::Pending,
             original_snapshot: original.clone(),
-            replay_output: original.outputs.first().map(|o| o.value.clone()),
+            replay_output: None,
             outputs_match,
             diff: None,
             policy_violations: Vec::new(),
@@ -476,49 +520,124 @@ impl<S: StorageBackend> ReplayEngine<S> {
         snapshot: &DecisionSnapshot,
         policy: &ReplayPolicy,
     ) -> Result<Vec<PolicyViolation>, ReplayError> {
-        let mut violations = Vec::new();
+        // No replay ran, so there is nothing to compare the recorded values
+        // against. Every rule reports as unverified rather than passing.
+        Ok(self.check_policy(snapshot, None, policy))
+    }
 
-        for rule in &policy.rules {
-            let violation = self.check_rule(snapshot, rule);
-            if let Some(v) = violation {
-                violations.push(v);
-            }
-        }
-
-        Ok(violations)
+    /// Check each rule by comparing the recorded value against the replayed
+    /// one. `replayed` is `None` when nothing re-executed, which makes every
+    /// rule a violation: an unchecked rule must never read as a pass.
+    fn check_policy(
+        &self,
+        original: &DecisionSnapshot,
+        replayed: Option<&[Output]>,
+        policy: &ReplayPolicy,
+    ) -> Vec<PolicyViolation> {
+        policy
+            .rules
+            .iter()
+            .filter_map(|rule| self.check_rule(original, replayed, rule))
+            .collect()
     }
 
     fn check_rule(
         &self,
-        snapshot: &DecisionSnapshot,
+        original: &DecisionSnapshot,
+        replayed: Option<&[Output]>,
         rule: &ValidationRule,
     ) -> Option<PolicyViolation> {
-        // Extract the field value from the snapshot
-        let _field_value = self.extract_field_value(snapshot, &rule.field)?;
+        let recorded = self.extract_field_value(original, &rule.field)?;
+
+        let Some(replayed) = replayed else {
+            return Some(PolicyViolation {
+                rule_name: rule.field.clone(),
+                field: rule.field.clone(),
+                expected: value_text(&recorded),
+                actual: "not replayed".to_string(),
+                message: format!(
+                    "Rule on '{}' could not be checked: no executor is set, so nothing \
+                     re-executed. Set one with ReplayEngine::with_executor.",
+                    rule.field
+                ),
+            });
+        };
+
+        let Some(actual) = field_from_outputs(replayed, &rule.field) else {
+            return Some(PolicyViolation {
+                rule_name: rule.field.clone(),
+                field: rule.field.clone(),
+                expected: value_text(&recorded),
+                actual: "absent".to_string(),
+                message: format!("Replay produced no '{}' output", rule.field),
+            });
+        };
+
+        let violation = |expected: String, message: String| {
+            Some(PolicyViolation {
+                rule_name: rule.field.clone(),
+                field: rule.field.clone(),
+                expected,
+                actual: value_text(&actual),
+                message,
+            })
+        };
 
         match rule.comparator {
             Comparator::ExactMatch => {
-                // For simulation, assume all exact matches pass
-                None
-            }
-            Comparator::SemanticSimilarity => {
-                // For simulation, assume semantic similarity passes if threshold > 0.5
-                if rule.threshold <= 0.5 {
-                    Some(PolicyViolation {
-                        rule_name: rule.field.clone(),
-                        field: rule.field.clone(),
-                        expected: format!("Similarity >= {}", rule.threshold),
-                        actual: "0.4".to_string(),
-                        message: format!(
-                            "Semantic similarity below threshold of {}",
-                            rule.threshold
-                        ),
-                    })
-                } else {
+                if recorded == actual {
                     None
+                } else {
+                    violation(
+                        value_text(&recorded),
+                        format!("Field '{}' changed on replay", rule.field),
+                    )
                 }
             }
-            _ => None, // Other comparators not implemented in simulation
+            Comparator::SemanticSimilarity => {
+                let similarity = text_similarity(&value_text(&recorded), &value_text(&actual));
+                if similarity >= rule.threshold {
+                    None
+                } else {
+                    violation(
+                        format!("similarity >= {}", rule.threshold),
+                        format!(
+                            "Field '{}' similarity {:.3} is below the {} threshold",
+                            rule.field, similarity, rule.threshold
+                        ),
+                    )
+                }
+            }
+            Comparator::MaxIncreasePercent
+            | Comparator::MaxDecreasePercent
+            | Comparator::WithinRange => {
+                let (Some(before), Some(after)) = (recorded.as_f64(), actual.as_f64()) else {
+                    return violation(
+                        "a number".to_string(),
+                        format!(
+                            "Field '{}' is not numeric, so {:?} cannot be applied",
+                            rule.field, rule.comparator
+                        ),
+                    );
+                };
+                let ok = match rule.comparator {
+                    Comparator::MaxIncreasePercent => {
+                        before == 0.0 || (after - before) / before * 100.0 <= rule.threshold
+                    }
+                    Comparator::MaxDecreasePercent => {
+                        before == 0.0 || (before - after) / before * 100.0 <= rule.threshold
+                    }
+                    _ => (after - before).abs() <= rule.threshold,
+                };
+                if ok {
+                    None
+                } else {
+                    violation(
+                        format!("{:?} within {}", rule.comparator, rule.threshold),
+                        format!("Field '{}' moved from {} to {}", rule.field, before, after),
+                    )
+                }
+            }
         }
     }
 
@@ -527,17 +646,16 @@ impl<S: StorageBackend> ReplayEngine<S> {
         snapshot: &DecisionSnapshot,
         field_path: &str,
     ) -> Option<serde_json::Value> {
-        // Simple field extraction - in a real implementation, this would be more sophisticated
         match field_path {
             "function_name" => Some(serde_json::Value::String(snapshot.function_name.clone())),
             "execution_time_ms" => snapshot
                 .execution_time_ms
-                .map(|t| serde_json::Value::Number(serde_json::Number::from_f64(t).unwrap())),
-            "output" => {
-                // Return the first output if available
-                snapshot.outputs.first().map(|output| output.value.clone())
-            }
-            _ => None,
+                .and_then(serde_json::Number::from_f64)
+                .map(serde_json::Value::Number),
+            // Anything else names an output. A policy is written against the
+            // fields a decision produced, so `with_exact_match("category")`
+            // has to resolve to the output called "category".
+            other => field_from_outputs(&snapshot.outputs, other),
         }
     }
 
@@ -687,15 +805,17 @@ mod tests {
         // Save the decision first
         let decision_id = engine.storage.save_decision(&decision).await.unwrap();
 
-        // Replay in tolerant mode
+        // Replay in tolerant mode. No executor is set, so this loads the
+        // snapshot and reports that nothing was verified.
         let result = engine
             .replay(&decision_id, Some(ReplayMode::Tolerant), None)
             .await
             .unwrap();
 
-        assert_eq!(result.status, ReplayStatus::Success);
-        assert!(result.outputs_match);
-        assert!(result.replay_output.is_some());
+        assert_eq!(result.status, ReplayStatus::Pending);
+        assert!(!result.outputs_match);
+        assert!(result.replay_output.is_none());
+        assert_eq!(result.original_snapshot.function_name, "test_function");
     }
 
     #[tokio::test]
@@ -712,14 +832,19 @@ mod tests {
             .with_exact_match("function_name")
             .with_similarity_threshold("output", 0.9);
 
-        // Replay with policy
+        // Replay with policy. Without an executor there is nothing to compare
+        // against, so every rule reports as unchecked rather than passing.
         let result = engine
             .replay_with_policy(&decision_id, &policy, None)
             .await
             .unwrap();
 
-        assert_eq!(result.status, ReplayStatus::Success);
-        assert!(result.policy_violations.is_empty());
+        assert_eq!(result.status, ReplayStatus::Failed);
+        assert_eq!(result.policy_violations.len(), 2);
+        assert!(result
+            .policy_violations
+            .iter()
+            .all(|v| v.actual == "not replayed"));
     }
 
     #[tokio::test]
@@ -811,5 +936,167 @@ mod tests {
 
         let violations = engine.validate(&decision_id, &policy).await.unwrap();
         assert!(!violations.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod honest_replay_tests {
+    use super::executor::{ExecutionConfig, ExecutionResult, ModelExecutor};
+    use super::*;
+    use crate::models::*;
+    use crate::storage::SqliteBackend;
+    use async_trait::async_trait;
+    use serde_json::json;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    /// Returns whatever it was told to, so a test can make a replay disagree.
+    struct FixedExecutor {
+        value: serde_json::Value,
+    }
+
+    #[async_trait]
+    impl ModelExecutor for FixedExecutor {
+        async fn execute(
+            &self,
+            _inputs: &[Input],
+            _model_params: Option<&ModelParameters>,
+            _context: &ExecutionContext,
+            _config: &ExecutionConfig,
+        ) -> Result<ExecutionResult, ReplayError> {
+            Ok(ExecutionResult {
+                outputs: vec![Output::new("answer", self.value.clone(), "string")],
+                execution_time_ms: 1.0,
+                metadata: HashMap::new(),
+                raw_response: None,
+            })
+        }
+        fn supports_model(&self, _model_name: &str) -> bool {
+            true
+        }
+        fn executor_name(&self) -> &str {
+            "fixed"
+        }
+    }
+
+    async fn stored(answer: &str) -> (SqliteBackend, String) {
+        let storage = SqliteBackend::in_memory().unwrap();
+        let decision = DecisionSnapshot::new("classify_ticket")
+            .add_input(Input::new("text", json!("reset my password"), "string"))
+            .add_output(Output::new("answer", json!(answer), "string"))
+            .with_model_parameters(ModelParameters::new("gpt-4"));
+        let id = storage.save_decision(&decision).await.unwrap();
+        (storage, id)
+    }
+
+    #[tokio::test]
+    async fn a_changed_answer_is_reported_as_a_mismatch() {
+        let (storage, id) = stored("account_access").await;
+        let engine = ReplayEngine::new(storage).with_executor(Arc::new(FixedExecutor {
+            value: json!("billing"),
+        }));
+
+        let result = engine
+            .replay(&id, Some(ReplayMode::Strict), None)
+            .await
+            .unwrap();
+
+        assert!(
+            !result.outputs_match,
+            "the executor answered 'billing' where 'account_access' was recorded"
+        );
+        assert_eq!(result.status, ReplayStatus::Failed);
+    }
+
+    #[tokio::test]
+    async fn an_unchanged_answer_still_matches() {
+        let (storage, id) = stored("account_access").await;
+        let engine = ReplayEngine::new(storage).with_executor(Arc::new(FixedExecutor {
+            value: json!("account_access"),
+        }));
+
+        let result = engine
+            .replay(&id, Some(ReplayMode::Strict), None)
+            .await
+            .unwrap();
+
+        assert!(result.outputs_match);
+        assert_eq!(result.status, ReplayStatus::Success);
+    }
+
+    #[tokio::test]
+    async fn without_an_executor_a_replay_does_not_claim_to_have_verified_anything() {
+        let (storage, id) = stored("account_access").await;
+        let engine = ReplayEngine::new(storage);
+
+        let result = engine
+            .replay(&id, Some(ReplayMode::Strict), None)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            result.status,
+            ReplayStatus::Pending,
+            "nothing re-executed, so the replay is incomplete rather than successful"
+        );
+        assert!(
+            !result.outputs_match,
+            "outputs_match must not read True when no comparison happened"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_exact_match_policy_rule_fails_when_the_field_changed() {
+        let (storage, id) = stored("account_access").await;
+        let engine = ReplayEngine::new(storage).with_executor(Arc::new(FixedExecutor {
+            value: json!("billing"),
+        }));
+        let policy = ReplayPolicy::new("output-consistency").with_exact_match("answer");
+
+        let result = engine
+            .replay_with_policy(&id, &policy, Some(ReplayMode::Strict))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            result.policy_violations.len(),
+            1,
+            "answer changed, so the exact-match rule must report a violation"
+        );
+        assert_eq!(result.policy_violations[0].field, "answer");
+    }
+
+    #[tokio::test]
+    async fn an_exact_match_policy_rule_passes_when_the_field_held() {
+        let (storage, id) = stored("account_access").await;
+        let engine = ReplayEngine::new(storage).with_executor(Arc::new(FixedExecutor {
+            value: json!("account_access"),
+        }));
+        let policy = ReplayPolicy::new("output-consistency").with_exact_match("answer");
+
+        let result = engine
+            .replay_with_policy(&id, &policy, Some(ReplayMode::Strict))
+            .await
+            .unwrap();
+
+        assert!(result.policy_violations.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_policy_cannot_pass_when_nothing_re_executed() {
+        let (storage, id) = stored("account_access").await;
+        let engine = ReplayEngine::new(storage);
+        let policy = ReplayPolicy::new("output-consistency").with_exact_match("answer");
+
+        let result = engine
+            .replay_with_policy(&id, &policy, Some(ReplayMode::Strict))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            result.policy_violations.len(),
+            1,
+            "an unverifiable rule must report, not silently pass"
+        );
     }
 }
