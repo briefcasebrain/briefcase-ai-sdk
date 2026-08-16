@@ -269,8 +269,10 @@ ok, failing_row = verify_chain_segment(store.load_entries())
 Chain entries carry only hashes, never payloads. `canonical_json` is the
 deterministic hash input (strict: rejects NaN and non-JSON types unless you
 pass `fallback=str`); `sign_json` / `verify_json_signature` / `jwk_thumbprint`
-cover local Ed25519 manifest attestation with RFC 8037 OKP JWKs. Serialize
-appends per (table, entity) segment or the chain forks.
+cover local Ed25519 manifest attestation with RFC 8037 OKP JWKs. Both
+bundled stores enforce a prior_hash compare-and-swap (the JSONL store adds
+POSIX flock), so concurrent appenders on one host retry cleanly instead of
+forking; cross-host writers need a shared store enforcing the same CAS.
 
 ------------------------------------------------------------------------------
 ## 9. Common pitfalls

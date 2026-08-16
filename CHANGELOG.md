@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [4.4.0] - 2026-08-16
+
+### Added
+- `briefcase.integrity.ChainConflictError` and compare-and-swap append
+  semantics on `HashChainStore`: both bundled stores reject an entry whose
+  `prior_hash` no longer matches the segment tail, and `HashChainAppender`
+  re-reads the tail and retries with jittered backoff (`max_attempts`,
+  default 32), so concurrent writers converge instead of forking the chain.
+
+### Changed
+- `JsonlHashChainStore` holds a POSIX `flock` around every tail read and
+  append and folds in lines other writers appended (incremental, from a
+  byte offset), making concurrent threads and processes on one host safe.
+  On Windows (no fcntl) safety remains thread-only. The previous
+  single-writer-per-file caveat is lifted on POSIX hosts.
+
 ## [4.3.0] - 2026-08-16
 
 ### Added
