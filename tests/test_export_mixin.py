@@ -120,3 +120,33 @@ def test_export_errors_never_reach_the_caller():
             raise RuntimeError("exporter down")
 
     _Handler(_Boom())._trigger_export({"decision_id": "e"})  # must not raise
+
+
+def test_background_exports_share_one_worker_and_drain():
+    from briefcase._export_mixin import wait_for_pending_exports
+    from briefcase.exporters import MemoryExporter
+
+    mem = MemoryExporter()
+    mixin = _Handler(mem, async_capture=True)
+    before = threading.active_count()
+    for i in range(20):
+        mixin._trigger_export({"n": i})
+    assert wait_for_pending_exports(timeout=5.0) is True
+    assert [r["n"] for r in mem.records] == list(range(20))
+    # One shared worker, not one thread per record.
+    assert threading.active_count() <= before + 1
+
+
+def test_background_export_errors_stay_contained():
+    from briefcase._export_mixin import wait_for_pending_exports
+    from briefcase.exporters import MemoryExporter
+
+    class Exploding:
+        async def export(self, record):
+            raise RuntimeError("boom")
+
+    mem = MemoryExporter()
+    _Handler(Exploding(), async_capture=True)._trigger_export({"bad": 1})
+    _Handler(mem, async_capture=True)._trigger_export({"good": 1})
+    assert wait_for_pending_exports(timeout=5.0) is True
+    assert mem.records == [{"good": 1}]

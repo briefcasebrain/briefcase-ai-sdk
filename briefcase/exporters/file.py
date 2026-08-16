@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from pathlib import Path
 from typing import Any, Optional, TextIO, Union
@@ -10,12 +11,17 @@ from typing import Any, Optional, TextIO, Union
 from briefcase.exporters.base import BaseExporter
 
 
+def _opener(path: str, flags: int) -> int:
+    return os.open(path, flags, 0o600)
+
+
 class JSONLFileExporter(BaseExporter):
     """Append decision records to a file as JSON Lines (one object per line).
 
     Durable, append-only, and thread-safe — safe to share across the background
     export threads spawned by ``@capture``. Parent directories are created on
-    demand.
+    demand with mode 0700, and the file is opened owner-only (0600); records can
+    carry decision content, so both are private regardless of umask.
 
     Example:
         import briefcase
@@ -28,11 +34,30 @@ class JSONLFileExporter(BaseExporter):
         self._fh: Optional[TextIO] = None
         parent = self._path.parent
         if parent and not parent.exists():
-            parent.mkdir(parents=True, exist_ok=True)
+            # Create each missing level with mode 0700 at creation time
+            # (masked by umask, so never wider), top-down; no probe loop and
+            # no post-hoc chmod window.
+            missing = []
+            probe = parent
+            while not probe.exists():
+                missing.append(probe)
+                if probe.parent == probe:
+                    break
+                probe = probe.parent
+            for directory in reversed(missing):
+                try:
+                    os.mkdir(directory, 0o700)
+                except FileExistsError:
+                    pass
 
     def _ensure_open(self):
         if self._fh is None:
-            self._fh = open(self._path, "a", encoding="utf-8")
+            self._fh = open(self._path, "a", encoding="utf-8", opener=_opener)
+            # fchmod on the open descriptor: tightens a pre-existing file
+            # without re-resolving the path (no symlink-following chmod).
+            # Windows has no fchmod; modes are advisory there anyway.
+            if hasattr(os, "fchmod"):
+                os.fchmod(self._fh.fileno(), 0o600)
         return self._fh
 
     async def export(self, decision: Any) -> bool:

@@ -4,6 +4,102 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-08-16
+
+### Added
+- `briefcase.controls`: an enforcement layer for AI invocations. Ports
+  (`QuotaStore`, `EntitlementsHook`, `CacheStore`, `UsageSink`) as
+  runtime-checkable Protocols; a `Gateway` composing hard-cap, quota, and
+  throttle-cooldown checks around a model call with typed outcomes and an
+  explicit port-error policy; `classify_provider_error` unifying provider
+  throttle detection (429s are throttled; 503 and ServiceQuotaExceededException
+  are transient only and never open cooldowns; message-text matching is
+  opt-in); `retry_call`/`retry_call_async` with capped exponential backoff,
+  jitter, and a deadline guard; and `FixedWindowQuotaStore`, an in-process
+  fail-open limiter.
+- `@briefcase.capture` accepts `capture_content="full" | "hash" | "none"`.
+  "hash" records SHA-256 digests, character counts, and type names instead of
+  content; "none" records shape only; in both, the error field carries the
+  exception class name, never the message. A `redact` hook rewrites text in
+  "full" mode. The default stays "full".
+- `briefcase.semantic_conventions.controls` attribute names for gateway, quota,
+  cache, and throttle telemetry.
+- `@briefcase-ai/controls`, a TypeScript package (`js/controls`) carrying the
+  same controls surface, decision-record wire schema, and exporters; wire-schema
+  parity is asserted from a shared fixture by both suites, and the TS suite
+  additionally asserts semantic-convention parity against the Python source.
+- kdb+ bitemporal backend, AWS Glue Iceberg backend, and the KMS-signed
+  examiner bundle move in from the enterprise repository as optional extras
+  (`kdb`, `bitemporal-glue`, `compliance-kms`); the open-source versus
+  commercial boundary moves to the hosted platform.
+- Framework auto-instrumentation ships open: `briefcase.auto.auto()` patches
+  LangChain, CrewAI, LlamaIndex, AutoGen, AG2, OpenAI Agents, and PageIndex
+  to emit decision records, with `undo()` restoring every patch. The
+  `briefcase.auto` stub that pointed at the commercial package is replaced by
+  the real dispatcher; each framework is an optional extra with a lazy
+  import. Records follow the 10-field wire schema.
+- lakeFS branch manager, lineage, and staged commits ship open under the
+  existing `lakefs` extra; the `BranchManager` gate that pointed at the
+  commercial package is replaced by the implementation.
+- RBAC and ABAC guardrail environments (`briefcase.guardrails.envs`) and an
+  OPA HTTP router with cached decisions and an internal-router fallback
+  (`briefcase.routing.opa`, extra `opa`).
+- OTel and GCP Cloud Logging exporters (`briefcase.exporters.otel`,
+  `briefcase.exporters.gcp_logging`) on the BaseExporter contract, and Kafka
+  and webhook event transports (`briefcase.events.kafka`,
+  `briefcase.events.webhook`). The webhook transport follows the SDK's HTTPS
+  posture: plain-http non-loopback URLs are rejected, redirects are refused,
+  and insecure transport is an explicit opt-in.
+- Vector-store adapters for Chroma, Pinecone, and Weaviate
+  (`briefcase.rag.vector_stores`) and VCS adapters for DVC, Nessie,
+  Pachyderm, ArtiVC, DuckLake, Iceberg, and git-LFS
+  (`briefcase.integrations.vcs`), each behind a per-provider extra where a
+  client package is needed. The Pinecone adapter targets the current v3
+  client API; the Weaviate adapter requires `weaviate-client<4`.
+
+### Changed
+- Capture and the controls gateway cost nothing when unconfigured: with no
+  exporter resolvable (per-decorator or global), `@capture` calls the wrapped
+  function directly, building no record and running neither `repr` nor the
+  redact hook.
+- Full-mode capture renders through a bounded repr: an oversized argument or
+  result costs O(bound) time and memory instead of a full `repr` (measured
+  2900x on a 10MB string), rendering as both ends around an ellipsis. Values
+  under the bound render identically to `repr`. Hash mode still digests the
+  exact full repr.
+- Background exports run on one shared daemon worker with a FIFO queue
+  instead of one thread per record (measured 6x on the default export path);
+  `briefcase._export_mixin.wait_for_pending_exports()` drains it before
+  process exit. The fixed-window quota store amortizes its prune scan.
+- The controls gateway resolves the global exporter wired by
+  `briefcase.observe()` exactly like `@capture`; previously it exported only
+  with an explicitly configured exporter.
+- The kdb+ backend applies a grouped attribute to `record_id`, turning the
+  per-append duplicate check into a hash lookup.
+- Cross-language parity for semantic conventions and the gateway outcome
+  surface is asserted from shared fixtures by both test suites; CI builds the
+  abi3 wheel once and shares it across the Python matrix.
+
+### Security
+- `SignedExaminerBundle.verify_signature` requires a caller-pinned
+  `expected_key_id` (and algorithm) and never verifies against the key id
+  embedded in the bundle: a deserialized bundle carries attacker-controlled
+  fields, and verifying against them would accept any bundle self-signed
+  with a key the attacker owns.
+- `JSONLFileExporter` (both languages) creates parent directories 0700 via
+  the mkdir mode, opens files 0600, and tightens a pre-existing file through
+  the open descriptor (fchmod), not a re-resolved path.
+- The kdb+ backend's q-interpolation allowlist uses fullmatch, closing the
+  one-trailing-newline gap `$`-anchored patterns accept.
+- The controls gateway catches `Exception`, not `BaseException`:
+  cancellation and interpreter-exit exceptions propagate instead of
+  converting into outcomes.
+- The publish workflow drops to read-only default permissions, gates every
+  publish job behind the `release` environment, and publishes npm with OIDC
+  trusted publishing and provenance; CI gains cargo-deny advisories (action
+  SHA-pinned) and a checksum-pinned gitleaks history scan running without
+  persisted credentials; npm installs use the committed lockfile.
+
 ## [4.1.0] - 2026-08-13
 
 Five surfaces described behavior they did not have. Each is now implemented and

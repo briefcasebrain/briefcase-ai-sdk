@@ -405,22 +405,13 @@ class VersionedClient:
 
     @property
     def branch_manager(self):
-        """Lazily-created branch manager.
+        """Lazily-created ``BranchManager`` bound to this client's repository.
 
-        Requires the enterprise package (``briefcase-ai-enterprise``)
-        which provides the ``BranchManager`` class.
-
-        Raises:
-            ImportError: If ``briefcase-ai-enterprise`` is not installed.
+        The manager reuses this client's lakeFS connection; in mock mode it
+        runs in the manager's own mock mode (no connection).
         """
         if self._branch_manager is None:
-            try:
-                from briefcase.integrations.lakefs.branches import BranchManager  # noqa: PLC0415
-            except ImportError:
-                raise ImportError(
-                    "BranchManager requires the enterprise package.\n"
-                    "Install it with: pip install briefcase-ai-enterprise"
-                )
+            from briefcase.integrations.lakefs.branches import BranchManager
             self._branch_manager = BranchManager(
                 repository=self.repository,
                 lakefs_client=self._lakefs_client,

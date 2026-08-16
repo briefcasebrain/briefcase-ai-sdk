@@ -101,7 +101,7 @@ def test_asof_caller_cannot_widen_beyond_view():
 
 
 def test_no_lookahead_in_backtest_scenario():
-    """End-to-end scenario from Steve's notes: backtest using as-of.
+    """End-to-end backtest scenario using as-of.
 
     A training fact is later corrected. A naive backtest (latest()) sees
     the corrected value and overfits; an as-of-wrapped backtest sees the

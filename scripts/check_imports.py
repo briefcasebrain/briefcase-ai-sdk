@@ -43,15 +43,45 @@ REQUIRED = [
     "briefcase.exporters",
     "briefcase.semantic_conventions",
     "briefcase.integrations.evals",
+    "briefcase.controls",
+    "briefcase.integrations.frameworks",
+    "briefcase.integrations.frameworks.pageindex_mcp",
+    "briefcase.guardrails.envs",
+    "briefcase.guardrails.envs.rbac",
+    "briefcase.guardrails.envs.abac",
+    "briefcase.routing.internal",
+    "briefcase.events.webhook",
 ]
 
 # Gated behind pip extras; skip cleanly when the extra is not installed.
+# kdb / iceberg_glue / signed_bundle import lazily, so the module import
+# itself must succeed on a bare install; they are listed here anyway so a
+# packaging regression that drops the files from the wheel is caught.
 OPTIONAL = [
     "briefcase.otel",
     "briefcase.integrations.lakefs",
     "briefcase.integrations.gym",
     "briefcase.bitemporal.backends.iceberg",
+    "briefcase.bitemporal.backends.iceberg_glue",
+    "briefcase.bitemporal.backends.kdb",
+    "briefcase.compliance.signed_bundle",
     "briefcase.mcp",
+    "briefcase.integrations.lakefs.branches",
+    "briefcase.integrations.lakefs.lineage",
+    "briefcase.integrations.lakefs.staged",
+    "briefcase.routing.opa",
+    "briefcase.exporters.otel",
+    "briefcase.exporters.gcp_logging",
+    "briefcase.events.kafka",
+    "briefcase.rag.vector_stores",
+    "briefcase.integrations.vcs",
+    "briefcase.integrations.frameworks.langchain_handler",
+    "briefcase.integrations.frameworks.llamaindex_handler",
+    "briefcase.integrations.frameworks.crewai_handler",
+    "briefcase.integrations.frameworks.ag2_handler",
+    "briefcase.integrations.frameworks.autogen_handler",
+    "briefcase.integrations.frameworks.openai_agents_handler",
+    "briefcase.integrations.frameworks.pageindex_handler",
 ]
 
 

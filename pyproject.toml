@@ -4,8 +4,8 @@ build-backend = "maturin"
 
 [project]
 name = "briefcase-ai"
-version = "4.1.0"
-description = "Open-source decision tracking for AI"
+version = "4.2.0"
+description = "Governance infrastructure for AI decisions: enforce controls, record context, replay later"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.9"
@@ -42,17 +42,37 @@ Issues = "https://github.com/briefcasebrain/briefcase-ai-sdk/issues"
 replay = []
 drift = []
 sanitize = []
-otel = ["opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20"]
+otel = [
+    "opentelemetry-api>=1.20",
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.20",
+    "opentelemetry-exporter-otlp-proto-http>=1.20",
+]
 storage = []
 validate = []
 guardrails = []
 rag = []
+rag-chroma = ["chromadb>=0.4"]
+rag-pinecone = ["pinecone>=3"]
+# weaviate-client v4 removed weaviate.Client, which the adapter is built on.
+rag-weaviate = ["weaviate-client>=3,<4"]
 correlation = []
 external = []
 events = []
+kafka = ["confluent-kafka>=2.3"]
+# The webhook transport is stdlib urllib; the extra exists for discoverability.
+webhook = []
+gcp-logging = ["google-cloud-logging>=3.9"]
 routing = []
+opa = ["httpx>=0.24"]
 lakefs = ["lakefs>=0.1"]
 vcs = []
+# Per-provider VCS adapter clients; git-LFS, Nessie, and ArtiVC adapters are
+# HTTP/subprocess based and need no extra.
+vcs-dvc = ["dvc>=3"]
+vcs-pachyderm = ["pachyderm-sdk>=2.8"]
+vcs-ducklake = ["duckdb>=0.9"]
+vcs-iceberg = ["pyiceberg>=0.9"]
 gym = ["gymnasium>=0.29"]
 # The parsers themselves are stdlib only. inspect-ai writes .eval archives with
 # zstd-compressed zip entries (method 93), which stdlib zipfile decodes only on
@@ -61,7 +81,23 @@ gym = ["gymnasium>=0.29"]
 evals = ["zstandard>=0.22; python_version < '3.14'"]
 bitemporal = []
 bitemporal-iceberg = ["pyiceberg[sql-sqlite,pyiceberg-core]>=0.9", "pyarrow>=14"]
+# AWS Glue catalog auth for the Iceberg backend, and KMS signing for examiner
+# bundles. Both run against customer-owned AWS resources.
+bitemporal-glue = ["briefcase-ai[bitemporal-iceberg]", "boto3>=1.34"]
+compliance-kms = ["boto3>=1.34"]
+# pykx is KX-licensed, so the kdb backend is opt-in only and deliberately
+# excluded from `all`.
+kdb = ["pykx>=2.5"]
 compliance = []
+controls = []
+# Framework auto-instrumentation handlers; each imports its framework lazily.
+langchain = ["langchain-core>=0.3"]
+crewai = ["crewai>=0.86"]
+llamaindex = ["llama-index-core>=0.10"]
+autogen = ["autogen-agentchat>=0.4"]
+ag2 = ["ag2>=0.4"]
+pageindex = ["pageindex>=0.1"]
+openai-agents = ["openai-agents>=0.1"]
 # mcp 2.0 removed mcp.server.fastmcp, which briefcase.mcp is built on, so the
 # floor alone was not enough: a fresh install resolved 2.x and broke the extra.
 mcp = ["mcp>=1.2,<2"]
@@ -71,8 +107,17 @@ mcp = ["mcp>=1.2,<2"]
 run = ["grpcio>=1.60,<2", "grpcio-reflection>=1.60,<2", "protobuf>=4.25"]
 # No black: the codebase is not black-formatted and CONTRIBUTING says not to
 # run it, so shipping it as a dev dependency only invites a 95-file diff.
-dev = ["pytest", "pytest-mock", "pytest-asyncio", "pytest-subtests", "mypy", "flake8"]
-all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,correlation,external,events,routing,lakefs,vcs,gym,evals,bitemporal,bitemporal-iceberg,compliance,mcp,run]"]
+dev = [
+    "pytest",
+    "pytest-mock",
+    "pytest-asyncio",
+    "pytest-subtests",
+    "mypy",
+    "flake8",
+    # moto backs the Glue and KMS tests; those suites skip cleanly without it.
+    "moto[kms,glue,s3]>=5",
+]
+all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,rag-chroma,rag-pinecone,rag-weaviate,correlation,external,events,kafka,webhook,gcp-logging,routing,opa,lakefs,vcs,vcs-dvc,vcs-pachyderm,vcs-ducklake,vcs-iceberg,gym,evals,bitemporal,bitemporal-iceberg,bitemporal-glue,compliance,compliance-kms,controls,langchain,crewai,llamaindex,autogen,ag2,pageindex,openai-agents,mcp,run]"]
 
 [project.scripts]
 briefcase-mcp = "briefcase.mcp.__main__:main"
@@ -103,14 +148,12 @@ python_version = "3.9"
 # which extras happen to be present.
 exclude = "^(tests|examples|bindings/python/tests)/"
 
-# Modules with no type information, for three distinct reasons: a compiled
-# extension (briefcase._native), an optional dependency the extras gate
-# (pyiceberg, pyarrow, grpc, protobuf), and a module that ships only in the
-# commercial package (lakefs.branches).
+# Modules with no type information, for two distinct reasons: a compiled
+# extension (briefcase._native) and optional dependencies the extras gate
+# (pyiceberg, pyarrow, grpc, protobuf, framework and store clients).
 [[tool.mypy.overrides]]
 module = [
     "briefcase._native",
-    "briefcase.integrations.lakefs.branches",
     "pyiceberg.*",
     "pyarrow.*",
     "opentelemetry.*",
@@ -124,6 +167,27 @@ module = [
     "numpy",
     "zstandard",
     "pyzstd",
+    "pykx.*",
+    "boto3.*",
+    "botocore.*",
+    "moto.*",
+    "httpx",
+    "confluent_kafka.*",
+    "google.cloud.*",
+    "google.oauth2.*",
+    "langchain_core.*",
+    "llama_index.*",
+    "crewai.*",
+    "autogen.*",
+    "autogen_agentchat.*",
+    "agents.*",
+    "pageindex.*",
+    "chromadb.*",
+    "pinecone.*",
+    "weaviate.*",
+    "dvc.*",
+    "duckdb.*",
+    "pachyderm_sdk.*",
 ]
 ignore_missing_imports = true
 # Do not analyze inside third-party packages: several ship py.typed and use

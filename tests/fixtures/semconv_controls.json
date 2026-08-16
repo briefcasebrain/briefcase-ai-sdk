@@ -1,0 +1,14 @@
+{
+  "description": "Controls semantic-convention attribute names. Authoritative table; the Python and TypeScript modules each carry a copy and their test suites assert parity against this file.",
+  "constants": {
+    "CONTROLS_CACHE_SOURCE": "briefcase.controls.cache.source",
+    "CONTROLS_FALLBACK_REASON": "briefcase.controls.fallback.reason",
+    "CONTROLS_GATEWAY_BUCKET": "briefcase.controls.gateway.bucket",
+    "CONTROLS_GATEWAY_OUTCOME": "briefcase.controls.gateway.outcome",
+    "CONTROLS_GATEWAY_TENANT_ID": "briefcase.controls.gateway.tenant_id",
+    "CONTROLS_QUOTA_COOLDOWN_UNTIL": "briefcase.controls.quota.cooldown_until",
+    "CONTROLS_QUOTA_TOKENS_REMAINING": "briefcase.controls.quota.tokens_remaining",
+    "CONTROLS_THROTTLE_THROTTLED": "briefcase.controls.throttle.throttled",
+    "CONTROLS_THROTTLE_TRANSIENT": "briefcase.controls.throttle.transient"
+  }
+}

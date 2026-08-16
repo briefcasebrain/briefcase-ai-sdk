@@ -314,3 +314,240 @@ class TestCaptureDecoratorForms:
         record = exp.export.call_args[0][0]
         assert record["decision_type"] == "direct"
         assert record["context_version"] == "v9"
+
+
+#  capture_content modes
+
+class TestCaptureContentModes:
+    def test_default_mode_is_full(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def fn(secret):
+            return "made-" + secret
+
+        fn("payload")
+        record = exp.export.call_args[0][0]
+        assert "payload" in record["inputs"]["args"]
+        assert "made-payload" in record["outputs"]["result"]
+
+    def test_hash_mode_carries_digests_not_content(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False, capture_content="hash")
+        def fn(secret, flag=True):
+            return "made-" + secret
+
+        fn("payload", flag=False)
+        record = exp.export.call_args[0][0]
+        blob = repr(record)
+        assert "payload" not in blob
+        assert "made-payload" not in blob
+        inputs = record["inputs"]
+        assert set(inputs) == {"args_sha256", "args_chars", "kwargs_sha256", "kwargs_chars"}
+        assert len(inputs["args_sha256"]) == 64
+        assert inputs["args_chars"] == len(repr(("payload",)))
+        outputs = record["outputs"]
+        assert set(outputs) == {"result_sha256", "result_chars", "result_type"}
+        assert outputs["result_type"] == "str"
+
+    def test_hash_mode_is_deterministic(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False, capture_content="hash")
+        def fn(x):
+            return x
+
+        fn("same")
+        first = exp.export.call_args[0][0]["inputs"]["args_sha256"]
+        fn("same")
+        second = exp.export.call_args[0][0]["inputs"]["args_sha256"]
+        assert first == second
+
+    def test_none_mode_carries_shape_only(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False, capture_content="none")
+        def fn(secret, flag=True):
+            return "made-" + secret
+
+        fn("payload", flag=False)
+        record = exp.export.call_args[0][0]
+        blob = repr(record)
+        assert "payload" not in blob
+        assert "sha256" not in blob
+        assert record["inputs"] == {"args_count": 1, "kwargs_count": 1}
+        assert record["outputs"] == {"result_type": "str"}
+
+    def test_none_mode_error_is_class_name_only(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False, capture_content="none")
+        def fn():
+            raise ValueError("secret detail in message")
+
+        with pytest.raises(ValueError):
+            fn()
+        record = exp.export.call_args[0][0]
+        assert record["error"] == "ValueError"
+        assert "secret detail" not in repr(record)
+
+    def test_hash_mode_error_is_class_name_plus_digest(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False, capture_content="hash")
+        def fn():
+            raise ValueError("secret detail in message")
+
+        with pytest.raises(ValueError):
+            fn()
+        record = exp.export.call_args[0][0]
+        assert record["error"].startswith("ValueError:sha256:")
+        assert "secret detail" not in repr(record)
+
+    def test_full_mode_redact_hook_rewrites_content(self):
+        exp = _make_exporter()
+
+        @capture(
+            exporter=exp,
+            async_capture=False,
+            capture_content="full",
+            redact=lambda s: s.replace("payload", "[REDACTED]"),
+        )
+        def fn(secret):
+            return "made-" + secret
+
+        fn("payload")
+        record = exp.export.call_args[0][0]
+        assert "payload" not in repr(record)
+        assert "[REDACTED]" in record["inputs"]["args"]
+        assert "[REDACTED]" in record["outputs"]["result"]
+
+    def test_unknown_mode_raises_at_decoration_time(self):
+        with pytest.raises(ValueError):
+            @capture(capture_content="partial")
+            def fn():
+                return 1
+
+    def test_unreprable_argument_does_not_prevent_the_call(self):
+        exp = _make_exporter()
+
+        class Unreprable:
+            def __repr__(self):
+                raise RuntimeError("no repr")
+
+        @capture(exporter=exp, async_capture=False)
+        def fn(x):
+            return "ran"
+
+        assert fn(Unreprable()) == "ran"
+        record = exp.export.call_args[0][0]
+        assert record["outputs"]["result"] == "'ran'"
+
+    def test_unreprable_result_does_not_discard_the_result(self):
+        exp = _make_exporter()
+
+        class Unreprable:
+            def __repr__(self):
+                raise RuntimeError("no repr")
+
+        sentinel = Unreprable()
+
+        @capture(exporter=exp, async_capture=False)
+        def fn():
+            return sentinel
+
+        assert fn() is sentinel
+
+    def test_redact_hook_raising_fails_closed(self):
+        exp = _make_exporter()
+
+        def bad_redact(_s):
+            raise RuntimeError("redactor down")
+
+        @capture(exporter=exp, async_capture=False, redact=bad_redact)
+        def fn(secret):
+            return "made-" + secret
+
+        assert fn("payload") == "made-payload"
+        record = exp.export.call_args[0][0]
+        # The raw content must not leak when the redactor fails.
+        assert "payload" not in repr(record)
+
+    def test_full_mode_bounds_oversized_reprs_with_ellipsis(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def fn(x):
+            return x
+
+        fn("a" * 100_000)
+        record = exp.export.call_args[0][0]
+        args_text = record["inputs"]["args"]
+        assert len(args_text) <= 1000
+        # Bounded repr keeps both ends of an oversized value around an
+        # ellipsis instead of computing the full repr and slicing a prefix.
+        assert "..." in args_text
+        assert args_text.rstrip("',)").endswith("a")
+
+    def test_small_values_render_identically_to_plain_repr(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def fn(x, flag=True):
+            return x + 1
+
+        fn(41, flag=False)
+        record = exp.export.call_args[0][0]
+        assert record["inputs"]["args"] == repr((41,))
+        assert record["inputs"]["kwargs"] == repr({"flag": False})
+        assert record["outputs"]["result"] == repr(42)
+
+    def test_no_exporter_anywhere_skips_record_work_entirely(self):
+        from briefcase.config import BriefcaseConfig
+
+        BriefcaseConfig.reset()
+        repr_calls = []
+
+        class Tracked:
+            def __repr__(self):
+                repr_calls.append(1)
+                return "<tracked>"
+
+        try:
+
+            @capture(async_capture=False)
+            def fn(x):
+                return "ran"
+
+            assert fn(Tracked()) == "ran"
+            assert repr_calls == []
+        finally:
+            BriefcaseConfig.reset()
+
+    def test_no_exporter_still_reraises_the_original_error(self):
+        from briefcase.config import BriefcaseConfig
+
+        BriefcaseConfig.reset()
+        try:
+
+            @capture(async_capture=False)
+            def fn():
+                raise KeyError("boom")
+
+            with pytest.raises(KeyError):
+                fn()
+        finally:
+            BriefcaseConfig.reset()
+
+    def test_async_function_honors_capture_content(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False, capture_content="none")
+        async def fn(secret):
+            return "made-" + secret
+
+        assert asyncio.run(fn("payload")) == "made-payload"
+        record = exp.export.call_args[0][0]
+        assert "payload" not in repr(record)
+        assert record["inputs"] == {"args_count": 1}

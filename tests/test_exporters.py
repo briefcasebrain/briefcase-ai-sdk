@@ -3,6 +3,8 @@
 import asyncio
 import io
 import json
+import stat
+import sys
 
 import pytest
 
@@ -92,3 +94,27 @@ def test_observe_default_is_console():
 def test_observe_unknown_shorthand_raises():
     with pytest.raises(ValueError):
         briefcase.observe("not-a-real-exporter")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+def test_jsonl_exporter_creates_private_dirs_and_file(tmp_path):
+    path = tmp_path / "a" / "b" / "runs.jsonl"
+    fx = JSONLFileExporter(path)
+    asyncio.run(fx.export({"a": 1}))
+    asyncio.run(fx.close())
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(path.parent.parent.stat().st_mode) == 0o700
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+def test_jsonl_exporter_tightens_existing_file_mode(tmp_path):
+    path = tmp_path / "runs.jsonl"
+    path.write_text('{"old": 1}\n')
+    path.chmod(0o644)
+    fx = JSONLFileExporter(path)
+    asyncio.run(fx.export({"new": 2}))
+    asyncio.run(fx.close())
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    lines = [json.loads(line) for line in path.read_text().splitlines()]
+    assert lines == [{"old": 1}, {"new": 2}]

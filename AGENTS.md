@@ -28,15 +28,21 @@ Rules to follow when generating briefcase code:
 - In tests, use `@briefcase.capture(async_capture=False)` for deterministic,
   inline export, and `briefcase.observe("memory")` to inspect records.
 - Logging is opt-in: `briefcase.enable_logging("DEBUG")` or `BRIEFCASE_LOG_LEVEL`.
+- Gate model calls with `briefcase.controls`: `Gateway` composes hard-cap,
+  quota, and throttle-cooldown checks; `retry_call` adds capped backoff. The
+  same surface ships for TypeScript as `@briefcase-ai/controls`.
 - Most features need no pip extra; only `otel`, `lakefs`, `bitemporal-iceberg`,
-  and `mcp` do. See `llms-full.txt` for the full extras map and recipes.
+  `bitemporal-glue`, `kdb`, `compliance-kms`, `gym`, `evals`, and `mcp` do.
+  See `llms-full.txt` for the full extras map and recipes.
 
 More: `README.md`, `llms.txt`, `llms-full.txt`, and `examples/`.
 
 ## Working on this repository
 
 Monorepo: Python package `briefcase/` (published as `briefcase-ai`) backed by a
-Rust core in `crates/briefcase-core/` via PyO3 bindings in `bindings/python/`.
+Rust core in `crates/briefcase-core/` via PyO3 bindings in `bindings/python/`,
+plus the TypeScript package `js/controls/` (published as
+`@briefcase-ai/controls`).
 
 Build and test:
 
@@ -51,6 +57,7 @@ cargo clippy -p briefcase-core --all-features -- -D warnings
 cargo test -p briefcase-python --locked          # bindings crate unit tests
 flake8 briefcase/ scripts/ tests/ bindings/python/tests/ examples/
 mypy briefcase/
+cd js/controls && npm install && npm run typecheck && npm test && npm run build
 ```
 
 Conventions:
@@ -65,7 +72,7 @@ Conventions:
   (`--dry-run` lists every target it would touch; `check` gates CI).
 - `briefcase-core` is a path dependency of the bindings crate, so a manifest
   change can leave the sdist unbuildable while the in-repo build still works.
-  CI now builds a wheel from the sdist; reproduce with
+  CI builds a wheel from the sdist; reproduce with
   `maturin sdist --out dist && tar xzf dist/*.tar.gz -C dist && (cd dist/briefcase_ai-*/ && maturin build --release)`.
 - `pyo3/extension-module` is applied by maturin (`[tool.maturin] features`), not
   in `Cargo.toml`. Enabling it in the manifest makes every Rust test binary

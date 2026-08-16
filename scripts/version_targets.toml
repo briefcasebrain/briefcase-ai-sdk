@@ -38,3 +38,11 @@ id = "compat_briefcase_ai"
 path = "briefcase/cli/stack/compat.json"
 pattern = '(?P<pre>"briefcase_ai": ")(?P<version>[^"]+)(?P<post>")'
 replacement = '{pre}{version}{post}'
+
+# The npm controls package releases in lockstep with the SDK. The pattern is
+# indentation-anchored to the top-level version key only.
+[[targets]]
+id = "npm_controls"
+path = "js/controls/package.json"
+pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
+replacement = '{pre}{version}{post}'

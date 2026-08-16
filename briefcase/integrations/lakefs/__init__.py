@@ -39,6 +39,12 @@ try:
         VersionedClient,
         InstrumentedLakeFSClient,
     )
+    from briefcase.integrations.lakefs.lineage import (
+        ArtifactLineageClient,
+        ArtifactLineageConfig,
+        ArtifactCommitInfo,
+        ArtifactLineageError,
+    )
     from briefcase.integrations.lakefs.context import (
         versioned_context,
         VersionedContextManager,
@@ -46,6 +52,19 @@ try:
         LakeFSContextManager,
     )
     from briefcase.integrations.lakefs.decorators import versioned, lakefs_versioned
+    from briefcase.integrations.lakefs.branches import (
+        BranchManager,
+        BranchInfo,
+        DiffEntry,
+        MergeResult,
+        MergeStrategy,
+    )
+    from briefcase.integrations.lakefs.staged import (
+        StagedArtifactClient,
+        StagedCommitResult,
+        StagedValidationError,
+        ValidationResult,
+    )
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
         "briefcase.integrations.lakefs requires the 'lakefs' extra.\n"
@@ -54,9 +73,22 @@ except ImportError as exc:  # pragma: no cover
 
 __all__ = [
     "VersionedClient",
+    "ArtifactLineageClient",
+    "ArtifactLineageConfig",
+    "ArtifactCommitInfo",
+    "ArtifactLineageError",
     "versioned_context",
     "VersionedContextManager",
     "versioned",
+    "BranchManager",
+    "BranchInfo",
+    "DiffEntry",
+    "MergeResult",
+    "MergeStrategy",
+    "StagedArtifactClient",
+    "StagedCommitResult",
+    "StagedValidationError",
+    "ValidationResult",
     # Backwards compatibility
     "InstrumentedLakeFSClient",
     "lakefs_context",

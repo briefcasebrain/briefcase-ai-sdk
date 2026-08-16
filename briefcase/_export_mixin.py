@@ -18,6 +18,7 @@ Usage in a handler class:
 """
 
 import asyncio
+import queue
 from briefcase._logging import get_logger
 import threading
 
@@ -27,6 +28,70 @@ logger = get_logger(__name__)
 # that thread is already running an event loop. Past it the record is dropped
 # rather than freezing the loop behind a slow or hung exporter.
 SYNC_EXPORT_TIMEOUT_SECONDS = 5.0
+
+# Background exports run on one shared daemon worker with a queue, started
+# lazily and restarted if it ever dies. One thread instead of one per record
+# keeps the enqueue path in the low microseconds; the queue is unbounded, so
+# a hung exporter accumulates queued records the same way per-record threads
+# would accumulate hung threads. Records queued at interpreter exit are lost
+# either way; call wait_for_pending_exports() first when that matters.
+_worker_state_lock = threading.Lock()
+_export_queue: "queue.SimpleQueue | None" = None
+_export_worker: "threading.Thread | None" = None
+
+
+def _worker_loop(q: "queue.SimpleQueue") -> None:
+    loop = asyncio.new_event_loop()
+    try:
+        while True:
+            exporter, record, done = q.get()
+            try:
+                if exporter is not None:
+                    result = exporter.export(record)
+                    if asyncio.iscoroutine(result):
+                        loop.run_until_complete(result)
+            except Exception:
+                logger.debug("Background export failed", exc_info=True)
+            finally:
+                if done is not None:
+                    done.set()
+    finally:  # pragma: no cover - daemon thread dies with the process
+        loop.close()
+
+
+def _enqueue_export(exporter, record, done=None) -> None:
+    global _export_queue, _export_worker
+    with _worker_state_lock:
+        q = _export_queue
+        if _export_worker is None or not _export_worker.is_alive() or q is None:
+            q = queue.SimpleQueue()
+            _export_queue = q
+            _export_worker = threading.Thread(
+                target=_worker_loop,
+                args=(q,),
+                name="briefcase-export",
+                daemon=True,
+            )
+            _export_worker.start()
+    q.put((exporter, record, done))
+
+
+def wait_for_pending_exports(timeout: float = 5.0) -> bool:
+    """Block until background exports enqueued so far have run.
+
+    Returns True when the queue drained within ``timeout`` (or no background
+    worker exists), False on timeout. Useful before process exit and in
+    tests; the FIFO queue guarantees everything enqueued earlier has been
+    handed to its exporter once the sentinel lands.
+    """
+    with _worker_state_lock:
+        worker = _export_worker
+        q = _export_queue
+    if worker is None or not worker.is_alive() or q is None:
+        return True
+    done = threading.Event()
+    q.put((None, None, done))
+    return done.wait(timeout)
 
 
 class ExportMixin:
@@ -54,33 +119,23 @@ class ExportMixin:
             logger.debug("Could not resolve global exporter from config", exc_info=True)
             return None
 
-    def _trigger_export(self, record) -> None:
+    def _trigger_export(self, record, exporter=None) -> None:
         """
         Export a decision record via the configured exporter.
 
-        If async_capture is True (default), spawns a daemon thread so the
-        caller is never blocked. On any error, silently returns.
+        A caller that already resolved the exporter passes it to skip a
+        second resolution. If async_capture is True (default), the record is
+        enqueued to the shared background worker so the caller is never
+        blocked. On any error, silently returns.
         """
         try:
-            exporter = self._resolve_exporter()
+            if exporter is None:
+                exporter = self._resolve_exporter()
             if exporter is None:
                 return
 
             if getattr(self, "async_capture", True):
-                def _run() -> None:
-                    try:
-                        result = exporter.export(record)
-                        if asyncio.iscoroutine(result):
-                            loop = asyncio.new_event_loop()
-                            try:
-                                loop.run_until_complete(result)
-                            finally:
-                                loop.close()
-                    except Exception:
-                        logger.debug("Background export failed", exc_info=True)
-
-                t = threading.Thread(target=_run, daemon=True)
-                t.start()
+                _enqueue_export(exporter, record)
             else:
                 result = exporter.export(record)
                 if asyncio.iscoroutine(result):

@@ -1,53 +1,53 @@
-"""Backend stub (kdb+) protocol conformance + fail-loud semantics.
+"""Backend surface checks.
 
-The Iceberg backend is now a real implementation — its tests live in
-``test_iceberg_backend.py``. The SQLite backend's tests live in
-``test_sqlite_backend.py``. Only kdb+ is a stub.
+Each backend's behavior is covered in its own module
+(``test_sqlite_backend.py``, ``test_iceberg_backend.py``,
+``test_kdb_backend.py``). This module checks the package-level exports
+and lazy-construction contract shared by all backends.
 """
 
-from datetime import datetime, timezone
-
-import pytest
-
-from briefcase.bitemporal import BitemporalRecord, BitemporalStore
-from briefcase.bitemporal.backends import KdbBitemporalBackend
-
-
-UTC = timezone.utc
+from briefcase.bitemporal import BitemporalStore
+from briefcase.bitemporal.backends import (
+    IcebergBitemporalBackend,
+    KdbBitemporalBackend,
+)
 
 
-def _record() -> BitemporalRecord:
-    return BitemporalRecord.new(
-        key="k",
-        valid_time=datetime(2026, 4, 17, tzinfo=UTC),
-        value=1,
-        source="test",
-    )
-
-
-def test_kdb_stub_satisfies_bitemporal_store_protocol():
+def test_kdb_backend_satisfies_bitemporal_store_protocol():
     assert isinstance(KdbBitemporalBackend(), BitemporalStore)
 
 
-def test_kdb_stub_fails_loudly_on_every_operation():
-    instance = KdbBitemporalBackend()
-    r = _record()
-    with pytest.raises(NotImplementedError):
-        instance.append(r)
-    with pytest.raises(NotImplementedError):
-        instance.append_many([r])
-    with pytest.raises(NotImplementedError):
-        instance.history("k")
-    with pytest.raises(NotImplementedError):
-        instance.latest("k")
-    with pytest.raises(NotImplementedError):
-        instance.as_of("k", transaction_time=datetime(2026, 4, 17, tzinfo=UTC))
-    with pytest.raises(NotImplementedError):
-        instance.keys()
-
-
 def test_kdb_backend_keeps_construction_kwargs():
-    b = KdbBitemporalBackend(host="kdb.internal", port=5001, namespace=".bc2")
+    b = KdbBitemporalBackend(host="kdb.internal", port=5001, table="evidence2")
     assert b.host == "kdb.internal"
     assert b.port == 5001
-    assert b.namespace == ".bc2"
+    assert b.table == "evidence2"
+
+
+def test_kdb_backend_construction_does_not_connect():
+    b = KdbBitemporalBackend(host="unreachable.invalid", port=1)
+    assert b._conn_obj is None
+
+
+def test_iceberg_close_drops_cached_refs_and_calls_catalog_close():
+    # Construction is lazy, so no pyiceberg install is needed here.
+    b = IcebergBitemporalBackend()
+    closed = {"flag": False}
+
+    class _Catalog:
+        def close(self):
+            closed["flag"] = True
+
+    b._catalog = _Catalog()
+    b._table = object()
+    b.close()
+    assert closed["flag"]
+    assert b._catalog is None
+    assert b._table is None
+
+
+def test_iceberg_close_is_safe_when_never_opened():
+    b = IcebergBitemporalBackend()
+    b.close()
+    assert b._catalog is None
+    assert b._table is None

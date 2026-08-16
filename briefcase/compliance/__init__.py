@@ -9,10 +9,11 @@ things an examiner needs to reconstruct an agentic decision:
 * the policy version that was in effect (which rule fired, which version).
 
 Export to JSON for transport; re-import and verify integrity via a single
-content hash. The bundle is the operational output of the "examiner
-replay" pattern described in the Steve Cannon and Bridge.xyz notes.
+content hash. The bundle supports examiner replay: reconstructing the
+inputs a decision saw, as of the decision's transaction time.
 """
 
 from briefcase.compliance.examiner import ExaminerBundle, BundleIntegrityError
+from briefcase.compliance.signed_bundle import SignedExaminerBundle
 
-__all__ = ["ExaminerBundle", "BundleIntegrityError"]
+__all__ = ["ExaminerBundle", "BundleIntegrityError", "SignedExaminerBundle"]

@@ -50,7 +50,8 @@ def test_correction_preserves_original_and_supersedes():
 
 
 def test_asof_before_correction_returns_original_value():
-    """This is the examiner-replay test — the decision hinges on it."""
+    """Examiner replay: a view clamped before the correction sees the
+    original value; a view clamped after it sees the correction."""
     store = InMemoryBitemporalStore()
     original = BitemporalRecord.new(
         key="USDC/USD",

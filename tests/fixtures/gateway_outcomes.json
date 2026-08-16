@@ -1,0 +1,30 @@
+{
+  "description": "Gateway outcome surface: outcome keys, default event names, and wire-visible record expectations. Authoritative table; the Python and TypeScript gateway suites assert parity against this file.",
+  "outcomes": [
+    {
+      "key": "ok",
+      "event": "gateway_ok",
+      "record_error": null
+    },
+    {
+      "key": "hard_capped",
+      "event": "gateway_hard_capped",
+      "record_error": null
+    },
+    {
+      "key": "quota_exhausted",
+      "event": "gateway_quota_exhausted",
+      "record_error": null
+    },
+    {
+      "key": "throttled",
+      "event": "gateway_throttled",
+      "record_error": "cause-class-name"
+    },
+    {
+      "key": "internal",
+      "event": "gateway_internal_error",
+      "record_error": "cause-class-name"
+    }
+  ]
+}

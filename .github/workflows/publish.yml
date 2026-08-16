@@ -9,14 +9,16 @@ on:
   # already-released version. Does not re-publish the crate or cut a release.
   workflow_dispatch: {}
 
+# Least privilege at the top; the release job alone gets contents: write.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   # Publish briefcase-core to crates.io (tag releases only).
   crates-io:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - uses: actions/checkout@v4
 
@@ -101,10 +103,47 @@ jobs:
           name: sdist
           path: dist/*.tar.gz
 
+  # Publish the npm controls package (trusted publishing via OIDC; no token
+  # fallback by policy). Prerelease versions publish under the `next` tag so
+  # they never take `latest`.
+  npm-publish:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Build
+        working-directory: js/controls
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publish @briefcase-ai/controls
+        working-directory: js/controls
+        run: |
+          VERSION=$(jq -r .version package.json)
+          TAG=latest
+          case "$VERSION" in *-*) TAG=next;; esac
+          if npm view "@briefcase-ai/controls@$VERSION" version >/dev/null 2>&1; then
+            echo "@briefcase-ai/controls@$VERSION already published; skipping."
+          else
+            npm publish --provenance --access public --tag "$TAG"
+          fi
+
   # Publish all wheels + sdist to PyPI (trusted publishing).
   pypi-publish:
     needs: [wheels, sdist]
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       id-token: write
     steps:
@@ -124,8 +163,10 @@ jobs:
   # Create a GitHub Release (tag releases only).
   github-release:
     if: github.event_name == 'push'
-    needs: [crates-io, pypi-publish]
+    needs: [crates-io, pypi-publish, npm-publish]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 

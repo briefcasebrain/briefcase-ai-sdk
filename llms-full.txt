@@ -1,7 +1,8 @@
 # briefcase-ai — full usage guide for LLMs
 
-Open-source decision tracking for AI. This file is a copy-paste recipe book.
-Every snippet is runnable as written. Package import name is `briefcase`.
+Governance infrastructure for AI decisions: enforce controls, record context,
+replay later. This file is a copy-paste recipe book. Every snippet is runnable
+as written. Package import name is `briefcase`.
 
 Install: `pip install briefcase-ai`
 
@@ -11,8 +12,9 @@ KEY RULES
 - `capture` does NOT require `briefcase.init()`. `init()` is only for native
   runtime features (storage backends, snapshots).
 - Never log or persist raw PII. Use `briefcase.sanitize.Sanitizer` first.
-- Native/pure-Python features need no pip extra. Only `otel`, `lakefs`, and
-  `bitemporal-iceberg` install third-party deps.
+- Native/pure-Python features need no pip extra. Only `otel`, `lakefs`,
+  `bitemporal-iceberg`, `bitemporal-glue`, `kdb`, `compliance-kms`, `gym`,
+  `evals`, and `mcp` install third-party deps.
 
 ------------------------------------------------------------------------------
 ## 1. Minimal capture (3 lines)
@@ -169,17 +171,20 @@ Or via environment: `BRIEFCASE_LOG_LEVEL=DEBUG python app.py`.
 ## 8. Extras map (what needs a pip extra)
 
 No extra needed (native or pure-Python): replay, drift, sanitize, storage, cost,
-routing, bitemporal, compliance, validate, guardrails, correlation, events,
-external, rag.
+routing, bitemporal, compliance, controls, validate, guardrails, correlation,
+events, external, rag.
 
 Needs an extra (third-party deps):
 - `pip install briefcase-ai[otel]`               # OpenTelemetry tracing
 - `pip install briefcase-ai[lakefs]`             # lakeFS versioned storage
 - `pip install briefcase-ai[bitemporal-iceberg]` # pyiceberg + pyarrow backend
+- `pip install briefcase-ai[bitemporal-glue]`    # AWS Glue catalog auth (boto3)
+- `pip install briefcase-ai[kdb]`                # kdb+ backend (KX-licensed pykx)
+- `pip install briefcase-ai[compliance-kms]`     # KMS-signed bundles (boto3)
 - `pip install briefcase-ai[mcp]`                # MCP server (briefcase-mcp)
 - `pip install briefcase-ai[gym]`                # Gymnasium bridge
 - `pip install briefcase-ai[evals]`              # zstd, for inspect-ai .eval logs
-- `pip install briefcase-ai[all]`                # everything
+- `pip install briefcase-ai[all]`                # everything except kdb
 
 ------------------------------------------------------------------------------
 ## 8b. RL and evaluation bridges
@@ -212,6 +217,32 @@ capture_episodes(gymnasium.make("CartPole-v1"))          # -> rl.step/rl.episode
 
 Decision types these emit: `eval.case`, `eval.run`, `rl.step`, `rl.episode`.
 They flow through the configured exporter like any `@capture` record.
+
+------------------------------------------------------------------------------
+## 8c. Controls: gated model calls (no extra deps)
+
+`briefcase.controls` composes entitlements hard-cap, quota, and
+throttle-cooldown checks around a model call:
+
+```python
+import asyncio
+from briefcase.controls import FixedWindowQuotaStore, Gateway, GatewayConfig
+
+gw = Gateway(GatewayConfig(
+    quota_store=FixedWindowQuotaStore(),
+    buckets={"chat": {"limit": 5, "window_s": 60.0}},
+))
+
+outcome = asyncio.run(gw.invoke(tenant_id="t1", bucket="chat", fn=lambda: "hi"))
+print(outcome.ok, outcome.value, outcome.reason)   # True hi None
+```
+
+`Outcome.reason` is None on success, else "hard_capped", "quota_exhausted",
+"throttled", or "internal". A throttled provider failure opens a bucket
+cooldown. Also exported: `classify_provider_error` (unified provider throttle
+detection) and `retry_call` / `retry_call_async` (capped exponential backoff
+with jitter and a deadline guard). The `@briefcase-ai/controls` npm package
+carries the same surface, wire schema, and exporters for TypeScript.
 
 ------------------------------------------------------------------------------
 ## 9. Common pitfalls

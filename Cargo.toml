@@ -6,13 +6,13 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "4.1.0"
+version = "4.2.0"
 edition = "2021"
 # Set by the dependency graph (uuid and getrandom both require 1.85), not by
 # taste. CI builds on exactly this toolchain so it cannot drift upward unnoticed.
 rust-version = "1.85"
 license = "Apache-2.0"
-description = "Open-source decision tracking for AI"
+description = "Governance infrastructure for AI decisions: enforce controls, record context, replay later"
 repository = "https://github.com/briefcasebrain/briefcase-ai-sdk"
 homepage = "https://briefcaseai.io"
 authors = ["Briefcase AI"]

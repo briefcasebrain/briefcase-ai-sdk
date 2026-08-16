@@ -1,10 +1,11 @@
 # briefcase-ai
 
-> Open-source decision tracking for AI. Instrument any Python function with a
-> decorator to capture its inputs, outputs, timing, and errors as structured
-> decision records, then ship them to an exporter. Also provides PII
-> sanitization, cost/drift analysis, prompt validation, and bitemporal evidence
-> stores. Backed by a Rust core via PyO3; `pip install briefcase-ai`.
+> Governance infrastructure for AI decisions: enforce controls, record context,
+> replay later. Instrument any Python function with a decorator to capture its
+> inputs, outputs, timing, and errors as structured decision records, then ship
+> them to an exporter. Also provides an enforcement gateway, PII sanitization,
+> cost/drift analysis, prompt validation, and bitemporal evidence stores.
+> Backed by a Rust core via PyO3; `pip install briefcase-ai`.
 
 The canonical usage is three lines:
 
@@ -35,5 +36,8 @@ def classify(text: str) -> str:     # records inputs, outputs, timing, errors
 ## Optional
 - Logging is opt-in: `briefcase.enable_logging("DEBUG")` or `BRIEFCASE_LOG_LEVEL=DEBUG`
 - MCP server: `pip install briefcase-ai[mcp]` then run `briefcase-mcp`
-- Extras map: native/pure-Python features (`drift`, `sanitize`, `storage`, `routing`, `bitemporal`, `compliance`, …) need no extra; only `otel`, `lakefs`, `bitemporal-iceberg`, `gym`, `evals`, and `mcp` install third-party packages.
+- Extras map: native/pure-Python features (`drift`, `sanitize`, `storage`, `routing`, `bitemporal`, `compliance`, `controls`, …) need no extra; extras that install third-party packages: `otel`, `lakefs`, `bitemporal-iceberg`, `bitemporal-glue`, `kdb`, `compliance-kms`, `gym`, `evals`, `mcp`, `opa`, `kafka`, `gcp-logging`, the `rag-*`/`vcs-*` adapters, and the framework extras (`langchain`, `crewai`, `llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`); `all` covers everything except `kdb`.
 - Eval and RL bridges: `briefcase.integrations.evals` (EvalRun, inspect-ai / lm-eval log replay) and `briefcase.integrations.gym` (guardrail env adapter, episode capture) emit the `eval.case`, `eval.run`, `rl.step`, and `rl.episode` decision types.
+- Controls: `briefcase.controls` gates model calls. `gw = Gateway(GatewayConfig(quota_store=FixedWindowQuotaStore(), buckets={"chat": {"limit": 5, "window_s": 60}}))` then `await gw.invoke(tenant_id="t1", bucket="chat", fn=call_model)` returns a typed `Outcome`. Also `classify_provider_error` and `retry_call` / `retry_call_async`.
+- Bitemporal backends beyond SQLite: `bitemporal-iceberg` (any pyiceberg catalog), `bitemporal-glue` (AWS Glue catalog auth), `kdb` (kdb+ via KX-licensed `pykx`; excluded from `all`). The `compliance-kms` extra signs examiner bundles with your own AWS KMS key.
+- TypeScript: the `@briefcase-ai/controls` npm package (`js/controls`) carries the same controls surface, decision-record wire schema, and exporters.

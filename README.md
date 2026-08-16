@@ -2,7 +2,8 @@
 
 ![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 
-Open-source decision tracking for AI.
+Governance infrastructure for AI decisions: enforce controls, record context,
+replay later.
 
 ## Install
 
@@ -96,45 +97,55 @@ editor rules under [`docs/llm/`](https://github.com/briefcasebrain/briefcase-ai-
 | `validate` | Prompt validation engine |
 | `guardrails` | Guardrail framework, wrappers, and registries |
 | `rag` | Versioned embedding pipeline and instrumented retrieval |
+| `rag-chroma` / `rag-pinecone` / `rag-weaviate` | Vector-store adapters (each adds its client) |
 | `correlation` | Workflow and trace correlation helpers |
 | `external` | External data snapshot tracking |
 | `events` | Structured event type and emitter interface |
+| `kafka` / `webhook` / `gcp-logging` | Event transports and the Cloud Logging exporter (webhook is stdlib) |
 | `routing` | Router protocol, agent router, versioned policy registry |
-| `lakefs` | lakeFS versioned storage client |
-| `vcs` | VCS client base protocol |
+| `opa` | OPA HTTP router with cached decisions and internal-router fallback (adds `httpx`) |
+| `lakefs` | lakeFS versioned storage client, branch manager, lineage, staged commits |
+| `vcs` | VCS client base protocol plus DVC, Nessie, Pachyderm, ArtiVC, DuckLake, Iceberg, and git-LFS adapters |
+| `vcs-dvc` / `vcs-pachyderm` / `vcs-ducklake` / `vcs-iceberg` | Per-provider VCS clients (the rest are HTTP/subprocess based) |
 | `gym` | Gymnasium bridge: guardrail env adapter and RL episode capture |
 | `evals` | Eval-harness bridge: `EvalRun` logger, inspect-ai / lm-eval parsers (adds `zstandard` for `.eval` archives on Python < 3.14) |
 | `bitemporal` | Bitemporal evidence store, as-of views, append-only corrections |
 | `bitemporal-iceberg` | pyiceberg-backed bitemporal store (any supported catalog) |
+| `bitemporal-glue` | AWS Glue catalog auth for the Iceberg backend (adds `boto3`) |
+| `kdb` | kdb+ bitemporal backend (adds KX-licensed `pykx`; excluded from `all`) |
 | `compliance` | Examiner bundles joining decision, evidence, and policy version |
+| `compliance-kms` | KMS-signed examiner bundles against your own AWS KMS key (adds `boto3`) |
+| `controls` | Gateway, quota, throttle classification, and retry (no extra dependencies) |
+| `langchain` / `crewai` / `llamaindex` / `autogen` / `ag2` / `pageindex` / `openai-agents` | Framework auto-instrumentation via `briefcase.auto` (each adds its framework) |
 | `mcp` | MCP server (`briefcase-mcp`) exposing the SDK to AI agents |
-| `dev` | Dev tooling: pytest, mypy, flake8 |
-| `all` | Installs every optional extra listed above |
+| `dev` | Dev tooling: pytest, mypy, flake8, moto |
+| `all` | Installs every optional extra listed above except `kdb` |
 
 Most features are native- or pure-Python-backed and ship with the base package —
 their extras (`replay`, `drift`, `sanitize`, `storage`, `routing`, `bitemporal`,
 `compliance`, …) are convenience groupings that pull in **no** additional
-dependencies. Only `otel`, `lakefs`, `bitemporal-iceberg`, `gym`, `evals`, and
-`mcp` install third-party packages.
+dependencies. The extras that install third-party packages are `otel`,
+`lakefs`, `bitemporal-iceberg`, `bitemporal-glue`, `kdb`, `compliance-kms`,
+`gym`, `evals`, `mcp`, `opa`, `kafka`, `gcp-logging`, the `rag-*` and `vcs-*`
+store adapters, and the framework auto-instrumentation extras.
 
-## Enterprise features
+## Managed platform
 
-The OSS SDK ships everything needed to run the end-to-end walkthrough, persist evidence to SQLite or Iceberg, and pass an internal audit. The following features require the commercial [`briefcase-ai-sdk-enterprise`](https://github.com/briefcasebrain/briefcase-ai-sdk-enterprise) package:
+Every library feature runs against infrastructure you own: storage
+backends (in-memory, SQLite, pyiceberg, Glue-authenticated Iceberg, kdb+),
+KMS-signed examiner bundles, guardrails, RBAC/ABAC/OPA policy evaluation,
+routing, replay, framework auto-instrumentation (`briefcase.auto`), lakeFS
+branching and lineage, vector-store and VCS adapters, event transports, and
+the controls layer, in both Python and TypeScript
+(`@briefcase-ai/controls`).
 
-| Feature | OSS | Enterprise |
-| --- | --- | --- |
-| In-memory, SQLite, pyiceberg backends | ✓ | |
-| kdb+ backend (`pykx` client) | stub only | ✓ |
-| Managed-catalog connectors (Glue, Snowflake Horizon, Databricks Unity, Confluent Tableflow) | | ✓ |
-| Licensed market data ingest (Bloomberg BPIPE, Refinitiv, ICE) | | ✓ |
-| Signed content-hash envelopes (AWS KMS, GCP KMS, YubiHSM) | | ✓ |
-| WORM retention integration (S3 Object Lock, Azure Blob immutable, MinIO) | | ✓ |
-| Multi-tenant `PolicyRegistry` with RBAC and approvals | | ✓ |
-| Cross-region evidence replication, DR runbooks | | ✓ |
-| Regulator-format bundle exporters (SEC SDR, FCA, OCC, FINRA) | | ✓ |
-| SOC 2 Type II / FedRAMP attestations, 24/7 SLA support | | ✓ |
+The commercial offering is the hosted platform, not gated code: a managed
+control plane, catalog provisioning and credential brokering, operational
+runbooks (DR failover, catalog migration, key rotation), certified retention
+and regulator attestations, licensed market-data ingest (Bloomberg BPIPE,
+Refinitiv, ICE), and SOC 2 / FedRAMP posture with SLA support.
 
-Contact sales@briefcasebrain.com for enterprise access.
+Contact sales@briefcasebrain.com for the managed platform.
 
 ## Telemetry
 

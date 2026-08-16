@@ -1,0 +1,15 @@
+{
+  "description": "Bedrock list prices, USD per 1M tokens (us-east-1). Authoritative table; the TS bedrock pricing module carries a copy and its tests assert parity against this file, as will the Rust cost engine's bedrock entries. Ordered case-insensitive regex match; first hit wins; default applies when nothing matches.",
+  "currency": "USD",
+  "per_tokens": 1000000,
+  "rates": [
+    { "match": "opus", "input": 15, "output": 75 },
+    { "match": "sonnet", "input": 3, "output": 15 },
+    { "match": "haiku", "input": 0.8, "output": 4 },
+    { "match": "nova-pro", "input": 0.8, "output": 3.2 },
+    { "match": "nova-lite", "input": 0.06, "output": 0.24 },
+    { "match": "nova-micro", "input": 0.035, "output": 0.14 },
+    { "match": "(cohere|embed|titan-embed)", "input": 0.1, "output": 0 }
+  ],
+  "default": { "input": 3, "output": 15 }
+}

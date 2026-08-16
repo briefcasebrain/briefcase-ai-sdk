@@ -8,9 +8,12 @@ multi-year backtests — a lakehouse table format is the right tier.
 This OSS adapter wraps `pyiceberg <https://py.iceberg.apache.org>`_ and
 works against any pyiceberg-supported catalog: the bundled
 ``SqlCatalog`` (SQLite / Postgres), REST, Hive metastore, Nessie, or an
-AWS Glue catalog via ``pyiceberg[glue]``. Commercial managed catalogs
-(Snowflake Horizon, Databricks Unity, Confluent Tableflow) and the
-associated auth plumbing live in ``briefcase-ai-sdk-enterprise``.
+AWS Glue catalog via ``pyiceberg[glue]``. Glue auth plumbing (STS role
+assumption, credential cycling) lives in
+``briefcase.bitemporal.backends.iceberg_glue`` behind the
+``bitemporal-glue`` extra; managed-catalog provisioning for Snowflake
+Horizon, Databricks Unity, and Confluent Tableflow is part of the hosted
+platform.
 
 Design
 ------
@@ -170,7 +173,7 @@ class IcebergBitemporalBackend:
         catalog_type: Optional[str] = None,
         **catalog_kwargs: Any,
     ) -> None:
-        # Legacy: earlier tests pass ``catalog=``. Accept both.
+        # ``catalog=`` is a backward-compatible alias of ``catalog_name=``.
         if "catalog" in catalog_kwargs:
             catalog_name = catalog_kwargs.pop("catalog")
 
@@ -225,6 +228,27 @@ class IcebergBitemporalBackend:
                 partition_spec=spec,
             )
         return self._table
+
+    def close(self) -> None:
+        """Release the cached catalog and table references.
+
+        The catalog is opened lazily and cached on ``self._catalog`` /
+        ``self._table``; dropping both makes the next operation re-open
+        it. Long-running services call this to cycle credentials after a
+        role refresh. If the pyiceberg catalog exposes a ``close``
+        method it is called first so pooled HTTP / S3 connections
+        release promptly; a failing close does not prevent the
+        reference drop.
+        """
+        catalog = self._catalog
+        catalog_close = getattr(catalog, "close", None)
+        if callable(catalog_close):
+            try:
+                catalog_close()
+            except Exception:
+                pass
+        self._catalog = None
+        self._table = None
 
     # ------------------------------------------------------------------
     # Writes
