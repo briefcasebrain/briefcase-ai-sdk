@@ -171,8 +171,9 @@ Or via environment: `BRIEFCASE_LOG_LEVEL=DEBUG python app.py`.
 ## 8. Extras map (what needs a pip extra)
 
 No extra needed (native or pure-Python): replay, drift, sanitize, storage, cost,
-routing, bitemporal, compliance, controls, validate, guardrails, correlation,
-events, external, rag.
+routing, bitemporal, compliance, controls, integrity (chains and canonical
+JSON; signing needs the extra), validate, guardrails, correlation, events,
+external, rag.
 
 Needs an extra (third-party deps):
 - `pip install briefcase-ai[otel]`               # OpenTelemetry tracing
@@ -181,6 +182,7 @@ Needs an extra (third-party deps):
 - `pip install briefcase-ai[bitemporal-glue]`    # AWS Glue catalog auth (boto3)
 - `pip install briefcase-ai[kdb]`                # kdb+ backend (KX-licensed pykx)
 - `pip install briefcase-ai[compliance-kms]`     # KMS-signed bundles (boto3)
+- `pip install briefcase-ai[integrity]`          # Ed25519 signing (pynacl)
 - `pip install briefcase-ai[mcp]`                # MCP server (briefcase-mcp)
 - `pip install briefcase-ai[gym]`                # Gymnasium bridge
 - `pip install briefcase-ai[evals]`              # zstd, for inspect-ai .eval logs
@@ -243,6 +245,32 @@ cooldown. Also exported: `classify_provider_error` (unified provider throttle
 detection) and `retry_call` / `retry_call_async` (capped exponential backoff
 with jitter and a deadline guard). The `@briefcase-ai/controls` npm package
 carries the same surface, wire schema, and exporters for TypeScript.
+
+------------------------------------------------------------------------------
+## 8d. Integrity: tamper-evident chains and local signing
+
+`briefcase.integrity` pairs each append-only record with a hash-chain entry
+so an auditor can prove nothing was altered or re-stitched:
+
+```python
+from briefcase.integrity import (
+    HashChainAppender, JsonlHashChainStore, verify_chain_segment,
+)
+
+store = JsonlHashChainStore("audit.chain.jsonl")   # dirs 0700, file 0600
+appender = HashChainAppender(store)                # signing_key=<32-byte seed> to attest
+entry = appender.append_row(
+    table="audit", row_id=row_id, entity_id=None,
+    observed_at=ts, recorded_at=ts, payload=record,
+)
+ok, failing_row = verify_chain_segment(store.load_entries())
+```
+
+Chain entries carry only hashes, never payloads. `canonical_json` is the
+deterministic hash input (strict: rejects NaN and non-JSON types unless you
+pass `fallback=str`); `sign_json` / `verify_json_signature` / `jwk_thumbprint`
+cover local Ed25519 manifest attestation with RFC 8037 OKP JWKs. Serialize
+appends per (table, entity) segment or the chain forks.
 
 ------------------------------------------------------------------------------
 ## 9. Common pitfalls

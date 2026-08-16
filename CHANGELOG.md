@@ -6,6 +6,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-08-16
+
+### Added
+- `briefcase.integrity`: tamper-evidence primitives. A spec-versioned hash
+  chain (`HashChainAppender`, `HashChainStore` Protocol, `verify_chain_segment`
+  with an `expected_prior` window parameter) over append-only records, with
+  in-memory and hardened JSONL file stores; deterministic `canonical_json`
+  (strict, UTF-8) plus the legacy `canonical_json_compat` profile; and local
+  Ed25519 signing (`sign_json`, `verify_json_signature`, `sign_digest`,
+  `verify_digest`, `jwk_thumbprint`, RFC 8037 JWKs) behind the new `integrity`
+  extra (PyNaCl). Chains and canonical JSON are stdlib-only.
+
+### Changed
+- `BitemporalRecord.content_hash` and the examiner bundle's canonical encoding
+  now route through `briefcase.integrity.canonical_json_compat`. Byte-identical
+  to previous releases (pinned by tests); stored hashes do not change.
+
+
+## [4.2.0] - 2026-08-16
+
 ### Added
 - `@briefcase-ai/native`, a Node binding over the Rust cost engine
   (`bindings/node`, napi-rs, cost-only build with no C dependencies):
@@ -18,11 +38,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   vendor prefixes, date stamps, version suffixes); cost estimation applies
   it automatically when the exact id is not registered. Exposed in Python
   as `briefcase._native.normalize_model_id`.
-
-### Fixed
-- The `cost` module and its root re-export are no longer gated behind the
-  `drift` feature; a default or minimal build now exposes `CostCalculator`
-  at the crate root.
 - `briefcase.controls.providers`: a provider registry for LLM failover.
   `ProviderRegistry` holds named providers behind the runtime-checkable
   `LLMProvider` Protocol, iterates them preferred-first with an injectable
@@ -31,10 +46,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   per-context credential to one provider; a scoped credential never falls
   through to another provider's platform credential. Concrete provider
   clients stay application-side.
-
-## [4.2.0] - 2026-08-16
-
-### Added
 - `briefcase.controls`: an enforcement layer for AI invocations. Ports
   (`QuotaStore`, `EntitlementsHook`, `CacheStore`, `UsageSink`) as
   runtime-checkable Protocols; a `Gateway` composing hard-cap, quota, and
@@ -127,6 +138,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   trusted publishing and provenance; CI gains cargo-deny advisories (action
   SHA-pinned) and a checksum-pinned gitleaks history scan running without
   persisted credentials; npm installs use the committed lockfile.
+
+### Fixed
+- The `cost` module and its root re-export are no longer gated behind the
+  `drift` feature; a default or minimal build now exposes `CostCalculator`
+  at the crate root.
 
 ## [4.1.0] - 2026-08-13
 

@@ -116,6 +116,7 @@ editor rules under [`docs/llm/`](https://github.com/briefcasebrain/briefcase-ai-
 | `compliance` | Examiner bundles joining decision, evidence, and policy version |
 | `compliance-kms` | KMS-signed examiner bundles against your own AWS KMS key (adds `boto3`) |
 | `controls` | Gateway, quota, throttle classification, and retry (no extra dependencies) |
+| `integrity` | Tamper-evident hash chains, canonical JSON, Ed25519 signing over digests and JSON manifests (signing adds `pynacl`) |
 | `langchain` / `crewai` / `llamaindex` / `autogen` / `ag2` / `pageindex` / `openai-agents` | Framework auto-instrumentation via `briefcase.auto` (each adds its framework) |
 | `mcp` | MCP server (`briefcase-mcp`) exposing the SDK to AI agents |
 | `dev` | Dev tooling: pytest, mypy, flake8, moto |
@@ -126,7 +127,7 @@ their extras (`replay`, `drift`, `sanitize`, `storage`, `routing`, `bitemporal`,
 `compliance`, …) are convenience groupings that pull in **no** additional
 dependencies. The extras that install third-party packages are `otel`,
 `lakefs`, `bitemporal-iceberg`, `bitemporal-glue`, `kdb`, `compliance-kms`,
-`gym`, `evals`, `mcp`, `opa`, `kafka`, `gcp-logging`, the `rag-*` and `vcs-*`
+`gym`, `evals`, `mcp`, `opa`, `kafka`, `gcp-logging`, `integrity`, the `rag-*` and `vcs-*`
 store adapters, and the framework auto-instrumentation extras.
 
 ## Managed platform
