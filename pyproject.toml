@@ -191,6 +191,7 @@ module = [
     "dvc.*",
     "duckdb.*",
     "pachyderm_sdk.*",
+    "nacl.*",
 ]
 ignore_missing_imports = true
 # Do not analyze inside third-party packages: several ship py.typed and use
