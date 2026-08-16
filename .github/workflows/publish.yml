@@ -106,7 +106,6 @@ jobs:
   # Build the native cost-engine binding for every published platform. The
   # crate has no C dependencies, so plain cargo cross-targets suffice.
   node-binaries:
-    if: github.event_name == 'push'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
