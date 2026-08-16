@@ -1,6 +1,6 @@
 {
   "name": "@briefcase-ai/native",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "description": "Native cost engine for briefcase-ai: model pricing and id normalization backed by the Rust core. Ships binaries for Linux x64/arm64 (gnu), macOS x64/arm64, and Windows x64 in one package.",
   "license": "Apache-2.0",
   "repository": {

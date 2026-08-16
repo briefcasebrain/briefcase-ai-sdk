@@ -1,0 +1,26 @@
+{
+  "chain": {
+    "payload": {"a": 1, "b": "two", "nested": {"x": 1, "y": 2}, "unicode": "café"},
+    "payload_hash": "dc2156b3cc8edeb39bbef1f3641314ae8f53dc780916df6062fe0a7b65432e62",
+    "entry": {
+      "row_id": "01234567-89ab-7def-8000-000000000001",
+      "table": "findings",
+      "entity_id": "entity-1",
+      "observed_at": "2026-01-01T00:00:00+00:00",
+      "recorded_at": "2026-01-01T00:00:01.001000+00:00",
+      "supersedes": null
+    },
+    "entry_hash": "db2a3d7871fdff6309525b3600909d0999fb18056ba0be42ab186f5fe08acc81",
+    "signature_seed_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+    "signature_b64url": "w7F9WmiJ2ldGvJh6j4rYklWuuIH2xTbbNgXSgF5qkabLwOOvoeNNwlNnqCq7gkKjrd7CVgRpSiuO-YB_Wbn4AA",
+    "canonical_payload_hex": "7b2261223a312c2262223a2274776f222c226e6573746564223a7b2278223a312c2279223a327d2c22756e69636f6465223a22636166c3a9227d"
+  },
+  "manifest": {
+    "manifest": {"iat": 1779000000, "iss": "example.com", "scope": {"hosts": ["example.com"], "n": 3}, "unicode": "café", "v": "1"},
+    "jwk": {"crv": "Ed25519", "kty": "OKP", "x": "gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q"},
+    "signature_seed_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+    "signature_b64url": "uuNkF-ubvNPeqyiRCu4znJ-t9QJiiKetuTF_yxBijqwzlbNZaSeGiuz_jaDb3LZB6i4rDnv4swpo_VN0VFcmBA",
+    "thumbprint": "69506d6a92ddd7549454a20c1897cfcce103b8dd2c5dc9b32503554fefec2845",
+    "canonical_hex": "7b22696174223a313737393030303030302c22697373223a226578616d706c652e636f6d222c2273636f7065223a7b22686f737473223a5b226578616d706c652e636f6d225d2c226e223a337d2c22756e69636f6465223a22636166c3a9222c2276223a2231227d"
+  }
+}

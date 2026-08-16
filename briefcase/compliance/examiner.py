@@ -29,6 +29,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from briefcase.bitemporal.record import BitemporalRecord
+from briefcase.integrity.canonical import canonical_json_compat
 from briefcase.bitemporal.store import BitemporalStore
 from briefcase.routing.policy import AgentRoutingDecision, PolicyRegistry
 
@@ -38,7 +39,9 @@ class BundleIntegrityError(ValueError):
 
 
 def _canonical_json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, default=str, separators=(",", ":"))
+    # Compat profile: byte-compatible with content_hash values from
+    # earlier releases.
+    return canonical_json_compat(value)
 
 
 def _record_to_dict(record: BitemporalRecord) -> Dict[str, Any]:

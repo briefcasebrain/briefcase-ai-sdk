@@ -18,11 +18,12 @@ Records are immutable by convention. The store never mutates them.
 from __future__ import annotations
 
 import hashlib
-import json
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+
+from briefcase.integrity.canonical import canonical_json_compat
 
 
 def _utcnow() -> datetime:
@@ -30,8 +31,12 @@ def _utcnow() -> datetime:
 
 
 def _canonical_json(value: Any) -> str:
-    """Canonical JSON encoding used for hashing and equality."""
-    return json.dumps(value, sort_keys=True, default=str, separators=(",", ":"))
+    """Canonical JSON encoding used for hashing and equality.
+
+    The compat profile: byte-compatible with hashes stored by earlier
+    releases, so ``content_hash`` values never change.
+    """
+    return canonical_json_compat(value)
 
 
 @dataclass(frozen=True)
