@@ -49,6 +49,11 @@ jobs:
       - name: Cargo clippy (Python bindings crate)
         run: cargo clippy -p briefcase-python --locked -- -D warnings
 
+      - name: Cargo check and clippy (Node bindings crate)
+        run: |
+          cargo check -p briefcase-node --locked
+          cargo clippy -p briefcase-node --locked -- -D warnings
+
       # Standalone crate, so no workspace command reaches it. It had drifted to
       # a dependency path that no longer exists and could not build at all.
       - name: Build and run the Rust example
@@ -74,6 +79,17 @@ jobs:
           npm test
           npm run build
           npm pack --dry-run
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Build and test the native binding
+        working-directory: bindings/node
+        run: |
+          npm ci
+          npm run build:debug
+          npm test
 
   security:
     name: Security (cargo-deny, gitleaks)
@@ -153,6 +169,40 @@ jobs:
         run: |
           pip install twine
           twine check target/wheels/*.whl dist/*.tar.gz
+
+  frameworks:
+    name: Auto-instrumentation vs real frameworks
+    needs: python-wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Download built wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: abi3-wheel
+          path: target/wheels
+
+      - name: Install wheel and real frameworks
+        # The stub-driven suite proves handler behavior; this lane proves the
+        # patch points exist in the actual framework releases. pageindex has
+        # no public package; its test skips.
+        run: |
+          python -m pip install --upgrade pip
+          pip install target/wheels/*.whl pytest pytest-mock pytest-asyncio pytest-subtests
+          pip install "langchain-core>=0.3" "llama-index-core>=0.10" \
+            "autogen-agentchat>=0.4" "ag2>=0.4" "openai-agents>=0.1" "crewai>=0.86"
+
+      - name: Run the real-frameworks smoke
+        env:
+          BRIEFCASE_REAL_FRAMEWORKS: "1"
+        run: pytest tests/integrations/frameworks/test_real_frameworks.py -v
 
   python:
     name: Python (pytest)

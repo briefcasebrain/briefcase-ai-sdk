@@ -40,6 +40,19 @@ export interface QuotaStore {
     ctx?: unknown;
     now?: unknown;
   }): void | Promise<void>;
+
+  /**
+   * Returns one debited unit, capped at the bucket's capacity. Optional:
+   * streaming callers refund when the client cancels before the provider
+   * finishes; stores without a refund keep up-front debits final.
+   */
+  refund?(args: {
+    tenantId: string;
+    bucket: string;
+    policy: Record<string, unknown>;
+    ctx?: unknown;
+    now?: unknown;
+  }): void | Promise<void>;
 }
 
 export interface EntitlementsHook {

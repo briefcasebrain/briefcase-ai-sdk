@@ -9,6 +9,14 @@ applications keep their own storage, policies, and tenancy rules.
 """
 
 from briefcase.controls.gateway import Gateway, GatewayConfig, Outcome
+from briefcase.controls.providers import (
+    LLMProvider,
+    NoProviderAvailable,
+    ProviderRegistry,
+    TextCompletion,
+    scoped_credential,
+    scoped_provider_name,
+)
 from briefcase.controls.ports import (
     CacheEntry,
     CacheStore,
@@ -28,12 +36,18 @@ __all__ = [
     "FixedWindowQuotaStore",
     "Gateway",
     "GatewayConfig",
+    "LLMProvider",
+    "NoProviderAvailable",
+    "ProviderRegistry",
+    "TextCompletion",
     "Outcome",
     "QuotaDecision",
     "QuotaStore",
     "ThrottleClassification",
     "UsageSink",
     "classify_provider_error",
+    "scoped_credential",
+    "scoped_provider_name",
     "compute_backoff",
     "retry_call",
     "retry_call_async",

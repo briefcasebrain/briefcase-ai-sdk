@@ -148,7 +148,14 @@ def _auto_langchain(exporter, context_version, async_capture, **kwargs):
 
         def _patched_ensure_config(config=None, **kw):
             cfg = _orig_ensure_config(config, **kw)
-            callbacks = list(cfg.get("callbacks") or [])
+            existing = cfg.get("callbacks")
+            # callbacks is either a list of handlers or a BaseCallbackManager;
+            # a manager gets the handler registered in place.
+            if existing is not None and hasattr(existing, "add_handler"):
+                if handler not in getattr(existing, "handlers", []):
+                    existing.add_handler(handler, inherit=True)
+                return cfg
+            callbacks = list(existing or [])
             if handler not in callbacks:
                 callbacks.append(handler)
             cfg["callbacks"] = callbacks

@@ -54,7 +54,6 @@
 //! - `compression` - Compression helpers for storage backends
 
 /// Cost calculation and management functionality
-#[cfg(feature = "drift")]
 pub mod cost;
 
 /// Drift detection and model performance monitoring
@@ -99,7 +98,6 @@ pub mod control;
 pub mod client;
 
 // Re-export all public types for convenience
-#[cfg(feature = "drift")]
 pub use cost::*;
 #[cfg(feature = "drift")]
 pub use drift::*;

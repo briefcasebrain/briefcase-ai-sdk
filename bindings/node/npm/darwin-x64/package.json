@@ -1,0 +1,27 @@
+{
+  "name": "@briefcase-ai/native-darwin-x64",
+  "version": "4.2.0",
+  "cpu": [
+    "x64"
+  ],
+  "main": "briefcase-native.darwin-x64.node",
+  "files": [
+    "briefcase-native.darwin-x64.node"
+  ],
+  "description": "Native cost engine for briefcase-ai: model pricing and id normalization backed by the Rust core.",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">= 12.22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/briefcasebrain/briefcase-ai-sdk.git",
+    "directory": "bindings/node"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "os": [
+    "darwin"
+  ]
+}

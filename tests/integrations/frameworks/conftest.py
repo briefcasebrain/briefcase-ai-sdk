@@ -11,6 +11,7 @@ imports and the tests drive the handlers through duck-typed fake objects.
 
 from __future__ import annotations
 
+import os
 import sys
 from importlib.machinery import ModuleSpec
 from types import ModuleType
@@ -174,10 +175,13 @@ def _install_pageindex_stub() -> None:
     _install("pageindex", mod)
 
 
-_install_langchain_stub()
-_install_llamaindex_stub()
-_install_crewai_stub()
-_install_ag2_stub()
-_install_autogen_agentchat_stub()
-_install_agents_stub()
-_install_pageindex_stub()
+# The real-frameworks lane (BRIEFCASE_REAL_FRAMEWORKS=1) runs against
+# installed framework packages; stubs would shadow them.
+if os.environ.get("BRIEFCASE_REAL_FRAMEWORKS") != "1":
+    _install_langchain_stub()
+    _install_llamaindex_stub()
+    _install_crewai_stub()
+    _install_ag2_stub()
+    _install_autogen_agentchat_stub()
+    _install_agents_stub()
+    _install_pageindex_stub()

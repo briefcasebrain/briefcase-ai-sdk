@@ -44,6 +44,7 @@ REQUIRED = [
     "briefcase.semantic_conventions",
     "briefcase.integrations.evals",
     "briefcase.controls",
+    "briefcase.controls.providers",
     "briefcase.integrations.frameworks",
     "briefcase.integrations.frameworks.pageindex_mcp",
     "briefcase.guardrails.envs",

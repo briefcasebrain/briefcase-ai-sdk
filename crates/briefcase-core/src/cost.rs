@@ -411,6 +411,68 @@ impl CostCalculator {
         calculator
     }
 
+    /// Canonicalizes a platform-qualified model id to a pricing-table key:
+    /// strips region prefixes (us./eu./apac./global.), vendor prefixes
+    /// (anthropic./amazon./cohere./mistral./meta.), a trailing -YYYYMMDD
+    /// date stamp, and -vN:M / :N version suffixes. Lookups try the exact id
+    /// first, so a registered platform-qualified name always wins.
+    pub fn normalize_model_id(model_id: &str) -> String {
+        let mut id = model_id;
+        for region in ["us.", "eu.", "apac.", "global."] {
+            if let Some(rest) = id.strip_prefix(region) {
+                id = rest;
+                break;
+            }
+        }
+        for vendor in ["anthropic.", "amazon.", "cohere.", "mistral.", "meta."] {
+            if let Some(rest) = id.strip_prefix(vendor) {
+                id = rest;
+                break;
+            }
+        }
+        let mut out = id.to_string();
+        // -vN:M version suffix, e.g. -v1:0
+        if let Some(pos) = out.rfind("-v") {
+            let tail = &out[pos + 2..];
+            if !tail.is_empty()
+                && tail
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == ':')
+            {
+                out.truncate(pos);
+            }
+        }
+        // bare :N suffix
+        if let Some(pos) = out.rfind(':') {
+            if out[pos + 1..].chars().all(|c| c.is_ascii_digit())
+                && !out[pos + 1..].is_empty()
+            {
+                out.truncate(pos);
+            }
+        }
+        // trailing -YYYYMMDD date stamp
+        if out.len() > 9 {
+            let (head, tail) = out.split_at(out.len() - 9);
+            if tail.starts_with('-') && tail[1..].chars().all(|c| c.is_ascii_digit()) {
+                out = head.to_string();
+            }
+        }
+        out
+    }
+
+    /// Resolves a model id to the pricing-table key: the exact id when
+    /// registered, otherwise its normalized form when that is registered.
+    fn resolve_model_key(&self, model_name: &str) -> Option<String> {
+        if self.pricing_table.contains_key(model_name) {
+            return Some(model_name.to_string());
+        }
+        let normalized = Self::normalize_model_id(model_name);
+        if self.pricing_table.contains_key(&normalized) {
+            return Some(normalized);
+        }
+        None
+    }
+
     /// Register a model's flat pricing together with its rate-card extras.
     fn insert_model(&mut self, pricing: ModelPricing, extras: PricingExtras) {
         let name = pricing.model_name.clone();
@@ -741,6 +803,34 @@ impl CostCalculator {
             ),
             PricingExtras::default(),
         );
+
+        // ---- Amazon Nova and Bedrock embedding models ----
+        // Flat rates are the Bedrock us-east-1 list prices; these models are
+        // served through Bedrock, so the first-party rate is the Bedrock rate.
+        self.insert_model(
+            ModelPricing::from_mtok("nova-premier", "amazon", 2.5, 12.5, 1_000_000, Some(10_000)),
+            PricingExtras::default(),
+        );
+        self.insert_model(
+            ModelPricing::from_mtok("nova-pro", "amazon", 0.8, 3.2, 300_000, Some(5_120)),
+            PricingExtras::default(),
+        );
+        self.insert_model(
+            ModelPricing::from_mtok("nova-lite", "amazon", 0.06, 0.24, 300_000, Some(5_120)),
+            PricingExtras::default(),
+        );
+        self.insert_model(
+            ModelPricing::from_mtok("nova-micro", "amazon", 0.035, 0.14, 128_000, Some(5_120)),
+            PricingExtras::default(),
+        );
+        self.insert_model(
+            ModelPricing::from_mtok("titan-embed-text", "amazon", 0.1, 0.0, 8_192, None),
+            PricingExtras::default(),
+        );
+        self.insert_model(
+            ModelPricing::from_mtok("cohere-embed", "cohere", 0.1, 0.0, 8_192, None),
+            PricingExtras::default(),
+        );
     }
 
     /// Estimate cost for a given model and token counts (first-party standard
@@ -772,11 +862,14 @@ impl CostCalculator {
         usage: TokenUsage,
         card: RateCard,
     ) -> Result<CostEstimate, CostError> {
+        let key = self
+            .resolve_model_key(model_name)
+            .ok_or_else(|| CostError::UnknownModel(model_name.to_string()))?;
         let pricing = self
             .pricing_table
-            .get(model_name)
+            .get(&key)
             .ok_or_else(|| CostError::UnknownModel(model_name.to_string()))?;
-        let extras = self.extras.get(model_name);
+        let extras = self.extras.get(&key);
 
         let billable = usage.input_tokens
             + usage.output_tokens
@@ -1206,6 +1299,62 @@ pub enum CostError {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_model_id_strips_platform_qualifiers() {
+        for (raw, expected) in [
+            ("us.amazon.nova-pro-v1:0", "nova-pro"),
+            ("us.amazon.nova-micro-v1:0", "nova-micro"),
+            ("eu.anthropic.claude-sonnet-4-6", "claude-sonnet-4-6"),
+            (
+                "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                "claude-haiku-4-5",
+            ),
+            ("amazon.titan-embed-text-v2:0", "titan-embed-text"),
+            ("cohere.cohere-embed-v3:0", "cohere-embed"),
+            ("gpt-4o", "gpt-4o"),
+        ] {
+            assert_eq!(CostCalculator::normalize_model_id(raw), expected, "{raw}");
+        }
+    }
+
+    #[test]
+    fn platform_qualified_bedrock_ids_price_via_normalization() {
+        let calc = CostCalculator::new();
+        let direct = calc.estimate_cost("nova-pro", 100_000, 1_000).unwrap();
+        let qualified = calc
+            .estimate_cost("us.amazon.nova-pro-v1:0", 100_000, 1_000)
+            .unwrap();
+        assert_eq!(direct.total_cost, qualified.total_cost);
+        // 100k input at 0.8/MTok + 1k output at 3.2/MTok
+        assert!((direct.total_cost - (0.08 + 0.0032)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn nova_and_embedding_models_price_at_bedrock_list_rates() {
+        let calc = CostCalculator::new();
+        for (model, input_rate, output_rate, input_tokens, output_tokens) in [
+            ("nova-premier", 2.5, 12.5, 100_000, 1_000),
+            ("nova-pro", 0.8, 3.2, 100_000, 1_000),
+            ("nova-lite", 0.06, 0.24, 100_000, 1_000),
+            ("nova-micro", 0.035, 0.14, 100_000, 1_000),
+            ("titan-embed-text", 0.1, 0.0, 8_000, 0),
+            ("cohere-embed", 0.1, 0.0, 8_000, 0),
+        ] {
+            let est = calc
+                .estimate_cost(model, input_tokens, output_tokens)
+                .unwrap();
+            let expected = (input_tokens as f64) * input_rate / 1_000_000.0
+                + (output_tokens as f64) * output_rate / 1_000_000.0;
+            assert!(
+                (est.total_cost - expected).abs() < 1e-9,
+                "{model}: {} vs {expected}",
+                est.total_cost
+            );
+        }
+    }
+
     use super::*;
 
     #[test]

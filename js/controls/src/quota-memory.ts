@@ -84,4 +84,12 @@ export class MemoryQuotaStore implements QuotaStore {
     this.buckets.clear();
     this.cooldowns.clear();
   }
+  /** Returns one token, capped at the policy's capacity. */
+  refund(args: { tenantId: string; bucket: string; policy: Record<string, unknown> }): void {
+    const capacity = Number(args.policy["capacity"]);
+    if (!Number.isFinite(capacity)) return;
+    const state = this.buckets.get(keyOf(args.tenantId, args.bucket));
+    if (!state) return;
+    state.tokens = Math.min(capacity, state.tokens + 1);
+  }
 }

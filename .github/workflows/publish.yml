@@ -103,11 +103,56 @@ jobs:
           name: sdist
           path: dist/*.tar.gz
 
+  # Build the native cost-engine binding for every published platform. The
+  # crate has no C dependencies, so plain cargo cross-targets suffice.
+  node-binaries:
+    if: github.event_name == 'push'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build native binding
+        working-directory: bindings/node
+        shell: bash
+        run: |
+          npm ci
+          npx napi build --platform --release --target ${{ matrix.target }}
+
+      - name: Upload binding
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.target }}
+          path: bindings/node/*.node
+          if-no-files-found: error
+
   # Publish the npm controls package (trusted publishing via OIDC; no token
   # fallback by policy). Prerelease versions publish under the `next` tag so
   # they never take `latest`.
   npm-publish:
     if: github.event_name == 'push'
+    needs: [node-binaries]
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -121,7 +166,7 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Build
+      - name: Build controls
         working-directory: js/controls
         run: |
           npm ci
@@ -136,6 +181,29 @@ jobs:
           if npm view "@briefcase-ai/controls@$VERSION" version >/dev/null 2>&1; then
             echo "@briefcase-ai/controls@$VERSION already published; skipping."
           else
+            npm publish --provenance --access public --tag "$TAG"
+          fi
+
+      - name: Download native bindings
+        uses: actions/download-artifact@v4
+        with:
+          path: bindings/node/artifacts
+          pattern: bindings-*
+          merge-multiple: true
+
+      - name: Publish @briefcase-ai/native and platform packages
+        working-directory: bindings/node
+        run: |
+          npm ci
+          npx napi create-npm-dirs
+          npx napi artifacts --output-dir artifacts
+          VERSION=$(jq -r .version package.json)
+          TAG=latest
+          case "$VERSION" in *-*) TAG=next;; esac
+          if npm view "@briefcase-ai/native@$VERSION" version >/dev/null 2>&1; then
+            echo "@briefcase-ai/native@$VERSION already published; skipping."
+          else
+            npx napi prepublish -t npm --no-gh-release
             npm publish --provenance --access public --tag "$TAG"
           fi
 

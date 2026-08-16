@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `@briefcase-ai/native`, a Node binding over the Rust cost engine
+  (`bindings/node`, napi-rs, cost-only build with no C dependencies):
+  `CostCalculator.estimateCost`, `modelIds`, and `normalizeModelId`, with
+  per-platform packages for Linux x64/arm64 (gnu), macOS x64/arm64, and
+  Windows x64 published from the tag workflow.
+- The cost engine registers Amazon Nova (premier/pro/lite/micro) and the
+  Titan and Cohere embedding models at Bedrock list rates, and
+  `normalize_model_id` canonicalizes platform-qualified ids (region and
+  vendor prefixes, date stamps, version suffixes); cost estimation applies
+  it automatically when the exact id is not registered. Exposed in Python
+  as `briefcase._native.normalize_model_id`.
+
+### Fixed
+- The `cost` module and its root re-export are no longer gated behind the
+  `drift` feature; a default or minimal build now exposes `CostCalculator`
+  at the crate root.
+- `briefcase.controls.providers`: a provider registry for LLM failover.
+  `ProviderRegistry` holds named providers behind the runtime-checkable
+  `LLMProvider` Protocol, iterates them preferred-first with an injectable
+  fallback order, and `complete_text` returns the first success or raises
+  `NoProviderAvailable` naming the last failure. `scoped_credential` binds a
+  per-context credential to one provider; a scoped credential never falls
+  through to another provider's platform credential. Concrete provider
+  clients stay application-side.
+
 ## [4.2.0] - 2026-08-16
 
 ### Added

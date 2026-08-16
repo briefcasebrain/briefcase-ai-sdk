@@ -1,0 +1,54 @@
+{
+  "name": "@briefcase-ai/native",
+  "version": "4.2.0",
+  "description": "Native cost engine for briefcase-ai: model pricing and id normalization backed by the Rust core.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/briefcasebrain/briefcase-ai-sdk.git",
+    "directory": "bindings/node"
+  },
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
+  "engines": {
+    "node": ">= 12.22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "napi": {
+    "binaryName": "briefcase-native",
+    "targets": [
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu",
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "x86_64-pc-windows-msvc"
+    ]
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "test": "vitest run",
+    "prepublishOnly": "napi prepublish -t npm",
+    "create-npm-dirs": "napi create-npm-dirs",
+    "artifacts": "napi artifacts",
+    "version": "napi version"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.0.0",
+    "vitest": "^3.2.4"
+  },
+  "optionalDependencies": {
+    "@briefcase-ai/native-linux-x64-gnu": "4.2.0",
+    "@briefcase-ai/native-linux-arm64-gnu": "4.2.0",
+    "@briefcase-ai/native-darwin-x64": "4.2.0",
+    "@briefcase-ai/native-darwin-arm64": "4.2.0",
+    "@briefcase-ai/native-win32-x64-msvc": "4.2.0"
+  }
+}

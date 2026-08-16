@@ -136,6 +136,7 @@ fn _native(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_shutdown_runtime, m)?)?;
 
     // Token estimation
+    m.add_function(wrap_pyfunction!(cost::normalize_model_id, m)?)?;
     m.add_function(wrap_pyfunction!(tokens::count_tokens, m)?)?;
     m.add_function(wrap_pyfunction!(tokens::count_tokens_batch, m)?)?;
 

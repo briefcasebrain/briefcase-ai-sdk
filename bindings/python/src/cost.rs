@@ -385,3 +385,11 @@ impl PyBudgetStatus {
         )
     }
 }
+
+/// Canonicalizes a platform-qualified model id (region and vendor prefixes,
+/// date stamps, version suffixes) to a pricing-table key. Cost estimation
+/// applies this automatically when the exact id is not registered.
+#[pyfunction]
+pub fn normalize_model_id(model_id: &str) -> String {
+    CostCalculator::normalize_model_id(model_id)
+}

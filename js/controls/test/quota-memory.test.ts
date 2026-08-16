@@ -87,3 +87,19 @@ describe("MemoryQuotaStore", () => {
     ).toBe(true);
   });
 });
+
+describe("refund", () => {
+  it("returns one token capped at capacity and no-ops on a missing bucket", () => {
+    const store = new MemoryQuotaStore();
+    const policy = { capacity: 3, refillSecondsPerToken: 60 };
+    // Missing bucket: no-op.
+    store.refund({ tenantId: "t", bucket: "b", policy });
+    const first = store.acquire({ tenantId: "t", bucket: "b", policy, now: 1_000 });
+    expect(first).toMatchObject({ allowed: true, tokensRemaining: 2 });
+    store.refund({ tenantId: "t", bucket: "b", policy });
+    // Refund restored the seed debit; clamped at capacity on a second refund.
+    store.refund({ tenantId: "t", bucket: "b", policy });
+    const next = store.acquire({ tenantId: "t", bucket: "b", policy, now: 1_000 });
+    expect(next).toMatchObject({ allowed: true, tokensRemaining: 2 });
+  });
+});
