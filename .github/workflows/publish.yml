@@ -187,23 +187,22 @@ jobs:
       - name: Download native bindings
         uses: actions/download-artifact@v4
         with:
-          path: bindings/node/artifacts
+          path: bindings/node
           pattern: bindings-*
           merge-multiple: true
 
-      - name: Publish @briefcase-ai/native and platform packages
+      - name: Publish @briefcase-ai/native
+        # One package carries every platform binary; the loader picks the
+        # matching one at require time.
         working-directory: bindings/node
         run: |
-          npm ci
-          npx napi create-npm-dirs
-          npx napi artifacts --output-dir artifacts
+          ls *.node
           VERSION=$(jq -r .version package.json)
           TAG=latest
           case "$VERSION" in *-*) TAG=next;; esac
           if npm view "@briefcase-ai/native@$VERSION" version >/dev/null 2>&1; then
             echo "@briefcase-ai/native@$VERSION already published; skipping."
           else
-            npx napi prepublish -t npm --no-gh-release
             npm publish --provenance --access public --tag "$TAG"
           fi
 

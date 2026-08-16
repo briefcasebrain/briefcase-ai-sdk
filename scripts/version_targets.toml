@@ -47,71 +47,11 @@ path = "js/controls/package.json"
 pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
 replacement = '{pre}{version}{post}'
 
-# The npm native binding releases in lockstep; the platform packages under
-# npm/ and the optionalDependencies pins track the same version.
+# The npm native binding releases in lockstep; every platform binary
+# ships inside this one package.
 [[targets]]
 id = "npm_native"
 path = "bindings/node/package.json"
 pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
 replacement = '{pre}{version}{post}'
 
-[[targets]]
-id = "npm_native_optdep_linux_x64_gnu"
-path = "bindings/node/package.json"
-pattern = '(?P<pre>"@briefcase-ai/native-linux-x64-gnu": ")(?P<version>[^"]+)(?P<post>")'
-replacement = '{pre}{version}{post}'
-
-[[targets]]
-id = "npm_native_optdep_linux_arm64_gnu"
-path = "bindings/node/package.json"
-pattern = '(?P<pre>"@briefcase-ai/native-linux-arm64-gnu": ")(?P<version>[^"]+)(?P<post>")'
-replacement = '{pre}{version}{post}'
-
-[[targets]]
-id = "npm_native_optdep_darwin_x64"
-path = "bindings/node/package.json"
-pattern = '(?P<pre>"@briefcase-ai/native-darwin-x64": ")(?P<version>[^"]+)(?P<post>")'
-replacement = '{pre}{version}{post}'
-
-[[targets]]
-id = "npm_native_optdep_darwin_arm64"
-path = "bindings/node/package.json"
-pattern = '(?P<pre>"@briefcase-ai/native-darwin-arm64": ")(?P<version>[^"]+)(?P<post>")'
-replacement = '{pre}{version}{post}'
-
-[[targets]]
-id = "npm_native_optdep_win32_x64_msvc"
-path = "bindings/node/package.json"
-pattern = '(?P<pre>"@briefcase-ai/native-win32-x64-msvc": ")(?P<version>[^"]+)(?P<post>")'
-replacement = '{pre}{version}{post}'
-
-
-[[targets]]
-id = "npm_native_platform_linux_x64"
-path = "bindings/node/npm/linux-x64-gnu/package.json"
-pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
-replacement = '{pre}{version}{post}'
-
-[[targets]]
-id = "npm_native_platform_linux_arm64"
-path = "bindings/node/npm/linux-arm64-gnu/package.json"
-pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
-replacement = '{pre}{version}{post}'
-
-[[targets]]
-id = "npm_native_platform_darwin_x64"
-path = "bindings/node/npm/darwin-x64/package.json"
-pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
-replacement = '{pre}{version}{post}'
-
-[[targets]]
-id = "npm_native_platform_darwin_arm64"
-path = "bindings/node/npm/darwin-arm64/package.json"
-pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
-replacement = '{pre}{version}{post}'
-
-[[targets]]
-id = "npm_native_platform_win32_x64"
-path = "bindings/node/npm/win32-x64-msvc/package.json"
-pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
-replacement = '{pre}{version}{post}'

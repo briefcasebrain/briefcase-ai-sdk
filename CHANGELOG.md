@@ -9,9 +9,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - `@briefcase-ai/native`, a Node binding over the Rust cost engine
   (`bindings/node`, napi-rs, cost-only build with no C dependencies):
-  `CostCalculator.estimateCost`, `modelIds`, and `normalizeModelId`, with
-  per-platform packages for Linux x64/arm64 (gnu), macOS x64/arm64, and
-  Windows x64 published from the tag workflow.
+  `CostCalculator.estimateCost`, `modelIds`, and `normalizeModelId`. One
+  package carries the binaries for Linux x64/arm64 (gnu), macOS x64/arm64,
+  and Windows x64; the loader picks the matching one at require time.
 - The cost engine registers Amazon Nova (premier/pro/lite/micro) and the
   Titan and Cohere embedding models at Bedrock list rates, and
   `normalize_model_id` canonicalizes platform-qualified ids (region and
