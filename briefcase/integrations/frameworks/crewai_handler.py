@@ -9,7 +9,7 @@ Usage (instantiating auto-registers on the global event bus):
     listener = CrewAIEventListener(context_version="v2")
 
 Usage (explicit registration):
-    from crewai.utilities.events import crewai_event_bus
+    from crewai.events import crewai_event_bus
     listener = CrewAIEventListener()
     listener.setup_listeners(crewai_event_bus)
 """
@@ -33,25 +33,48 @@ _INSTALL_HINT = (
 # absent.
 
 try:
-    from crewai.utilities.events import BaseEventListener, crewai_event_bus as _crewai_bus
+    # crewai >= 1.x exposes the event surface at crewai.events; earlier
+    # releases used crewai.utilities.events. Try modern first.
+    try:
+        from crewai.events import (  # type: ignore[attr-defined]
+            BaseEventListener,
+            crewai_event_bus as _crewai_bus,
+            CrewKickoffStartedEvent,
+            CrewKickoffCompletedEvent,
+            CrewKickoffFailedEvent,
+            AgentExecutionStartedEvent,
+            AgentExecutionCompletedEvent,
+            AgentExecutionErrorEvent,
+            TaskStartedEvent,
+            TaskCompletedEvent,
+            TaskFailedEvent,
+            ToolUsageStartedEvent,
+            ToolUsageFinishedEvent,
+            ToolUsageErrorEvent,
+            LLMCallStartedEvent,
+            LLMCallCompletedEvent,
+            LLMCallFailedEvent,
+        )
+    except ImportError:
+        from crewai.utilities.events import BaseEventListener, crewai_event_bus as _crewai_bus
 
-    from crewai.utilities.events.base_events import (  # type: ignore[attr-defined]
-        CrewKickoffStartedEvent,
-        CrewKickoffCompletedEvent,
-        CrewKickoffFailedEvent,
-        AgentExecutionStartedEvent,
-        AgentExecutionCompletedEvent,
-        AgentExecutionErrorEvent,
-        TaskStartedEvent,
-        TaskCompletedEvent,
-        TaskFailedEvent,
-        ToolUsageStartedEvent,
-        ToolUsageFinishedEvent,
-        ToolUsageErrorEvent,
-        LLMCallStartedEvent,
-        LLMCallCompletedEvent,
-        LLMCallFailedEvent,
-    )
+        from crewai.utilities.events.base_events import (  # type: ignore[attr-defined]
+            CrewKickoffStartedEvent,
+            CrewKickoffCompletedEvent,
+            CrewKickoffFailedEvent,
+            AgentExecutionStartedEvent,
+            AgentExecutionCompletedEvent,
+            AgentExecutionErrorEvent,
+            TaskStartedEvent,
+            TaskCompletedEvent,
+            TaskFailedEvent,
+            ToolUsageStartedEvent,
+            ToolUsageFinishedEvent,
+            ToolUsageErrorEvent,
+            LLMCallStartedEvent,
+            LLMCallCompletedEvent,
+            LLMCallFailedEvent,
+        )
     _CREWAI_AVAILABLE = True
     _ListenerBase = BaseEventListener
 except ImportError:
@@ -215,9 +238,12 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
     ) -> None:
         """Register optional event types that exist only in some crewai versions."""
         try:
-            import crewai.utilities.events.base_events as _ev_module
+            import crewai.events as _ev_module  # type: ignore[import-not-found]
         except ImportError:
-            return
+            try:
+                import crewai.utilities.events.base_events as _ev_module
+            except ImportError:
+                return
         for event_name, handler in event_handlers:
             try:
                 event_cls = getattr(_ev_module, event_name, None)

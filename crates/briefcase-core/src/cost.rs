@@ -434,19 +434,13 @@ impl CostCalculator {
         // -vN:M version suffix, e.g. -v1:0
         if let Some(pos) = out.rfind("-v") {
             let tail = &out[pos + 2..];
-            if !tail.is_empty()
-                && tail
-                    .chars()
-                    .all(|c| c.is_ascii_digit() || c == ':')
-            {
+            if !tail.is_empty() && tail.chars().all(|c| c.is_ascii_digit() || c == ':') {
                 out.truncate(pos);
             }
         }
         // bare :N suffix
         if let Some(pos) = out.rfind(':') {
-            if out[pos + 1..].chars().all(|c| c.is_ascii_digit())
-                && !out[pos + 1..].is_empty()
-            {
+            if out[pos + 1..].chars().all(|c| c.is_ascii_digit()) && !out[pos + 1..].is_empty() {
                 out.truncate(pos);
             }
         }
