@@ -1,0 +1,11 @@
+# Gitleaks false positives. Every entry is a deliberately fake credential:
+# the sanitizer's own redaction test fixtures and doc examples, and a
+# placeholder key in the VCS integration tests. Fingerprints are
+# commit:file:rule:line.
+048a60e0b0db285ad2a09f5e08ce5f632eee17a1:tests/vcs/test_vcs_integration.py:generic-api-key:121
+a7142088b1965699dc1bfef0f7dd0e17d0792668:bindings/python/tests/test_sanitization.py:generic-api-key:81
+a7142088b1965699dc1bfef0f7dd0e17d0792668:bindings/python/tests/test_sanitization.py:generic-api-key:172
+a7142088b1965699dc1bfef0f7dd0e17d0792668:examples/python-basic/README.md:generic-api-key:138
+a7142088b1965699dc1bfef0f7dd0e17d0792668:crates/briefcase-core/src/sanitization.rs:generic-api-key:408
+a7142088b1965699dc1bfef0f7dd0e17d0792668:crates/briefcase-core/src/sanitization.rs:generic-api-key:411
+a7142088b1965699dc1bfef0f7dd0e17d0792668:crates/briefcase-core/src/sanitization.rs:generic-api-key:460
