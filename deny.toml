@@ -1,0 +1,12 @@
+# cargo-deny configuration; CI runs `check advisories`.
+[advisories]
+ignore = [
+    # RUSTSEC-2026-0176 / RUSTSEC-2026-0177: out-of-bounds read in the
+    # `nth`/`nth_back` implementations of pyo3's PyList/PyTuple iterators.
+    # The fix requires pyo3 >= 0.29, a major API migration for the bindings
+    # crate. The bindings never call `nth`/`nth_back` on those iterators
+    # (they iterate sequentially), so the affected code path is unreachable
+    # here. Remove both entries with the pyo3 0.29 upgrade.
+    "RUSTSEC-2026-0176",
+    "RUSTSEC-2026-0177",
+]
