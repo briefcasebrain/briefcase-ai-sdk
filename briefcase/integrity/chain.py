@@ -37,6 +37,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import random
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable
@@ -162,9 +164,26 @@ def _sign_hash(signing_key: bytes, hash_hex: str) -> str:
     return base64.urlsafe_b64encode(sig).decode("ascii").rstrip("=")
 
 
+class ChainConflictError(RuntimeError):
+    """Append rejected: the entry's ``prior_hash`` no longer matches the
+    segment tail (another writer appended first). The appender re-reads
+    the tail and retries; an unhandled raise after retries means the
+    segment is contended beyond ``max_attempts``."""
+
+
 @runtime_checkable
 class HashChainStore(Protocol):
-    """Persistence abstraction for hash-chain entries."""
+    """Persistence abstraction for hash-chain entries.
+
+    ``append`` is compare-and-swap shaped: a store that can observe its
+    segment tail atomically SHOULD raise :class:`ChainConflictError` when
+    ``entry.prior_hash`` does not match it, so concurrent writers get a
+    clean retry instead of a silent fork. In SQL, a unique index over
+    ``(table_name, entity_id, prior_hash)`` (with NULL entity normalized
+    to a sentinel) makes the database the arbiter. A store that cannot
+    check (e.g. a blind log shipper) may accept every append, in which
+    case callers must serialize per segment themselves.
+    """
 
     def last_entry_hash(self, table: str, entity_id: Optional[str] = None) -> str:
         """Hash of the most recent entry in the (table, entity) segment,
@@ -172,16 +191,20 @@ class HashChainStore(Protocol):
         ...
 
     def append(self, entry: HashChainEntry) -> None:
-        """Persist one entry."""
+        """Persist one entry; raise :class:`ChainConflictError` when the
+        segment tail no longer equals ``entry.prior_hash``."""
         ...
 
 
 class HashChainAppender:
     """Build and persist hash-chain entries.
 
-    Threading: callers serialize ``append_row`` per ``(table, entity_id)``
-    segment. Two appenders racing on the same segment would both read the
-    same ``prior_hash`` and the chain would fork.
+    Concurrent appends on one segment are safe when the store enforces
+    the ``prior_hash`` compare-and-swap (both bundled stores do): a
+    losing writer gets :class:`ChainConflictError`, re-reads the tail,
+    and retries up to ``max_attempts``. Against a store that cannot
+    enforce it, callers must serialize per ``(table, entity_id)`` segment
+    or the chain forks.
     """
 
     def __init__(self, store: HashChainStore, signing_key: Optional[bytes] = None):
@@ -197,34 +220,45 @@ class HashChainAppender:
         recorded_at: datetime,
         payload: Dict[str, Any],
         supersedes: Optional[str] = None,
+        max_attempts: int = 32,
     ) -> HashChainEntry:
         payload_hash = compute_payload_hash(payload)
-        prior_hash = self._store.last_entry_hash(table=table, entity_id=entity_id)
-        hash_hex = compute_entry_hash(
-            row_id=row_id,
-            table=table,
-            entity_id=entity_id,
-            observed_at=observed_at,
-            recorded_at=recorded_at,
-            payload_hash=payload_hash,
-            supersedes=supersedes,
-            prior_hash=prior_hash,
-        )
-        signature = _sign_hash(self._signing_key, hash_hex) if self._signing_key else None
-        entry = HashChainEntry(
-            row_id=row_id,
-            table=table,
-            entity_id=entity_id,
-            observed_at=observed_at,
-            recorded_at=recorded_at,
-            payload_hash=payload_hash,
-            supersedes=supersedes,
-            prior_hash=prior_hash,
-            hash=hash_hex,
-            signature=signature,
-        )
-        self._store.append(entry)
-        return entry
+        last_conflict: Optional[ChainConflictError] = None
+        for attempt in range(max_attempts):
+            prior_hash = self._store.last_entry_hash(table=table, entity_id=entity_id)
+            hash_hex = compute_entry_hash(
+                row_id=row_id,
+                table=table,
+                entity_id=entity_id,
+                observed_at=observed_at,
+                recorded_at=recorded_at,
+                payload_hash=payload_hash,
+                supersedes=supersedes,
+                prior_hash=prior_hash,
+            )
+            signature = _sign_hash(self._signing_key, hash_hex) if self._signing_key else None
+            entry = HashChainEntry(
+                row_id=row_id,
+                table=table,
+                entity_id=entity_id,
+                observed_at=observed_at,
+                recorded_at=recorded_at,
+                payload_hash=payload_hash,
+                supersedes=supersedes,
+                prior_hash=prior_hash,
+                hash=hash_hex,
+                signature=signature,
+            )
+            try:
+                self._store.append(entry)
+                return entry
+            except ChainConflictError as exc:
+                last_conflict = exc
+                # Jittered backoff so contending writers desynchronize;
+                # grows with attempts, capped at ~20ms per wait.
+                time.sleep(random.uniform(0, 0.002 * min(attempt + 1, 10)))
+        assert last_conflict is not None
+        raise last_conflict
 
 
 def verify_chain_segment(
@@ -268,6 +302,7 @@ def verify_chain_segment(
 
 
 __all__ = [
+    "ChainConflictError",
     "GENESIS_PRIOR_HASH",
     "HASH_SPEC_VERSION",
     "HashChainAppender",

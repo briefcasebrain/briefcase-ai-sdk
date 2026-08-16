@@ -7,6 +7,7 @@ Imports on a bare install; only the signing helpers need the
 from briefcase.integrity.canonical import canonical_json, canonical_json_compat, sha256_hex
 from briefcase.integrity.chain import (
     GENESIS_PRIOR_HASH,
+    ChainConflictError,
     HASH_SPEC_VERSION,
     HashChainAppender,
     HashChainEntry,
@@ -30,6 +31,7 @@ from briefcase.integrity.stores import (
 )
 
 __all__ = [
+    "ChainConflictError",
     "GENESIS_PRIOR_HASH",
     "HASH_SPEC_VERSION",
     "HashChainAppender",
