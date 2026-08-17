@@ -47,6 +47,13 @@ path = "js/controls/package.json"
 pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
 replacement = '{pre}{version}{post}'
 
+# The npm runtime package releases in lockstep with the SDK.
+[[targets]]
+id = "npm_runtime"
+path = "js/runtime/package.json"
+pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
+replacement = '{pre}{version}{post}'
+
 # The npm native binding releases in lockstep; every platform binary
 # ships inside this one package.
 [[targets]]
@@ -54,4 +61,3 @@ id = "npm_native"
 path = "bindings/node/package.json"
 pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
 replacement = '{pre}{version}{post}'
-

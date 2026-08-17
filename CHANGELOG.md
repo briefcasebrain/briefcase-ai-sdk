@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `@briefcase-ai/runtime`, a Node-only TypeScript package with explicit
+  `integrity`, `lakefs`, `connectors`, and `trace` subpath exports. It adds
+  Python-compatible hash chains, a typed lakeFS client, provider-neutral
+  connector orchestration and OAuth security primitives, and an asynchronous
+  invocation/step recorder behind application-owned persistence ports.
+
 ## [4.4.0] - 2026-08-16
 
 ### Added

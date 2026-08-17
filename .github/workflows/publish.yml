@@ -146,7 +146,7 @@ jobs:
           path: bindings/node/*.node
           if-no-files-found: error
 
-  # Publish the npm controls package (trusted publishing via OIDC; no token
+  # Publish the npm TypeScript packages (trusted publishing via OIDC; no token
   # fallback by policy). Prerelease versions publish under the `next` tag so
   # they never take `latest`.
   npm-publish:
@@ -185,6 +185,24 @@ jobs:
           case "$VERSION" in *-*) TAG=next;; esac
           if npm view "@briefcase-ai/controls@$VERSION" version >/dev/null 2>&1; then
             echo "@briefcase-ai/controls@$VERSION already published; skipping."
+          else
+            npm publish --provenance --access public --tag "$TAG"
+          fi
+
+      - name: Build runtime
+        working-directory: js/runtime
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publish @briefcase-ai/runtime
+        working-directory: js/runtime
+        run: |
+          VERSION=$(jq -r .version package.json)
+          TAG=latest
+          case "$VERSION" in *-*) TAG=next;; esac
+          if npm view "@briefcase-ai/runtime@$VERSION" version >/dev/null 2>&1; then
+            echo "@briefcase-ai/runtime@$VERSION already published; skipping."
           else
             npm publish --provenance --access public --tag "$TAG"
           fi

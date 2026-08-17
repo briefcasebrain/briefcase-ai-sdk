@@ -60,7 +60,7 @@ jobs:
         run: cargo run --manifest-path examples/rust/Cargo.toml
 
   node:
-    name: Node (controls package)
+    name: Node (TypeScript packages)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,10 +69,21 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: js/controls/package-lock.json
+          cache-dependency-path: |
+            js/controls/package-lock.json
+            js/runtime/package-lock.json
 
       - name: Install, typecheck, test, build, pack
         working-directory: js/controls
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+          npm pack --dry-run
+
+      - name: Install, typecheck, test, build, pack runtime
+        working-directory: js/runtime
         run: |
           npm ci
           npm run typecheck

@@ -11,6 +11,15 @@ replay later.
 pip install briefcase-ai
 ```
 
+TypeScript consumers install the focused runtime packages:
+
+```bash
+npm install @briefcase-ai/controls @briefcase-ai/runtime
+```
+
+`@briefcase-ai/runtime` exposes only explicit subpaths:
+`@briefcase-ai/runtime/integrity`, `/lakefs`, `/connectors`, and `/trace`.
+
 ## Quick Example
 
 ```python
@@ -138,7 +147,7 @@ KMS-signed examiner bundles, guardrails, RBAC/ABAC/OPA policy evaluation,
 routing, replay, framework auto-instrumentation (`briefcase.auto`), lakeFS
 branching and lineage, vector-store and VCS adapters, event transports, and
 the controls layer, in both Python and TypeScript
-(`@briefcase-ai/controls`).
+(`@briefcase-ai/controls` and `@briefcase-ai/runtime`).
 
 The commercial offering is the hosted platform, not gated code: a managed
 control plane, catalog provisioning and credential brokering, operational

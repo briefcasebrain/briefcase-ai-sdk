@@ -1,0 +1,51 @@
+{
+  "name": "@briefcase-ai/runtime",
+  "version": "4.4.0",
+  "description": "Governance runtime primitives for integrity, lakeFS, connectors, and agent traces.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/briefcasebrain/briefcase-ai-sdk.git",
+    "directory": "js/runtime"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.19"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./integrity": {
+      "types": "./dist/integrity/index.d.ts",
+      "import": "./dist/integrity/index.js"
+    },
+    "./lakefs": {
+      "types": "./dist/lakefs/index.d.ts",
+      "import": "./dist/lakefs/index.js"
+    },
+    "./connectors": {
+      "types": "./dist/connectors/index.d.ts",
+      "import": "./dist/connectors/index.js"
+    },
+    "./trace": {
+      "types": "./dist/trace/index.d.ts",
+      "import": "./dist/trace/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
