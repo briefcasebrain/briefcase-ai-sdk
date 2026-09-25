@@ -220,6 +220,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist/
+          # Wheels and the sdist only; the node-binaries artifacts are .node
+          # files that twine rejects as an unknown distribution format.
+          pattern: "{wheels-*,sdist}"
           merge-multiple: true
 
       - name: Publish to PyPI
