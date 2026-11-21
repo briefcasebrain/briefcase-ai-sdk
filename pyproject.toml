@@ -108,6 +108,10 @@ mcp = ["mcp>=1.2,<2"]
 # server reflection (no generated stubs). grpcio-reflection is the PyPI wheel; the import is
 # grpc_reflection.v1alpha. The subprocess oci-jj fallback (BRIEFCASE_ENGINE=cli) needs none of these.
 run = ["grpcio>=1.60,<2", "grpcio-reflection>=1.60,<2", "protobuf>=4.25"]
+# `briefcase receive` decodes OTLP/JSON with the stdlib. This extra adds OTLP/protobuf decoding,
+# which Codex and Copilot send; Claude Code is configured for http/json by `briefcase connect`
+# and needs nothing extra.
+receiver = ["opentelemetry-proto>=1.20"]
 # No black: the codebase is not black-formatted and CONTRIBUTING says not to
 # run it, so shipping it as a dev dependency only invites a 95-file diff.
 dev = [
@@ -120,7 +124,7 @@ dev = [
     # moto backs the Glue and KMS tests; those suites skip cleanly without it.
     "moto[kms,glue,s3]>=5",
 ]
-all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,rag-chroma,rag-pinecone,rag-weaviate,correlation,external,events,kafka,webhook,gcp-logging,routing,opa,lakefs,vcs,vcs-dvc,vcs-pachyderm,vcs-ducklake,vcs-iceberg,gym,evals,bitemporal,bitemporal-iceberg,bitemporal-glue,compliance,compliance-kms,controls,integrity,langchain,crewai,llamaindex,autogen,ag2,pageindex,openai-agents,mcp,run]"]
+all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,rag-chroma,rag-pinecone,rag-weaviate,correlation,external,events,kafka,webhook,gcp-logging,routing,opa,lakefs,vcs,vcs-dvc,vcs-pachyderm,vcs-ducklake,vcs-iceberg,gym,evals,bitemporal,bitemporal-iceberg,bitemporal-glue,compliance,compliance-kms,controls,integrity,langchain,crewai,llamaindex,autogen,ag2,pageindex,openai-agents,mcp,run,receiver]"]
 
 [project.scripts]
 briefcase-mcp = "briefcase.mcp.__main__:main"
@@ -220,4 +224,6 @@ include = [
     # repo-root llms-full.txt (tests/test_mcp_guide.py keeps them identical),
     # because a file outside the package cannot ship inside it.
     "briefcase/mcp/llms-full.txt",
+    # Per-tool paths, keys and documentation provenance for `briefcase connect`.
+    "briefcase/connect/adapters.json",
 ]

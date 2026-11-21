@@ -118,7 +118,29 @@ def summarize(results, strict=False) -> int:
     return 0
 
 
+def connect_checks(adapters=None, probe=None):
+    """The ``--connect`` section: per connected tool, are our keys still present, is the tool's
+    version in the supported range, do managed settings override us, and is the receiver up."""
+    from briefcase.connect import engine as connect_engine
+    from briefcase.receiver import daemon
+
+    return connect_engine.doctor_checks(adapters, probe=probe or daemon.probe)
+
+
+def cmd_doctor_connect(args) -> int:
+    results = connect_checks()
+    print("briefcase connect integrations:")
+    for sev, label, detail in results:
+        print(f"{_MARK[sev]} {label}: {detail}" if detail else f"{_MARK[sev]} {label}")
+    rc = summarize(results, strict=getattr(args, "strict", False))
+    if rc != 0:
+        print("\ndoctor found problems above.", file=sys.stderr)
+    return rc
+
+
 def cmd_doctor(args, store, engine, stack=None) -> int:
+    if getattr(args, "connect", False):
+        return cmd_doctor_connect(args)
     server = getattr(args, "server", None) or os.environ.get("OCI_JJ_SERVER", "http://127.0.0.1:50051")
     doctor = Doctor()
     results = doctor.checks(server=server)

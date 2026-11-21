@@ -232,6 +232,7 @@ Needs an extra (third-party deps):
 - `pip install briefcase-ai[langchain]`          # also `crewai`, `llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`
 - `pip install briefcase-ai[mcp]`                # MCP server (briefcase-mcp)
 - `pip install briefcase-ai[run]`                # gRPC client for the eval-run CLI
+- `pip install briefcase-ai[receiver]`           # OTLP/protobuf for `briefcase receive`
 - `pip install briefcase-ai[all]`                # everything above except kdb
 
 ------------------------------------------------------------------------------
@@ -319,6 +320,44 @@ cover local Ed25519 manifest attestation with RFC 8037 OKP JWKs. Both
 bundled stores enforce a prior_hash compare-and-swap (the JSONL store adds
 POSIX flock), so concurrent appenders on one host retry cleanly instead of
 forking; cross-host writers need a shared store enforcing the same CAS.
+
+------------------------------------------------------------------------------
+## 8e. Plug-and-play integrations (coding tools -> decision records)
+
+Do not hand-write a coding tool's telemetry or MCP config; the CLI does it.
+
+```bash
+briefcase connect                    # detect tools, show plan + diff, ask once, write
+briefcase connect claude-code cursor # only these tools
+briefcase connect --dry-run          # look, write nothing
+briefcase connect --undo             # remove exactly what connect wrote
+briefcase connect list | status
+briefcase receive                    # OTLP receiver on 127.0.0.1:4318, records to the console
+briefcase receive --detach           # background, records to ~/.briefcase/receiver/records.jsonl
+briefcase receive --to runs.jsonl    # or https://..., or otlp
+briefcase mcp install                # register briefcase-mcp with detected tools
+briefcase mcp link cursor            # one-click deeplink + copy-paste payloads
+briefcase doctor --connect           # keys still present, tool version, receiver reachable
+```
+
+- Automatic: Claude Code (`~/.claude/settings.json` env, OTLP http/json), Codex
+  CLI (`[otel]` block in `~/.codex/config.toml`), Cursor (hooks + `mcp.json`),
+  VS Code Copilot Chat (user `settings.json`). Print-only: Claude Desktop/Cowork
+  (admin setting), Copilot CLI, Cline, Windsurf, opencode. Gemini CLI is experimental.
+- Edits are key-level merges with a timestamped backup; malformed JSON and JSON
+  with comments are refused and the snippet is printed instead.
+- Content is off twice over: `connect` enables prompt/tool content in the tool
+  only with `--capture-content`, and `receive` drops prompts, responses, tool
+  input, host paths and hashes `user.email` unless run with `--keep-content`.
+- Claude Code and Cursor work on a bare install. Codex and Copilot send
+  protobuf: `pip install 'briefcase-ai[receiver]'`.
+- Records: `decision_type` is `model_call` (model, tokens, cost, duration),
+  `tool_call` (decision joined with result), `user_prompt`, `assistant_response`
+  or `event`; `workflow_id` is the prompt id; `inputs.source` names the tool.
+- A non-loopback `--host` requires `--token`.
+
+In code, the receiver is `briefcase.receiver.Receiver(exporter)` plus
+`make_server(receiver, host, port)`.
 
 ------------------------------------------------------------------------------
 ## 9. Common pitfalls

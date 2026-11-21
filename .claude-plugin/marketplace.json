@@ -1,0 +1,14 @@
+{
+  "name": "briefcase-ai",
+  "description": "Briefcase AI integrations for Claude Code",
+  "owner": {
+    "name": "Briefcase AI"
+  },
+  "plugins": [
+    {
+      "name": "briefcase",
+      "source": "./integrations/claude-code/briefcase",
+      "description": "Adds the briefcase-ai MCP server: usage guidance, decision capture and PII sanitization tools"
+    }
+  ]
+}

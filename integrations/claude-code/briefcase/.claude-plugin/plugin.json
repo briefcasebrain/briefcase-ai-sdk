@@ -1,0 +1,19 @@
+{
+  "name": "briefcase",
+  "displayName": "Briefcase AI",
+  "description": "Adds the briefcase-ai MCP server: usage guidance, decision capture and PII sanitization tools",
+  "author": {
+    "name": "Briefcase AI",
+    "url": "https://briefcaseai.io"
+  },
+  "homepage": "https://briefcaseai.io",
+  "repository": "https://github.com/briefcasebrain/briefcase-ai-sdk",
+  "license": "Apache-2.0",
+  "keywords": ["observability", "governance", "mcp"],
+  "mcpServers": {
+    "briefcase": {
+      "command": "uvx",
+      "args": ["--from", "briefcase-ai[mcp]", "briefcase-mcp"]
+    }
+  }
+}

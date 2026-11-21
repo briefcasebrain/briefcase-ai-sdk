@@ -1,0 +1,206 @@
+{
+  "schema_version": 1,
+  "notes": "Data for `briefcase connect`. Formats come from each tool's public documentation on verified_on. min_tested/max_tested are the tool versions the adapter was actually run against (null: never run against the real tool, documentation only). `supported` is a documentation-derived range; a detected version outside it falls back to print-only (override with --force). Entries under `unverified` are never written automatically.",
+  "default_endpoint": "http://127.0.0.1:4318",
+  "tools": {
+    "claude-code": {
+      "name": "Claude Code",
+      "mode": "automatic",
+      "telemetry": "native-otel",
+      "detect": {"dirs": ["~/.claude"], "bins": ["claude"]},
+      "bin": "claude",
+      "files": {
+        "user_settings": "~/.claude/settings.json",
+        "project_mcp": ".mcp.json"
+      },
+      "managed_settings": [
+        "/Library/Application Support/ClaudeCode/managed-settings.json",
+        "/etc/claude-code/managed-settings.json"
+      ],
+      "managed_settings_dirs": [
+        "/Library/Application Support/ClaudeCode/managed-settings.d",
+        "/etc/claude-code/managed-settings.d"
+      ],
+      "otlp_protocol": "http/json",
+      "needs_protobuf": false,
+      "service_names": ["claude-code"],
+      "min_tested": "2.1.330",
+      "max_tested": "2.1.330",
+      "tested": "`claude mcp add/remove --scope user` and `claude plugin validate` on 2.1.330; the telemetry export itself was not exercised against a live session",
+      "supported": {"min": "2.0.0", "below": "3.0.0"},
+      "docs_url": "https://code.claude.com/docs/en/monitoring-usage",
+      "verified_on": "2026-11-21",
+      "unverified": []
+    },
+    "cowork": {
+      "name": "Claude Desktop / Cowork",
+      "mode": "print-only",
+      "telemetry": "admin-otel",
+      "detect": {
+        "dirs": ["~/Library/Application Support/Claude", "~/.config/Claude"],
+        "bins": []
+      },
+      "needs_protobuf": true,
+      "service_names": ["cowork"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://support.claude.com/",
+      "verified_on": "2026-11-21",
+      "unverified": ["OTLP encoding sent by the admin-configured exporter", "exact docs_url of the monitoring page"]
+    },
+    "codex": {
+      "name": "Codex CLI",
+      "mode": "automatic",
+      "telemetry": "native-otel",
+      "detect": {"dirs": ["~/.codex"], "bins": ["codex"]},
+      "bin": "codex",
+      "files": {"user_config": "~/.codex/config.toml"},
+      "otlp_protocol": "binary",
+      "needs_protobuf": true,
+      "service_names": ["codex", "codex_cli_rs", "codex-cli"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://developers.openai.com/codex/config-advanced",
+      "verified_on": "2026-11-21",
+      "unverified": [
+        "protocol = \"json\" and trace_exporter (not used)",
+        "event attribute names and the reported service.name (the receiver accepts several aliases)",
+        "`codex mcp remove` (printed as a hint on undo, never run)"
+      ]
+    },
+    "cursor": {
+      "name": "Cursor",
+      "mode": "automatic",
+      "telemetry": "hooks",
+      "detect": {"dirs": ["~/.cursor"], "bins": ["cursor"]},
+      "bin": "cursor",
+      "files": {
+        "user_hooks": "~/.cursor/hooks.json",
+        "project_hooks": ".cursor/hooks.json",
+        "user_mcp": "~/.cursor/mcp.json",
+        "project_mcp": ".cursor/mcp.json"
+      },
+      "hook_events": ["sessionStart", "sessionEnd", "beforeSubmitPrompt", "postToolUse", "afterAgentResponse", "stop"],
+      "hook_timeout_seconds": 5,
+      "needs_protobuf": false,
+      "service_names": ["cursor"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://cursor.com/docs/agent/hooks",
+      "verified_on": "2026-11-21",
+      "unverified": []
+    },
+    "vscode-copilot": {
+      "name": "VS Code Copilot Chat",
+      "mode": "automatic",
+      "telemetry": "native-otel",
+      "detect": {
+        "dirs": ["~/.config/Code/User", "~/Library/Application Support/Code/User", "%APPDATA%/Code/User"],
+        "bins": ["code"]
+      },
+      "bin": "code",
+      "files": {
+        "user_settings": {
+          "linux": "~/.config/Code/User/settings.json",
+          "darwin": "~/Library/Application Support/Code/User/settings.json",
+          "win32": "%APPDATA%/Code/User/settings.json"
+        },
+        "project_mcp": ".vscode/mcp.json"
+      },
+      "needs_protobuf": true,
+      "service_names": ["copilot-chat", "github-copilot"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://code.visualstudio.com/docs/copilot/guides/monitoring-agents",
+      "verified_on": "2026-11-21",
+      "unverified": ["whether the otlp-http exporter can send JSON (assumed protobuf, so the receiver extra is recommended)"]
+    },
+    "copilot-cli": {
+      "name": "GitHub Copilot CLI",
+      "mode": "print-only",
+      "telemetry": "env",
+      "detect": {"dirs": ["~/.copilot"], "bins": ["copilot"]},
+      "bin": "copilot",
+      "files": {"user_mcp": "~/.copilot/mcp-config.json"},
+      "needs_protobuf": true,
+      "service_names": ["github-copilot"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://code.visualstudio.com/docs/copilot/guides/monitoring-agents",
+      "verified_on": "2026-11-21",
+      "unverified": ["shape of an entry under mcpServers in ~/.copilot/mcp-config.json", "a persistent place for the env vars other than the shell profile"]
+    },
+    "gemini-cli": {
+      "name": "Gemini CLI",
+      "mode": "experimental",
+      "telemetry": "native-otel",
+      "detect": {"dirs": ["~/.gemini"], "bins": ["gemini"]},
+      "bin": "gemini",
+      "files": {
+        "user_settings": "~/.gemini/settings.json",
+        "project_settings": ".gemini/settings.json"
+      },
+      "needs_protobuf": true,
+      "service_names": ["gemini-cli"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/telemetry.md",
+      "verified_on": "2026-11-21",
+      "unverified": [
+        "user-level settings path (written only when ~/.gemini/settings.json already exists)",
+        "event names (records arrive as generic events)",
+        "docs_url; the project's docs say the CLI was superseded in 2026"
+      ]
+    },
+    "cline": {
+      "name": "Cline",
+      "mode": "print-only",
+      "telemetry": "env",
+      "detect": {"dirs": [], "bins": ["cline"], "globs": ["~/.vscode/extensions/saoudrizwan.claude-dev-*"]},
+      "needs_protobuf": true,
+      "service_names": ["cline"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://docs.cline.bot/",
+      "verified_on": "2026-11-21",
+      "unverified": ["env var details and accepted values", "event names", "docs_url of the telemetry page"]
+    },
+    "windsurf": {
+      "name": "Windsurf",
+      "mode": "print-only",
+      "telemetry": "none",
+      "detect": {"dirs": ["~/.codeium/windsurf"], "bins": ["windsurf"]},
+      "files": {"user_mcp": "~/.codeium/windsurf/mcp_config.json"},
+      "needs_protobuf": false,
+      "service_names": [],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://docs.windsurf.com/",
+      "verified_on": "2026-11-21",
+      "unverified": ["MCP config path and shape", "docs_url of the MCP page"]
+    },
+    "opencode": {
+      "name": "opencode",
+      "mode": "print-only",
+      "telemetry": "none",
+      "detect": {"dirs": ["~/.config/opencode"], "bins": ["opencode"]},
+      "files": {"user_config": "~/.config/opencode/opencode.json"},
+      "needs_protobuf": false,
+      "service_names": [],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://opencode.ai/docs/",
+      "verified_on": "2026-11-21",
+      "unverified": ["MCP entry shape in opencode.json", "docs_url of the MCP page"]
+    }
+  }
+}

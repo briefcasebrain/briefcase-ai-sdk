@@ -115,6 +115,24 @@ This repo ships machine-readable usage guidance: [`llms.txt`](https://github.com
 editor rules under [`docs/llm/`](https://github.com/briefcasebrain/briefcase-ai-sdk/tree/main/docs/llm/). An MCP server is available via
 `pip install briefcase-ai[mcp]` then `briefcase-mcp`.
 
+## Plug-and-play integrations
+
+Connect the coding tools on your machine in one command. Nothing to configure by hand:
+
+```bash
+briefcase connect     # detects Claude Code, Codex, Cursor, VS Code Copilot, ...; shows a diff; asks once
+briefcase receive     # local OTLP receiver: their telemetry becomes briefcase decision records
+```
+
+`connect` writes each tool's telemetry and MCP settings as key-level edits with
+a backup, and `briefcase connect --undo` removes exactly what it wrote.
+Prompts, responses, tool input, e-mail addresses and host paths are redacted
+unless you opt in (`--capture-content` / `--keep-content`). Claude Code and
+Cursor work on a bare install; Codex and Copilot send protobuf, which needs
+`pip install 'briefcase-ai[receiver]'`. `briefcase mcp link cursor` prints a
+one-click install link for the MCP server. Per-tool details:
+[`docs/integrations/`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/docs/integrations/README.md).
+
 ## Extras
 
 | Extra | Description |
@@ -150,6 +168,7 @@ editor rules under [`docs/llm/`](https://github.com/briefcasebrain/briefcase-ai-
 | `langchain` / `crewai` / `llamaindex` / `autogen` / `ag2` / `pageindex` / `openai-agents` | Framework auto-instrumentation via `briefcase.auto` (each adds its framework) |
 | `mcp` | MCP server (`briefcase-mcp`) exposing the SDK to AI agents |
 | `run` | gRPC client for the `briefcase` evaluation-run CLI (adds `grpcio`, `grpcio-reflection`, `protobuf`) |
+| `receiver` | OTLP/protobuf decoding for `briefcase receive` (adds `opentelemetry-proto`; OTLP/JSON needs no extra) |
 | `dev` | Dev tooling: pytest, mypy, flake8, moto (not part of `all`) |
 | `all` | Installs every optional extra listed above except `kdb` and `dev` |
 
@@ -162,7 +181,8 @@ third-party packages are `otel`, `kafka`, `gcp-logging`, `opa`, `lakefs`,
 `rag-chroma`, `rag-pinecone`, `rag-weaviate`, `vcs-dvc`, `vcs-pachyderm`,
 `vcs-ducklake`, `vcs-iceberg`, `gym`, `evals`, `bitemporal-iceberg`,
 `bitemporal-glue`, `kdb`, `compliance-kms`, `integrity`, `langchain`, `crewai`,
-`llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`, `mcp`, and `run`.
+`llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`, `mcp`, `run`, and
+`receiver`.
 `all` installs every one of those except `kdb`; `dev` is the test tooling and is
 not part of `all`.
 

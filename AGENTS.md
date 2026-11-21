@@ -46,8 +46,25 @@ Rules to follow when generating briefcase code:
   `vcs-ducklake`, `vcs-iceberg`, `gym`, `evals`, `bitemporal-iceberg`,
   `bitemporal-glue`, `kdb`, `compliance-kms`, `integrity`, `langchain`,
   `crewai`, `llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`,
-  `mcp`, and `run` (`all` is every one of them except `kdb`; `dev` is the test
+  `mcp`, `run`, and `receiver` (`all` is every one of them except `kdb`; `dev` is the test
   tooling). See `llms-full.txt` for the extras map and recipes.
+
+### Plug-and-play integrations
+
+To capture what coding tools themselves do (Claude Code, Codex, Cursor, VS Code
+Copilot), do not hand-write their config. Run:
+
+```bash
+briefcase connect            # writes each detected tool's telemetry + MCP settings (diff, one confirm)
+briefcase receive --detach   # local OTLP receiver on 127.0.0.1:4318 -> decision records
+briefcase connect --undo     # removes exactly what connect wrote
+```
+
+- `connect` never enables prompt or tool content unless given `--capture-content`,
+  and the receiver redacts content, e-mail and host paths unless given `--keep-content`.
+- Codex and Copilot send OTLP/protobuf: `pip install 'briefcase-ai[receiver]'`.
+- `briefcase mcp install` / `briefcase mcp link <tool>` set up the `briefcase-mcp` server.
+- Details: `docs/integrations/README.md`.
 
 More: `README.md`, `llms.txt`, `llms-full.txt`, and `examples/`.
 
@@ -91,4 +108,7 @@ Conventions:
 - `pyo3/extension-module` is applied by maturin (`[tool.maturin] features`), not
   in `Cargo.toml`. Enabling it in the manifest makes every Rust test binary
   unlinkable, since it leaves Python symbols to the host interpreter.
+- `briefcase connect` formats live in `briefcase/connect/adapters.json` with the docs URL and
+  date each was checked. A format that is not confirmed against the tool's documentation must
+  stay print-only (a `Manual` plan item), never a write. Connect tests run in a temp `HOME`.
 - Do not commit secrets; do not add internal notes under `docs/design/` (gitignored).

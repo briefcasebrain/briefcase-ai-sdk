@@ -2,6 +2,9 @@
 
 A Briefcase-native job lifecycle:
 ``dataset`` / ``secret`` / ``run {submit,list,inspect,logs,results,stop,delete}``.
+
+Plug-and-play integrations: ``connect`` (write coding tools' config), ``receive`` (local OTLP
+receiver), ``mcp {install,link}``, ``hook cursor``.
 """
 from __future__ import annotations
 
@@ -9,7 +12,15 @@ import argparse
 import os
 import sys
 
-from briefcase.cli import commands, doctor, stack_commands
+from briefcase.cli import (
+    commands,
+    connect_commands,
+    doctor,
+    hook_commands,
+    mcp_commands,
+    receive_commands,
+    stack_commands,
+)
 from briefcase.cli.engine import OciJJEngine
 from briefcase.cli.state import Store
 
@@ -17,7 +28,8 @@ from briefcase.cli.state import Store
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="briefcase",
-        description="Submit and monitor Briefcase evaluation runs (oci-jj + verdictml).",
+        description="Briefcase CLI: evaluation runs (oci-jj + verdictml), coding-tool integrations "
+                    "(connect / receive / mcp), and zero-code capture (exec).",
     )
     parser.add_argument("--server", help="oci-jj-server gRPC endpoint (default $OCI_JJ_SERVER).")
     parser.add_argument("--repo", help="oci-jj repository / image family (default $OCI_JJ_REPO).")
@@ -100,7 +112,26 @@ def build_parser() -> argparse.ArgumentParser:
     # doctor — preflight: Docker, image pull access, server reflection, and the resolved compat matrix.
     doc = sub.add_parser("doctor", help="Diagnose the install and print the compatibility matrix.")
     doc.add_argument("--strict", action="store_true", help="Treat warnings as failures (for CI).")
+    doc.add_argument(
+        "--connect", action="store_true",
+        help="Check the `briefcase connect` integrations instead of the evaluation stack.",
+    )
     doc.set_defaults(func=doctor.cmd_doctor)
+
+    # Plug-and-play integrations: tool config, the local receiver, MCP install payloads, hooks.
+    connect_commands.register(sub)
+    receive_commands.register(sub)
+    mcp_commands.register(sub)
+    hook_commands.register(sub)
+
+    # `briefcase exec -- <command>`: zero-code capture for a Python program. Named `exec` because
+    # `run` is the evaluation-job group. Guarded: the module is optional in a partial checkout.
+    try:
+        from briefcase.cli import exec_commands
+    except ImportError:
+        pass
+    else:
+        exec_commands.register(sub)
 
     return parser
 
@@ -148,12 +179,19 @@ class _LazyEngine:
 
 
 def main(argv=None, store=None, engine=None, stack=None) -> int:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv[:2] == ["hook", "cursor"]:
+        # Hook entry point: must stay fail-open and silent, so it bypasses argparse (which exits
+        # non-zero and prints on a bad flag) and the store.
+        return hook_commands.run_cursor(argv[2:])
     parser = build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "func", None):
         parser.print_help(sys.stderr)
         return 2
-    store = store or Store()
+    # Lazy for the same reason as the engine: opening the store creates ~/.briefcase, which
+    # `connect --dry-run`, `mcp link` and friends must not do.
+    store = store or _LazyEngine(Store)
     engine = engine or _LazyEngine(lambda: make_engine(args))
     stack = stack or stack_commands.Stack()
     return args.func(args, store, engine, stack)

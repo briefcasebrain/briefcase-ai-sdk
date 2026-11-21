@@ -7,6 +7,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `briefcase connect`: one command that configures the coding tools on the
+  machine to report to briefcase. It detects Claude Code, Codex CLI, Cursor and
+  VS Code Copilot Chat, shows a plan with a unified diff, asks once, and writes
+  key-level edits (JSON keys merged in place, one marker-delimited TOML block)
+  with a timestamped backup. `--undo` removes exactly the keys it set, `--dry-run`
+  writes nothing, and re-running is a no-op. Malformed JSON, JSON with comments
+  and managed settings are never rewritten; the snippet is printed instead.
+  Claude Desktop/Cowork, Copilot CLI, Cline, Windsurf and opencode are
+  print-only, and Gemini CLI is experimental. Prompt and tool content is
+  enabled in a tool only with `--capture-content`.
+- `briefcase receive`: a stdlib OTLP/HTTP receiver (default `127.0.0.1:4318`)
+  that turns Claude Code, Cowork, Codex and Copilot telemetry and Cursor hook
+  events into decision records and sends them to any exporter (`--to console`,
+  a `.jsonl` path, an `https://` URL, or `otlp`). Prompts, responses, tool
+  input and host paths are dropped and `user.email` is hashed unless
+  `--keep-content` is given. A non-loopback `--host` requires `--token`.
+  `--detach`, `--stop` and `--status` manage a background instance.
+- `receiver` extra (`opentelemetry-proto`) for OTLP/protobuf, which Codex and
+  Copilot send. Claude Code is configured for `http/json`, so
+  `pip install briefcase-ai && briefcase connect && briefcase receive` needs no
+  extra for it.
+- `briefcase mcp install` and `briefcase mcp link <tool>`: per-tool install
+  payloads for `briefcase-mcp` (Cursor deeplink, `claude mcp add`,
+  `codex mcp add`, `code --add-mcp`, project `.mcp.json` / `.cursor/mcp.json` /
+  `.vscode/mcp.json`), and a Claude Code plugin
+  (`claude plugin install briefcase@briefcase-ai`).
+- `briefcase hook cursor` (the hook entry point `connect` installs; always
+  exits 0) and `briefcase doctor --connect`.
+- `briefcase.semantic_conventions.cowork` gains `assistant_response`,
+  `api_refusal`, `tool_use_id`, and the event-name prefixes of sources that
+  share the vocabulary.
 - `@briefcase-ai/runtime`, a Node-only TypeScript package with explicit
   `integrity`, `lakefs`, `connectors`, and `trace` subpath exports. It adds
   Python-compatible hash chains, a typed lakeFS client, provider-neutral
@@ -52,6 +83,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `inflight_ttl_seconds`. The LangChain handler exports failed chains and
   standalone LLM/tool/retriever runs, reads `usage_metadata`, and captures
   streamed tokens.
+- `CostCalculator.load_pricing_json` / `load_pricing_file` (Rust and Python)
+  load user-supplied model prices; `add_model` / `remove_model` are exposed to
+  Python. New sanitizer detectors: JWT, bearer tokens, IPv6, IBAN, and
+  contextual AWS secret keys.
 
 ### Changed
 - **Breaking:** VCS clients, `BranchManager`, `StagedArtifactClient.from_env`,
@@ -124,6 +159,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   says how to get the core when first used.
 
 ### Fixed
+- Rust core, SQLite store: single and batch saves write `created_at` in one
+  format, so time-range queries no longer drop batch-saved (and therefore all
+  `BufferedBackend`) rows; `PRAGMA user_version` migrations normalise existing
+  databases; `busy_timeout` is set; `offset` without `limit` is valid SQL.
+- Rust core, replay: `ValidationOnly` no longer reports `outputs_match: true`
+  without comparing anything; a policy rule on a missing field is a violation;
+  never-executed replays are counted as `unverified_replays`, not successes;
+  `replay_batch(concurrency=0)` no longer hangs; the async engine enforces
+  `timeout_ms`.
+- Rust core, cost: `project_monthly_cost` works for large daily volumes;
+  `add_model` / `remove_model` clear stale tier data; dated, prefixed, and
+  `@date` model ids normalise; `gpt-4o` output cap is 16384.
+- Rust core, storage: buffered reads see pending writes; the VCS adapter
+  re-queues unwritten snapshots when a flush fails and can query what
+  `save_decision` wrote; `VcsProviderConfig` no longer prints secrets in
+  `Debug`.
+- Rust core: `canonical_json` quotes and escapes keys, which changes
+  `content_hash` for values containing JSON objects (`content_hash_legacy()`
+  keeps the old value); `sdk_version` reports the real crate version; each
+  storage and replay Cargo feature compiles on its own; client revalidation
+  refreshes permissions and honours expiry.
+- Sanitizer: bare 9-digit and 10/11-digit numbers are redacted only with
+  nearby context (fewer false positives on timestamps and coordinates); JSON
+  integers are scanned; pattern order is deterministic.
+- Drift: pairwise distances are computed once, in parallel, with the GIL
+  released; the tokenizer is cached.
 - The MCP `how_to` tool and `briefcase://llms-full.txt` resource returned only
   a link when installed from a wheel, because the guide lived outside the
   package. It now ships as `briefcase/mcp/llms-full.txt`.

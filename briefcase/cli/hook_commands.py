@@ -1,0 +1,109 @@
+"""``briefcase hook cursor``: forward a Cursor hook event to the receiver.
+
+Cursor runs this for each configured hook with the event as JSON on stdin.
+The contract is to never get in the agent's way: it always exits 0, prints
+nothing (Cursor reads hook stdout as a JSON verdict, and exit code 2 blocks the
+action), and gives up after a short timeout when no receiver is listening.
+
+Content never leaves this process unless the hook was installed with
+``--capture-content``: prompt text, agent text, tool input/output and
+``user_email`` are dropped here, before the POST.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.request
+from typing import Any, Dict, List, Optional
+
+DEFAULT_ENDPOINT = "http://127.0.0.1:4318"
+HOOK_PATH = "/v1/hooks/cursor"
+MAX_STDIN_BYTES = 4 * 1024 * 1024
+# Dropped unless --capture-content. Lengths of the text fields are kept.
+CONTENT_FIELDS = ("prompt", "text", "tool_input", "tool_output", "attachments", "agent_message",
+                  "error_message", "user_email", "transcript_path", "workspace_roots", "cwd")
+_LENGTH_FIELDS = ("prompt", "text")
+
+
+def scrub(payload: Dict[str, Any], capture_content: bool) -> Dict[str, Any]:
+    if capture_content:
+        return payload
+    out = {key: value for key, value in payload.items() if key not in CONTENT_FIELDS}
+    for key in _LENGTH_FIELDS:
+        if isinstance(payload.get(key), str):
+            out[f"{key}_length"] = len(payload[key])
+    return out
+
+
+def forward(payload: Dict[str, Any], endpoint: str, timeout: float, token: Optional[str] = None) -> bool:
+    request = urllib.request.Request(
+        endpoint.rstrip("/") + HOOK_PATH, data=json.dumps(payload, default=str).encode("utf-8"),
+        headers={"Content-Type": "application/json"}, method="POST",
+    )
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    # No proxy: the receiver is local, and an HTTP proxy from the environment
+    # must not see the event.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=timeout) as response:
+        return 200 <= response.status < 300
+
+
+def parse_args(argv: List[str]):
+    """Hand-rolled so a bad or unknown flag is ignored: argparse would print a
+    usage error and exit 2, which Cursor treats as "block this action"."""
+    endpoint = os.environ.get("BRIEFCASE_RECEIVER_ENDPOINT", DEFAULT_ENDPOINT)
+    capture_content, timeout = False, 1.0
+    index = 0
+    while index < len(argv):
+        flag = argv[index]
+        if flag == "--capture-content":
+            capture_content = True
+        elif flag == "--endpoint" and index + 1 < len(argv):
+            index += 1
+            endpoint = argv[index]
+        elif flag == "--timeout" and index + 1 < len(argv):
+            index += 1
+            try:
+                timeout = min(max(float(argv[index]), 0.05), 10.0)
+            except ValueError:
+                pass
+        index += 1
+    return endpoint, capture_content, timeout
+
+
+def run_cursor(argv: List[str], stdin: Any = None) -> int:
+    """Always returns 0 and writes nothing to stdout."""
+    try:
+        endpoint, capture_content, timeout = parse_args(argv)
+        stream = stdin if stdin is not None else sys.stdin
+        raw = stream.buffer.read(MAX_STDIN_BYTES + 1) if hasattr(stream, "buffer") else stream.read(MAX_STDIN_BYTES + 1)
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8", errors="replace")
+        if len(raw) > MAX_STDIN_BYTES:
+            return 0
+        payload = json.loads(raw)
+        if isinstance(payload, dict):
+            forward(scrub(payload, capture_content), endpoint, timeout,
+                    os.environ.get("BRIEFCASE_RECEIVER_TOKEN"))
+    except BaseException:  # noqa: B036 - fail open on everything, including SystemExit from argparse
+        pass
+    return 0
+
+
+def cmd_hook_cursor(args, store=None, engine=None, stack=None) -> int:
+    return run_cursor(getattr(args, "hook_args", []) or [])
+
+
+def register(sub) -> None:
+    hook = sub.add_parser("hook", help="Tool hook entry points (installed by `briefcase connect`).")
+    hooks = hook.add_subparsers(dest="sub")
+    cursor = hooks.add_parser(
+        "cursor", add_help=False,
+        help="Forward a Cursor hook event from stdin to the receiver; always exits 0.",
+    )
+    cursor.add_argument("hook_args", nargs=argparse.REMAINDER)
+    cursor.set_defaults(func=cmd_hook_cursor)
