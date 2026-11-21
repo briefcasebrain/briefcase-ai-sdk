@@ -71,12 +71,13 @@ impl<S: SyncStorageBackend> SyncReplayEngine<S> {
 
         match replay_mode {
             ReplayMode::ValidationOnly => {
-                // Just validate without re-executing
+                // Nothing re-executes, so nothing was compared: Pending with
+                // no match claimed, as in the async engine.
                 Ok(ReplayResult {
-                    status: ReplayStatus::Success,
+                    status: ReplayStatus::Pending,
                     original_snapshot,
                     replay_output: None,
-                    outputs_match: true, // Assume match for validation-only
+                    outputs_match: false,
                     diff: None,
                     policy_violations: Vec::new(),
                     execution_time_ms: start_time.elapsed().as_millis() as f64,
@@ -276,6 +277,7 @@ impl<S: SyncStorageBackend> SyncReplayEngine<S> {
         let mut total_replays = 0;
         let mut successful_replays = 0;
         let mut failed_replays = 0;
+        let mut unverified_replays = 0;
         let mut exact_matches = 0;
         let mut mismatches = 0;
         let mut total_execution_time_ms = 0.0;
@@ -294,6 +296,10 @@ impl<S: SyncStorageBackend> SyncReplayEngine<S> {
                             } else {
                                 mismatches += 1;
                             }
+                        }
+                        // Nothing re-executed: no verdict either way.
+                        ReplayStatus::Pending | ReplayStatus::Running => {
+                            unverified_replays += 1;
                         }
                         _ => {
                             failed_replays += 1;
@@ -319,6 +325,7 @@ impl<S: SyncStorageBackend> SyncReplayEngine<S> {
             total_replays,
             successful_replays,
             failed_replays,
+            unverified_replays,
             exact_matches,
             mismatches,
             average_execution_time_ms,
@@ -438,8 +445,9 @@ mod tests {
             .replay(&decision_id, Some(ReplayMode::ValidationOnly), None)
             .unwrap();
 
-        assert_eq!(result.status, ReplayStatus::Success);
-        assert!(result.outputs_match);
+        // Nothing was compared, so no match may be claimed.
+        assert_eq!(result.status, ReplayStatus::Pending);
+        assert!(!result.outputs_match);
         assert!(result.replay_output.is_none());
     }
 

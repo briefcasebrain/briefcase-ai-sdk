@@ -1,9 +1,12 @@
-use super::{FlushResult, SnapshotQuery, StorageBackend, StorageError};
+#[cfg(feature = "async")]
+use super::{FlushResult, StorageBackend};
+use super::{SnapshotQuery, StorageError};
 use crate::models::{DecisionSnapshot, Snapshot, SnapshotType};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::Duration;
 #[cfg(feature = "async")]
 use tokio::task;
 
@@ -12,6 +15,32 @@ pub enum CompressionType {
     None,
     Gzip,
 }
+
+/// How long a statement waits on a lock held by another connection before
+/// failing with SQLITE_BUSY.
+const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Format of the `created_at` column. Fixed-width UTC, so string comparison
+/// in SQL orders rows chronologically; every write and every range bound must
+/// go through [`format_created_at`].
+const CREATED_AT_FORMAT: &str = "%Y-%m-%d %H:%M:%S%.3f";
+
+fn format_created_at(timestamp: &chrono::DateTime<chrono::Utc>) -> String {
+    timestamp.format(CREATED_AT_FORMAT).to_string()
+}
+
+/// Schema migrations, applied in order. `PRAGMA user_version` records how many
+/// have run, so each runs exactly once per database; append new ones at the
+/// end and never edit or reorder an entry that has shipped.
+const MIGRATIONS: &[&str] = &[
+    // v1: batch writes used to store `created_at` as RFC 3339 while single
+    // writes and range queries used CREATED_AT_FORMAT, so batch-written rows
+    // fell outside every time-range query. Rewrite them to the one format.
+    r#"UPDATE snapshots
+       SET created_at = strftime('%Y-%m-%d %H:%M:%f', created_at)
+       WHERE created_at LIKE '%T%'
+         AND strftime('%Y-%m-%d %H:%M:%f', created_at) IS NOT NULL"#,
+];
 
 pub struct SqliteBackend {
     pub conn: Arc<Mutex<Connection>>,
@@ -38,7 +67,7 @@ impl SqliteBackend {
 
         // Run migrations
         {
-            let conn_guard = backend.conn.lock().unwrap();
+            let conn_guard = backend.lock_conn();
             Self::run_migrations(&conn_guard)?;
         }
 
@@ -100,15 +129,27 @@ impl SqliteBackend {
 
         // Run migrations
         {
-            let conn_guard = backend.conn.lock().unwrap();
+            let conn_guard = backend.lock_conn();
             Self::run_migrations(&conn_guard)?;
         }
 
         Ok(backend)
     }
 
+    /// Lock the connection. A panic in another thread while it held the lock
+    /// poisons the mutex, but the connection itself is still usable (SQLite
+    /// rolls back the interrupted statement), so recover the guard rather
+    /// than turning every later call into a panic.
+    pub(crate) fn lock_conn(&self) -> MutexGuard<'_, Connection> {
+        self.conn.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     /// Run database migrations
     fn run_migrations(conn: &Connection) -> Result<(), StorageError> {
+        conn.busy_timeout(BUSY_TIMEOUT).map_err(|e| {
+            StorageError::ConnectionError(format!("Failed to set busy timeout: {}", e))
+        })?;
+
         // Enable WAL mode for better concurrent access
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| StorageError::ConnectionError(format!("Failed to set WAL mode: {}", e)))?;
@@ -144,11 +185,48 @@ impl SqliteBackend {
         )
         .map_err(|e| StorageError::ConnectionError(format!("Failed to create index: {}", e)))?;
 
+        Self::apply_versioned_migrations(conn)
+    }
+
+    /// Apply every entry of [`MIGRATIONS`] the database has not seen yet.
+    /// Each runs in its own transaction together with the `user_version`
+    /// bump, so a failure leaves the database at the last completed version.
+    fn apply_versioned_migrations(conn: &Connection) -> Result<(), StorageError> {
+        let read_version = |conn: &Connection| -> Result<usize, rusqlite::Error> {
+            let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+            Ok(usize::try_from(version).unwrap_or(0))
+        };
+        let failed = |version: usize, e: rusqlite::Error| {
+            StorageError::ConnectionError(format!(
+                "Migration to schema version {} failed: {}",
+                version, e
+            ))
+        };
+
+        let applied = read_version(conn).map_err(|e| failed(0, e))?;
+        for (index, sql) in MIGRATIONS.iter().enumerate().skip(applied) {
+            let version = index + 1;
+            let migrate = || -> Result<(), rusqlite::Error> {
+                conn.execute_batch("BEGIN IMMEDIATE")?;
+                // Another process may have migrated while this one waited
+                // for the write lock; check again now that it is held.
+                if read_version(conn)? < version {
+                    conn.execute_batch(sql)?;
+                    conn.pragma_update(None, "user_version", version as i64)?;
+                }
+                conn.execute_batch("COMMIT")
+            };
+            if let Err(e) = migrate() {
+                let _ = conn.execute_batch("ROLLBACK");
+                return Err(failed(version, e));
+            }
+        }
+
         Ok(())
     }
 
     pub fn save_internal(&self, snapshot: &Snapshot) -> Result<String, StorageError> {
-        let conn_guard = self.conn.lock().unwrap();
+        let conn_guard = self.lock_conn();
         let snapshot_id = snapshot.metadata.snapshot_id.to_string();
 
         let data_json = serde_json::to_string(snapshot)
@@ -165,11 +243,7 @@ impl SqliteBackend {
                     snapshot_id,
                     format!("{:?}", snapshot.snapshot_type),
                     data_json,
-                    snapshot
-                        .metadata
-                        .timestamp
-                        .format("%Y-%m-%d %H:%M:%S%.3f")
-                        .to_string(),
+                    format_created_at(&snapshot.metadata.timestamp),
                     snapshot.metadata.created_by,
                     snapshot.metadata.checksum,
                 ],
@@ -201,7 +275,7 @@ impl SqliteBackend {
         &self,
         decisions: &[DecisionSnapshot],
     ) -> Result<Vec<String>, StorageError> {
-        let mut conn_guard = self.conn.lock().unwrap();
+        let mut conn_guard = self.lock_conn();
         let tx = conn_guard
             .transaction()
             .map_err(|e| StorageError::ConnectionError(format!("Failed to begin: {}", e)))?;
@@ -227,7 +301,7 @@ impl SqliteBackend {
                     snapshot_id,
                     format!("{:?}", snapshot.snapshot_type),
                     data_json,
-                    snapshot.metadata.timestamp.to_rfc3339(),
+                    format_created_at(&snapshot.metadata.timestamp),
                     snapshot.metadata.created_by,
                     snapshot.metadata.checksum,
                 ],
@@ -242,7 +316,7 @@ impl SqliteBackend {
     }
 
     pub fn load_internal(&self, snapshot_id: &str) -> Result<Snapshot, StorageError> {
-        let conn_guard = self.conn.lock().unwrap();
+        let conn_guard = self.lock_conn();
 
         let row: Option<(String,)> = conn_guard
             .query_row(
@@ -269,7 +343,7 @@ impl SqliteBackend {
     }
 
     pub fn query_internal(&self, query: SnapshotQuery) -> Result<Vec<Snapshot>, StorageError> {
-        let conn_guard = self.conn.lock().unwrap();
+        let conn_guard = self.lock_conn();
 
         let mut sql = "SELECT data_json FROM snapshots WHERE 1=1".to_string();
         let mut params_vec: Vec<String> = Vec::new();
@@ -277,12 +351,12 @@ impl SqliteBackend {
         // Build WHERE clause
         if let Some(start_time) = query.start_time {
             sql.push_str(" AND created_at >= ?");
-            params_vec.push(start_time.format("%Y-%m-%d %H:%M:%S%.3f").to_string());
+            params_vec.push(format_created_at(&start_time));
         }
 
         if let Some(end_time) = query.end_time {
             sql.push_str(" AND created_at <= ?");
-            params_vec.push(end_time.format("%Y-%m-%d %H:%M:%S%.3f").to_string());
+            params_vec.push(format_created_at(&end_time));
         }
 
         // Add ordering and pagination
@@ -297,9 +371,14 @@ impl SqliteBackend {
             || query.tags.is_some();
 
         if !has_content_filters {
-            if let Some(limit) = query.limit {
-                sql.push_str(" LIMIT ?");
-                params_vec.push(limit.to_string());
+            // SQLite only accepts OFFSET after LIMIT; -1 means "no limit".
+            match (query.limit, query.offset) {
+                (Some(limit), _) => {
+                    sql.push_str(" LIMIT ?");
+                    params_vec.push(limit.to_string());
+                }
+                (None, Some(_)) => sql.push_str(" LIMIT -1"),
+                (None, None) => {}
             }
 
             if let Some(offset) = query.offset {
@@ -487,7 +566,7 @@ impl StorageBackend for SqliteBackend {
         let self_clone = self.clone();
 
         task::spawn_blocking(move || {
-            let conn_guard = self_clone.conn.lock().unwrap();
+            let conn_guard = self_clone.lock_conn();
 
             let rows_affected = conn_guard
                 .execute("DELETE FROM snapshots WHERE id = ?", params![id])
@@ -505,7 +584,7 @@ impl StorageBackend for SqliteBackend {
         let self_clone = self.clone();
 
         task::spawn_blocking(move || {
-            let conn_guard = self_clone.conn.lock().unwrap();
+            let conn_guard = self_clone.lock_conn();
 
             // Force WAL checkpoint
             conn_guard
@@ -533,7 +612,7 @@ impl StorageBackend for SqliteBackend {
         let self_clone = self.clone();
 
         task::spawn_blocking(move || {
-            let conn_guard = self_clone.conn.lock().unwrap();
+            let conn_guard = self_clone.lock_conn();
 
             // Simple query to check connection
             let _: i64 = conn_guard
@@ -661,7 +740,7 @@ mod tests {
         backend.save(&make(1)).await.unwrap();
         backend.save(&make(2)).await.unwrap();
         {
-            let conn = backend.conn.lock().unwrap();
+            let conn = backend.lock_conn();
             conn.execute(
                 "INSERT INTO snapshots (id, snapshot_type, created_at, data_json) \
                  VALUES ('poison', 'Session', '1999-01-01 00:00:00.000', 'not json')",
@@ -712,6 +791,120 @@ mod tests {
 
         let mode = std::fs::metadata(&db_path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600, "db file mode {:o}", mode);
+    }
+
+    #[tokio::test]
+    async fn test_batch_saved_decisions_are_found_by_time_range() {
+        let backend = SqliteBackend::in_memory().unwrap();
+        let single = DecisionSnapshot::new("single");
+        let batched = vec![DecisionSnapshot::new("b1"), DecisionSnapshot::new("b2")];
+
+        backend.save_decision(&single).await.unwrap();
+        backend.save_decisions(&batched).await.unwrap();
+
+        let now = chrono::Utc::now();
+        let query = SnapshotQuery::new().with_time_range(
+            now - chrono::Duration::hours(1),
+            now + chrono::Duration::hours(1),
+        );
+        let results = backend.query(query).await.unwrap();
+        assert_eq!(results.len(), 3, "batch-saved rows must be in range");
+
+        // A range that excludes them must still exclude them.
+        let query = SnapshotQuery::new().with_time_range(
+            now - chrono::Duration::hours(3),
+            now - chrono::Duration::hours(2),
+        );
+        assert_eq!(backend.query(query).await.unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_migration_normalises_legacy_rfc3339_created_at() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("legacy.db");
+
+        let mut snapshot = Snapshot::new(SnapshotType::Decision);
+        snapshot.add_decision(DecisionSnapshot::new("legacy"));
+        let ts = chrono::Utc::now() - chrono::Duration::minutes(5);
+        snapshot.metadata.timestamp = ts;
+
+        // A database written before versioned migrations existed: version 0,
+        // with a row in the old batch-write format.
+        {
+            let backend = SqliteBackend::new(&db_path).unwrap();
+            let conn = backend.lock_conn();
+            conn.execute(
+                "INSERT INTO snapshots (id, snapshot_type, data_json, created_at) \
+                 VALUES (?, 'Decision', ?, ?)",
+                params![
+                    snapshot.metadata.snapshot_id.to_string(),
+                    serde_json::to_string(&snapshot).unwrap(),
+                    ts.to_rfc3339(),
+                ],
+            )
+            .unwrap();
+            conn.pragma_update(None, "user_version", 0).unwrap();
+        }
+
+        let backend = SqliteBackend::new(&db_path).unwrap();
+        let query = SnapshotQuery::new().with_time_range(
+            ts - chrono::Duration::minutes(1),
+            ts + chrono::Duration::minutes(1),
+        );
+        let results = backend.query_internal(query).unwrap();
+        assert_eq!(results.len(), 1);
+
+        let conn = backend.lock_conn();
+        let stored: String = conn
+            .query_row("SELECT created_at FROM snapshots", [], |r| r.get(0))
+            .unwrap();
+        assert!(!stored.contains('T'), "created_at not normalised: {stored}");
+        assert_eq!(&stored[..19], &format_created_at(&ts)[..19]);
+        let version: i64 = conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, MIGRATIONS.len() as i64);
+    }
+
+    #[tokio::test]
+    async fn test_query_offset_without_limit() {
+        let backend = SqliteBackend::in_memory().unwrap();
+        for _ in 0..3 {
+            backend.save(&create_test_snapshot().await).await.unwrap();
+        }
+
+        let results = backend
+            .query(SnapshotQuery::new().with_offset(1))
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_poisoned_lock_does_not_panic_later_calls() {
+        let backend = SqliteBackend::in_memory().unwrap();
+        let clone = backend.clone();
+        let _ = std::thread::spawn(move || {
+            let _guard = clone.conn.lock().unwrap();
+            panic!("poison the connection mutex");
+        })
+        .join();
+
+        assert!(backend.conn.is_poisoned());
+        let id = backend
+            .save_decision_internal(&DecisionSnapshot::new("after_poison"))
+            .unwrap();
+        assert!(backend.load_internal(&id).is_ok());
+    }
+
+    #[test]
+    fn test_busy_timeout_is_set() {
+        let backend = SqliteBackend::in_memory().unwrap();
+        let timeout: i64 = backend
+            .lock_conn()
+            .pragma_query_value(None, "busy_timeout", |r| r.get(0))
+            .unwrap();
+        assert_eq!(timeout, BUSY_TIMEOUT.as_millis() as i64);
     }
 
     #[tokio::test]

@@ -257,6 +257,13 @@ struct PricingExtras {
     flags: ModifierFlags,
 }
 
+/// Whether a [`TokenUsage`] describes one request or a total over many.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UsageScope {
+    SingleRequest,
+    Aggregate,
+}
+
 pub struct CostCalculator {
     pricing_table: HashMap<String, ModelPricing>,
     /// Rich rate-card data keyed by model name (parallel to `pricing_table`).
@@ -313,7 +320,7 @@ impl CostCalculator {
                 input_cost_per_1k_tokens: 0.005,
                 output_cost_per_1k_tokens: 0.015,
                 context_window: 128000,
-                max_output_tokens: Some(4096),
+                max_output_tokens: Some(16384),
             },
         );
 
@@ -411,13 +418,22 @@ impl CostCalculator {
         calculator
     }
 
-    /// Canonicalizes a platform-qualified model id to a pricing-table key:
-    /// strips region prefixes (us./eu./apac./global.), vendor prefixes
-    /// (anthropic./amazon./cohere./mistral./meta.), a trailing -YYYYMMDD
-    /// date stamp, and -vN:M / :N version suffixes. Lookups try the exact id
-    /// first, so a registered platform-qualified name always wins.
+    /// Canonicalizes a platform-qualified model id to a pricing-table key.
+    /// In order, it strips:
+    ///
+    /// - a path prefix, keeping the last segment (`models/gemini-2.5-pro`,
+    ///   `anthropic/claude-sonnet-4-6`, `publishers/google/models/...`)
+    /// - region prefixes (us./eu./apac./global.) and vendor prefixes
+    ///   (anthropic./amazon./cohere./mistral./meta.)
+    /// - a Vertex `@version` suffix (`claude-sonnet-4-5@20250929`)
+    /// - `-vN:M` / `:N` version suffixes and a `-latest` alias suffix
+    /// - a trailing `-YYYYMMDD` or `-YYYY-MM-DD` date stamp
+    ///
+    /// and then maps the provider's `claude-3-5-haiku` spelling onto the
+    /// table's `claude-haiku-3-5` key. Lookups try the exact id first, so a
+    /// registered platform-qualified name always wins.
     pub fn normalize_model_id(model_id: &str) -> String {
-        let mut id = model_id;
+        let mut id = model_id.rsplit('/').next().unwrap_or(model_id);
         for region in ["us.", "eu.", "apac.", "global."] {
             if let Some(rest) = id.strip_prefix(region) {
                 id = rest;
@@ -428,6 +444,12 @@ impl CostCalculator {
             if let Some(rest) = id.strip_prefix(vendor) {
                 id = rest;
                 break;
+            }
+        }
+        // Vertex @version suffix, e.g. @20250929 or @001
+        if let Some(pos) = id.find('@') {
+            if pos > 0 {
+                id = &id[..pos];
             }
         }
         let mut out = id.to_string();
@@ -444,14 +466,39 @@ impl CostCalculator {
                 out.truncate(pos);
             }
         }
-        // trailing -YYYYMMDD date stamp
-        if out.len() > 9 {
-            let (head, tail) = out.split_at(out.len() - 9);
-            if tail.starts_with('-') && tail[1..].chars().all(|c| c.is_ascii_digit()) {
-                out = head.to_string();
-            }
+        if let Some(head) = out.strip_suffix("-latest") {
+            out = head.to_string();
         }
-        out
+        if let Some(len) = Self::date_stamp_len(&out) {
+            out.truncate(out.len() - len);
+        }
+        match out.as_str() {
+            "claude-3-5-haiku" => "claude-haiku-3-5".to_string(),
+            _ => out,
+        }
+    }
+
+    /// Length of a trailing `-YYYYMMDD` or `-YYYY-MM-DD` date stamp, if `id`
+    /// ends in one and has a name in front of it.
+    fn date_stamp_len(id: &str) -> Option<usize> {
+        let bytes = id.as_bytes();
+        let matches = |pattern: &[u8]| {
+            bytes.len() > pattern.len()
+                && bytes[bytes.len() - pattern.len()..]
+                    .iter()
+                    .zip(pattern)
+                    .all(|(b, p)| match p {
+                        b'd' => b.is_ascii_digit(),
+                        _ => b == p,
+                    })
+        };
+        if matches(b"-dddd-dd-dd") {
+            Some(11)
+        } else if matches(b"-dddddddd") {
+            Some(9)
+        } else {
+            None
+        }
     }
 
     /// Resolves a model id to the pricing-table key: the exact id when
@@ -856,6 +903,20 @@ impl CostCalculator {
         usage: TokenUsage,
         card: RateCard,
     ) -> Result<CostEstimate, CostError> {
+        self.price_usage(model_name, usage, card, UsageScope::SingleRequest)
+    }
+
+    /// The rate-card engine. `scope` says whether `usage` is one request,
+    /// which must fit the model's limits and may hit a long-context tier, or
+    /// a total over many requests, to which neither applies.
+    fn price_usage(
+        &self,
+        model_name: &str,
+        usage: TokenUsage,
+        card: RateCard,
+        scope: UsageScope,
+    ) -> Result<CostEstimate, CostError> {
+        let single_request = scope == UsageScope::SingleRequest;
         let key = self
             .resolve_model_key(model_name)
             .ok_or_else(|| CostError::UnknownModel(model_name.to_string()))?;
@@ -876,12 +937,14 @@ impl CostCalculator {
 
         // Context-window and max-output checks count only input + output;
         // cache tokens are a billing dimension, not additional context.
-        if usage.input_tokens + usage.output_tokens > pricing.context_window {
-            return Err(CostError::InvalidTokenCount);
-        }
-        if let Some(max_output) = pricing.max_output_tokens {
-            if usage.output_tokens > max_output {
+        if single_request {
+            if usage.input_tokens + usage.output_tokens > pricing.context_window {
                 return Err(CostError::InvalidTokenCount);
+            }
+            if let Some(max_output) = pricing.max_output_tokens {
+                if usage.output_tokens > max_output {
+                    return Err(CostError::InvalidTokenCount);
+                }
             }
         }
 
@@ -890,8 +953,9 @@ impl CostCalculator {
         let mut base_out = pricing.output_cost_per_1k_tokens;
 
         // 2. Long-context tier (base replacement): highest threshold below the
-        //    input size wins.
-        if let Some(ex) = extras {
+        //    input size wins. It is a per-request rule, so an aggregate total
+        //    (whose request sizes are unknown) stays on the base rates.
+        if let Some(ex) = extras.filter(|_| single_request) {
             if let Some(tier) = ex
                 .long_context_tiers
                 .iter()
@@ -1050,12 +1114,12 @@ impl CostCalculator {
         cached_tokens: usize,
         hours: f64,
     ) -> Result<f64, CostError> {
-        self.pricing_table
-            .get(model_name)
+        let key = self
+            .resolve_model_key(model_name)
             .ok_or_else(|| CostError::UnknownModel(model_name.to_string()))?;
         let rate = self
             .extras
-            .get(model_name)
+            .get(&key)
             .and_then(|e| e.cache_storage_per_mtok_hour)
             .unwrap_or(0.0);
         Ok((cached_tokens as f64 / 1_000_000.0) * rate * hours)
@@ -1180,15 +1244,95 @@ impl CostCalculator {
         })
     }
 
-    /// Add custom model pricing
+    /// Add custom model pricing, replacing any model of the same name.
+    ///
+    /// The model is priced at exactly these flat rates: rate-card data a
+    /// built-in model of that name carried (long-context tiers, cache and
+    /// fast-mode rates, priority multiplier, premium eligibility) is dropped
+    /// rather than left to bill the override at the old model's rates.
     pub fn add_model(&mut self, pricing: ModelPricing) {
+        self.extras.remove(&pricing.model_name);
         self.pricing_table
             .insert(pricing.model_name.clone(), pricing);
     }
 
     /// Remove a model from pricing table
     pub fn remove_model(&mut self, model_name: &str) -> Option<ModelPricing> {
+        self.extras.remove(model_name);
         self.pricing_table.remove(model_name)
+    }
+
+    /// Add or override models from a JSON pricing document, so a model can be
+    /// priced without waiting for a release. Returns how many were loaded.
+    ///
+    /// The document is an object with a `models` array; each entry has the
+    /// fields of [`ModelPricing`], with prices in USD per 1,000 tokens:
+    ///
+    /// ```json
+    /// {
+    ///   "models": [
+    ///     {
+    ///       "model_name": "my-model",
+    ///       "provider": "acme",
+    ///       "input_cost_per_1k_tokens": 0.0025,
+    ///       "output_cost_per_1k_tokens": 0.01,
+    ///       "context_window": 128000,
+    ///       "max_output_tokens": 16384
+    ///     }
+    ///   ]
+    /// }
+    /// ```
+    ///
+    /// `max_output_tokens` may be omitted or `null` for no output cap. Each
+    /// entry is registered as by [`Self::add_model`], so it replaces a
+    /// built-in model of the same name outright. The document is validated
+    /// as a whole: on any error nothing is loaded.
+    pub fn load_pricing_json(&mut self, json: &str) -> Result<usize, CostError> {
+        #[derive(Deserialize)]
+        struct PricingDocument {
+            models: Vec<ModelPricing>,
+        }
+
+        let document: PricingDocument =
+            serde_json::from_str(json).map_err(|e| CostError::InvalidPricing(e.to_string()))?;
+
+        for model in &document.models {
+            let valid_rate = |rate: f64| rate.is_finite() && rate >= 0.0;
+            let problem = if model.model_name.trim().is_empty() {
+                Some("model_name is empty")
+            } else if !valid_rate(model.input_cost_per_1k_tokens)
+                || !valid_rate(model.output_cost_per_1k_tokens)
+            {
+                Some("costs must be finite and non-negative")
+            } else if model.context_window == 0 {
+                Some("context_window must be greater than 0")
+            } else {
+                None
+            };
+            if let Some(problem) = problem {
+                return Err(CostError::InvalidPricing(format!(
+                    "model '{}': {}",
+                    model.model_name, problem
+                )));
+            }
+        }
+
+        let count = document.models.len();
+        for model in document.models {
+            self.add_model(model);
+        }
+        Ok(count)
+    }
+
+    /// [`Self::load_pricing_json`] from a file.
+    pub fn load_pricing_file(
+        &mut self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<usize, CostError> {
+        let path = path.as_ref();
+        let json = std::fs::read_to_string(path)
+            .map_err(|e| CostError::InvalidPricing(format!("{}: {}", path.display(), e)))?;
+        self.load_pricing_json(&json)
     }
 
     /// Get all available models
@@ -1233,6 +1377,11 @@ impl CostCalculator {
     }
 
     /// Calculate monthly cost projection under a specific [`RateCard`].
+    ///
+    /// The daily token counts are totals across many requests, so they are
+    /// not held to the model's per-request context window or output cap, and
+    /// are priced at the base rates (long-context tiers depend on individual
+    /// request sizes, which a daily total does not carry).
     pub fn project_monthly_cost_with_card(
         &self,
         model_name: &str,
@@ -1241,8 +1390,16 @@ impl CostCalculator {
         days_per_month: f64,
         card: RateCard,
     ) -> Result<CostProjection, CostError> {
-        let daily_cost =
-            self.estimate_cost_on(model_name, daily_input_tokens, daily_output_tokens, card)?;
+        let daily_cost = self.price_usage(
+            model_name,
+            TokenUsage {
+                input_tokens: daily_input_tokens,
+                output_tokens: daily_output_tokens,
+                ..Default::default()
+            },
+            card,
+            UsageScope::Aggregate,
+        )?;
         let monthly_cost = daily_cost.total_cost * days_per_month;
 
         Ok(CostProjection {
@@ -1289,6 +1446,8 @@ pub enum CostError {
     UnknownRateCard(String),
     #[error("Pricing tier '{tier}' is not available for model '{model}'")]
     TierUnavailable { model: String, tier: String },
+    #[error("Invalid pricing data: {0}")]
+    InvalidPricing(String),
 }
 
 #[cfg(test)]
@@ -1349,7 +1508,207 @@ mod tests {
         }
     }
 
-    use super::*;
+    #[test]
+    fn normalize_model_id_handles_provider_and_gateway_spellings() {
+        for (raw, expected) in [
+            ("gpt-4o-2024-08-06", "gpt-4o"),
+            ("gpt-4o-mini-2024-07-18", "gpt-4o-mini"),
+            ("claude-3-5-haiku-20241022", "claude-haiku-3-5"),
+            ("claude-3-5-haiku-latest", "claude-haiku-3-5"),
+            ("claude-3-5-sonnet-20241022", "claude-3-5-sonnet"),
+            ("models/gemini-2.5-pro", "gemini-2.5-pro"),
+            (
+                "publishers/google/models/gemini-2.5-flash",
+                "gemini-2.5-flash",
+            ),
+            ("anthropic/claude-sonnet-4-6", "claude-sonnet-4-6"),
+            ("openai/gpt-4o-2024-08-06", "gpt-4o"),
+            ("claude-sonnet-4-5@20250929", "claude-sonnet-4-5"),
+            ("claude-3-5-haiku@20241022", "claude-haiku-3-5"),
+            (
+                "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                "claude-haiku-4-5",
+            ),
+            // Not date stamps: left alone.
+            ("gpt-5.4", "gpt-5.4"),
+            ("claude-opus-4-1", "claude-opus-4-1"),
+            ("gemini-2.5-flash-lite", "gemini-2.5-flash-lite"),
+            ("20241022", "20241022"),
+        ] {
+            assert_eq!(CostCalculator::normalize_model_id(raw), expected, "{raw}");
+        }
+    }
+
+    #[test]
+    fn normalized_ids_price_like_their_table_key() {
+        let calc = CostCalculator::new();
+        for (raw, key) in [
+            ("gpt-4o-2024-08-06", "gpt-4o"),
+            ("claude-3-5-haiku-20241022", "claude-haiku-3-5"),
+            ("models/gemini-2.5-pro", "gemini-2.5-pro"),
+            ("anthropic/claude-sonnet-4-6", "claude-sonnet-4-6"),
+            ("claude-sonnet-4-5@20250929", "claude-sonnet-4-5"),
+        ] {
+            let a = calc.estimate_cost(raw, 10_000, 1_000).unwrap();
+            let b = calc.estimate_cost(key, 10_000, 1_000).unwrap();
+            assert_eq!(a.total_cost, b.total_cost, "{raw}");
+        }
+    }
+
+    #[test]
+    fn monthly_projection_accepts_volumes_beyond_one_context_window() {
+        let calc = CostCalculator::new();
+        // gpt-4 has an 8,192-token window and a 4,096-token output cap; a
+        // day's traffic is many requests and far exceeds both.
+        let projection = calc
+            .project_monthly_cost("gpt-4", 50_000_000, 10_000_000, 30.0)
+            .unwrap();
+        let daily = 50_000.0 * 0.03 + 10_000.0 * 0.06;
+        assert!((projection.daily_cost - daily).abs() < 1e-6);
+        assert!((projection.monthly_cost - daily * 30.0).abs() < 1e-6);
+
+        // A single request of that size is still rejected.
+        assert!(matches!(
+            calc.estimate_cost("gpt-4", 50_000_000, 0),
+            Err(CostError::InvalidTokenCount)
+        ));
+    }
+
+    #[test]
+    fn monthly_projection_does_not_apply_long_context_tier_to_totals() {
+        let calc = CostCalculator::new();
+        // gemini-2.5-pro bills requests over 200K input tokens at a higher
+        // tier; a 10M-token day made of small requests must not hit it.
+        let projection = calc
+            .project_monthly_cost("gemini-2.5-pro", 10_000_000, 0, 1.0)
+            .unwrap();
+        assert!((projection.daily_cost - 12.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn add_model_override_drops_the_old_models_rate_card_data() {
+        let mut calc = CostCalculator::new();
+        calc.add_model(ModelPricing {
+            model_name: "gemini-2.5-pro".to_string(),
+            provider: "google".to_string(),
+            input_cost_per_1k_tokens: 0.001,
+            output_cost_per_1k_tokens: 0.002,
+            context_window: 1_048_576,
+            max_output_tokens: None,
+        });
+
+        // 300K input is over the built-in model's 200K long-context
+        // threshold; the override has no such tier.
+        let est = calc.estimate_cost("gemini-2.5-pro", 300_000, 0).unwrap();
+        assert!((est.total_cost - 0.3).abs() < 1e-9, "{}", est.total_cost);
+        assert_eq!(
+            calc.estimate_cache_storage_cost("gemini-2.5-pro", 1_000_000, 1.0),
+            Ok(0.0)
+        );
+
+        calc.remove_model("gemini-2.5-pro");
+        assert!(calc.extras.get("gemini-2.5-pro").is_none());
+    }
+
+    #[test]
+    fn cache_storage_cost_normalizes_the_model_id() {
+        let calc = CostCalculator::new();
+        let direct = calc
+            .estimate_cache_storage_cost("gemini-2.5-pro", 1_000_000, 2.0)
+            .unwrap();
+        let qualified = calc
+            .estimate_cache_storage_cost("models/gemini-2.5-pro", 1_000_000, 2.0)
+            .unwrap();
+        assert!(direct > 0.0);
+        assert_eq!(direct, qualified);
+    }
+
+    #[test]
+    fn gpt_4o_allows_its_full_output_cap() {
+        let calc = CostCalculator::new();
+        assert!(calc.estimate_cost("gpt-4o", 1_000, 16_384).is_ok());
+        assert!(calc.estimate_cost("gpt-4o", 1_000, 16_385).is_err());
+    }
+
+    #[test]
+    fn load_pricing_json_adds_and_overrides_models() {
+        let mut calc = CostCalculator::new();
+        let loaded = calc
+            .load_pricing_json(
+                r#"{"models": [
+                    {"model_name": "acme-large", "provider": "acme",
+                     "input_cost_per_1k_tokens": 0.002,
+                     "output_cost_per_1k_tokens": 0.004,
+                     "context_window": 100000},
+                    {"model_name": "gpt-4", "provider": "openai",
+                     "input_cost_per_1k_tokens": 0.01,
+                     "output_cost_per_1k_tokens": 0.02,
+                     "context_window": 8192, "max_output_tokens": 4096}
+                ]}"#,
+            )
+            .unwrap();
+        assert_eq!(loaded, 2);
+
+        let est = calc.estimate_cost("acme-large", 1_000, 1_000).unwrap();
+        assert!((est.total_cost - 0.006).abs() < 1e-12);
+        // No max_output_tokens given: no output cap.
+        assert!(calc.estimate_cost("acme-large", 1_000, 90_000).is_ok());
+        let est = calc.estimate_cost("gpt-4", 1_000, 1_000).unwrap();
+        assert!((est.total_cost - 0.03).abs() < 1e-12);
+    }
+
+    #[test]
+    fn load_pricing_json_rejects_bad_documents_without_loading_any() {
+        let mut calc = CostCalculator::new();
+        let before = calc.get_all_models().len();
+
+        for bad in [
+            "not json",
+            r#"{"models": [{"model_name": "x"}]}"#,
+            r#"{"models": [
+                {"model_name": "ok", "provider": "p", "input_cost_per_1k_tokens": 1.0,
+                 "output_cost_per_1k_tokens": 1.0, "context_window": 10},
+                {"model_name": "neg", "provider": "p", "input_cost_per_1k_tokens": -1.0,
+                 "output_cost_per_1k_tokens": 1.0, "context_window": 10}
+            ]}"#,
+            r#"{"models": [{"model_name": " ", "provider": "p",
+                "input_cost_per_1k_tokens": 1.0, "output_cost_per_1k_tokens": 1.0,
+                "context_window": 10}]}"#,
+            r#"{"models": [{"model_name": "zero", "provider": "p",
+                "input_cost_per_1k_tokens": 1.0, "output_cost_per_1k_tokens": 1.0,
+                "context_window": 0}]}"#,
+        ] {
+            assert!(
+                matches!(
+                    calc.load_pricing_json(bad),
+                    Err(CostError::InvalidPricing(_))
+                ),
+                "{bad}"
+            );
+        }
+        assert_eq!(calc.get_all_models().len(), before);
+    }
+
+    #[test]
+    fn load_pricing_file_reads_the_same_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("pricing.json");
+        std::fs::write(
+            &path,
+            r#"{"models": [{"model_name": "from-file", "provider": "p",
+                "input_cost_per_1k_tokens": 0.001, "output_cost_per_1k_tokens": 0.001,
+                "context_window": 1000}]}"#,
+        )
+        .unwrap();
+
+        let mut calc = CostCalculator::new();
+        assert_eq!(calc.load_pricing_file(&path), Ok(1));
+        assert!(calc.estimate_cost("from-file", 10, 10).is_ok());
+        assert!(matches!(
+            calc.load_pricing_file(dir.path().join("missing.json")),
+            Err(CostError::InvalidPricing(_))
+        ));
+    }
 
     #[test]
     fn test_cost_estimation() {

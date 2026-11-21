@@ -69,6 +69,7 @@ impl PySanitizer {
                     PiiType::Phone => "phone",
                     PiiType::ApiKey => "api_key",
                     PiiType::IpAddress => "ip_address",
+                    PiiType::Iban => "iban",
                     PiiType::Custom(name) => name,
                 };
                 types_list.append(type_str)?;
@@ -104,6 +105,7 @@ impl PySanitizer {
             "phone" => PiiType::Phone,
             "api_key" => PiiType::ApiKey,
             "ip_address" => PiiType::IpAddress,
+            "iban" => PiiType::Iban,
             _ => return false,
         };
         self.inner.remove_pattern(&pii_type)
@@ -270,6 +272,7 @@ impl PyRedaction {
             PiiType::Phone => "phone".to_string(),
             PiiType::ApiKey => "api_key".to_string(),
             PiiType::IpAddress => "ip_address".to_string(),
+            PiiType::Iban => "iban".to_string(),
             PiiType::Custom(name) => name.clone(),
         }
     }

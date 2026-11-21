@@ -156,7 +156,7 @@ impl SnapshotMetadata {
             snapshot_id: Uuid::new_v4(),
             timestamp: Utc::now(),
             schema_version: "1.0".to_string(),
-            sdk_version: "2.5.9".to_string(),
+            sdk_version: env!("CARGO_PKG_VERSION").to_string(),
             created_by: None,
             checksum: None,
         }
@@ -305,7 +305,25 @@ impl DecisionSnapshot {
     /// can rewrite the record can also recompute the digest, so store it
     /// somewhere the record's holder cannot reach when it has to stand up to a
     /// motivated party.
+    ///
+    /// Object keys inside input, output and parameter values are JSON-quoted
+    /// and escaped. Releases up to 4.4.0 wrote them bare, which let distinct
+    /// values such as `{"a:1,b": 2}` and `{"a": 1, "b": 2}` share a digest;
+    /// digests of records holding JSON objects therefore differ from those
+    /// releases. Use [`Self::content_hash_legacy`] to check a digest stored
+    /// by one of them.
     pub fn content_hash(&self) -> String {
+        self.content_hash_with(canonical_json)
+    }
+
+    /// [`Self::content_hash`] as computed by releases up to 4.4.0, for
+    /// verifying digests stored by them. It is ambiguous for values that hold
+    /// JSON objects (see `content_hash`), so do not use it for new digests.
+    pub fn content_hash_legacy(&self) -> String {
+        self.content_hash_with(legacy_canonical_json)
+    }
+
+    fn content_hash_with(&self, canonical_json: fn(&serde_json::Value) -> String) -> String {
         let mut hasher = Sha256::new();
         let mut field = |label: &str, value: &str| {
             // Length-prefix each part so no concatenation of one field can
@@ -362,7 +380,8 @@ impl DecisionSnapshot {
 }
 
 /// Serialize a value with object keys sorted, so two structurally equal values
-/// hash the same however they were built.
+/// hash the same however they were built. Keys and strings are JSON-escaped,
+/// so the output is valid JSON and distinct values never serialize alike.
 fn canonical_json(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::Object(map) => {
@@ -370,12 +389,38 @@ fn canonical_json(value: &serde_json::Value) -> String {
             keys.sort();
             let parts: Vec<String> = keys
                 .into_iter()
-                .map(|k| format!("{}:{}", k, canonical_json(&map[k])))
+                .map(|k| {
+                    let key = serde_json::Value::String(k.clone());
+                    format!("{}:{}", key, canonical_json(&map[k]))
+                })
                 .collect();
             format!("{{{}}}", parts.join(","))
         }
         serde_json::Value::Array(items) => {
             let parts: Vec<String> = items.iter().map(canonical_json).collect();
+            format!("[{}]", parts.join(","))
+        }
+        // `Display` for a scalar is its JSON encoding, escapes included.
+        other => other.to_string(),
+    }
+}
+
+/// The pre-4.5 canonical form, which wrote object keys without quoting or
+/// escaping. Kept only so [`DecisionSnapshot::content_hash_legacy`] can
+/// reproduce old digests.
+fn legacy_canonical_json(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::Object(map) => {
+            let mut keys: Vec<_> = map.keys().collect();
+            keys.sort();
+            let parts: Vec<String> = keys
+                .into_iter()
+                .map(|k| format!("{}:{}", k, legacy_canonical_json(&map[k])))
+                .collect();
+            format!("{{{}}}", parts.join(","))
+        }
+        serde_json::Value::Array(items) => {
+            let parts: Vec<String> = items.iter().map(legacy_canonical_json).collect();
             format!("[{}]", parts.join(","))
         }
         other => other.to_string(),
@@ -502,6 +547,47 @@ mod tests {
         let failed = decision("billing").with_error("boom", None);
         assert_ne!(plain.content_hash(), tagged.content_hash());
         assert_ne!(plain.content_hash(), failed.content_hash());
+    }
+
+    #[test]
+    fn sdk_version_is_the_crate_version() {
+        assert_eq!(
+            SnapshotMetadata::new().sdk_version,
+            env!("CARGO_PKG_VERSION")
+        );
+    }
+
+    #[test]
+    fn canonical_json_quotes_and_escapes_keys() {
+        let crafted = json!({"a:1,b": 2});
+        let plain = json!({"a": 1, "b": 2});
+        assert_eq!(canonical_json(&plain), r#"{"a":1,"b":2}"#);
+        assert_eq!(canonical_json(&crafted), r#"{"a:1,b":2}"#);
+        assert_eq!(canonical_json(&json!({"q\"k": "v\n"})), r#"{"q\"k":"v\n"}"#);
+        // The output is itself JSON for the same value.
+        let nested = json!({"z": [1, {"y": null, "x": "s"}], "a": true});
+        let reparsed: serde_json::Value = serde_json::from_str(&canonical_json(&nested)).unwrap();
+        assert_eq!(reparsed, nested);
+    }
+
+    #[test]
+    fn content_hash_separates_values_the_legacy_form_conflated() {
+        let with = |v: serde_json::Value| {
+            DecisionSnapshot::new("f").add_input(Input::new("x", v, "object"))
+        };
+        let crafted = with(json!({"a:1,b": 2}));
+        let plain = with(json!({"a": 1, "b": 2}));
+
+        assert_eq!(crafted.content_hash_legacy(), plain.content_hash_legacy());
+        assert_ne!(crafted.content_hash(), plain.content_hash());
+    }
+
+    #[test]
+    fn content_hash_is_unchanged_for_values_without_objects() {
+        // Only object keys were affected, so scalar and array values keep the
+        // digest earlier releases produced.
+        let d = decision("billing");
+        assert_eq!(d.content_hash(), d.content_hash_legacy());
     }
 
     #[test]

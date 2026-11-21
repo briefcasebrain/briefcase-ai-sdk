@@ -21,8 +21,13 @@ impl PyDriftCalculator {
     }
 
     /// Calculate drift from list of outputs
-    fn calculate_drift(&self, outputs: Vec<String>) -> PyResult<PyDriftMetrics> {
-        let metrics = self.inner.calculate_drift(&outputs);
+    ///
+    /// The comparison is quadratic in the number of outputs and runs on all
+    /// cores; the GIL is released for its duration so other Python threads
+    /// keep running.
+    fn calculate_drift(&self, py: Python<'_>, outputs: Vec<String>) -> PyResult<PyDriftMetrics> {
+        let calculator = self.inner.clone();
+        let metrics = py.allow_threads(move || calculator.calculate_drift(&outputs));
         Ok(PyDriftMetrics { inner: metrics })
     }
 

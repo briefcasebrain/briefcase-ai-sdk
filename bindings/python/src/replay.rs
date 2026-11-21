@@ -480,6 +480,13 @@ impl PyReplayStats {
         self.inner.failed_replays
     }
 
+    /// Replays that re-executed nothing (no executor, or validation-only
+    /// mode), so they are neither successes nor failures
+    #[getter]
+    fn unverified_replays(&self) -> usize {
+        self.inner.unverified_replays
+    }
+
     /// Get exact matches
     #[getter]
     fn exact_matches(&self) -> usize {
@@ -521,6 +528,7 @@ impl PyReplayStats {
             dict.set_item("total_replays", self.inner.total_replays)?;
             dict.set_item("successful_replays", self.inner.successful_replays)?;
             dict.set_item("failed_replays", self.inner.failed_replays)?;
+            dict.set_item("unverified_replays", self.inner.unverified_replays)?;
             dict.set_item("exact_matches", self.inner.exact_matches)?;
             dict.set_item("mismatches", self.inner.mismatches)?;
             dict.set_item(

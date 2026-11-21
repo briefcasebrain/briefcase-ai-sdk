@@ -1,7 +1,7 @@
 //! Python bindings for cost calculation
 
 use briefcase_core::{
-    BudgetAlert, BudgetStatus, CostCalculator, CostEstimate, RateCard, TokenUsage,
+    BudgetAlert, BudgetStatus, CostCalculator, CostEstimate, ModelPricing, RateCard, TokenUsage,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
@@ -100,12 +100,15 @@ impl PyCostCalculator {
     }
 
     /// Project monthly cost, optionally under a `rate_card`.
+    ///
+    /// The daily token counts are totals across many requests, so they are
+    /// not limited to the model's per-request context window.
     #[pyo3(signature = (model_name, daily_input_tokens, daily_output_tokens, days_per_month, *, rate_card=None))]
     fn project_monthly_cost(
         &self,
         model_name: String,
-        daily_input_tokens: u32,
-        daily_output_tokens: u32,
+        daily_input_tokens: u64,
+        daily_output_tokens: u64,
         days_per_month: f64,
         rate_card: Option<String>,
     ) -> PyResult<f64> {
@@ -203,6 +206,59 @@ impl PyCostCalculator {
             }
             Ok(list.into())
         })
+    }
+
+    /// Add a model, or replace the pricing of an existing one. Costs are USD
+    /// per 1,000 tokens. Replacing a built-in model prices it at exactly
+    /// these flat rates (its cache, long-context and tier data is dropped).
+    #[pyo3(signature = (
+        model_name,
+        provider,
+        input_cost_per_1k_tokens,
+        output_cost_per_1k_tokens,
+        context_window,
+        max_output_tokens=None,
+    ))]
+    fn add_model(
+        &mut self,
+        model_name: String,
+        provider: String,
+        input_cost_per_1k_tokens: f64,
+        output_cost_per_1k_tokens: f64,
+        context_window: usize,
+        max_output_tokens: Option<usize>,
+    ) {
+        self.inner.add_model(ModelPricing {
+            model_name,
+            provider,
+            input_cost_per_1k_tokens,
+            output_cost_per_1k_tokens,
+            context_window,
+            max_output_tokens,
+        });
+    }
+
+    /// Remove a model. Returns whether it was registered.
+    fn remove_model(&mut self, model_name: &str) -> bool {
+        self.inner.remove_model(model_name).is_some()
+    }
+
+    /// Add or override models from a JSON string and return how many were
+    /// loaded. Schema: `{"models": [{"model_name", "provider",
+    /// "input_cost_per_1k_tokens", "output_cost_per_1k_tokens",
+    /// "context_window", "max_output_tokens" (optional)}]}`, costs in USD
+    /// per 1,000 tokens. Raises `ValueError` and loads nothing if invalid.
+    fn load_pricing_json(&mut self, json: &str) -> PyResult<usize> {
+        self.inner
+            .load_pricing_json(json)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    }
+
+    /// `load_pricing_json` from a file path.
+    fn load_pricing_file(&mut self, path: std::path::PathBuf) -> PyResult<usize> {
+        self.inner
+            .load_pricing_file(path)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
     }
 
     /// Get representative rate-card identifiers accepted by `rate_card=`.

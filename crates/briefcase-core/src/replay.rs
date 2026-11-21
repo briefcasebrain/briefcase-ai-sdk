@@ -1,11 +1,11 @@
-use crate::models::{DecisionSnapshot, Output};
+use crate::models::DecisionSnapshot;
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
+use crate::models::Output;
 
-#[cfg(feature = "sqlite-storage")]
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
 use crate::storage::StorageBackend;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "async")]
-use tokio;
 
 pub mod executor;
 #[cfg(feature = "async")]
@@ -134,7 +134,7 @@ pub struct PolicyViolation {
 }
 
 /// The outputs a replay produced, or `None` when nothing re-executed.
-#[cfg(feature = "sqlite-storage")]
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
 fn replayed_outputs(result: &ReplayResult) -> Option<Vec<Output>> {
     let value = result.replay_output.as_ref()?;
     serde_json::from_value::<Vec<Output>>(value.clone()).ok()
@@ -142,7 +142,7 @@ fn replayed_outputs(result: &ReplayResult) -> Option<Vec<Output>> {
 
 /// Resolve a rule's field against a replay's outputs. `output` and an empty
 /// field both mean "the first output", matching `extract_field_value`.
-#[cfg(feature = "sqlite-storage")]
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
 fn field_from_outputs(outputs: &[Output], field: &str) -> Option<serde_json::Value> {
     if field == "output" || field.is_empty() {
         return outputs.first().map(|o| o.value.clone());
@@ -155,7 +155,7 @@ fn field_from_outputs(outputs: &[Output], field: &str) -> Option<serde_json::Val
 
 /// Render a JSON value for a violation message: strings unquoted, everything
 /// else as compact JSON.
-#[cfg(feature = "sqlite-storage")]
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
 fn value_text(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::String(s) => s.clone(),
@@ -163,7 +163,7 @@ fn value_text(value: &serde_json::Value) -> String {
     }
 }
 
-#[cfg(feature = "sqlite-storage")]
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
 fn text_similarity(a: &str, b: &str) -> f64 {
     if a == b {
         1.0
@@ -172,23 +172,23 @@ fn text_similarity(a: &str, b: &str) -> f64 {
     }
 }
 
-#[cfg(feature = "sqlite-storage")]
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
 #[derive(Clone)]
 pub struct ReplayEngine<S: StorageBackend> {
     storage: S,
     default_mode: ReplayMode,
-    #[cfg(feature = "async")]
     executor: Option<std::sync::Arc<dyn ModelExecutor>>,
+    execution_config: ExecutionConfig,
 }
 
-#[cfg(feature = "sqlite-storage")]
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
 impl<S: StorageBackend> ReplayEngine<S> {
     pub fn new(storage: S) -> Self {
         Self {
             storage,
             default_mode: ReplayMode::Tolerant,
-            #[cfg(feature = "async")]
             executor: None,
+            execution_config: ExecutionConfig::default(),
         }
     }
 
@@ -196,27 +196,31 @@ impl<S: StorageBackend> ReplayEngine<S> {
         Self {
             storage,
             default_mode: mode,
-            #[cfg(feature = "async")]
             executor: None,
+            execution_config: ExecutionConfig::default(),
         }
     }
 
     /// Set a model executor for the replay engine
-    #[cfg(feature = "async")]
     pub fn with_executor(mut self, executor: std::sync::Arc<dyn ModelExecutor>) -> Self {
         self.executor = Some(executor);
         self
     }
 
+    /// Set the configuration handed to the executor on every replay. Its
+    /// `timeout_ms` bounds each execution; 0 disables the bound.
+    pub fn with_execution_config(mut self, config: ExecutionConfig) -> Self {
+        self.execution_config = config;
+        self
+    }
+
     /// Set the executor in place, for callers holding the engine behind a
     /// `&mut` (the Python binding, chiefly).
-    #[cfg(feature = "async")]
     pub fn set_executor(&mut self, executor: std::sync::Arc<dyn ModelExecutor>) {
         self.executor = Some(executor);
     }
 
     /// Get a reference to the current executor, if any
-    #[cfg(feature = "async")]
     pub fn executor(&self) -> Option<&dyn ModelExecutor> {
         self.executor.as_ref().map(|arc| arc.as_ref())
     }
@@ -249,14 +253,16 @@ impl<S: StorageBackend> ReplayEngine<S> {
 
         match replay_mode {
             ReplayMode::ValidationOnly => {
-                // Just validate the snapshot structure without re-executing
+                // The snapshot loaded and deserialized; nothing re-executed.
+                // As in `simulate_replay`, that is Pending with no match
+                // claimed: "not compared" must never read as "matched".
                 let execution_time = start_time.elapsed().as_millis() as f64;
 
                 Ok(ReplayResult {
-                    status: ReplayStatus::Success,
+                    status: ReplayStatus::Pending,
                     original_snapshot,
                     replay_output: None,
-                    outputs_match: true, // We're not re-executing, so assume match
+                    outputs_match: false,
                     diff: None,
                     policy_violations: Vec::new(),
                     execution_time_ms: execution_time,
@@ -264,16 +270,8 @@ impl<S: StorageBackend> ReplayEngine<S> {
             }
             ReplayMode::Strict | ReplayMode::Tolerant => {
                 // Use the executor if available, otherwise fall back to simulation
-                #[cfg(feature = "async")]
-                {
-                    self.execute_replay(&original_snapshot, replay_mode, start_time)
-                        .await
-                }
-                #[cfg(not(feature = "async"))]
-                {
-                    self.simulate_replay(&original_snapshot, replay_mode, start_time)
-                        .await
-                }
+                self.execute_replay(&original_snapshot, replay_mode, start_time)
+                    .await
             }
         }
     }
@@ -329,14 +327,15 @@ impl<S: StorageBackend> ReplayEngine<S> {
         self.validate_against_policy(&snapshot, policy).await
     }
 
-    /// Batch replay multiple snapshots
+    /// Batch replay multiple snapshots, at most `concurrency` at a time. A
+    /// `concurrency` of 0 is treated as 1.
     pub async fn replay_batch(
         &self,
         snapshot_ids: &[String],
         mode: Option<ReplayMode>,
         concurrency: usize,
     ) -> Vec<Result<ReplayResult, ReplayError>> {
-        let semaphore = tokio::sync::Semaphore::new(concurrency);
+        let semaphore = tokio::sync::Semaphore::new(concurrency.max(1));
         let replay_mode = mode.unwrap_or_else(|| self.default_mode.clone());
 
         let tasks: Vec<_> = snapshot_ids
@@ -370,13 +369,22 @@ impl<S: StorageBackend> ReplayEngine<S> {
         for result in results {
             match result {
                 Ok(replay_result) => {
-                    stats.successful_replays += 1;
                     stats.total_execution_time_ms += replay_result.execution_time_ms;
 
-                    if replay_result.outputs_match {
-                        stats.exact_matches += 1;
+                    // Pending/Running mean nothing re-executed, so there was
+                    // no comparison to count as a match or a mismatch.
+                    if matches!(
+                        replay_result.status,
+                        ReplayStatus::Pending | ReplayStatus::Running
+                    ) {
+                        stats.unverified_replays += 1;
                     } else {
-                        stats.mismatches += 1;
+                        stats.successful_replays += 1;
+                        if replay_result.outputs_match {
+                            stats.exact_matches += 1;
+                        } else {
+                            stats.mismatches += 1;
+                        }
                     }
                 }
                 Err(_) => {
@@ -385,8 +393,9 @@ impl<S: StorageBackend> ReplayEngine<S> {
             }
         }
 
-        stats.average_execution_time_ms = if stats.successful_replays > 0 {
-            stats.total_execution_time_ms / stats.successful_replays as f64
+        let completed = stats.successful_replays + stats.unverified_replays;
+        stats.average_execution_time_ms = if completed > 0 {
+            stats.total_execution_time_ms / completed as f64
         } else {
             0.0
         };
@@ -396,7 +405,6 @@ impl<S: StorageBackend> ReplayEngine<S> {
 
     // Private helper methods
 
-    #[cfg(feature = "async")]
     async fn execute_replay(
         &self,
         original: &DecisionSnapshot,
@@ -415,16 +423,28 @@ impl<S: StorageBackend> ReplayEngine<S> {
                 }
             }
 
-            // Execute with the configured default config (could be customized per replay)
-            let config = ExecutionConfig::default();
-            let exec_result = executor
-                .execute(
-                    &original.inputs,
-                    original.model_parameters.as_ref(),
-                    &original.context,
-                    &config,
-                )
-                .await?;
+            let config = &self.execution_config;
+            let execution = executor.execute(
+                &original.inputs,
+                original.model_parameters.as_ref(),
+                &original.context,
+                config,
+            );
+            let exec_result = if config.timeout_ms == 0 {
+                execution.await?
+            } else {
+                let limit = std::time::Duration::from_millis(config.timeout_ms);
+                match tokio::time::timeout(limit, execution).await {
+                    Ok(result) => result?,
+                    Err(_) => {
+                        return Err(ReplayError::ExecutionError(format!(
+                            "Executor '{}' timed out after {} ms",
+                            executor.executor_name(),
+                            config.timeout_ms
+                        )))
+                    }
+                }
+            };
 
             let execution_time = start_time.elapsed().as_millis() as f64;
 
@@ -547,7 +567,20 @@ impl<S: StorageBackend> ReplayEngine<S> {
         replayed: Option<&[Output]>,
         rule: &ValidationRule,
     ) -> Option<PolicyViolation> {
-        let recorded = self.extract_field_value(original, &rule.field)?;
+        // A rule on a field the decision never recorded cannot be checked,
+        // and an unchecked rule must never read as a pass.
+        let Some(recorded) = self.extract_field_value(original, &rule.field) else {
+            return Some(PolicyViolation {
+                rule_name: rule.field.clone(),
+                field: rule.field.clone(),
+                expected: "a recorded value".to_string(),
+                actual: "absent".to_string(),
+                message: format!(
+                    "Rule names field '{}', which the recorded decision does not have",
+                    rule.field
+                ),
+            });
+        };
 
         let Some(replayed) = replayed else {
             return Some(PolicyViolation {
@@ -723,8 +756,13 @@ impl<S: StorageBackend> ReplayEngine<S> {
 #[derive(Debug, Clone, Default)]
 pub struct ReplayStats {
     pub total_replays: usize,
+    /// Replays that re-executed and produced a verdict (match or mismatch).
     pub successful_replays: usize,
+    /// Replays that returned an error.
     pub failed_replays: usize,
+    /// Replays that loaded the snapshot but re-executed nothing (no executor,
+    /// or validation-only mode), so there is no verdict to count.
+    pub unverified_replays: usize,
     pub exact_matches: usize,
     pub mismatches: usize,
     pub total_execution_time_ms: f64,
@@ -750,7 +788,7 @@ impl From<crate::storage::StorageError> for ReplayError {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "sqlite-storage", feature = "async"))]
 mod tests {
     use super::*;
     use crate::models::*;
@@ -791,8 +829,9 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(result.status, ReplayStatus::Success);
-        assert!(result.outputs_match);
+        // Nothing was compared, so no match may be claimed.
+        assert_eq!(result.status, ReplayStatus::Pending);
+        assert!(!result.outputs_match);
         assert!(result.replay_output.is_none());
     }
 
@@ -907,10 +946,52 @@ mod tests {
         // Get stats
         let stats = engine.get_replay_stats(&snapshot_ids).await.unwrap();
 
+        // No executor is set, so nothing was verified: these are neither
+        // successes nor matches.
         assert_eq!(stats.total_replays, 5);
-        assert_eq!(stats.successful_replays, 5);
+        assert_eq!(stats.successful_replays, 0);
+        assert_eq!(stats.unverified_replays, 5);
+        assert_eq!(stats.exact_matches, 0);
+        assert_eq!(stats.mismatches, 0);
         assert_eq!(stats.failed_replays, 0);
         assert!(stats.average_execution_time_ms > 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_replay_batch_zero_concurrency_does_not_hang() {
+        let storage = SqliteBackend::in_memory().unwrap();
+        let engine = ReplayEngine::new(storage);
+        let id = engine
+            .storage
+            .save_decision(&create_test_decision().await)
+            .await
+            .unwrap();
+
+        let results = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            engine.replay_batch(&[id], None, 0),
+        )
+        .await
+        .expect("replay_batch with concurrency 0 must complete");
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_policy_rule_on_missing_field_is_a_violation() {
+        let storage = SqliteBackend::in_memory().unwrap();
+        let engine = ReplayEngine::new(storage);
+        let id = engine
+            .storage
+            .save_decision(&create_test_decision().await)
+            .await
+            .unwrap();
+
+        let policy = ReplayPolicy::new("typo").with_exact_match("no_such_field");
+        let violations = engine.validate(&id, &policy).await.unwrap();
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].field, "no_such_field");
+        assert_eq!(violations[0].actual, "absent");
     }
 
     #[tokio::test]
@@ -939,7 +1020,7 @@ mod tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "sqlite-storage", feature = "async"))]
 mod honest_replay_tests {
     use super::executor::{ExecutionConfig, ExecutionResult, ModelExecutor};
     use super::*;
@@ -1022,6 +1103,59 @@ mod honest_replay_tests {
 
         assert!(result.outputs_match);
         assert_eq!(result.status, ReplayStatus::Success);
+    }
+
+    /// Never answers within any reasonable timeout.
+    struct StalledExecutor;
+
+    #[async_trait]
+    impl ModelExecutor for StalledExecutor {
+        async fn execute(
+            &self,
+            _inputs: &[Input],
+            _model_params: Option<&ModelParameters>,
+            _context: &ExecutionContext,
+            _config: &ExecutionConfig,
+        ) -> Result<ExecutionResult, ReplayError> {
+            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+            Err(ReplayError::ExecutionError("unreachable".into()))
+        }
+        fn supports_model(&self, _model_name: &str) -> bool {
+            true
+        }
+        fn executor_name(&self) -> &str {
+            "stalled"
+        }
+    }
+
+    #[tokio::test]
+    async fn an_executor_that_exceeds_timeout_ms_is_cut_off() {
+        let (storage, id) = stored("account_access").await;
+        let engine = ReplayEngine::new(storage)
+            .with_executor(Arc::new(StalledExecutor))
+            .with_execution_config(ExecutionConfig::new().with_timeout(20));
+
+        let result = engine.replay(&id, Some(ReplayMode::Strict), None).await;
+
+        match result {
+            Err(ReplayError::ExecutionError(message)) => {
+                assert!(message.contains("timed out"), "{message}")
+            }
+            other => panic!("expected a timeout error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn stats_count_verified_replays_as_successful() {
+        let (storage, id) = stored("account_access").await;
+        let engine = ReplayEngine::new(storage).with_executor(Arc::new(FixedExecutor {
+            value: json!("account_access"),
+        }));
+
+        let stats = engine.get_replay_stats(&[id]).await.unwrap();
+        assert_eq!(stats.successful_replays, 1);
+        assert_eq!(stats.exact_matches, 1);
+        assert_eq!(stats.unverified_replays, 0);
     }
 
     #[tokio::test]

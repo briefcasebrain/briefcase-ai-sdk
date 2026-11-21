@@ -548,6 +548,12 @@ impl PyDecisionSnapshot {
     fn content_hash(&self) -> String {
         self.inner.content_hash()
     }
+
+    /// `content_hash` as computed by releases up to 4.4.0, for verifying
+    /// digests stored by them. Differs only for values holding JSON objects.
+    fn content_hash_legacy(&self) -> String {
+        self.inner.content_hash_legacy()
+    }
 }
 
 /// Python wrapper for Snapshot

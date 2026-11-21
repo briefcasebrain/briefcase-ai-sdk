@@ -1,3 +1,4 @@
+#[cfg(feature = "async")]
 use crate::models::{DecisionSnapshot, Snapshot};
 #[cfg(feature = "async")]
 use async_trait::async_trait;
@@ -5,6 +6,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use thiserror::Error;
 
+#[cfg(feature = "async")]
 pub mod buffered;
 #[cfg(feature = "sqlite-storage")]
 pub mod sqlite;

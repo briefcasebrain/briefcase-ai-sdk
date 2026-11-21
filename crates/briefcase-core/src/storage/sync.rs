@@ -86,7 +86,7 @@ impl SyncStorageBackend for SyncSqliteBackend {
     }
 
     fn delete(&self, snapshot_id: &str) -> Result<bool, StorageError> {
-        let conn_guard = self.inner.conn.lock().unwrap();
+        let conn_guard = self.inner.lock_conn();
 
         let rows_affected = conn_guard
             .execute(
@@ -101,7 +101,7 @@ impl SyncStorageBackend for SyncSqliteBackend {
     }
 
     fn flush(&self) -> Result<FlushResult, StorageError> {
-        let conn_guard = self.inner.conn.lock().unwrap();
+        let conn_guard = self.inner.lock_conn();
 
         // Force WAL checkpoint; the pragma returns a status row
         conn_guard
@@ -123,7 +123,7 @@ impl SyncStorageBackend for SyncSqliteBackend {
     }
 
     fn health_check(&self) -> Result<bool, StorageError> {
-        let conn_guard = self.inner.conn.lock().unwrap();
+        let conn_guard = self.inner.lock_conn();
 
         // Simple query to check connection
         let _: i64 = conn_guard
@@ -146,6 +146,15 @@ impl MemoryStorageBackend {
             snapshots: std::sync::Mutex::new(HashMap::new()),
         }
     }
+
+    /// Every critical section is a single map operation, so the map is
+    /// consistent even if a holder panicked; recover instead of propagating
+    /// the poison as a panic.
+    fn lock_snapshots(&self) -> std::sync::MutexGuard<'_, HashMap<String, Snapshot>> {
+        self.snapshots
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
 }
 
 impl Default for MemoryStorageBackend {
@@ -157,7 +166,7 @@ impl Default for MemoryStorageBackend {
 impl SyncStorageBackend for MemoryStorageBackend {
     fn save(&self, snapshot: &Snapshot) -> Result<String, StorageError> {
         let snapshot_id = snapshot.metadata.snapshot_id.to_string();
-        let mut snapshots = self.snapshots.lock().unwrap();
+        let mut snapshots = self.lock_snapshots();
         snapshots.insert(snapshot_id.clone(), snapshot.clone());
         Ok(snapshot_id)
     }
@@ -173,7 +182,7 @@ impl SyncStorageBackend for MemoryStorageBackend {
     }
 
     fn load(&self, snapshot_id: &str) -> Result<Snapshot, StorageError> {
-        let snapshots = self.snapshots.lock().unwrap();
+        let snapshots = self.lock_snapshots();
         snapshots
             .get(snapshot_id)
             .cloned()
@@ -193,7 +202,7 @@ impl SyncStorageBackend for MemoryStorageBackend {
     }
 
     fn query(&self, query: SnapshotQuery) -> Result<Vec<Snapshot>, StorageError> {
-        let snapshots = self.snapshots.lock().unwrap();
+        let snapshots = self.lock_snapshots();
         let mut results = Vec::new();
 
         for snapshot in snapshots.values() {
@@ -214,12 +223,12 @@ impl SyncStorageBackend for MemoryStorageBackend {
     }
 
     fn delete(&self, snapshot_id: &str) -> Result<bool, StorageError> {
-        let mut snapshots = self.snapshots.lock().unwrap();
+        let mut snapshots = self.lock_snapshots();
         Ok(snapshots.remove(snapshot_id).is_some())
     }
 
     fn flush(&self) -> Result<FlushResult, StorageError> {
-        let snapshots = self.snapshots.lock().unwrap();
+        let snapshots = self.lock_snapshots();
         Ok(FlushResult {
             snapshots_written: snapshots.len(),
             bytes_written: 0, // Not meaningful for in-memory

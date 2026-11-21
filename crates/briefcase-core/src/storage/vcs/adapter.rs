@@ -13,10 +13,9 @@
 
 use super::super::{FlushResult, SnapshotQuery, StorageBackend, StorageError};
 use super::provider::VcsProvider;
-use crate::models::{DecisionSnapshot, Snapshot};
-#[cfg(feature = "async")]
+use crate::models::{DecisionSnapshot, Snapshot, SnapshotType};
 use async_trait::async_trait;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// Generic storage backend adapter that wraps any `VcsProvider`.
 ///
@@ -53,7 +52,10 @@ impl<P: VcsProvider> VcsStorageBackend<P> {
 
     /// Get the number of pending (unflushed) writes.
     pub fn pending_count(&self) -> usize {
-        self.pending_writes.lock().unwrap().len()
+        self.pending_writes
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len()
     }
 
     // --- Path helpers ---
@@ -97,6 +99,39 @@ impl<P: VcsProvider> VcsStorageBackend<P> {
 
     fn deserialize_decision(data: &[u8]) -> Result<DecisionSnapshot, StorageError> {
         serde_json::from_slice(data).map_err(|e| StorageError::SerializationError(e.to_string()))
+    }
+
+    fn decision_as_snapshot(decision: DecisionSnapshot) -> Snapshot {
+        Snapshot {
+            metadata: decision.metadata.clone(),
+            decisions: vec![decision],
+            snapshot_type: SnapshotType::Decision,
+        }
+    }
+
+    // --- Pending-write helpers ---
+
+    fn lock_pending(&self) -> Result<MutexGuard<'_, Vec<Snapshot>>, StorageError> {
+        self.pending_writes
+            .lock()
+            .map_err(|e| StorageError::IoError(format!("lock poisoned: {}", e)))
+    }
+
+    /// Put unwritten snapshots back at the front of the queue, ahead of
+    /// anything saved while the flush was in progress.
+    fn restore_pending(&self, mut unwritten: Vec<Snapshot>) -> Result<(), StorageError> {
+        let mut guard = self.lock_pending()?;
+        unwritten.append(&mut guard);
+        *guard = unwritten;
+        Ok(())
+    }
+
+    async fn write_snapshot(&self, snapshot: &Snapshot) -> Result<usize, StorageError> {
+        let snapshot_id = snapshot.metadata.snapshot_id.to_string();
+        let path = Self::snapshot_path(&snapshot_id)?;
+        let data = Self::serialize_snapshot(snapshot)?;
+        self.provider.write_object(&path, &data).await?;
+        Ok(data.len())
     }
 
     // --- Query filtering ---
@@ -175,20 +210,13 @@ impl<P: VcsProvider> VcsStorageBackend<P> {
     }
 }
 
-#[cfg(feature = "async")]
 #[async_trait]
 impl<P: VcsProvider + 'static> StorageBackend for VcsStorageBackend<P> {
     async fn save(&self, snapshot: &Snapshot) -> Result<String, StorageError> {
         let snapshot_id = snapshot.metadata.snapshot_id.to_string();
 
         // Add to pending writes batch (flushed on `flush()`)
-        {
-            let mut pending = self
-                .pending_writes
-                .lock()
-                .map_err(|e| StorageError::IoError(format!("lock poisoned: {}", e)))?;
-            pending.push(snapshot.clone());
-        }
+        self.lock_pending()?.push(snapshot.clone());
 
         Ok(snapshot_id)
     }
@@ -201,10 +229,20 @@ impl<P: VcsProvider + 'static> StorageBackend for VcsStorageBackend<P> {
         Ok(decision_id)
     }
 
+    /// Load a snapshot by id. A decision written with `save_decision` is
+    /// returned wrapped in a single-decision snapshot, as the SQLite backend
+    /// does, so an id from either write path resolves.
     async fn load(&self, snapshot_id: &str) -> Result<Snapshot, StorageError> {
         let path = Self::snapshot_path(snapshot_id)?;
-        let data = self.provider.read_object(&path).await?;
-        Self::deserialize_snapshot(&data)
+        match self.provider.read_object(&path).await {
+            Ok(data) => Self::deserialize_snapshot(&data),
+            Err(StorageError::NotFound(not_found)) => match self.load_decision(snapshot_id).await {
+                Ok(decision) => Ok(Self::decision_as_snapshot(decision)),
+                Err(StorageError::NotFound(_)) => Err(StorageError::NotFound(not_found)),
+                Err(e) => Err(e),
+            },
+            Err(e) => Err(e),
+        }
     }
 
     async fn load_decision(&self, decision_id: &str) -> Result<DecisionSnapshot, StorageError> {
@@ -213,62 +251,58 @@ impl<P: VcsProvider + 'static> StorageBackend for VcsStorageBackend<P> {
         Self::deserialize_decision(&data)
     }
 
+    /// Query flushed snapshots and decisions written with `save_decision`.
+    /// Results are ordered newest first; `offset` and `limit` apply to that
+    /// ordering, not to the provider's listing order.
     async fn query(&self, query: SnapshotQuery) -> Result<Vec<Snapshot>, StorageError> {
-        let paths = self.provider.list_objects("snapshots/").await?;
-
         let mut results = Vec::new();
-        let mut matched_count: usize = 0;
-        let offset = query.offset.unwrap_or(0);
-        let limit = query.limit.unwrap_or(usize::MAX);
 
-        for path in &paths {
-            // Extract snapshot ID from path: "snapshots/abc123.json" -> "abc123"
-            let snapshot_id = match path
-                .split('/')
-                .next_back()
-                .and_then(|f| f.strip_suffix(".json"))
-            {
-                Some(id) => id,
-                None => continue,
+        for path in &self.provider.list_objects("snapshots/").await? {
+            // Skip corrupted/unreadable objects rather than failing the query
+            let Ok(data) = self.provider.read_object(path).await else {
+                continue;
             };
-
-            let snapshot = match self.load(snapshot_id).await {
-                Ok(s) => s,
-                Err(_) => continue, // Skip corrupted/unreadable snapshots
+            let Ok(snapshot) = Self::deserialize_snapshot(&data) else {
+                continue;
             };
-
             if Self::matches_query(&snapshot, &query) {
-                if matched_count >= offset {
-                    results.push(snapshot);
-                    if results.len() >= limit {
-                        break;
-                    }
-                }
-                matched_count += 1;
+                results.push(snapshot);
             }
         }
 
-        // Sort by timestamp (newest first)
+        for path in &self.provider.list_objects("decisions/").await? {
+            let Ok(data) = self.provider.read_object(path).await else {
+                continue;
+            };
+            let Ok(decision) = Self::deserialize_decision(&data) else {
+                continue;
+            };
+            let snapshot = Self::decision_as_snapshot(decision);
+            if Self::matches_query(&snapshot, &query) {
+                results.push(snapshot);
+            }
+        }
+
+        // Sort by timestamp (newest first), then paginate
         results.sort_by_key(|r| std::cmp::Reverse(r.metadata.timestamp));
 
-        Ok(results)
+        let offset = query.offset.unwrap_or(0);
+        let limit = query.limit.unwrap_or(usize::MAX);
+        Ok(results.into_iter().skip(offset).take(limit).collect())
     }
 
+    /// Delete by id, whether the object was written as a snapshot or as a
+    /// decision.
     async fn delete(&self, snapshot_id: &str) -> Result<bool, StorageError> {
-        let path = Self::snapshot_path(snapshot_id)?;
-        self.provider.delete_object(&path).await
+        let snapshot_path = Self::snapshot_path(snapshot_id)?;
+        let decision_path = Self::decision_path(snapshot_id)?;
+        let deleted_snapshot = self.provider.delete_object(&snapshot_path).await?;
+        let deleted_decision = self.provider.delete_object(&decision_path).await?;
+        Ok(deleted_snapshot || deleted_decision)
     }
 
     async fn flush(&self) -> Result<FlushResult, StorageError> {
-        let pending = {
-            let mut guard = self
-                .pending_writes
-                .lock()
-                .map_err(|e| StorageError::IoError(format!("lock poisoned: {}", e)))?;
-            let snapshots = guard.clone();
-            guard.clear();
-            snapshots
-        };
+        let pending = std::mem::take(&mut *self.lock_pending()?);
 
         if pending.is_empty() {
             return Ok(FlushResult {
@@ -280,12 +314,16 @@ impl<P: VcsProvider + 'static> StorageBackend for VcsStorageBackend<P> {
 
         let mut total_bytes = 0;
 
-        for snapshot in &pending {
-            let snapshot_id = snapshot.metadata.snapshot_id.to_string();
-            let path = Self::snapshot_path(&snapshot_id)?;
-            let data = Self::serialize_snapshot(snapshot)?;
-            total_bytes += data.len();
-            self.provider.write_object(&path, &data).await?;
+        for (index, snapshot) in pending.iter().enumerate() {
+            match self.write_snapshot(snapshot).await {
+                Ok(bytes) => total_bytes += bytes,
+                Err(e) => {
+                    // Keep everything not yet written (this one included) so
+                    // a retry can finish the job.
+                    self.restore_pending(pending[index..].to_vec())?;
+                    return Err(e);
+                }
+            }
         }
 
         let message = format!(
@@ -293,7 +331,15 @@ impl<P: VcsProvider + 'static> StorageBackend for VcsStorageBackend<P> {
             pending.len(),
             self.provider.provider_name()
         );
-        let version_id = self.provider.create_version(&message).await?;
+        let version_id = match self.provider.create_version(&message).await {
+            Ok(id) => id,
+            Err(e) => {
+                // The objects are written but not versioned. Writes overwrite,
+                // so re-queueing them lets the next flush create the version.
+                self.restore_pending(pending)?;
+                return Err(e);
+            }
+        };
 
         Ok(FlushResult {
             snapshots_written: pending.len(),
@@ -394,7 +440,7 @@ mod tests {
                 snapshot_id: Uuid::new_v4(),
                 timestamp: Utc::now(),
                 schema_version: "1.0".to_string(),
-                sdk_version: "2.1.19".to_string(),
+                sdk_version: env!("CARGO_PKG_VERSION").to_string(),
                 created_by: Some("test".to_string()),
                 checksum: None,
             },
@@ -434,7 +480,7 @@ mod tests {
                 snapshot_id: Uuid::new_v4(),
                 timestamp: Utc::now(),
                 schema_version: "1.0".to_string(),
-                sdk_version: "2.1.19".to_string(),
+                sdk_version: env!("CARGO_PKG_VERSION").to_string(),
                 created_by: Some("test".to_string()),
                 checksum: None,
             },
@@ -611,7 +657,7 @@ mod tests {
                 snapshot_id: Uuid::new_v4(),
                 timestamp,
                 schema_version: "1.0".to_string(),
-                sdk_version: "2.1.19".to_string(),
+                sdk_version: env!("CARGO_PKG_VERSION").to_string(),
                 created_by: Some("test".to_string()),
                 checksum: None,
             },
@@ -1034,6 +1080,128 @@ mod tests {
         let query = SnapshotQuery::new().with_model_name("any-model");
         let results = backend.query(query).await.unwrap();
         assert_eq!(results.len(), 0);
+    }
+
+    /// Provider whose writes start failing after a set number succeed.
+    #[derive(Debug)]
+    struct FlakyProvider {
+        inner: MockProvider,
+        writes_allowed: StdMutex<usize>,
+    }
+
+    #[async_trait]
+    impl VcsProvider for FlakyProvider {
+        async fn write_object(&self, path: &str, data: &[u8]) -> Result<(), StorageError> {
+            {
+                let mut allowed = self.writes_allowed.lock().unwrap();
+                if *allowed == 0 {
+                    return Err(StorageError::ConnectionError("write failed".into()));
+                }
+                *allowed -= 1;
+            }
+            self.inner.write_object(path, data).await
+        }
+        async fn read_object(&self, path: &str) -> Result<Vec<u8>, StorageError> {
+            self.inner.read_object(path).await
+        }
+        async fn list_objects(&self, prefix: &str) -> Result<Vec<String>, StorageError> {
+            self.inner.list_objects(prefix).await
+        }
+        async fn delete_object(&self, path: &str) -> Result<bool, StorageError> {
+            self.inner.delete_object(path).await
+        }
+        async fn create_version(&self, message: &str) -> Result<String, StorageError> {
+            self.inner.create_version(message).await
+        }
+        async fn health_check(&self) -> Result<bool, StorageError> {
+            Ok(true)
+        }
+        fn provider_name(&self) -> &'static str {
+            "flaky"
+        }
+        fn config_summary(&self) -> String {
+            "Flaky provider".to_string()
+        }
+    }
+
+    #[tokio::test]
+    async fn test_failed_flush_keeps_unwritten_snapshots_for_retry() {
+        let backend = VcsStorageBackend::new(FlakyProvider {
+            inner: MockProvider::new(),
+            writes_allowed: StdMutex::new(1),
+        });
+
+        let snaps: Vec<_> = (0..3)
+            .map(|i| make_test_snapshot(vec![make_test_decision(&format!("fn{i}"), "m")]))
+            .collect();
+        for snap in &snaps {
+            backend.save(snap).await.unwrap();
+        }
+
+        assert!(backend.flush().await.is_err());
+        assert_eq!(
+            backend.pending_count(),
+            2,
+            "the failed snapshot and the ones after it must stay queued"
+        );
+
+        *backend.provider().writes_allowed.lock().unwrap() = usize::MAX;
+        let result = backend.flush().await.unwrap();
+        assert_eq!(result.snapshots_written, 2);
+        for snap in &snaps {
+            let id = snap.metadata.snapshot_id.to_string();
+            assert!(backend.load(&id).await.is_ok());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_saved_decision_is_queryable_loadable_and_deletable() {
+        let backend = VcsStorageBackend::new(MockProvider::new());
+        let decision = make_test_decision("classify", "gpt-4");
+        let id = backend.save_decision(&decision).await.unwrap();
+
+        let results = backend
+            .query(SnapshotQuery::new().with_function_name("classify"))
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].decisions[0].function_name, "classify");
+
+        assert_eq!(backend.load(&id).await.unwrap().decisions.len(), 1);
+
+        assert!(backend.delete(&id).await.unwrap());
+        assert!(backend.load_decision(&id).await.is_err());
+        assert!(backend
+            .query(SnapshotQuery::new())
+            .await
+            .unwrap()
+            .is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_query_paginates_after_sorting_newest_first() {
+        let backend = VcsStorageBackend::new(MockProvider::new());
+
+        // Listing order comes from a HashMap, so it is unrelated to age.
+        let now = Utc::now();
+        for hours_ago in 0..8 {
+            let snap = make_snapshot_at_time(
+                vec![make_test_decision(&format!("fn{hours_ago}"), "m")],
+                now - chrono::Duration::hours(hours_ago),
+            );
+            backend.save(&snap).await.unwrap();
+        }
+        backend.flush().await.unwrap();
+
+        let page = backend
+            .query(SnapshotQuery::new().with_offset(2).with_limit(3))
+            .await
+            .unwrap();
+        let names: Vec<_> = page
+            .iter()
+            .map(|s| s.decisions[0].function_name.as_str())
+            .collect();
+        assert_eq!(names, ["fn2", "fn3", "fn4"]);
     }
 
     #[tokio::test]

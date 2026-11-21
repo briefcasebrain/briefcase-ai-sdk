@@ -2,8 +2,9 @@
 //!
 //! Decisions accumulate in memory until the batch is full or [`flush`] is
 //! called, then go to the wrapped backend in one `save_decisions` round trip.
-//! Reads consult the pending buffer first, so an id returned by
-//! `save_decision` resolves immediately.
+//! Reads see pending decisions: `load_decision` consults the buffer first, and
+//! `load`/`query` write the buffer through before reading, so an id returned
+//! by `save_decision` resolves immediately and queries never miss it.
 //!
 //! Buffering trades durability for throughput: decisions that have not been
 //! flushed live only in memory and are lost if the process dies. Call
@@ -14,7 +15,7 @@
 use crate::models::{DecisionSnapshot, Snapshot};
 use crate::storage::{FlushResult, SnapshotQuery, StorageBackend, StorageError};
 use async_trait::async_trait;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 pub struct BufferedBackend {
     inner: Arc<dyn StorageBackend>,
@@ -33,9 +34,15 @@ impl BufferedBackend {
         }
     }
 
+    /// Every critical section leaves the buffer consistent, so a poisoned
+    /// lock is recovered rather than propagated as a panic.
+    fn lock_pending(&self) -> MutexGuard<'_, Vec<DecisionSnapshot>> {
+        self.pending.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     /// Decisions accepted but not yet written to the wrapped backend.
     pub fn pending(&self) -> usize {
-        self.pending.lock().unwrap().len()
+        self.lock_pending().len()
     }
 
     /// The backend being buffered, for reads that should bypass the buffer.
@@ -44,7 +51,7 @@ impl BufferedBackend {
     }
 
     fn take_pending(&self) -> Vec<DecisionSnapshot> {
-        std::mem::take(&mut *self.pending.lock().unwrap())
+        std::mem::take(&mut *self.lock_pending())
     }
 
     async fn write_batch(&self, batch: Vec<DecisionSnapshot>) -> Result<usize, StorageError> {
@@ -56,7 +63,7 @@ impl BufferedBackend {
             Err(e) => {
                 // Put the batch back so the caller can retry rather than
                 // silently losing records to a transient backend failure.
-                let mut pending = self.pending.lock().unwrap();
+                let mut pending = self.lock_pending();
                 let mut restored = batch;
                 restored.append(&mut pending);
                 *pending = restored;
@@ -78,7 +85,7 @@ impl StorageBackend for BufferedBackend {
     async fn save_decision(&self, decision: &DecisionSnapshot) -> Result<String, StorageError> {
         let id = decision.metadata.snapshot_id.to_string();
         let full = {
-            let mut pending = self.pending.lock().unwrap();
+            let mut pending = self.lock_pending();
             pending.push(decision.clone());
             pending.len() >= self.batch_size
         };
@@ -96,13 +103,17 @@ impl StorageBackend for BufferedBackend {
         self.inner.save_decisions(decisions).await
     }
 
+    /// Pending decisions are written through first, so a decision saved a
+    /// moment ago is loadable as a snapshot like any flushed one.
     async fn load(&self, id: &str) -> Result<Snapshot, StorageError> {
+        let batch = self.take_pending();
+        self.write_batch(batch).await?;
         self.inner.load(id).await
     }
 
     async fn load_decision(&self, id: &str) -> Result<DecisionSnapshot, StorageError> {
         let buffered = {
-            let pending = self.pending.lock().unwrap();
+            let pending = self.lock_pending();
             pending
                 .iter()
                 .find(|d| d.metadata.snapshot_id.to_string() == id)
@@ -114,16 +125,16 @@ impl StorageBackend for BufferedBackend {
         }
     }
 
-    /// Queries run against the wrapped backend, so pending decisions are not
-    /// visible until they are flushed.
+    /// Pending decisions are written through before the query runs, so the
+    /// wrapped backend's filtering, ordering and pagination apply to them too.
     async fn query(&self, q: SnapshotQuery) -> Result<Vec<Snapshot>, StorageError> {
+        let batch = self.take_pending();
+        self.write_batch(batch).await?;
         self.inner.query(q).await
     }
 
     async fn delete(&self, id: &str) -> Result<bool, StorageError> {
-        self.pending
-            .lock()
-            .unwrap()
+        self.lock_pending()
             .retain(|d| d.metadata.snapshot_id.to_string() != id);
         self.inner.delete(id).await
     }
@@ -311,6 +322,26 @@ mod tests {
         // The wrapped backend cannot serve this yet, so the buffer must.
         let loaded = buffered.load_decision(&id).await.unwrap();
         assert_eq!(loaded.function_name, "f7");
+    }
+
+    #[cfg(feature = "sqlite-storage")]
+    #[tokio::test]
+    async fn query_and_load_see_unflushed_decisions() {
+        let inner = Arc::new(crate::storage::SqliteBackend::in_memory().unwrap());
+        let buffered = BufferedBackend::new(inner, 100);
+        let id = buffered.save_decision(&decision(1)).await.unwrap();
+        buffered.save_decision(&decision(2)).await.unwrap();
+
+        let found = buffered
+            .query(SnapshotQuery::new().with_function_name("f1"))
+            .await
+            .unwrap();
+        assert_eq!(found.len(), 1, "a pending decision must be queryable");
+        assert_eq!(buffered.query(SnapshotQuery::new()).await.unwrap().len(), 2);
+
+        let id3 = buffered.save_decision(&decision(3)).await.unwrap();
+        assert_eq!(buffered.load(&id3).await.unwrap().decisions.len(), 1);
+        assert!(buffered.load(&id).await.is_ok());
     }
 
     #[tokio::test]

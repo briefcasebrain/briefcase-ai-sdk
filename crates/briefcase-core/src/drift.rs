@@ -1,6 +1,76 @@
 use crate::models::Output;
+use rayon::prelude::*;
 use std::collections::HashMap;
-use strsim::normalized_levenshtein;
+
+/// `1 - distance / longer length`, the same value as
+/// `strsim::normalized_levenshtein`, computed with a tighter kernel: ASCII
+/// text is compared as bytes, and the shared prefix and suffix (most of two
+/// near-identical model outputs) are skipped before the quadratic part.
+fn normalized_levenshtein(a: &str, b: &str) -> f64 {
+    if a.is_empty() && b.is_empty() {
+        return 1.0;
+    }
+    let (distance, longer) = if a.is_ascii() && b.is_ascii() {
+        (
+            edit_distance(a.as_bytes(), b.as_bytes()),
+            a.len().max(b.len()),
+        )
+    } else {
+        let a: Vec<char> = a.chars().collect();
+        let b: Vec<char> = b.chars().collect();
+        (edit_distance(&a, &b), a.len().max(b.len()))
+    };
+    1.0 - distance as f64 / longer as f64
+}
+
+/// Levenshtein distance by single-row dynamic programming.
+fn edit_distance<T: PartialEq>(a: &[T], b: &[T]) -> usize {
+    let prefix = a.iter().zip(b).take_while(|(x, y)| x == y).count();
+    let (a, b) = (&a[prefix..], &b[prefix..]);
+    let suffix = a
+        .iter()
+        .rev()
+        .zip(b.iter().rev())
+        .take_while(|(x, y)| x == y)
+        .count();
+    let (a, b) = (&a[..a.len() - suffix], &b[..b.len() - suffix]);
+
+    // Keep the row over the shorter side.
+    let (a, b) = if a.len() < b.len() { (b, a) } else { (a, b) };
+    if b.is_empty() {
+        return a.len();
+    }
+
+    let mut row: Vec<usize> = (0..=b.len()).collect();
+    for (i, x) in a.iter().enumerate() {
+        let mut diagonal = row[0];
+        row[0] = i + 1;
+        for (j, y) in b.iter().enumerate() {
+            let substituted = if x == y { diagonal } else { diagonal + 1 };
+            diagonal = row[j + 1];
+            row[j + 1] = substituted.min(row[j] + 1).min(diagonal + 1);
+        }
+    }
+    row[b.len()]
+}
+
+/// Similarity of every unordered pair of outputs, computed once (in parallel)
+/// and shared by every pass of [`DriftCalculator::calculate_drift`]. Stored
+/// as the upper triangle in row order: (0,1), (0,2), ..., (1,2), ...
+struct PairwiseSimilarities {
+    len: usize,
+    upper: Vec<f64>,
+}
+
+impl PairwiseSimilarities {
+    fn get(&self, i: usize, j: usize) -> f64 {
+        if i == j {
+            return 1.0;
+        }
+        let (i, j) = if i < j { (i, j) } else { (j, i) };
+        self.upper[i * self.len - i * (i + 1) / 2 + (j - i - 1)]
+    }
+}
 
 /// Non-exhaustive: an output type, read field-by-field; future additions are
 /// not breaking changes.
@@ -80,21 +150,23 @@ impl DriftCalculator {
             };
         }
 
-        // Calculate pairwise similarities
+        // Every pass below reads from this one table, so each pair's
+        // (expensive) edit distance is computed exactly once.
         let similarities = self.calculate_pairwise_similarities(outputs);
 
         // Calculate average similarity (consistency score)
         let total_pairs = outputs.len() * (outputs.len() - 1) / 2;
-        let avg_similarity = similarities.iter().sum::<f64>() / total_pairs as f64;
+        let avg_similarity = similarities.upper.iter().sum::<f64>() / total_pairs as f64;
 
         // Calculate agreement rate (exact or near-exact matches)
-        let agreement_rate = self.calculate_agreement_rate(outputs);
+        let agreement_rate = self.calculate_agreement_rate(&similarities);
 
         // Drift score is inverse of consistency
         let drift_score = 1.0 - avg_similarity;
 
         // Find consensus output
-        let consensus_output = self.find_consensus(outputs);
+        let consensus_index = self.find_consensus(outputs, &similarities);
+        let consensus_output = Some(outputs[consensus_index].clone());
 
         // Determine consensus confidence
         let consensus_confidence = match agreement_rate {
@@ -105,7 +177,7 @@ impl DriftCalculator {
         };
 
         // Find outliers (outputs significantly different from consensus)
-        let outliers = self.find_outliers(outputs, &consensus_output);
+        let outliers = self.find_outliers(consensus_index, &similarities);
 
         DriftMetrics {
             consistency_score: avg_similarity,
@@ -160,109 +232,80 @@ impl DriftCalculator {
         }
     }
 
-    /// Calculate pairwise similarities for all combinations
-    fn calculate_pairwise_similarities(&self, outputs: &[String]) -> Vec<f64> {
-        let mut similarities = Vec::new();
-
-        for i in 0..outputs.len() {
-            for j in (i + 1)..outputs.len() {
-                let sim = self.semantic_similarity(&outputs[i], &outputs[j]);
-                similarities.push(sim);
-            }
-        }
-
-        similarities
+    /// Calculate pairwise similarities for all combinations, in parallel.
+    fn calculate_pairwise_similarities(&self, outputs: &[String]) -> PairwiseSimilarities {
+        let len = outputs.len();
+        // `collect` keeps the rows in order, so the layout (and the order the
+        // average is summed in) does not depend on thread scheduling.
+        let upper = (0..len)
+            .into_par_iter()
+            .flat_map_iter(|i| {
+                ((i + 1)..len).map(move |j| self.semantic_similarity(&outputs[i], &outputs[j]))
+            })
+            .collect();
+        PairwiseSimilarities { len, upper }
     }
 
     /// Calculate agreement rate (percentage of outputs that are similar enough)
-    fn calculate_agreement_rate(&self, outputs: &[String]) -> f64 {
-        if outputs.len() <= 1 {
-            return 1.0;
-        }
+    fn calculate_agreement_rate(&self, similarities: &PairwiseSimilarities) -> f64 {
+        // Greedy clustering: each output joins the first cluster whose
+        // representative (its first member) it is similar enough to.
+        let mut clusters: Vec<(usize, usize)> = Vec::new(); // (representative, size)
 
-        // Count unique clusters of similar outputs
-        let mut clusters: Vec<Vec<String>> = Vec::new();
-
-        for output in outputs {
-            let mut found_cluster = false;
-
-            for cluster in &mut clusters {
-                let cluster_repr: &String = cluster.first().unwrap();
-                if self.semantic_similarity(output, cluster_repr) >= self.similarity_threshold {
-                    cluster.push(output.clone());
-                    found_cluster = true;
-                    break;
-                }
-            }
-
-            if !found_cluster {
-                clusters.push(vec![output.clone()]);
+        for i in 0..similarities.len {
+            let joined = clusters
+                .iter_mut()
+                .find(|(repr, _)| similarities.get(i, *repr) >= self.similarity_threshold);
+            match joined {
+                Some((_, size)) => *size += 1,
+                None => clusters.push((i, 1)),
             }
         }
 
         // Find the largest cluster
-        let max_cluster_size = clusters.iter().map(|c| c.len()).max().unwrap_or(0);
-        max_cluster_size as f64 / outputs.len() as f64
+        let max_cluster_size = clusters.iter().map(|(_, size)| *size).max().unwrap_or(0);
+        max_cluster_size as f64 / similarities.len as f64
     }
 
-    /// Find the consensus output (most common or centroid)
-    fn find_consensus(&self, outputs: &[String]) -> Option<String> {
-        if outputs.is_empty() {
-            return None;
-        }
-
-        // Try frequency-based consensus first
-        let mut frequency_map: HashMap<String, usize> = HashMap::new();
-        for output in outputs {
-            *frequency_map.entry(output.clone()).or_insert(0) += 1;
+    /// Find the index of the consensus output (most common or centroid)
+    fn find_consensus(&self, outputs: &[String], similarities: &PairwiseSimilarities) -> usize {
+        // Try frequency-based consensus first: (first index, count) per value
+        let mut frequency_map: HashMap<&str, (usize, usize)> = HashMap::new();
+        for (i, output) in outputs.iter().enumerate() {
+            frequency_map.entry(output).or_insert((i, 0)).1 += 1;
         }
 
         // If there's a clear most frequent output
-        if let Some((most_frequent, count)) = frequency_map.iter().max_by_key(|(_, &count)| count) {
-            if *count > outputs.len() / 2 {
-                return Some(most_frequent.clone());
+        if let Some(&(index, count)) = frequency_map.values().max_by_key(|(_, count)| *count) {
+            if count > outputs.len() / 2 {
+                return index;
             }
         }
 
         // Otherwise, find the output with highest average similarity to all others
-        let mut best_output = outputs[0].clone();
+        let mut best_index = 0;
         let mut best_avg_similarity = 0.0;
 
-        for candidate in outputs {
-            let similarities: Vec<f64> = outputs
-                .iter()
-                .map(|other| self.semantic_similarity(candidate, other))
-                .collect();
-
-            let avg_similarity = similarities.iter().sum::<f64>() / similarities.len() as f64;
+        for candidate in 0..outputs.len() {
+            let total: f64 = (0..outputs.len())
+                .map(|other| similarities.get(candidate, other))
+                .sum();
+            let avg_similarity = total / outputs.len() as f64;
 
             if avg_similarity > best_avg_similarity {
                 best_avg_similarity = avg_similarity;
-                best_output = candidate.clone();
+                best_index = candidate;
             }
         }
 
-        Some(best_output)
+        best_index
     }
 
     /// Find outliers (outputs significantly different from consensus)
-    fn find_outliers(&self, outputs: &[String], consensus: &Option<String>) -> Vec<usize> {
-        let Some(consensus_output) = consensus else {
-            return Vec::new();
-        };
-
-        outputs
-            .iter()
-            .enumerate()
-            .filter_map(|(i, output)| {
-                let similarity = self.semantic_similarity(output, consensus_output);
-                if similarity < self.similarity_threshold * 0.7 {
-                    // More strict for outliers
-                    Some(i)
-                } else {
-                    None
-                }
-            })
+    fn find_outliers(&self, consensus: usize, similarities: &PairwiseSimilarities) -> Vec<usize> {
+        (0..similarities.len)
+            // More strict for outliers
+            .filter(|&i| similarities.get(i, consensus) < self.similarity_threshold * 0.7)
             .collect()
     }
 }
@@ -415,6 +458,169 @@ mod tests {
 
         let sim = calculator.semantic_similarity("100", "200");
         assert!(sim < 0.8);
+    }
+
+    /// The straightforward sequential definition of each metric, recomputing
+    /// every similarity where it is needed. `calculate_drift` must agree with
+    /// it exactly while computing each pair only once.
+    fn reference_metrics(
+        calc: &DriftCalculator,
+        outputs: &[String],
+    ) -> (f64, f64, String, Vec<usize>) {
+        let n = outputs.len();
+        let mut total = 0.0;
+        for i in 0..n {
+            for j in (i + 1)..n {
+                total += calc.semantic_similarity(&outputs[i], &outputs[j]);
+            }
+        }
+        let consistency = total / (n * (n - 1) / 2) as f64;
+
+        let mut clusters: Vec<Vec<&String>> = Vec::new();
+        for output in outputs {
+            match clusters
+                .iter_mut()
+                .find(|c| calc.semantic_similarity(output, c[0]) >= calc.similarity_threshold)
+            {
+                Some(cluster) => cluster.push(output),
+                None => clusters.push(vec![output]),
+            }
+        }
+        let agreement = clusters.iter().map(Vec::len).max().unwrap() as f64 / n as f64;
+
+        let majority = outputs
+            .iter()
+            .find(|o| outputs.iter().filter(|p| p == o).count() > n / 2);
+        let consensus = majority.cloned().unwrap_or_else(|| {
+            let mut best = outputs[0].clone();
+            let mut best_avg = 0.0;
+            for candidate in outputs {
+                let avg = outputs
+                    .iter()
+                    .map(|other| calc.semantic_similarity(candidate, other))
+                    .sum::<f64>()
+                    / n as f64;
+                if avg > best_avg {
+                    best_avg = avg;
+                    best = candidate.clone();
+                }
+            }
+            best
+        });
+
+        let outliers = (0..n)
+            .filter(|&i| {
+                calc.semantic_similarity(&outputs[i], &consensus) < calc.similarity_threshold * 0.7
+            })
+            .collect();
+
+        (consistency, agreement, consensus, outliers)
+    }
+
+    #[test]
+    fn test_shared_pairwise_table_matches_the_sequential_definition() {
+        let strings = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        // Deterministic pseudo-random text, so no majority and no duplicates.
+        let mut seed = 0x2545_f491_4f6c_dd1d_u64;
+        let mut varied = Vec::new();
+        for i in 0..40 {
+            let mut text = String::new();
+            for _ in 0..(20 + i % 7) {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                text.push((b'a' + (seed % 6) as u8) as char);
+            }
+            varied.push(text);
+        }
+
+        let cases = vec![
+            strings(&["yes", "yes", "yes", "no"]),
+            strings(&[
+                "the cat sat",
+                "the cat sat.",
+                "a dog ran",
+                "the cat sits",
+                "zzz",
+            ]),
+            strings(&["100", "101", "99", "250", "100"]),
+            strings(&["a", "b"]),
+            strings(&["same", "same"]),
+            varied,
+        ];
+
+        for threshold in [0.5, 0.85] {
+            let calc = DriftCalculator::with_threshold(threshold);
+            for outputs in &cases {
+                let metrics = calc.calculate_drift(outputs);
+                let (consistency, agreement, consensus, outliers) =
+                    reference_metrics(&calc, outputs);
+                assert_eq!(metrics.consistency_score, consistency, "{outputs:?}");
+                assert_eq!(metrics.agreement_rate, agreement, "{outputs:?}");
+                assert_eq!(metrics.consensus_output, Some(consensus), "{outputs:?}");
+                assert_eq!(metrics.outliers, outliers, "{outputs:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_normalized_levenshtein_matches_strsim() {
+        let mut seed = 0x9e37_79b9_7f4a_7c15_u64;
+        let mut next = move |bound: u64| {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed % bound
+        };
+        let alphabets: [&[char]; 2] = [&['a', 'b', 'c', ' '], &['a', 'é', '日', '😀', 'b']];
+        let mut cases = vec![
+            (String::new(), String::new()),
+            (String::new(), "abc".to_string()),
+            ("kitten".to_string(), "sitting".to_string()),
+            (
+                "prefix-same-suffix".to_string(),
+                "prefix-diff-suffix".to_string(),
+            ),
+            ("aaa".to_string(), "aaaa".to_string()),
+        ];
+        for round in 0..400 {
+            let alphabet = alphabets[round % 2];
+            let mut word = || -> String {
+                (0..next(24))
+                    .map(|_| alphabet[next(alphabet.len() as u64) as usize])
+                    .collect()
+            };
+            cases.push((word(), word()));
+        }
+
+        for (a, b) in &cases {
+            assert_eq!(
+                normalized_levenshtein(a, b),
+                strsim::normalized_levenshtein(a, b),
+                "{a:?} vs {b:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_pairwise_table_indexing() {
+        let calc = DriftCalculator::new();
+        let outputs: Vec<String> = ["alpha", "alpine", "beta", "betamax", "gamma"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let table = calc.calculate_pairwise_similarities(&outputs);
+
+        assert_eq!(table.upper.len(), 10);
+        for i in 0..outputs.len() {
+            for j in 0..outputs.len() {
+                assert_eq!(
+                    table.get(i, j),
+                    calc.semantic_similarity(&outputs[i], &outputs[j]),
+                    "({i}, {j})"
+                );
+            }
+        }
     }
 
     #[test]
