@@ -1,0 +1,114 @@
+{
+  "results": {
+    "briefcase_triage_v2": {
+      "name": "briefcase_triage_v2",
+      "alias": "briefcase_triage_v2",
+      "sample_len": 7,
+      "exact_match,none": 0.0,
+      "exact_match_stderr,none": 0.0
+    }
+  },
+  "group_subtasks": {},
+  "configs": {
+    "briefcase_triage_v2": {
+      "task": "briefcase_triage_v2",
+      "dataset_path": "json",
+      "dataset_kwargs": {
+        "data_files": {
+          "test": "/tmp/demo/lm/triage_docs.jsonl"
+        }
+      },
+      "test_split": "test",
+      "doc_to_text": "{{input}}",
+      "doc_to_target": "{{target}}",
+      "unsafe_code": false,
+      "description": "",
+      "target_delimiter": " ",
+      "fewshot_delimiter": "\n\n",
+      "fewshot_config": {
+        "sampler": "default",
+        "split": null,
+        "process_docs": null,
+        "fewshot_indices": null,
+        "samples": null,
+        "doc_to_text": "{{input}}",
+        "doc_to_choice": null,
+        "doc_to_target": "{{target}}",
+        "gen_prefix": null,
+        "fewshot_delimiter": "\n\n",
+        "target_delimiter": " "
+      },
+      "num_fewshot": 0,
+      "metric_list": [
+        {
+          "metric": "exact_match",
+          "aggregation": "mean",
+          "higher_is_better": true
+        }
+      ],
+      "output_type": "generate_until",
+      "generation_kwargs": {
+        "until": [
+          "\n\n"
+        ],
+        "do_sample": false
+      },
+      "repeats": 1,
+      "should_decontaminate": false,
+      "metadata": {
+        "version": 1.0,
+        "config_source": "/tmp/demo/lm/triage_docs.yaml"
+      }
+    }
+  },
+  "versions": {
+    "briefcase_triage_v2": 1.0
+  },
+  "n-shot": {
+    "briefcase_triage_v2": 0
+  },
+  "higher_is_better": {
+    "briefcase_triage_v2": {
+      "exact_match": true
+    }
+  },
+  "n-samples": {
+    "briefcase_triage_v2": {
+      "original": 7,
+      "effective": 7
+    }
+  },
+  "config": {
+    "model": "dummy",
+    "model_args": {},
+    "batch_size": 1,
+    "batch_sizes": [],
+    "device": "cuda:0",
+    "use_cache": null,
+    "limit": null,
+    "bootstrap_iters": 100000,
+    "gen_kwargs": {},
+    "random_seed": 0,
+    "numpy_seed": 1234,
+    "torch_seed": 1234,
+    "fewshot_seed": 1234
+  },
+  "git_hash": null,
+  "date": 1795302925.6384153,
+  "pretty_env_info": "N/A (torch not installed)",
+  "transformers_version": "N/A",
+  "lm_eval_version": "0.4.13",
+  "upper_git_hash": null,
+  "task_hashes": {
+    "briefcase_triage_v2": "e6aad830f8600009cec3a49e56f253c34832d5f8df5a1847097b30fb6ce6c26d"
+  },
+  "model_source": "dummy",
+  "model_name": "qdpv68r5",
+  "model_name_sanitized": "qdpv68r5",
+  "system_instruction": null,
+  "system_instruction_sha": null,
+  "fewshot_as_multiturn": null,
+  "chat_template": null,
+  "chat_template_sha": null,
+  "total_evaluation_time_seconds": "5.188128704000064"
+}

@@ -28,6 +28,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, TypeVar, overload
 
+from briefcase import prompts as _prompts
 from briefcase._export_mixin import ExportMixin
 from briefcase._otel import HAS_OTEL, trace as _otel_trace
 
@@ -514,6 +515,7 @@ def _build_record(
     if context_version is not None:
         record["context_version"] = context_version
     _add_correlation(record)
+    _prompts.on_record_start(record)  # prompt_name / prompt_version (briefcase.prompts)
     return record
 
 
@@ -594,3 +596,4 @@ def _finalize_record(
         if "result_type" in outputs:
             outputs["result_type"] = "generator"
         outputs.update(stream)
+    _prompts.on_record_end(record)

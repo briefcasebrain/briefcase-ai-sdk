@@ -1,0 +1,7 @@
+{"id": "c-26b681b7db7c", "input": "The app crashes on login", "target": "bug"}
+{"id": "c-9dcd36c55d4d", "input": "How do I export my data?", "target": "question"}
+{"id": "c-bc5e1f41767c", "input": "I was charged twice this month", "target": "billing"}
+{"id": "c-3062b45e6c38", "input": "Error 500 when saving", "target": "bug"}
+{"id": "c-d71faf6872ed", "input": "Can I get a refund for March?", "target": "billing"}
+{"id": "c-2fad186dfaf9", "input": "Where is the invoice for May?", "target": "billing"}
+{"id": "c-580685e82541", "input": "Do you support SSO?", "target": "question"}

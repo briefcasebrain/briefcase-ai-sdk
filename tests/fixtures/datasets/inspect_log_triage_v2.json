@@ -1,0 +1,340 @@
+{
+ "eval": {
+  "task": "triage",
+  "model": "mockllm/model",
+  "dataset": {
+   "name": "insp",
+   "location": "/tmp/demo/insp.jsonl",
+   "samples": 7,
+   "sample_ids": [
+    "c-26b681b7db7c",
+    "c-9dcd36c55d4d",
+    "c-bc5e1f41767c",
+    "c-3062b45e6c38",
+    "c-d71faf6872ed",
+    "c-2fad186dfaf9",
+    "c-580685e82541"
+   ],
+   "shuffled": false
+  }
+ },
+ "results": {
+  "total_samples": 7,
+  "completed_samples": 7,
+  "scores": [
+   {
+    "name": "exact",
+    "scorer": "exact",
+    "scored_samples": 7,
+    "unscored_samples": 0,
+    "params": {},
+    "metrics": {
+     "mean": {
+      "name": "mean",
+      "value": 0.0,
+      "params": {}
+     },
+     "stderr": {
+      "name": "stderr",
+      "value": 0.0,
+      "params": {}
+     }
+    }
+   }
+  ],
+  "headline": {
+   "scorer": "exact",
+   "score": "exact",
+   "metric": "mean"
+  }
+ },
+ "samples": [
+  {
+   "id": "c-26b681b7db7c",
+   "epoch": 1,
+   "input": "The app crashes on login",
+   "target": "bug",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "6ZgZwGY7chUt8YBYpc5uYf",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      }
+     }
+    ]
+   },
+   "scores": {
+    "exact": {
+     "value": "I",
+     "answer": "Default output from mockllm/model",
+     "history": []
+    }
+   },
+   "metadata": {
+    "decision_id": "00fadd6a-da51-4aa2-aba1-3f60606a0cc0",
+    "decision_type": "triage",
+    "function_name": "triage",
+    "prompt_name": "triage",
+    "prompt_version": "1aa8e1bfefb4",
+    "briefcase_case_id": "c-26b681b7db7c",
+    "briefcase_dataset": "triage@v2",
+    "briefcase_input": {
+     "args": [
+      "The app crashes on login"
+     ]
+    }
+   }
+  },
+  {
+   "id": "c-2fad186dfaf9",
+   "epoch": 1,
+   "input": "Where is the invoice for May?",
+   "target": "billing",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "ksv6abhrPL7DgZTMWDi6wC",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      }
+     }
+    ]
+   },
+   "scores": {
+    "exact": {
+     "value": "I",
+     "answer": "Default output from mockllm/model",
+     "history": []
+    }
+   },
+   "metadata": {
+    "decision_id": "c9f536b3-182e-4636-878c-59734d6829f9",
+    "decision_type": "triage",
+    "function_name": "triage",
+    "prompt_name": "triage",
+    "prompt_version": "1aa8e1bfefb4",
+    "briefcase_case_id": "c-2fad186dfaf9",
+    "briefcase_dataset": "triage@v2",
+    "briefcase_input": {
+     "args": [
+      "Where is the invoice for May?"
+     ]
+    }
+   }
+  },
+  {
+   "id": "c-3062b45e6c38",
+   "epoch": 1,
+   "input": "Error 500 when saving",
+   "target": "bug",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "PTgW5jRw9NeBKncduqffn6",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      }
+     }
+    ]
+   },
+   "scores": {
+    "exact": {
+     "value": "I",
+     "answer": "Default output from mockllm/model",
+     "history": []
+    }
+   },
+   "metadata": {
+    "decision_id": "b96564d7-0dc7-4950-b5ac-b39ba386fdf1",
+    "decision_type": "triage",
+    "function_name": "triage",
+    "prompt_name": "triage",
+    "prompt_version": "1aa8e1bfefb4",
+    "briefcase_case_id": "c-3062b45e6c38",
+    "briefcase_dataset": "triage@v2",
+    "briefcase_input": {
+     "args": [
+      "Error 500 when saving"
+     ]
+    }
+   }
+  },
+  {
+   "id": "c-580685e82541",
+   "epoch": 1,
+   "input": "Do you support SSO?",
+   "target": "question",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "9KLqNPUJ4PKEc22TRzo8uu",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      }
+     }
+    ]
+   },
+   "scores": {
+    "exact": {
+     "value": "I",
+     "answer": "Default output from mockllm/model",
+     "history": []
+    }
+   },
+   "metadata": {
+    "decision_id": "3a3657ab-1350-4085-a188-86f8ccc9a06d",
+    "decision_type": "triage",
+    "function_name": "triage",
+    "prompt_name": "triage",
+    "prompt_version": "1aa8e1bfefb4",
+    "briefcase_case_id": "c-580685e82541",
+    "briefcase_dataset": "triage@v2",
+    "briefcase_input": {
+     "args": [
+      "Do you support SSO?"
+     ]
+    }
+   }
+  },
+  {
+   "id": "c-9dcd36c55d4d",
+   "epoch": 1,
+   "input": "How do I export my data?",
+   "target": "question",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "i7rpZVS65CYRcc4vhtAnvp",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      }
+     }
+    ]
+   },
+   "scores": {
+    "exact": {
+     "value": "I",
+     "answer": "Default output from mockllm/model",
+     "history": []
+    }
+   },
+   "metadata": {
+    "decision_id": "b7e9af99-98cb-4e36-b964-a8d29bfed5fc",
+    "decision_type": "triage",
+    "function_name": "triage",
+    "prompt_name": "triage",
+    "prompt_version": "1aa8e1bfefb4",
+    "briefcase_case_id": "c-9dcd36c55d4d",
+    "briefcase_dataset": "triage@v2",
+    "briefcase_input": {
+     "args": [
+      "How do I export my data?"
+     ]
+    }
+   }
+  },
+  {
+   "id": "c-bc5e1f41767c",
+   "epoch": 1,
+   "input": "I was charged twice this month",
+   "target": "billing",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "5hWE2a4mLMM9TGLQNcGAsx",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      }
+     }
+    ]
+   },
+   "scores": {
+    "exact": {
+     "value": "I",
+     "answer": "Default output from mockllm/model",
+     "history": []
+    }
+   },
+   "metadata": {
+    "decision_id": "a51c09f3-c177-4cce-bd1a-c6e259ea6c2b",
+    "decision_type": "triage",
+    "function_name": "triage",
+    "prompt_name": "triage",
+    "prompt_version": "1aa8e1bfefb4",
+    "briefcase_case_id": "c-bc5e1f41767c",
+    "briefcase_dataset": "triage@v2",
+    "briefcase_input": {
+     "args": [
+      "I was charged twice this month"
+     ]
+    }
+   }
+  },
+  {
+   "id": "c-d71faf6872ed",
+   "epoch": 1,
+   "input": "Can I get a refund for March?",
+   "target": "billing",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "nHXwyrDrEq2eY6w6LQKckQ",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      }
+     }
+    ]
+   },
+   "scores": {
+    "exact": {
+     "value": "I",
+     "answer": "Default output from mockllm/model",
+     "history": []
+    }
+   },
+   "metadata": {
+    "decision_id": "b31a5adf-0bed-422c-8814-f1a478b3b7e2",
+    "decision_type": "triage",
+    "function_name": "triage",
+    "prompt_name": "triage",
+    "prompt_version": "1aa8e1bfefb4",
+    "briefcase_case_id": "c-d71faf6872ed",
+    "briefcase_dataset": "triage@v2",
+    "briefcase_input": {
+     "args": [
+      "Can I get a refund for March?"
+     ]
+    }
+   }
+  }
+ ]
+}
