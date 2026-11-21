@@ -7,6 +7,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Zero-code Python instrumentation. `briefcase exec -- python app.py` runs an
+  unmodified program with capture switched on. `briefcase.observe()` with no
+  arguments resolves its destination from `BRIEFCASE_EXPORTER` (and
+  `BRIEFCASE_EXPORTER_TOKEN`), then the standard `OTEL_EXPORTER_OTLP_*`
+  variables, then the console. `briefcase.auto()` with no arguments
+  instruments every installed framework and provider SDK (`skip=[...]`,
+  `lazy=True`); `auto("name")` still raises `ImportError` when the package
+  is missing.
+- Provider auto-instrumentation for the OpenAI, Anthropic, Google GenAI, and
+  Bedrock (boto3) SDKs, sync, async, and streaming: one decision record per
+  call with model, token usage, latency, status, finish reason, and request
+  id. Prompt and completion content is off unless `capture_content` is set.
 - `briefcase connect`: one command that configures the coding tools on the
   machine to report to briefcase. It detects Claude Code, Codex CLI, Cursor and
   VS Code Copilot Chat, shows a plan with a unified diff, asks once, and writes
