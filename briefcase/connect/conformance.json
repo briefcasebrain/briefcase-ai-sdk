@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "notes": "Strings each adapter depends on, checked by `python -m scripts.conformance drift` against the adapter's documentation page. Keyed by adapter id (adapters.json is owned by another package). `url` overrides docs_url for the fetch only (use it when docs_url is blocked for automated clients but a raw copy exists). An adapter with no `expect` list is not checked, and `note` says why. A page that cannot be fetched is reported as unknown, never as a failure.",
+  "adapters": {
+    "claude-code": {
+      "expect": [
+        "CLAUDE_CODE_ENABLE_TELEMETRY",
+        "OTEL_METRICS_EXPORTER",
+        "OTEL_LOGS_EXPORTER",
+        "OTEL_EXPORTER_OTLP_PROTOCOL",
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_HEADERS",
+        "OTEL_LOG_USER_PROMPTS",
+        "OTEL_LOG_TOOL_DETAILS",
+        "http/json",
+        "claude_code.user_prompt",
+        "claude_code.api_request",
+        "settings.json"
+      ]
+    },
+    "codex": {
+      "expect": [
+        "[otel]",
+        "otlp-http",
+        "log_user_prompt",
+        "protocol",
+        "config.toml",
+        "exporter"
+      ]
+    },
+    "cursor": {
+      "expect": [
+        "hooks.json",
+        "~/.cursor/hooks.json",
+        "sessionStart",
+        "sessionEnd",
+        "beforeSubmitPrompt",
+        "postToolUse",
+        "afterAgentResponse",
+        "stop"
+      ]
+    },
+    "vscode-copilot": {
+      "expect": [
+        "github.copilot.chat.otel.enabled",
+        "github.copilot.chat.otel.exporterType",
+        "github.copilot.chat.otel.otlpEndpoint",
+        "github.copilot.chat.otel.captureContent",
+        "otlp-http"
+      ]
+    },
+    "copilot-cli": {
+      "expect": [
+        "COPILOT_OTEL_ENABLED",
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "COPILOT_OTEL_CAPTURE_CONTENT"
+      ]
+    },
+    "gemini-cli": {
+      "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/telemetry.md",
+      "expect": [
+        "telemetry",
+        "otlpEndpoint",
+        "otlpProtocol",
+        "logPrompts",
+        "settings.json"
+      ]
+    },
+    "cowork": {
+      "expect": [],
+      "note": "docs_url is a generic support home page with no pinned monitoring page; nothing specific to assert."
+    },
+    "cline": {
+      "expect": [],
+      "note": "docs_url is the docs home; the telemetry page and env var names are unverified."
+    },
+    "windsurf": {
+      "expect": [],
+      "note": "docs_url is the docs home; the MCP page is unverified."
+    },
+    "opencode": {
+      "expect": [],
+      "note": "docs_url is the docs home; the MCP page is unverified."
+    }
+  }
+}
