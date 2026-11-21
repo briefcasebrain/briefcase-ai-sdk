@@ -15,13 +15,23 @@ constructed.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import time
-from typing import Any, Dict, Optional, Tuple
+from collections import OrderedDict
+from typing import Any, Dict, Mapping, Optional, Tuple
 
+from briefcase._logging import get_logger
+from briefcase.exporters.base import get_field
 from briefcase.routing.base import BaseRouter, RoutingDecision
 from briefcase.routing.internal import InternalRouter
+
+logger = get_logger(__name__)
+
+# Minimum spacing between "falling back" warnings from one router, so an OPA
+# outage does not log once per routed decision.
+_FALLBACK_WARNING_INTERVAL_S = 10.0
 
 _INSTALL_HINT = (
     "httpx is required for OPARouter. Install with "
@@ -39,14 +49,19 @@ def _require_httpx() -> Any:
 
 
 class _TTLCache:
-    """Decision cache with a per-entry time-to-live.
+    """Decision cache with a per-entry time-to-live and an LRU size bound.
 
-    Expired entries are removed on read.
+    Expired entries are removed on read; when the cache is full the least
+    recently used entry is evicted.
     """
 
-    def __init__(self, ttl_seconds: float) -> None:
+    def __init__(self, ttl_seconds: float, max_entries: int = 1024) -> None:
         self._ttl = ttl_seconds
-        self._store: Dict[str, Tuple[RoutingDecision, float]] = {}
+        self._max_entries = max(1, max_entries)
+        self._store: "OrderedDict[str, Tuple[RoutingDecision, float]]" = OrderedDict()
+
+    def __len__(self) -> int:
+        return len(self._store)
 
     def get(self, key: str) -> Optional[RoutingDecision]:
         entry = self._store.get(key)
@@ -56,10 +71,14 @@ class _TTLCache:
         if time.monotonic() - inserted_at > self._ttl:
             del self._store[key]
             return None
+        self._store.move_to_end(key)
         return decision
 
     def set(self, key: str, value: RoutingDecision) -> None:
         self._store[key] = (value, time.monotonic())
+        self._store.move_to_end(key)
+        while len(self._store) > self._max_entries:
+            self._store.popitem(last=False)
 
 
 class OPARouter(BaseRouter):
@@ -72,6 +91,15 @@ class OPARouter(BaseRouter):
         cache_ttl_seconds: TTL for the response cache (default 60).
         fallback_threshold: Confidence threshold for the InternalRouter
             used when OPA is unreachable.
+        headers: Extra HTTP headers sent with every OPA request.
+        token: Bearer token; sent as ``Authorization: Bearer <token>``
+            (an explicit ``Authorization`` entry in ``headers`` wins).
+        cache_max_entries: Upper bound on cached decisions (default 1024);
+            the least recently used entry is evicted past it.
+
+    One ``httpx.AsyncClient`` is reused across calls (per event loop), so
+    connections are pooled; call :meth:`aclose` to release it. Every
+    fallback to the internal router is logged at WARNING.
     """
 
     def __init__(
@@ -80,12 +108,55 @@ class OPARouter(BaseRouter):
         timeout_ms: float = 50.0,
         cache_ttl_seconds: float = 60.0,
         fallback_threshold: float = 0.85,
+        headers: Optional[Mapping[str, str]] = None,
+        token: Optional[str] = None,
+        cache_max_entries: int = 1024,
     ) -> None:
         self._httpx = _require_httpx()
         self._endpoint = endpoint
         self._timeout_s = timeout_ms / 1000.0
-        self._cache = _TTLCache(cache_ttl_seconds)
+        self._cache = _TTLCache(cache_ttl_seconds, max_entries=cache_max_entries)
         self._fallback = InternalRouter(confidence_threshold=fallback_threshold)
+        self._headers: Dict[str, str] = {}
+        if token:
+            self._headers["Authorization"] = f"Bearer {token}"
+        if headers:
+            self._headers.update(headers)
+        self._client: Any = None
+        self._client_loop: Any = None
+        self._last_fallback_warning = float("-inf")
+        self._suppressed_fallback_warnings = 0
+
+    def _get_client(self) -> Any:
+        """Return the shared AsyncClient, creating one per event loop: an
+        httpx client's connections belong to the loop that opened them."""
+        loop = asyncio.get_running_loop()
+        if self._client is None or self._client_loop is not loop:
+            self._client = self._httpx.AsyncClient(timeout=self._timeout_s)
+            self._client_loop = loop
+        return self._client
+
+    async def aclose(self) -> None:
+        """Close the shared HTTP client. The router stays usable; the next
+        call opens a new client."""
+        client, self._client, self._client_loop = self._client, None, None
+        close = getattr(client, "aclose", None)
+        if close is not None:
+            await close()
+
+    def _warn_fallback(self, exc: BaseException) -> None:
+        now = time.monotonic()
+        if now - self._last_fallback_warning < _FALLBACK_WARNING_INTERVAL_S:
+            self._suppressed_fallback_warnings += 1
+            return
+        suppressed, self._suppressed_fallback_warnings = self._suppressed_fallback_warnings, 0
+        self._last_fallback_warning = now
+        logger.warning(
+            "OPA request to %s failed (%s: %s); falling back to the internal "
+            "router%s",
+            self._endpoint, type(exc).__name__, exc,
+            f" ({suppressed} similar warnings suppressed)" if suppressed else "",
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -93,21 +164,21 @@ class OPARouter(BaseRouter):
 
     @staticmethod
     def _build_input(decision_context: Any) -> dict:
-        """Build the OPA input document from a decision context."""
-        confidence = getattr(decision_context, "confidence", None)
-        ctx = getattr(decision_context, "context", None)
+        """Build the OPA input document from a decision context, which may
+        be a dict (a ``@capture`` record) or an object."""
+        confidence = get_field(decision_context, "confidence")
+        ctx = get_field(decision_context, "context")
         context_version = (
-            str(getattr(ctx, "version", "") or "")
+            str(get_field(ctx, "version", "") or "")
             if ctx is not None
-            else str(getattr(decision_context, "context_version", "") or "")
+            else str(get_field(decision_context, "context_version", "") or "")
         )
-        model_params = getattr(decision_context, "model_parameters", None)
-        if isinstance(model_params, dict):
-            model_name = model_params.get("model_name", "")
-        else:
-            model_name = str(getattr(model_params, "model_name", "") or "") if model_params else ""
+        model_params = get_field(decision_context, "model_parameters")
+        model_name = (
+            str(get_field(model_params, "model_name", "") or "") if model_params else ""
+        )
 
-        tags = getattr(decision_context, "tags", {}) or {}
+        tags = get_field(decision_context, "tags", {}) or {}
 
         return {
             "confidence": float(confidence) if confidence is not None else None,
@@ -141,20 +212,24 @@ class OPARouter(BaseRouter):
         source = "opa"
 
         try:
-            async with self._httpx.AsyncClient(timeout=self._timeout_s) as client:
-                response = await client.post(
-                    self._endpoint,
-                    json={"input": input_doc},
-                )
-                response.raise_for_status()
-                data = response.json()
-                result = data.get("result", {})
-                action = result.get("action", "human_review")
-                reason = result.get("reason")
+            client = self._get_client()
+            # headers= only when configured, so minimal client stand-ins work.
+            extra = {"headers": dict(self._headers)} if self._headers else {}
+            response = await client.post(
+                self._endpoint,
+                json={"input": input_doc},
+                **extra,
+            )
+            response.raise_for_status()
+            data = response.json()
+            result = data.get("result", {})
+            action = result.get("action", "human_review")
+            reason = result.get("reason")
 
-        except Exception:
+        except Exception as exc:
             # Any error (timeout, network, HTTP status) falls back to the
             # InternalRouter so routing keeps working without OPA.
+            self._warn_fallback(exc)
             fallback_result = await self._fallback.route(decision_context)
             eval_time_ms = (time.monotonic() - start) * 1000.0
             decision = RoutingDecision(
@@ -183,8 +258,9 @@ class OPARouter(BaseRouter):
         if decision.action == "human_review":
             try:
                 from briefcase.events.emitter import emit_low_confidence
-                confidence = getattr(decision_context, "confidence", 0.0) or 0.0
+                confidence = get_field(decision_context, "confidence", 0.0) or 0.0
                 threshold = 0.85  # local default; OPA defines its own threshold
                 await emit_low_confidence(decision_context, float(confidence), threshold)
             except Exception:
-                pass  # event emission never breaks routing
+                # Event emission never breaks routing.
+                logger.debug("low-confidence event emission failed", exc_info=True)

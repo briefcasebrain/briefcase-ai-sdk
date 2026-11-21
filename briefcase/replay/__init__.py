@@ -9,8 +9,11 @@ try:
     )
 except ImportError as exc:  # pragma: no cover - handled at import time
     raise ImportError(
-        "briefcase.replay requires the 'replay' extra.\n"
-        "Install it with: pip install briefcase-ai[replay]"
+        "briefcase.replay needs the compiled briefcase core (briefcase._native), "
+        "which could not be imported. No pip extra provides it: install a "
+        "prebuilt wheel with 'pip install briefcase-ai' (the base package), or "
+        "from a source checkout build it with 'maturin develop'. "
+        f"Underlying error: {exc}"
     ) from exc
 
 __all__ = [

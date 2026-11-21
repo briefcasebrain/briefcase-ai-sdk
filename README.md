@@ -25,7 +25,7 @@ npm install @briefcase-ai/controls @briefcase-ai/runtime
 ```python
 import briefcase
 
-briefcase.observe("console")          # send records to stderr (or "memory" / "runs.jsonl")
+briefcase.observe("console")          # send records to stderr (or "memory" / "runs.jsonl" / an https:// URL)
 
 @briefcase.capture(decision_type="classify_text")
 def classify(text: str) -> str:
@@ -40,9 +40,30 @@ call to `briefcase.observe(...)` (or `briefcase.setup(exporter=...)`), `@capture
 records decisions but has nowhere to send them.
 
 **Exporters.** `briefcase.observe(...)` accepts `"console"`, `"memory"` (records
-collected on `exporter.records`), a `"*.jsonl"` path, or any
-`briefcase.exporters.BaseExporter` instance — subclass `BaseExporter` to ship
-records to your own backend.
+collected on `exporter.records`), a `"*.jsonl"` path, an `https://` URL (JSON
+batches via the stdlib-only `HTTPExporter`; pass `HTTPExporter(url, token=...)`
+for auth), or any `briefcase.exporters.BaseExporter` instance — subclass
+`BaseExporter` to ship records to your own backend. The exporter classes are
+also importable from the top level (`briefcase.JSONLFileExporter`, …).
+
+**Delivery.** Records are exported on a background thread through a bounded
+queue (10,000 records by default; `briefcase.configure_export(...)` tunes the
+bound, retries, and timeout). If the exporter cannot keep up, new records are
+dropped, counted in `briefcase.export_stats()`, and reported at WARNING. Queued
+records are drained at interpreter exit for up to 5 seconds; call
+`briefcase.shutdown(timeout=...)` (or `briefcase.flush()`) to drain explicitly.
+
+**What gets captured.** `@capture` works on functions, coroutines, generators,
+and async generators (a generator emits one record when it finishes, with the
+collected chunks as output). Cancelled or timed-out async calls are recorded
+with `status: "cancelled"`. Records carry a `schema_version`, plus
+`workflow_id` / `trace_id` when a `briefcase.correlation` workflow or an
+OpenTelemetry span is active. `capture(sample_rate=0.1)` records a fraction of
+calls.
+
+`import briefcase` does not require the compiled core: the pure-Python surface
+(capture, exporters, controls, events, routing) works from a source checkout,
+and native-backed names raise a clear `ImportError` only when used.
 
 ## Evaluations and RL
 
@@ -128,16 +149,22 @@ editor rules under [`docs/llm/`](https://github.com/briefcasebrain/briefcase-ai-
 | `integrity` | Tamper-evident hash chains, canonical JSON, Ed25519 signing over digests and JSON manifests (signing adds `pynacl`) |
 | `langchain` / `crewai` / `llamaindex` / `autogen` / `ag2` / `pageindex` / `openai-agents` | Framework auto-instrumentation via `briefcase.auto` (each adds its framework) |
 | `mcp` | MCP server (`briefcase-mcp`) exposing the SDK to AI agents |
-| `dev` | Dev tooling: pytest, mypy, flake8, moto |
-| `all` | Installs every optional extra listed above except `kdb` |
+| `run` | gRPC client for the `briefcase` evaluation-run CLI (adds `grpcio`, `grpcio-reflection`, `protobuf`) |
+| `dev` | Dev tooling: pytest, mypy, flake8, moto (not part of `all`) |
+| `all` | Installs every optional extra listed above except `kdb` and `dev` |
 
-Most features are native- or pure-Python-backed and ship with the base package —
-their extras (`replay`, `drift`, `sanitize`, `storage`, `routing`, `bitemporal`,
-`compliance`, …) are convenience groupings that pull in **no** additional
-dependencies. The extras that install third-party packages are `otel`,
-`lakefs`, `bitemporal-iceberg`, `bitemporal-glue`, `kdb`, `compliance-kms`,
-`gym`, `evals`, `mcp`, `opa`, `kafka`, `gcp-logging`, `integrity`, the `rag-*` and `vcs-*`
-store adapters, and the framework auto-instrumentation extras.
+Most features are native- or pure-Python-backed and ship with the base package.
+These extras are convenience groupings that pull in **no** additional
+dependencies: `replay`, `drift`, `sanitize`, `storage`, `validate`,
+`guardrails`, `rag`, `correlation`, `external`, `events`, `webhook`, `routing`,
+`vcs`, `bitemporal`, `compliance`, and `controls`. The extras that install
+third-party packages are `otel`, `kafka`, `gcp-logging`, `opa`, `lakefs`,
+`rag-chroma`, `rag-pinecone`, `rag-weaviate`, `vcs-dvc`, `vcs-pachyderm`,
+`vcs-ducklake`, `vcs-iceberg`, `gym`, `evals`, `bitemporal-iceberg`,
+`bitemporal-glue`, `kdb`, `compliance-kms`, `integrity`, `langchain`, `crewai`,
+`llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`, `mcp`, and `run`.
+`all` installs every one of those except `kdb`; `dev` is the test tooling and is
+not part of `all`.
 
 ## Managed platform
 

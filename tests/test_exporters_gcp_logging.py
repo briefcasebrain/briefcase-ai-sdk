@@ -184,3 +184,97 @@ def test_missing_dependency_raises_with_hint(monkeypatch):
     monkeypatch.setitem(sys.modules, "google.cloud.logging", None)
     with pytest.raises(ImportError, match="pip install"):
         GCPCloudLoggingExporter(project="p")
+
+
+# ---------------------------------------------------------------------------
+# Failure handling: nothing is dropped before it was sent
+# ---------------------------------------------------------------------------
+
+def test_failed_flush_keeps_unsent_records_and_warns(gcp_stub, caplog):
+    import logging
+
+    exporter = _make_exporter(batch_size=100)
+    for i in range(5):
+        _run(exporter.export({"id": i}))
+
+    sent = []
+
+    def flaky(record, severity="INFO"):
+        if record["id"] == 2:
+            raise RuntimeError("quota exceeded")
+        sent.append(record["id"])
+
+    gcp_stub["logger"].log_struct.side_effect = flaky
+    with caplog.at_level(logging.WARNING, logger="briefcase.exporters.gcp_logging"):
+        _run(exporter.flush())
+    assert sent == [0, 1]
+    assert [r["id"] for r in exporter._buffer] == [2, 3, 4]
+    assert any(
+        r.levelno == logging.WARNING and "quota exceeded" in r.getMessage()
+        for r in caplog.records
+    )
+
+    # The next flush delivers what was kept, in order, exactly once.
+    gcp_stub["logger"].log_struct.side_effect = lambda record, severity="INFO": sent.append(record["id"])
+    _run(exporter.flush())
+    assert sent == [0, 1, 2, 3, 4]
+    assert exporter._buffer == []
+
+
+def test_requeue_is_capped(gcp_stub):
+    exporter = _make_exporter(batch_size=2, max_buffer=4)
+    gcp_stub["logger"].log_struct.side_effect = RuntimeError("down")
+    for i in range(10):
+        _run(exporter.export({"id": i}))
+    assert len(exporter._buffer) == 4
+    assert [r["id"] for r in exporter._buffer] == [6, 7, 8, 9]
+    assert exporter.dropped_records == 6
+
+
+def test_blocking_client_call_runs_off_the_event_loop(gcp_stub):
+    import threading
+
+    exporter = _make_exporter(batch_size=1)
+    seen = []
+    gcp_stub["logger"].log_struct.side_effect = (
+        lambda record, severity="INFO": seen.append(threading.current_thread())
+    )
+
+    async def main():
+        await exporter.export({"id": 1})
+        return threading.current_thread()
+
+    loop_thread = _run(main())
+    assert seen and seen[0] is not loop_thread
+
+
+def test_concurrent_exports_lose_nothing(gcp_stub):
+    import threading
+
+    exporter = _make_exporter(batch_size=7)
+    sent = []
+    lock = threading.Lock()
+
+    def record_it(record, severity="INFO"):
+        with lock:
+            sent.append(record["id"])
+
+    gcp_stub["logger"].log_struct.side_effect = record_it
+
+    def worker(base):
+        for i in range(50):
+            asyncio.run(exporter.export({"id": base + i}))
+
+    threads = [threading.Thread(target=worker, args=(n * 1000,)) for n in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    _run(exporter.flush())
+    assert sorted(sent) == sorted(n * 1000 + i for n in range(8) for i in range(50))
+
+
+def test_module_logs_through_briefcase_logging():
+    from briefcase.exporters import gcp_logging
+
+    assert gcp_logging.logger.name.startswith("briefcase")

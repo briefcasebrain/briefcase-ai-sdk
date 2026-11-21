@@ -230,9 +230,15 @@ def test_trace_context_propagation(otel_setup):
     token = extract_trace_context(headers)
     assert token is not None
 
-    # Create span in extracted context
-    with tracer.start_as_current_span("target_span"):
-        pass
+    # Create span in extracted context; detach afterwards so the extracted
+    # context does not stay active on this thread for later tests.
+    try:
+        with tracer.start_as_current_span("target_span"):
+            pass
+    finally:
+        from opentelemetry import context as otel_context
+
+        otel_context.detach(token)
 
     # Verify spans are linked
     spans = exporter.get_finished_spans()

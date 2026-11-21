@@ -11,7 +11,9 @@ semantic-convention attributes only, never the call's content.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -67,6 +69,11 @@ class GatewayConfig:
     event_names: Mapping[str, str] = field(default_factory=dict)
     port_error_policy: str = "propagate"
     message_regex_throttle: bool = False
+    # Run a synchronous ``fn`` on a worker thread (asyncio.to_thread) so a
+    # blocking SDK call cannot stall the event loop. Set False to call it
+    # inline on the loop thread, e.g. when ``fn`` must touch the running
+    # loop itself (asyncio.create_task) or thread-affine state.
+    run_sync_in_thread: bool = True
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)
 
     def __post_init__(self) -> None:
@@ -112,10 +119,16 @@ class Gateway:
     ) -> Outcome:
         """Run ``fn`` behind hard-cap, quota, and cooldown enforcement.
 
-        ``deadline_s`` bounds the await of an awaitable-returning ``fn``
-        (a timeout surfaces as reason "internal" with a TimeoutError cause);
-        a synchronous ``fn`` completes during the call itself, so no deadline
-        can apply to it. Cancellation and interpreter-exit exceptions
+        A synchronous ``fn`` runs on a worker thread (``asyncio.to_thread``)
+        so it cannot block the event loop; a coroutine function is called
+        inline. Set ``GatewayConfig.run_sync_in_thread=False`` to call
+        synchronous callables inline instead.
+
+        ``deadline_s`` bounds the whole call: the threaded synchronous part
+        and the await of an awaitable ``fn`` returns (a timeout surfaces as
+        reason "internal" with a TimeoutError cause). A timed-out
+        synchronous ``fn`` cannot be interrupted: the gateway stops waiting
+        but the thread runs to completion. Cancellation and interpreter-exit exceptions
         (CancelledError, KeyboardInterrupt, SystemExit) always propagate.
         A port error under the "propagate" policy is exported as an
         "internal" outcome record before it re-raises.
@@ -158,14 +171,24 @@ class Gateway:
             return self._finish(outcome, tenant_id, bucket, fn, started_at)
 
         try:
-            raw = fn()
-            if inspect.isawaitable(raw):
-                if deadline_s is not None:
-                    import asyncio
+            # One budget for the whole call: the thread hop and the await of
+            # whatever the callable returns share deadline_s.
+            deadline_at = None if deadline_s is None else time.monotonic() + deadline_s
 
-                    value = await asyncio.wait_for(raw, timeout=deadline_s)
-                else:
-                    value = await raw
+            def _remaining() -> Optional[float]:
+                if deadline_at is None:
+                    return None
+                return max(0.0, deadline_at - time.monotonic())
+
+            if cfg.run_sync_in_thread and not inspect.iscoroutinefunction(fn):
+                # A plain callable may block (a synchronous SDK call); run it
+                # off the loop. Coroutine functions return at once, so they
+                # are called inline.
+                raw = await asyncio.wait_for(asyncio.to_thread(fn), timeout=_remaining())
+            else:
+                raw = fn()
+            if inspect.isawaitable(raw):
+                value = await asyncio.wait_for(raw, timeout=_remaining())
             else:
                 value = raw
             outcome = Outcome(

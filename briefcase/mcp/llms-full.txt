@@ -1,0 +1,332 @@
+# briefcase-ai — full usage guide for LLMs
+
+Governance infrastructure for AI decisions: enforce controls, record context,
+replay later. This file is a copy-paste recipe book. Every snippet is runnable
+as written. Package import name is `briefcase`.
+
+Install: `pip install briefcase-ai`
+
+KEY RULES
+- `@briefcase.capture` records a function's inputs/outputs/timing/errors, but
+  needs an exporter or the records go nowhere. Call `briefcase.observe(...)` once.
+- `capture` does NOT require `briefcase.init()`. `init()` is only for native
+  runtime features (storage backends, snapshots).
+- Never log or persist raw PII. Use `briefcase.sanitize.Sanitizer` first.
+- Native/pure-Python features need no pip extra; section 8 lists the extras
+  that install third-party packages.
+- In short-lived scripts call `briefcase.shutdown()` before exit so queued
+  records are delivered (an atexit hook also drains for up to 5 s).
+
+------------------------------------------------------------------------------
+## 1. Minimal capture (3 lines)
+
+```python
+import briefcase
+briefcase.observe("console")          # print each record to stderr as JSON
+
+@briefcase.capture
+def classify(text: str) -> str:
+    return text.upper()
+
+classify("hello world")               # a decision record is emitted
+```
+
+A record is a dict: schema_version ("1.1"), decision_id, decision_type,
+function_name, inputs, outputs, started_at, ended_at, execution_time_ms, and
+error (if one was raised). Optional: context_version, status ("cancelled" when
+an async call was cancelled or timed out), workflow_id (inside a
+`briefcase.correlation` workflow), and trace_id / parent_span_id / trace_flags
+(when an OpenTelemetry span is active at call time).
+
+------------------------------------------------------------------------------
+## 2. Choosing an exporter
+
+```python
+import briefcase
+from briefcase.exporters import (
+    ConsoleExporter, HTTPExporter, JSONLFileExporter, MemoryExporter,
+)
+
+briefcase.observe("console")              # ConsoleExporter() -> stderr
+briefcase.observe("runs.jsonl")           # JSONLFileExporter -> append to file
+mem = briefcase.observe("memory")         # MemoryExporter -> mem.records list
+briefcase.observe(JSONLFileExporter("/var/log/decisions.jsonl"))   # explicit
+briefcase.observe("https://collector.example.com/v1/decisions")    # HTTPExporter
+briefcase.observe(HTTPExporter(url, token="...", batch_size=50))   # with auth
+```
+
+`HTTPExporter` is stdlib-only: it POSTs `{"records": [...]}` batches (by size
+and flush interval), retries 5xx/429/network errors with backoff, and requires
+https (http only for localhost, or with `allow_insecure=True`).
+`MemoryExporter(max_records=1000)` keeps only the newest records; the default
+is unbounded.
+
+`observe(...)` returns the exporter; a `MemoryExporter` is handy in tests,
+notebooks, and Streamlit apps:
+
+```python
+mem = briefcase.observe("memory")
+
+@briefcase.capture(async_capture=False)   # run export inline (deterministic)
+def f(x): return x + 1
+
+f(41)
+print(mem.records[0]["function_name"])     # -> "f"
+```
+
+Custom exporter — subclass BaseExporter (methods are async):
+
+```python
+from briefcase.exporters import BaseExporter
+
+class HttpExporter(BaseExporter):
+    async def export(self, decision) -> bool:
+        # await httpx.AsyncClient().post(url, json=decision)
+        return True
+    async def flush(self) -> None: ...
+    async def close(self) -> None: ...
+
+briefcase.setup(exporter=HttpExporter())   # observe() is sugar over setup()
+briefcase.setup(exporter=None)             # explicit None clears the exporter
+```
+
+Delivery: export runs on one background thread behind a bounded queue.
+
+```python
+briefcase.configure_export(max_queue_size=50_000, max_retries=2)
+briefcase.flush(timeout=5.0)      # drain the queue, flush exporters
+briefcase.shutdown(timeout=5.0)   # drain the queue, close exporters (also at exit)
+briefcase.export_stats()          # {"exported", "failed", "dropped", "queued", ...}
+```
+
+When the queue is full, new records are dropped, counted, and reported at
+WARNING. A failed export (exception after retries, or `export()` returning
+False) is logged at WARNING too.
+
+------------------------------------------------------------------------------
+## 3. Async functions and options
+
+```python
+@briefcase.capture                          # works on async defs too
+async def agenerate(prompt: str) -> str:
+    return await call_model(prompt)
+
+@briefcase.capture(
+    decision_type="risk_classification",    # default: function qualname
+    context_version="v3",                   # tag for the record
+    max_input_chars=2000,                   # truncate serialized inputs
+    max_output_chars=2000,
+    async_capture=True,                     # export off the hot path (default)
+    sample_rate=0.25,                       # record ~25% of calls (default 1.0)
+)
+def score(claim): ...
+
+@briefcase.capture                          # generators and async generators:
+async def stream(prompt: str):              # one record when the stream ends,
+    async for token in call_model_stream(prompt):   # outputs = collected chunks,
+        yield token                         # duration = the whole stream
+```
+
+A cancelled or timed-out async call (`asyncio.wait_for`, task cancellation)
+still emits a record, with `status: "cancelled"`, and the cancellation
+re-raises.
+
+------------------------------------------------------------------------------
+## 4. PII sanitization
+
+```python
+from briefcase.sanitize import Sanitizer
+
+s = Sanitizer()
+result = s.sanitize("email me at jane@acme.com or 555-123-4567")
+print(result.sanitized)                     # "[REDACTED_EMAIL] or [REDACTED_PHONE]"
+print([r.pii_type for r in result.redactions])
+
+# JSON / dicts:
+jr = s.sanitize_json({"email": "a@b.com", "ssn": "123-45-6789"})
+print(jr.sanitized)                         # nested redaction
+print(jr.redaction_count)
+
+# Custom pattern:
+s.add_pattern("employee_id", r"\bEMP-\d{6}\b")
+```
+
+------------------------------------------------------------------------------
+## 5. External data snapshots (PII-safe)
+
+```python
+from briefcase.external_data import ExternalDataTracker
+from briefcase.sanitize import Sanitizer
+
+# Pass sanitizer= so raw responses are redacted before they are persisted.
+tracker = ExternalDataTracker(lakefs_client=my_lakefs, repository="kb",
+                              sanitizer=Sanitizer())
+result = tracker.track_api_call(
+    api_name="ofac_sdn", endpoint="https://api/sdn", method="GET",
+    response_data=api_json,
+)
+print(result["data_hash"], result["snapshot_stored"])
+```
+
+------------------------------------------------------------------------------
+## 6. Cost and drift
+
+```python
+from briefcase.cost import CostCalculator
+c = CostCalculator()
+est = c.estimate_cost("gpt-4", input_tokens=1000, output_tokens=500)
+print(est.total_cost, est.input_cost, est.output_cost)
+
+# Current models + rate cards (platform x tier x modifiers). Omit rate_card for
+# first-party standard pricing; "batch"/"flex" are 0.5x, cache reads 0.1x, and
+# "bedrock"/"vertex"/"azure" regional endpoints or "us" residency add 10%.
+batch = c.estimate_cost("claude-opus-4-8", 500_000, 50_000, rate_card="bedrock:batch")
+print(batch.total_cost, c.get_available_rate_cards())
+
+status = c.check_budget(current_spend=75.0, budget_limit=100.0)
+print(status.status, status.percent_used, status.remaining_budget)
+
+from briefcase.drift import DriftCalculator
+d = DriftCalculator()
+m = d.calculate_drift(["positive", "positive", "negative"])
+print(m.consistency_score, m.consensus_output, m.get_status(d))   # note: get_status(calculator)
+```
+
+------------------------------------------------------------------------------
+## 7. Logging (opt-in)
+
+The library is silent by default (NullHandler). Turn it on:
+
+```python
+import briefcase
+briefcase.enable_logging("DEBUG")           # StreamHandler on the 'briefcase' logger
+briefcase.set_log_level("WARNING")
+briefcase.disable_logging()
+```
+
+Or via environment: `BRIEFCASE_LOG_LEVEL=DEBUG python app.py`.
+
+------------------------------------------------------------------------------
+## 8. Extras map (what needs a pip extra)
+
+No extra needed (native or pure-Python): replay, drift, sanitize, storage, cost,
+routing, bitemporal, compliance, controls, integrity (chains and canonical
+JSON; signing needs the extra), validate, guardrails, correlation, events,
+webhook, external, rag, vcs. The extras with those names exist but are empty.
+
+Needs an extra (third-party deps):
+- `pip install briefcase-ai[otel]`               # OpenTelemetry tracing
+- `pip install briefcase-ai[kafka]`              # Kafka event transport
+- `pip install briefcase-ai[gcp-logging]`        # Cloud Logging exporter
+- `pip install briefcase-ai[opa]`                # OPA router (httpx)
+- `pip install briefcase-ai[lakefs]`             # lakeFS versioned storage
+- `pip install briefcase-ai[rag-chroma]`         # also `rag-pinecone`, `rag-weaviate`
+- `pip install briefcase-ai[vcs-dvc]`            # also `vcs-pachyderm`, `vcs-ducklake`, `vcs-iceberg`
+- `pip install briefcase-ai[gym]`                # Gymnasium bridge
+- `pip install briefcase-ai[evals]`              # zstd, for inspect-ai .eval logs
+- `pip install briefcase-ai[bitemporal-iceberg]` # pyiceberg + pyarrow backend
+- `pip install briefcase-ai[bitemporal-glue]`    # AWS Glue catalog auth (boto3)
+- `pip install briefcase-ai[kdb]`                # kdb+ backend (KX-licensed pykx)
+- `pip install briefcase-ai[compliance-kms]`     # KMS-signed bundles (boto3)
+- `pip install briefcase-ai[integrity]`          # Ed25519 signing (pynacl)
+- `pip install briefcase-ai[langchain]`          # also `crewai`, `llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`
+- `pip install briefcase-ai[mcp]`                # MCP server (briefcase-mcp)
+- `pip install briefcase-ai[run]`                # gRPC client for the eval-run CLI
+- `pip install briefcase-ai[all]`                # everything above except kdb
+
+------------------------------------------------------------------------------
+## 8b. RL and evaluation bridges
+
+`briefcase.integrations.evals` (stdlib only; the `evals` extra adds `zstandard`
+so inspect-ai `.eval` archives can be read on Python < 3.14):
+
+```python
+from briefcase.integrations.evals import EvalRun, from_inspect_log, replay
+
+with EvalRun("gsm8k", model="claude-opus-5") as run:      # -> eval.case records
+    run.log_case("q1", inputs=q, outputs=a, passed=a == target)
+run.summary()                                            # pass_rate, scores, cost
+
+replay(from_inspect_log("logs/run.eval"))                # inspect-ai .json/.eval
+replay(from_lm_eval_results("results.json", "samples.jsonl"))   # lm-eval-harness
+```
+
+`briefcase.integrations.gym` (needs the `gym` extra):
+
+```python
+from briefcase.integrations.gym import GuardrailGymEnv, capture_episodes
+
+env = GuardrailGymEnv(guardrail, tasks, injections)  # single-step bandit
+obs, info = env.reset(seed=0)
+obs, reward, terminated, truncated, info = env.step(0)   # 0 = clean request
+
+capture_episodes(gymnasium.make("CartPole-v1"))          # -> rl.step/rl.episode
+```
+
+Decision types these emit: `eval.case`, `eval.run`, `rl.step`, `rl.episode`.
+They flow through the configured exporter like any `@capture` record.
+
+------------------------------------------------------------------------------
+## 8c. Controls: gated model calls (no extra deps)
+
+`briefcase.controls` composes entitlements hard-cap, quota, and
+throttle-cooldown checks around a model call:
+
+```python
+import asyncio
+from briefcase.controls import FixedWindowQuotaStore, Gateway, GatewayConfig
+
+gw = Gateway(GatewayConfig(
+    quota_store=FixedWindowQuotaStore(),
+    buckets={"chat": {"limit": 5, "window_s": 60.0}},
+))
+
+outcome = asyncio.run(gw.invoke(tenant_id="t1", bucket="chat", fn=lambda: "hi"))
+print(outcome.ok, outcome.value, outcome.reason)   # True hi None
+```
+
+`Outcome.reason` is None on success, else "hard_capped", "quota_exhausted",
+"throttled", or "internal". A throttled provider failure opens a bucket
+cooldown. Also exported: `classify_provider_error` (unified provider throttle
+detection) and `retry_call` / `retry_call_async` (capped exponential backoff
+with jitter and a deadline guard). The `@briefcase-ai/controls` npm package
+carries the same surface, wire schema, and exporters for TypeScript.
+
+------------------------------------------------------------------------------
+## 8d. Integrity: tamper-evident chains and local signing
+
+`briefcase.integrity` pairs each append-only record with a hash-chain entry
+so an auditor can prove nothing was altered or re-stitched:
+
+```python
+from briefcase.integrity import (
+    HashChainAppender, JsonlHashChainStore, verify_chain_segment,
+)
+
+store = JsonlHashChainStore("audit.chain.jsonl")   # dirs 0700, file 0600
+appender = HashChainAppender(store)                # signing_key=<32-byte seed> to attest
+entry = appender.append_row(
+    table="audit", row_id=row_id, entity_id=None,
+    observed_at=ts, recorded_at=ts, payload=record,
+)
+ok, failing_row = verify_chain_segment(store.load_entries())
+```
+
+Chain entries carry only hashes, never payloads. `canonical_json` is the
+deterministic hash input (strict: rejects NaN and non-JSON types unless you
+pass `fallback=str`); `sign_json` / `verify_json_signature` / `jwk_thumbprint`
+cover local Ed25519 manifest attestation with RFC 8037 OKP JWKs. Both
+bundled stores enforce a prior_hash compare-and-swap (the JSONL store adds
+POSIX flock), so concurrent appenders on one host retry cleanly instead of
+forking; cross-host writers need a shared store enforcing the same CAS.
+
+------------------------------------------------------------------------------
+## 9. Common pitfalls
+- Records "disappear": you didn't call `observe(...)`/`setup(exporter=...)`.
+- Non-deterministic in tests: capture exports in a background thread by default;
+  use `@briefcase.capture(async_capture=False)` for inline export. Same for
+  `capture_episodes(env, async_capture=False)`; `EvalRun` already defaults to
+  synchronous export because batch jobs exit immediately.
+- `import briefcase.otel` fails: install `briefcase-ai[otel]`.
+- Logging shows nothing: it's opt-in — call `enable_logging()` or set
+  `BRIEFCASE_LOG_LEVEL`.

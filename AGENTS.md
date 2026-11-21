@@ -10,7 +10,7 @@ The canonical pattern — wire an exporter once, then decorate functions:
 
 ```python
 import briefcase
-briefcase.observe("console")          # "console" | "memory" | "runs.jsonl" | ExporterInstance
+briefcase.observe("console")          # "console" | "memory" | "runs.jsonl" | "https://…" | ExporterInstance
 
 @briefcase.capture
 def classify(text: str) -> str:
@@ -21,7 +21,13 @@ Rules to follow when generating briefcase code:
 - Always call `briefcase.observe(...)` (or `briefcase.setup(exporter=...)`) once at
   startup. Without it, `@capture` records nothing.
 - `@briefcase.capture` needs no `briefcase.init()`. It works on sync and async
-  functions, with or without arguments.
+  functions and on (async) generators, with or without arguments. A generator
+  emits one record when it finishes, holding the collected chunks.
+- Export runs on a bounded background queue. Call `briefcase.shutdown()` (or
+  `briefcase.flush()`) before exit in short-lived scripts; an atexit hook also
+  drains for up to 5 s. `briefcase.export_stats()` reports dropped/failed counts.
+- `import briefcase` works without the compiled core; only native-backed names
+  (`briefcase.init`, `DecisionSnapshot`, `briefcase.replay`, …) need it.
 - Never log or persist raw PII. Sanitize first:
   `from briefcase.sanitize import Sanitizer; Sanitizer().sanitize(text).sanitized`.
   For external-data snapshots, pass `ExternalDataTracker(sanitizer=Sanitizer())`.
@@ -31,9 +37,17 @@ Rules to follow when generating briefcase code:
 - Gate model calls with `briefcase.controls`: `Gateway` composes hard-cap,
   quota, and throttle-cooldown checks; `retry_call` adds capped backoff. The
   same surface ships for TypeScript as `@briefcase-ai/controls`.
-- Most features need no pip extra; only `otel`, `lakefs`, `bitemporal-iceberg`,
-  `bitemporal-glue`, `kdb`, `compliance-kms`, `gym`, `evals`, and `mcp` do.
-  See `llms-full.txt` for the full extras map and recipes.
+- Most features need no pip extra. These extras are empty groupings that
+  install nothing: `replay`, `drift`, `sanitize`, `storage`, `validate`,
+  `guardrails`, `rag`, `correlation`, `external`, `events`, `webhook`,
+  `routing`, `vcs`, `bitemporal`, `compliance`, and `controls`. These install
+  third-party packages: `otel`, `kafka`, `gcp-logging`, `opa`, `lakefs`,
+  `rag-chroma`, `rag-pinecone`, `rag-weaviate`, `vcs-dvc`, `vcs-pachyderm`,
+  `vcs-ducklake`, `vcs-iceberg`, `gym`, `evals`, `bitemporal-iceberg`,
+  `bitemporal-glue`, `kdb`, `compliance-kms`, `integrity`, `langchain`,
+  `crewai`, `llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`,
+  `mcp`, and `run` (`all` is every one of them except `kdb`; `dev` is the test
+  tooling). See `llms-full.txt` for the extras map and recipes.
 
 More: `README.md`, `llms.txt`, `llms-full.txt`, and `examples/`.
 

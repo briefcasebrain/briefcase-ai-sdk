@@ -12,6 +12,94 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Python-compatible hash chains, a typed lakeFS client, provider-neutral
   connector orchestration and OAuth security primitives, and an asynchronous
   invocation/step recorder behind application-owned persistence ports.
+- `briefcase.exporters.HTTPExporter`: a stdlib-only exporter that POSTs
+  `{"records": [...]}` JSON batches (by size and flush interval) with an
+  optional bearer token and headers, retries 5xx/429/network errors with
+  jittered backoff, never follows redirects, and requires https (plain http
+  only for loopback hosts or with `allow_insecure=True`).
+  `briefcase.observe("https://...")` wires one up.
+- `briefcase.flush(timeout=)`, `briefcase.shutdown(timeout=)`,
+  `briefcase.export_stats()`, `briefcase.configure_export(...)`, and a
+  top-level re-export of `wait_for_pending_exports`. Queued records are now
+  also drained at interpreter exit (up to 5 s).
+- `@capture` on generator and async-generator functions: one record when the
+  stream finishes, is closed, or raises, with the collected chunks as output
+  (`chunk_count`, `stream_completed`; at most 1000 chunks retained) and the
+  whole stream's duration.
+- `@capture(sample_rate=..., rng=...)` records a fraction of calls; pass a
+  seeded `random.Random` for deterministic sampling.
+- Capture records carry `schema_version` (`"1.1"`), and, when present in the
+  ambient context, `workflow_id` (from `briefcase.correlation`) and
+  `trace_id` / `parent_span_id` / `trace_flags` (the OpenTelemetry span active
+  at call time).
+- `capture` is typed with `ParamSpec` overloads, so decorated functions keep
+  their signatures under mypy/pyright.
+- `MemoryExporter(max_records=N)` keeps only the newest N records (default
+  remains unbounded).
+- `OPARouter(headers=..., token=..., cache_max_entries=...)` and
+  `OPARouter.aclose()`; `KafkaPublisher(config={...})` for SASL/TLS and other
+  librdkafka settings, plus `flush()` / `close()`; `WebhookEmitter`
+  `max_attempts` / `backoff_base` / `backoff_max`.
+- `briefcase.auto(...)` is callable from the top level (`briefcase.auto`
+  remains the submodule), and the exporter classes are importable from
+  `briefcase` directly.
+- `GatewayConfig.run_sync_in_thread` (default `True`).
+
+### Changed
+- Background export now uses a bounded queue (10,000 records by default,
+  `BRIEFCASE_EXPORT_QUEUE_SIZE` or `configure_export(max_queue_size=)`). When
+  it is full, new records are dropped, counted, and reported at WARNING
+  (rate-limited) instead of growing memory without bound.
+- Background exports that raise are retried (2 retries with backoff by
+  default) and an awaitable export is cut off after 30 s. A background
+  failure, and an exporter returning `False` on either path, is now logged at
+  WARNING; background failures were previously DEBUG-only and `False` was
+  ignored.
+- Cancelled or timed-out `@capture` async calls now emit a record with
+  `status: "cancelled"` and re-raise; previously they left no record. An
+  exception with an empty message is recorded by its class name instead of
+  `""`.
+- `OTelExporter` reads dict records (what `@capture` emits) as well as
+  objects, so spans are no longer missing `briefcase.decision.id` and friends.
+  Spans now span the decision's own `started_at`..`ended_at`, are parented to
+  the span that was active at capture time even when exported from the
+  background thread, and get ERROR status for records with an `error`.
+  `OPARouter`, `InternalRouter`, and `emit_low_confidence` accept dict records
+  the same way.
+- `GCPCloudLoggingExporter` only removes records from its buffer once they
+  were sent; a failed send keeps the unsent records for the next flush (capped
+  by `max_buffer`) and logs at WARNING. The buffer is lock-protected and the
+  blocking client calls run off the event loop.
+- `WebhookEmitter` waits with jittered exponential backoff between 5xx
+  attempts, logs every failed delivery at WARNING, and no longer sends an
+  `X-Briefcase-Signature` header when no secret is configured (it logs one
+  WARNING instead of signing with an empty key).
+- `OPARouter` reuses one HTTP client, logs each fallback to the internal
+  router at WARNING (rate-limited), and bounds its decision cache (LRU, 1024
+  entries by default).
+- `Gateway.invoke` runs a synchronous `fn` on a worker thread so a blocking
+  call no longer stalls the event loop, and `deadline_s` now also bounds that
+  synchronous part. Set `GatewayConfig(run_sync_in_thread=False)` for the
+  previous inline behaviour.
+- `briefcase.setup(exporter=None)` (and `None` for any other argument) now
+  clears the setting; omitted arguments are still left unchanged.
+  `BriefcaseConfig.get()` is thread-safe.
+- `briefcase.setup(webhook_url=..., webhook_secret=..., events=[...])` now
+  takes effect: `briefcase.events.emit` delivers to that webhook. These fields
+  were stored but never read.
+- `import briefcase` no longer requires the compiled core. Pure-Python
+  features work without it; native-backed names raise an `ImportError` that
+  says how to get the core when first used.
+
+### Fixed
+- The MCP `how_to` tool and `briefcase://llms-full.txt` resource returned only
+  a link when installed from a wheel, because the guide lived outside the
+  package. It now ships as `briefcase/mcp/llms-full.txt`.
+- `briefcase.replay`'s import error told users to install the `replay` extra,
+  which is empty; it now explains that the compiled core is missing.
+- README, AGENTS.md, `llms.txt`, and `llms-full.txt` now list the same extras
+  as `pyproject.toml` for "installs third-party packages" versus "empty
+  grouping".
 
 ## [4.4.0] - 2026-08-16
 

@@ -157,7 +157,7 @@ def test_webhook_retry_on_5xx(monkeypatch):
     event = _make_event()
     fake = _install_fake_post(monkeypatch, [503, 200])
 
-    emitter = WebhookEmitter(url="https://example.com/hook")
+    emitter = WebhookEmitter(url="https://example.com/hook", backoff_base=0)
     result = _run(emitter.emit(event))
 
     assert result is True
@@ -181,7 +181,7 @@ def test_webhook_max_retries(monkeypatch):
     event = _make_event()
     fake = _install_fake_post(monkeypatch, [503, 503, 503])
 
-    emitter = WebhookEmitter(url="https://example.com/hook")
+    emitter = WebhookEmitter(url="https://example.com/hook", backoff_base=0)
     result = _run(emitter.emit(event))
 
     assert result is False
@@ -262,3 +262,73 @@ def test_webhook_insecure_opt_in(monkeypatch):
 def test_webhook_https_always_allowed():
     """An https URL constructs without any opt-in."""
     WebhookEmitter(url="https://example.com/hook")
+
+
+# ---------------------------------------------------------------------------
+# Backoff, failure logging, and unsigned delivery
+# ---------------------------------------------------------------------------
+
+def test_webhook_backs_off_between_5xx_attempts(monkeypatch):
+    """Retries wait with jittered exponential backoff instead of firing at once."""
+    fake = _install_fake_post(monkeypatch, [503, 503, 200])
+    delays = []
+
+    async def fake_sleep(seconds):
+        delays.append(seconds)
+
+    monkeypatch.setattr(webhook_mod.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(webhook_mod.random, "uniform", lambda low, high: high)
+
+    emitter = WebhookEmitter(url="https://example.com/hook", secret="s",
+                             backoff_base=0.5, backoff_max=10)
+    assert _run(emitter.emit(_make_event())) is True
+    assert len(fake.calls) == 3
+    assert delays == [0.5, 1.0]
+
+
+def test_webhook_backoff_is_jittered_and_capped():
+    emitter = WebhookEmitter(url="https://example.com/hook", backoff_base=1.0, backoff_max=3.0)
+    samples = [emitter._retry_delay(4) for _ in range(50)]
+    assert all(0.0 <= s <= 3.0 for s in samples)
+    assert len(set(samples)) > 1
+
+
+def test_webhook_max_attempts_is_configurable(monkeypatch):
+    fake = _install_fake_post(monkeypatch, [503] * 5)
+    emitter = WebhookEmitter(url="https://example.com/hook", max_attempts=5, backoff_base=0)
+    assert _run(emitter.emit(_make_event())) is False
+    assert len(fake.calls) == 5
+
+
+@pytest.mark.parametrize("outcomes, fragment", [
+    ([503, 503, 503], "HTTP 503 after 3 attempts"),
+    ([404], "rejected with HTTP 404"),
+    ([ConnectionError("network failure")], "ConnectionError: network failure"),
+])
+def test_webhook_failures_are_logged_at_warning(monkeypatch, caplog, outcomes, fragment):
+    import logging
+
+    _install_fake_post(monkeypatch, outcomes)
+    emitter = WebhookEmitter(url="https://user:pw@example.com/hook?key=abc",
+                             secret="s", backoff_base=0)
+    with caplog.at_level(logging.WARNING, logger="briefcase.events.webhook"):
+        assert _run(emitter.emit(_make_event())) is False
+    messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert any(fragment in m for m in messages)
+    # Credentials and query strings never reach the log line.
+    assert not any("pw@" in m or "key=abc" in m for m in messages)
+
+
+def test_webhook_without_secret_omits_signature_and_warns_once(monkeypatch, caplog):
+    import logging
+
+    fake = _install_fake_post(monkeypatch, [200, 200])
+    emitter = WebhookEmitter(url="https://example.com/hook")
+    with caplog.at_level(logging.WARNING, logger="briefcase.events.webhook"):
+        assert _run(emitter.emit(_make_event())) is True
+        assert _run(emitter.emit(_make_event())) is True
+    for call in fake.calls:
+        assert "X-Briefcase-Signature" not in call["headers"]
+        assert call["headers"]["ce-specversion"] == "1.0"
+    warnings = [r for r in caplog.records if "no secret" in r.getMessage()]
+    assert len(warnings) == 1

@@ -9,7 +9,6 @@ Requires the ``mcp`` extra: ``pip install briefcase-ai[mcp]``.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 try:
@@ -42,15 +41,7 @@ except ImportError as exc:  # pragma: no cover - needs the extra absent or wrong
     ) from exc
 
 
-def _llms_full_text() -> str:
-    """Return the bundled usage guide, or a pointer if it is not on disk."""
-    candidate = Path(__file__).resolve().parents[2] / "llms-full.txt"
-    if candidate.exists():
-        return candidate.read_text(encoding="utf-8")
-    return (
-        "briefcase usage guide: "
-        "https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/llms-full.txt"
-    )
+from briefcase.mcp._guide import llms_full_text as _llms_full_text
 
 
 def build_server() -> FastMCP:

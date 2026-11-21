@@ -8,6 +8,7 @@ from briefcase.config import setup
 from briefcase.exporters.base import BaseExporter
 from briefcase.exporters.console import ConsoleExporter
 from briefcase.exporters.file import JSONLFileExporter
+from briefcase.exporters.http import HTTPExporter
 from briefcase.exporters.memory import MemoryExporter
 
 
@@ -18,11 +19,13 @@ def _resolve_exporter(exporter: Union[str, BaseExporter, None]) -> BaseExporter:
         return ConsoleExporter()
     if exporter == "memory":
         return MemoryExporter()
+    if isinstance(exporter, str) and exporter.lower().startswith(("http://", "https://")):
+        return HTTPExporter(exporter)
     if isinstance(exporter, str) and exporter.endswith(".jsonl"):
         return JSONLFileExporter(exporter)
     raise ValueError(
         f"Unknown exporter shorthand: {exporter!r}. Pass a BaseExporter instance, "
-        "'console', 'memory', or a path ending in '.jsonl'."
+        "'console', 'memory', a path ending in '.jsonl', or an http(s):// URL."
     )
 
 
@@ -42,6 +45,9 @@ def observe(
               - ``"console"`` (default) → :class:`ConsoleExporter`
               - ``"memory"`` → :class:`MemoryExporter`
               - a path ending in ``.jsonl`` → :class:`JSONLFileExporter`
+              - an ``https://`` URL (or ``http://`` to localhost) →
+                :class:`~briefcase.exporters.http.HTTPExporter`, which POSTs
+                JSON batches; construct it yourself to pass a token
         level: If given, also enable briefcase logging at this level
             (see :func:`briefcase.enable_logging`).
 

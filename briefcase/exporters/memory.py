@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, List
+from collections import deque
+from typing import Any, Optional
 
 from briefcase.exporters.base import BaseExporter
 
@@ -12,6 +13,12 @@ class MemoryExporter(BaseExporter):
 
     Ideal for tests, notebooks, and Streamlit apps where you want to read back
     the captured decisions. Records are exposed on the ``records`` attribute.
+
+    Args:
+        max_records: Keep only the most recent ``max_records`` records,
+            discarding the oldest. The default, ``None``, keeps everything,
+            so in a long-running process either set a bound or call
+            :meth:`clear` periodically. ``dropped`` counts discarded records.
 
     Example:
         import briefcase
@@ -24,10 +31,18 @@ class MemoryExporter(BaseExporter):
         assert mem.records[0]["function_name"] == "classify"
     """
 
-    def __init__(self) -> None:
-        self.records: List[Any] = []
+    def __init__(self, max_records: Optional[int] = None) -> None:
+        if max_records is not None and max_records < 1:
+            raise ValueError("max_records must be >= 1 or None")
+        self.max_records = max_records
+        self.dropped = 0
+        # A plain list when unbounded (the historical type); a bounded deque
+        # otherwise, so eviction of the oldest record is O(1).
+        self.records: Any = [] if max_records is None else deque(maxlen=max_records)
 
     async def export(self, decision: Any) -> bool:
+        if self.max_records is not None and len(self.records) >= self.max_records:
+            self.dropped += 1
         self.records.append(decision)
         return True
 

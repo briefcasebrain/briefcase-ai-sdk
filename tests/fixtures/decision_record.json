@@ -1,5 +1,5 @@
 {
-  "description": "Golden decision-record wire schema. Consumed by tests/test_record_schema.py (Python) and js/controls/test/record.test.ts (TypeScript); both assert against this file so the two implementations cannot drift apart.",
+  "description": "Golden decision-record wire schema. Consumed by tests/test_record_schema.py (Python) and js/controls/test/record.test.ts (TypeScript); both assert against this file so the two implementations cannot drift apart. python_always_fields lists optional fields the Python @capture decorator emits on every record (schema 1.1) that the TypeScript recorder does not emit yet.",
   "required_fields": [
     "decision_id",
     "decision_type",
@@ -10,7 +10,17 @@
     "ended_at",
     "execution_time_ms"
   ],
-  "optional_fields": ["error", "context_version"],
+  "optional_fields": [
+    "error",
+    "context_version",
+    "schema_version",
+    "status",
+    "workflow_id",
+    "trace_id",
+    "parent_span_id",
+    "trace_flags"
+  ],
+  "python_always_fields": ["schema_version"],
   "example": {
     "decision_id": "6f9619ff-8b86-4d01-b42d-00cf4fc964ff",
     "decision_type": "classify_risk",

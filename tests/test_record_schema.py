@@ -15,8 +15,10 @@ from briefcase.decorators import capture
 FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures" / "decision_record.json").read_text()
 )
-REQUIRED = set(FIXTURE["required_fields"])
 OPTIONAL = set(FIXTURE["optional_fields"])
+# Fields every Python record carries: the cross-language required set plus
+# the optional fields Python always emits (schema_version).
+REQUIRED = set(FIXTURE["required_fields"]) | set(FIXTURE["python_always_fields"])
 
 
 def _capture_record(**kwargs):
@@ -59,8 +61,17 @@ def test_error_record_adds_only_the_error_field():
 
 def test_fixture_example_conforms_to_its_own_schema():
     example = FIXTURE["example"]
-    assert REQUIRED.issubset(set(example))
-    assert set(example) - REQUIRED <= OPTIONAL
+    shared = set(FIXTURE["required_fields"])
+    assert shared.issubset(set(example))
+    assert set(example) - shared <= OPTIONAL
+    assert set(FIXTURE["python_always_fields"]) <= OPTIONAL
+
+
+def test_schema_version_is_emitted_and_documented():
+    from briefcase.decorators import SCHEMA_VERSION
+
+    record = _capture_record()
+    assert record["schema_version"] == SCHEMA_VERSION == "1.1"
 
 
 def test_all_capture_content_modes_keep_the_field_set():

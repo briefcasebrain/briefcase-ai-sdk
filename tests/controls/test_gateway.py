@@ -364,3 +364,97 @@ class TestGatewayExceptionScope:
         rec = mem.records[0]
         assert rec["outputs"]["briefcase.controls.gateway.outcome"] == "internal"
         assert rec["error"] == "RuntimeError"
+
+
+class TestGatewaySyncCallables:
+    def test_sync_fn_runs_off_the_event_loop_thread(self):
+        import threading
+
+        seen = {}
+
+        def fn():
+            seen["thread"] = threading.current_thread()
+            return "v"
+
+        async def main():
+            gw, _ = make_gateway()
+            outcome = await gw.invoke(tenant_id="org1", bucket="chat", fn=fn)
+            return outcome, threading.current_thread()
+
+        outcome, loop_thread = run(main())
+        assert outcome.ok and outcome.value == "v"
+        assert seen["thread"] is not loop_thread
+
+    def test_blocking_sync_fn_does_not_stall_the_loop(self):
+        import time
+
+        def blocking():
+            time.sleep(0.3)
+            return "done"
+
+        async def main():
+            gw, _ = make_gateway()
+            ticks = 0
+
+            async def ticker():
+                nonlocal ticks
+                while True:
+                    await asyncio.sleep(0.01)
+                    ticks += 1
+
+            task = asyncio.ensure_future(ticker())
+            outcome = await gw.invoke(tenant_id="org1", bucket="chat", fn=blocking)
+            task.cancel()
+            return outcome, ticks
+
+        outcome, ticks = run(main())
+        assert outcome.value == "done"
+        assert ticks >= 5  # the loop kept running while fn blocked
+
+    def test_coroutine_function_is_called_inline(self):
+        import threading
+
+        seen = {}
+
+        async def fn():
+            seen["thread"] = threading.current_thread()
+            return 1
+
+        async def main():
+            gw, _ = make_gateway()
+            await gw.invoke(tenant_id="org1", bucket="chat", fn=fn)
+            return threading.current_thread()
+
+        assert seen.get("thread") is None
+        loop_thread = run(main())
+        assert seen["thread"] is loop_thread
+
+    def test_deadline_now_bounds_a_sync_fn(self):
+        import time
+
+        def blocking():
+            time.sleep(0.5)
+
+        gw, _ = make_gateway()
+        outcome = run(
+            gw.invoke(tenant_id="org1", bucket="chat", fn=blocking, deadline_s=0.05)
+        )
+        assert not outcome.ok and outcome.reason == "internal"
+        assert isinstance(outcome.cause, (asyncio.TimeoutError, TimeoutError))
+
+    def test_inline_opt_out(self):
+        import threading
+
+        seen = {}
+
+        def fn():
+            seen["thread"] = threading.current_thread()
+            return 1
+
+        async def main():
+            gw, _ = make_gateway(run_sync_in_thread=False)
+            await gw.invoke(tenant_id="org1", bucket="chat", fn=fn)
+            return threading.current_thread()
+
+        loop_thread = run(main())
+        assert seen["thread"] is loop_thread

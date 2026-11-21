@@ -216,4 +216,8 @@ include = [
     "NOTICE",
     "briefcase/cli/stack/docker-compose.yml",
     "briefcase/cli/stack/compat.json",
+    # Usage guide served by the MCP server's how_to tool. A copy of the
+    # repo-root llms-full.txt (tests/test_mcp_guide.py keeps them identical),
+    # because a file outside the package cannot ship inside it.
+    "briefcase/mcp/llms-full.txt",
 ]
