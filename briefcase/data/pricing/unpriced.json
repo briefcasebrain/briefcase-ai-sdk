@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "notice": "Ids only, no prices. These are commonly used models that the built-in table in crates/briefcase-core/src/cost.rs does not price. The list is a hint for `briefcase pricing show`, not a price source and not exhaustive; a model missing from both files is simply unknown.",
+  "models": [
+    {
+      "id": "o1",
+      "provider": "openai"
+    },
+    {
+      "id": "o1-mini",
+      "provider": "openai"
+    },
+    {
+      "id": "o3",
+      "provider": "openai"
+    },
+    {
+      "id": "o3-mini",
+      "provider": "openai"
+    },
+    {
+      "id": "o4-mini",
+      "provider": "openai"
+    },
+    {
+      "id": "gpt-4.1",
+      "provider": "openai"
+    },
+    {
+      "id": "gpt-4.1-mini",
+      "provider": "openai"
+    },
+    {
+      "id": "gpt-4.1-nano",
+      "provider": "openai"
+    },
+    {
+      "id": "gpt-5",
+      "provider": "openai"
+    },
+    {
+      "id": "gpt-5-mini",
+      "provider": "openai"
+    },
+    {
+      "id": "text-embedding-3-small",
+      "provider": "openai"
+    },
+    {
+      "id": "text-embedding-3-large",
+      "provider": "openai"
+    },
+    {
+      "id": "text-embedding-ada-002",
+      "provider": "openai"
+    },
+    {
+      "id": "claude-3-7-sonnet",
+      "provider": "anthropic"
+    },
+    {
+      "id": "claude-sonnet-4",
+      "provider": "anthropic"
+    },
+    {
+      "id": "claude-opus-4",
+      "provider": "anthropic"
+    },
+    {
+      "id": "claude-opus-5",
+      "provider": "anthropic"
+    },
+    {
+      "id": "gemini-1.5-pro",
+      "provider": "google"
+    },
+    {
+      "id": "gemini-1.5-flash",
+      "provider": "google"
+    },
+    {
+      "id": "gemini-2.0-flash",
+      "provider": "google"
+    },
+    {
+      "id": "mistral-large",
+      "provider": "mistral"
+    },
+    {
+      "id": "mistral-medium",
+      "provider": "mistral"
+    },
+    {
+      "id": "mistral-small",
+      "provider": "mistral"
+    },
+    {
+      "id": "codestral",
+      "provider": "mistral"
+    },
+    {
+      "id": "llama-3.1-8b",
+      "provider": "meta"
+    },
+    {
+      "id": "llama-3.1-70b",
+      "provider": "meta"
+    },
+    {
+      "id": "llama-3.1-405b",
+      "provider": "meta"
+    },
+    {
+      "id": "llama-3.3-70b",
+      "provider": "meta"
+    },
+    {
+      "id": "deepseek-chat",
+      "provider": "deepseek"
+    },
+    {
+      "id": "deepseek-reasoner",
+      "provider": "deepseek"
+    },
+    {
+      "id": "grok-3",
+      "provider": "xai"
+    },
+    {
+      "id": "grok-3-mini",
+      "provider": "xai"
+    },
+    {
+      "id": "grok-4",
+      "provider": "xai"
+    }
+  ]
+}
