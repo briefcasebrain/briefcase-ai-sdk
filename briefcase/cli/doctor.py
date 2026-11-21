@@ -124,7 +124,21 @@ def connect_checks(adapters=None, probe=None):
     from briefcase.connect import engine as connect_engine
     from briefcase.receiver import daemon
 
-    return connect_engine.doctor_checks(adapters, probe=probe or daemon.probe)
+    results = connect_engine.doctor_checks(adapters, probe=probe or daemon.probe)
+    return results + conformance_checks(adapters)
+
+
+def conformance_checks(adapters=None, report=None):
+    """Last known conformance level per installed or connected tool (shipped ``conformance-report.json``)
+    next to the version found here, so a tool newer than anything tested is flagged."""
+    from briefcase.connect import conformance, engine as connect_engine
+    from briefcase.connect.adapters import registry
+
+    adapters = adapters or registry()
+    connected = {row["tool"] for row in connect_engine.status(adapters) if row["connected"]}
+    installed = [(tool_id, adapter.name, adapter.version()) for tool_id, adapter in adapters.items()
+                 if tool_id in connected or adapter.binary()]
+    return conformance.rows(installed, report)
 
 
 def cmd_doctor_connect(args) -> int:

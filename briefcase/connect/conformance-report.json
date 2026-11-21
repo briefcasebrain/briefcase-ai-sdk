@@ -1,0 +1,213 @@
+{
+  "generated": "2026-11-21",
+  "levels": [
+    "docs-only",
+    "config-accepted",
+    "telemetry-verified"
+  ],
+  "schema_version": 1,
+  "tools": {
+    "claude-code": {
+      "checks": [
+        {
+          "detail": "npm install -g --prefix <isolated prefix> @anthropic-ai/claude-code@latest (vendor docs https://code.claude.com/docs/en/setup, checked 2026-11-21)",
+          "name": "install",
+          "ok": true
+        },
+        {
+          "detail": "2.1.330",
+          "name": "claude --version",
+          "ok": true
+        },
+        {
+          "detail": "exit 0",
+          "name": "briefcase connect --yes",
+          "ok": true
+        },
+        {
+          "detail": "CLAUDE_CODE_ENABLE_TELEMETRY, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL, OTEL_LOGS_EXPORTER, OTEL_METRICS_EXPORTER",
+          "name": "settings.json has the telemetry env keys",
+          "ok": true
+        },
+        {
+          "detail": "ok",
+          "name": "claude doctor reports no invalid settings",
+          "ok": true
+        },
+        {
+          "detail": "briefcase: uvx --from briefcase-ai[mcp] briefcase-mcp - \u221a Connected",
+          "name": "claude mcp list shows briefcase",
+          "ok": true
+        },
+        {
+          "detail": "briefcase: Scope: User config (available in all your projects) Status: \u221a Connected Type: stdio Command: uvx Args: --from briefcase-ai[mcp] briefcase-mcp Environment: To remove this server",
+          "name": "claude mcp get briefcase",
+          "ok": true
+        },
+        {
+          "detail": "\u221a Validation passed with warnings",
+          "name": "claude plugin validate (bundled plugin)",
+          "ok": true
+        },
+        {
+          "detail": "exit 0",
+          "name": "briefcase connect --yes",
+          "ok": true
+        },
+        {
+          "detail": "model requests seen by stub: 2; output: ok",
+          "name": "claude -p against a local stub model API",
+          "ok": true
+        },
+        {
+          "detail": "1 /v1/logs request(s)",
+          "name": "tool emitted OTLP log events",
+          "ok": true
+        },
+        {
+          "detail": "8 record(s)",
+          "name": "receiver mapped them to records",
+          "ok": true
+        },
+        {
+          "detail": "claude_code.api_request, claude_code.assistant_response, claude_code.managed_settings_resolved, claude_code.plugin_loaded, claude_code.user_prompt",
+          "name": "records include the prompt and the model request",
+          "ok": true
+        }
+      ],
+      "date": "2026-11-21",
+      "install": "npm install -g --prefix <isolated prefix> @anthropic-ai/claude-code@latest (vendor docs https://code.claude.com/docs/en/setup, checked 2026-11-21)",
+      "level": "telemetry-verified",
+      "note": "",
+      "version": "2.1.330"
+    },
+    "codex": {
+      "checks": [
+        {
+          "detail": "npm install -g --prefix <isolated prefix> @openai/codex (vendor docs https://github.com/openai/codex#readme, checked 2026-11-21)",
+          "name": "install",
+          "ok": true
+        },
+        {
+          "detail": "0.171.0",
+          "name": "codex --version",
+          "ok": true
+        },
+        {
+          "detail": "exit 0",
+          "name": "briefcase connect --yes",
+          "ok": true
+        },
+        {
+          "detail": "Name Command Args Env Cwd Status Auth | briefcase uvx --from briefcase-ai[mcp] briefcase-mcp - - enabled Unsupported",
+          "name": "codex mcp list loads config.toml and shows briefcase",
+          "ok": true
+        },
+        {
+          "detail": "briefcase | enabled: true | transport: stdio",
+          "name": "codex mcp get briefcase",
+          "ok": true
+        },
+        {
+          "detail": "config.load=ok parse=ok",
+          "name": "codex doctor: config.load ok and config.toml parses",
+          "ok": true
+        }
+      ],
+      "date": "2026-11-21",
+      "install": "npm install -g --prefix <isolated prefix> @openai/codex (vendor docs https://github.com/openai/codex#readme, checked 2026-11-21)",
+      "level": "config-accepted",
+      "note": "Telemetry not attempted: the tool needs a logged-in account to emit anything.",
+      "version": "0.171.0"
+    },
+    "copilot-cli": {
+      "checks": [
+        {
+          "detail": "npm install -g --prefix <isolated prefix> @github/copilot (vendor docs https://github.com/github/copilot-cli#readme, checked 2026-11-21)",
+          "name": "install",
+          "ok": true
+        },
+        {
+          "detail": "1.0.114",
+          "name": "copilot --version",
+          "ok": true
+        },
+        {
+          "detail": "exit 0",
+          "name": "briefcase connect --yes",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "`copilot help environment` documents COPILOT_OTEL_ENABLED",
+          "ok": true
+        },
+        {
+          "detail": "",
+          "name": "`copilot help environment` documents OTEL_EXPORTER_OTLP_ENDPOINT",
+          "ok": true
+        },
+        {
+          "detail": "briefcase",
+          "name": "`copilot mcp get briefcase` accepts the printed MCP entry",
+          "ok": true
+        }
+      ],
+      "date": "2026-11-21",
+      "install": "npm install -g --prefix <isolated prefix> @github/copilot (vendor docs https://github.com/github/copilot-cli#readme, checked 2026-11-21)",
+      "level": "docs-only",
+      "note": "connect is print-only for Copilot CLI (nothing written). The tool's own help documents the env vars we print, and it accepts the MCP entry we print; the level stays docs-only because no file written by briefcase was loaded. Telemetry needs a login.",
+      "version": "1.0.114"
+    },
+    "cursor": {
+      "checks": [],
+      "date": "2026-11-21",
+      "install": "not installable in CI: Cursor is a desktop app with no documented headless install or command that validates hooks.json, and no published hooks.json schema was found.",
+      "level": "docs-only",
+      "note": "Cursor is a desktop app with no documented headless install or command that validates hooks.json, and no published hooks.json schema was found. Staying at docs-only.",
+      "version": null
+    },
+    "gemini-cli": {
+      "checks": [
+        {
+          "detail": "npm install -g --prefix <isolated prefix> @google/gemini-cli@latest (vendor docs https://github.com/google-gemini/gemini-cli#readme, checked 2026-11-21)",
+          "name": "install",
+          "ok": true
+        },
+        {
+          "detail": "0.70.0",
+          "name": "gemini --version",
+          "ok": true
+        },
+        {
+          "detail": "exit 0",
+          "name": "briefcase connect --yes",
+          "ok": true
+        },
+        {
+          "detail": "{\"enabled\": true, \"target\": \"local\", \"otlpEndpoint\": \"http://127.0.0.1:4318\", \"otlpProtocol\": \"http\", \"logPrompts\": false}",
+          "name": ".gemini/settings.json has the telemetry block",
+          "ok": true
+        },
+        {
+          "detail": "No MCP servers configured.",
+          "name": "gemini loads the project settings without a configuration error",
+          "ok": true
+        }
+      ],
+      "date": "2026-11-21",
+      "install": "npm install -g --prefix <isolated prefix> @google/gemini-cli@latest (vendor docs https://github.com/google-gemini/gemini-cli#readme, checked 2026-11-21)",
+      "level": "config-accepted",
+      "note": "Gemini CLI has no command that echoes its telemetry settings and does not validate their values, so acceptance here means: the file loads without a configuration error. Telemetry was not captured (the tool needs a logged-in account).",
+      "version": "0.70.0"
+    },
+    "vscode-copilot": {
+      "checks": [],
+      "date": "2026-11-21",
+      "install": "not installable in CI: VS Code is a desktop app. Its documented `code` CLI manages extensions and MCP entries but has no command that validates user settings.json, and no settings schema for the Copilot OTel keys was found in the vendor documentation.",
+      "level": "docs-only",
+      "note": "VS Code is a desktop app. Its documented `code` CLI manages extensions and MCP entries but has no command that validates user settings.json, and no settings schema for the Copilot OTel keys was found in the vendor documentation. Staying at docs-only.",
+      "version": null
+    }
+  }
+}
