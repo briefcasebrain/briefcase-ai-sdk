@@ -1,0 +1,13 @@
+{
+  "id": "provider-instrumentation",
+  "title": "Model provider capture",
+  "verb": "capture",
+  "one_line": "One record per OpenAI, Anthropic, Gemini or Bedrock call: tokens and latency.",
+  "command": "briefcase exec -- python app.py",
+  "docs_slug": "capture/provider-instrumentation",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "The real openai, anthropic and google-genai SDK clients driven through a mock HTTP transport, and boto3 through a botocore Stubber. No request reached a provider.",
+  "docs_path": "briefcase/auto.py",
+  "snippet": "import briefcase\nfrom briefcase.auto import auto\n\nbriefcase.observe()\nauto(\"openai\")        # or \"anthropic\", \"google-genai\", \"bedrock\""
+}

@@ -1,0 +1,13 @@
+{
+  "id": "integrity-chain",
+  "title": "Tamper-evident hash chain",
+  "verb": "verify",
+  "one_line": "Prove that stored records were not altered, removed or reordered.",
+  "command": "briefcase features integrity-chain",
+  "docs_slug": "verify/integrity-chain",
+  "status": "experimental",
+  "requires_extra": "integrity",
+  "verified_against": "Hash chain, JSONL and in-memory stores, and concurrent appenders on one host tested for real on local files. Ed25519 signing needs the integrity extra. No cross-host store was tested.",
+  "docs_path": "llms-full.txt",
+  "snippet": "from briefcase.integrity import HashChainAppender, JsonlHashChainStore, verify_chain_segment\n\nstore = JsonlHashChainStore(\"audit.chain.jsonl\")\nok, failing_row = verify_chain_segment(store.load_entries())"
+}

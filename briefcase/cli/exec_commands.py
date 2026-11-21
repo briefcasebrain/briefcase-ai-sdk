@@ -203,6 +203,10 @@ def _add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.set_defaults(func=cmd_exec)
 
 
+# Where `briefcase --help` lists this command (see briefcase/cli/_discovery.py).
+GROUP = "connect"
+
+
 def register(subparsers) -> argparse.ArgumentParser:
     """Add the ``exec`` subcommand to the ``briefcase`` CLI's subparsers
     (the object returned by ``parser.add_subparsers(...)``)."""

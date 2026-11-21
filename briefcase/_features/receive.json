@@ -1,0 +1,12 @@
+{
+  "id": "receive",
+  "title": "Local receiver",
+  "verb": "connect",
+  "one_line": "Turn what your coding tools send into decision records on your own machine.",
+  "command": "briefcase receive --detach",
+  "docs_slug": "connect/receive",
+  "status": "experimental",
+  "requires_extra": "receiver",
+  "verified_against": "Real HTTP server exercised over loopback in tests, with synthetic OTLP payloads built from the tools' documented event names. No capture from a real tool session was replayed.",
+  "docs_path": "docs/integrations/README.md#the-receiver"
+}

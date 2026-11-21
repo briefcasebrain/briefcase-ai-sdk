@@ -1,0 +1,13 @@
+{
+  "id": "cost",
+  "title": "Cost estimates",
+  "verb": "review",
+  "one_line": "Estimate what a model call costs and check it against a budget.",
+  "command": "briefcase features cost",
+  "docs_slug": "review/cost",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Rust core and native binding tests run the real calculator against its bundled price table; the facade tests use a mock core. Prices are a snapshot, not fetched live.",
+  "docs_path": "llms-full.txt",
+  "snippet": "from briefcase.cost import CostCalculator\n\nc = CostCalculator()\nest = c.estimate_cost(\"gpt-4\", input_tokens=1000, output_tokens=500)\nprint(est.total_cost)"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "data-versioning",
+  "title": "Data versioning (lakeFS and others)",
+  "verb": "verify",
+  "one_line": "Pin each decision to the exact data commit it read.",
+  "command": "briefcase features data-versioning",
+  "docs_slug": "verify/data-versioning",
+  "status": "experimental",
+  "requires_extra": "lakefs",
+  "verified_against": "lakeFS client, branches and lineage tested with mocked clients; DVC, Pachyderm, Iceberg, Nessie and the other VCS adapters likewise. No live lakeFS server was used.",
+  "docs_path": "examples/lakefs_versioning"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "controls-gateway",
+  "title": "Budget and quota gateway",
+  "verb": "enforce",
+  "one_line": "Cap spend and request rates per tenant before a model call goes out.",
+  "command": "briefcase features controls-gateway",
+  "docs_slug": "enforce/controls-gateway",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Pure-Python gateway, quota store and retry logic tested in-process with injected fakes for every port. No real provider throttling or shared quota store was exercised.",
+  "docs_path": "llms-full.txt",
+  "snippet": "import asyncio\nfrom briefcase.controls import FixedWindowQuotaStore, Gateway, GatewayConfig\n\ngw = Gateway(GatewayConfig(\n    quota_store=FixedWindowQuotaStore(),\n    buckets={\"chat\": {\"limit\": 5, \"window_s\": 60.0}},\n))\noutcome = asyncio.run(gw.invoke(tenant_id=\"t1\", bucket=\"chat\", fn=lambda: \"hi\"))\nprint(outcome.ok, outcome.reason)"
+}

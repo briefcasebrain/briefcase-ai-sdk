@@ -12,6 +12,8 @@ import sys
 
 from briefcase.cli.stack import compose_path, load_compat
 
+GROUP = "evaluate"
+
 
 class Stack:
     """Thin wrapper over ``docker compose -f <bundled compose>`` with an injected runner."""
@@ -97,3 +99,24 @@ def cmd_stack_status(args, store, engine, stack=None) -> int:
 def cmd_stack_logs(args, store, engine, stack=None) -> int:
     stack = stack or Stack()
     return _rc(stack.logs(service=getattr(args, "service", None), follow=getattr(args, "follow", False)))
+
+
+def register(sub) -> None:
+    # Bring up the bundled, pinned engine images (no oci-jj checkout, no Rust).
+    st = sub.add_parser("stack", help="Manage the bundled engine stack (docker compose).").add_subparsers(
+        dest="sub"
+    )
+    st_up = st.add_parser("up", help="Pull and start the pinned engine images.")
+    st_up.add_argument(
+        "--no-scorer", action="store_true",
+        help="Skip the private verdict-worker (runs enqueue but are not scored).",
+    )
+    st_up.set_defaults(func=cmd_stack_up)
+    st_down = st.add_parser("down", help="Stop the stack.")
+    st_down.add_argument("--volumes", action="store_true", help="Also remove volumes (destroys data).")
+    st_down.set_defaults(func=cmd_stack_down)
+    st.add_parser("status", help="Show stack status.").set_defaults(func=cmd_stack_status)
+    st_logs = st.add_parser("logs", help="Tail stack logs.")
+    st_logs.add_argument("service", nargs="?", help="Service name (default: all services).")
+    st_logs.add_argument("-f", "--follow", action="store_true", help="Stream logs.")
+    st_logs.set_defaults(func=cmd_stack_logs)
