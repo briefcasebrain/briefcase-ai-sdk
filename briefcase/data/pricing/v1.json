@@ -1,0 +1,731 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-21",
+  "notice": "UNVERIFIED. These prices were copied mechanically from the hardcoded table in crates/briefcase-core/src/cost.rs. Nobody has checked them against provider price pages, so source_url, effective_from and verified_on are null on every model. Treat them as estimates; set a verified price with `briefcase pricing set MODEL ... --source-url URL`.",
+  "units": "USD per 1,000 tokens (input_cost_per_1k_tokens, output_cost_per_1k_tokens); rate_card_extras fields named *_per_mtok are USD per 1,000,000 tokens",
+  "models": [
+    {
+      "model_name": "gpt-4",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.03,
+      "output_cost_per_1k_tokens": 0.06,
+      "context_window": 8192,
+      "max_output_tokens": 4096,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gpt-4-turbo",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.01,
+      "output_cost_per_1k_tokens": 0.03,
+      "context_window": 128000,
+      "max_output_tokens": 4096,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gpt-3.5-turbo",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.0005,
+      "output_cost_per_1k_tokens": 0.0015,
+      "context_window": 16385,
+      "max_output_tokens": 4096,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gpt-4o",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.005,
+      "output_cost_per_1k_tokens": 0.015,
+      "context_window": 128000,
+      "max_output_tokens": 16384,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gpt-4o-mini",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.00015,
+      "output_cost_per_1k_tokens": 0.0006,
+      "context_window": 128000,
+      "max_output_tokens": 16384,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-3-opus",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.015,
+      "output_cost_per_1k_tokens": 0.075,
+      "context_window": 200000,
+      "max_output_tokens": 4096,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-3-sonnet",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.003,
+      "output_cost_per_1k_tokens": 0.015,
+      "context_window": 200000,
+      "max_output_tokens": 4096,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-3-haiku",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.00025,
+      "output_cost_per_1k_tokens": 0.00125,
+      "context_window": 200000,
+      "max_output_tokens": 4096,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-3-5-sonnet",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.003,
+      "output_cost_per_1k_tokens": 0.015,
+      "context_window": 200000,
+      "max_output_tokens": 8192,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gemini-pro",
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.0005,
+      "output_cost_per_1k_tokens": 0.0015,
+      "context_window": 30720,
+      "max_output_tokens": 2048,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gemini-ultra",
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.0125,
+      "output_cost_per_1k_tokens": 0.0375,
+      "context_window": 30720,
+      "max_output_tokens": 2048,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-opus-4-8",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.005,
+      "output_cost_per_1k_tokens": 0.025,
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.5,
+          "write_5m_per_mtok": 6.25,
+          "write_1h_per_mtok": 10.0
+        },
+        "fast_mode_rates": {
+          "input_per_mtok": 10.0,
+          "output_per_mtok": 50.0
+        },
+        "flags": {
+          "supports_data_residency": true,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-opus-4-7",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.005,
+      "output_cost_per_1k_tokens": 0.025,
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.5,
+          "write_5m_per_mtok": 6.25,
+          "write_1h_per_mtok": 10.0
+        },
+        "fast_mode_rates": {
+          "input_per_mtok": 30.0,
+          "output_per_mtok": 150.0
+        },
+        "flags": {
+          "supports_data_residency": true,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-opus-4-6",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.005,
+      "output_cost_per_1k_tokens": 0.025,
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.5,
+          "write_5m_per_mtok": 6.25,
+          "write_1h_per_mtok": 10.0
+        },
+        "fast_mode_rates": {
+          "input_per_mtok": 30.0,
+          "output_per_mtok": 150.0
+        },
+        "flags": {
+          "supports_data_residency": true,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-opus-4-5",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.005,
+      "output_cost_per_1k_tokens": 0.025,
+      "context_window": 200000,
+      "max_output_tokens": 64000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.5,
+          "write_5m_per_mtok": 6.25,
+          "write_1h_per_mtok": 10.0
+        },
+        "flags": {
+          "supports_data_residency": false,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-opus-4-1",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.015,
+      "output_cost_per_1k_tokens": 0.075,
+      "context_window": 200000,
+      "max_output_tokens": 32000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 1.5,
+          "write_5m_per_mtok": 18.75,
+          "write_1h_per_mtok": 30.0
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-sonnet-4-6",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.003,
+      "output_cost_per_1k_tokens": 0.015,
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.3,
+          "write_5m_per_mtok": 3.75,
+          "write_1h_per_mtok": 6.0
+        },
+        "flags": {
+          "supports_data_residency": true,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-sonnet-4-5",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.003,
+      "output_cost_per_1k_tokens": 0.015,
+      "context_window": 200000,
+      "max_output_tokens": 64000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.3,
+          "write_5m_per_mtok": 3.75,
+          "write_1h_per_mtok": 6.0
+        },
+        "flags": {
+          "supports_data_residency": false,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-haiku-4-5",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.001,
+      "output_cost_per_1k_tokens": 0.005,
+      "context_window": 200000,
+      "max_output_tokens": 64000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.1,
+          "write_5m_per_mtok": 1.25,
+          "write_1h_per_mtok": 2.0
+        },
+        "flags": {
+          "supports_data_residency": false,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "claude-haiku-3-5",
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.0008,
+      "output_cost_per_1k_tokens": 0.004,
+      "context_window": 200000,
+      "max_output_tokens": 8192,
+      "aliases": [
+        "claude-3-5-haiku"
+      ],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.08,
+          "write_5m_per_mtok": 1.0,
+          "write_1h_per_mtok": 1.6
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gpt-5.5",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.005,
+      "output_cost_per_1k_tokens": 0.03,
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.5,
+          "write_5m_per_mtok": null,
+          "write_1h_per_mtok": null
+        },
+        "priority_multiplier": 2.5,
+        "flags": {
+          "supports_data_residency": false,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gpt-5.5-pro",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.03,
+      "output_cost_per_1k_tokens": 0.18,
+      "context_window": 400000,
+      "max_output_tokens": 128000,
+      "aliases": [],
+      "rate_card_extras": {
+        "flags": {
+          "supports_data_residency": false,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gpt-5.4",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.0025,
+      "output_cost_per_1k_tokens": 0.015,
+      "context_window": 400000,
+      "max_output_tokens": 128000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.25,
+          "write_5m_per_mtok": null,
+          "write_1h_per_mtok": null
+        },
+        "flags": {
+          "supports_data_residency": false,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gpt-5.4-mini",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.00075,
+      "output_cost_per_1k_tokens": 0.0045,
+      "context_window": 400000,
+      "max_output_tokens": 128000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.075,
+          "write_5m_per_mtok": null,
+          "write_1h_per_mtok": null
+        },
+        "flags": {
+          "supports_data_residency": false,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gpt-5.4-nano",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.0002,
+      "output_cost_per_1k_tokens": 0.00125,
+      "context_window": 400000,
+      "max_output_tokens": 128000,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.02,
+          "write_5m_per_mtok": null,
+          "write_1h_per_mtok": null
+        },
+        "flags": {
+          "supports_data_residency": false,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gpt-5.4-pro",
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.03,
+      "output_cost_per_1k_tokens": 0.18,
+      "context_window": 400000,
+      "max_output_tokens": 128000,
+      "aliases": [],
+      "rate_card_extras": {
+        "flags": {
+          "supports_data_residency": false,
+          "supports_regional_premium": true
+        }
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gemini-3.5-flash",
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.0015,
+      "output_cost_per_1k_tokens": 0.009,
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.15,
+          "write_5m_per_mtok": null,
+          "write_1h_per_mtok": null
+        },
+        "priority_multiplier": 1.8,
+        "cache_storage_per_mtok_hour": 1.0
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gemini-3.1-pro",
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.002,
+      "output_cost_per_1k_tokens": 0.012,
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "aliases": [],
+      "rate_card_extras": {
+        "long_context_tiers": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_mtok": 4.0,
+            "output_per_mtok": 18.0
+          }
+        ]
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gemini-3.1-flash-lite",
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.00025,
+      "output_cost_per_1k_tokens": 0.0015,
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gemini-3-flash",
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.0005,
+      "output_cost_per_1k_tokens": 0.003,
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gemini-2.5-pro",
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.00125,
+      "output_cost_per_1k_tokens": 0.01,
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "aliases": [],
+      "rate_card_extras": {
+        "cache_rates": {
+          "read_per_mtok": 0.125,
+          "write_5m_per_mtok": null,
+          "write_1h_per_mtok": null
+        },
+        "long_context_tiers": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_mtok": 2.5,
+            "output_per_mtok": 15.0
+          }
+        ],
+        "cache_storage_per_mtok_hour": 4.5
+      },
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gemini-2.5-flash",
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.0003,
+      "output_cost_per_1k_tokens": 0.0025,
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "gemini-2.5-flash-lite",
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.0001,
+      "output_cost_per_1k_tokens": 0.0004,
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "nova-premier",
+      "provider": "amazon",
+      "input_cost_per_1k_tokens": 0.0025,
+      "output_cost_per_1k_tokens": 0.0125,
+      "context_window": 1000000,
+      "max_output_tokens": 10000,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "nova-pro",
+      "provider": "amazon",
+      "input_cost_per_1k_tokens": 0.0008,
+      "output_cost_per_1k_tokens": 0.0032,
+      "context_window": 300000,
+      "max_output_tokens": 5120,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "nova-lite",
+      "provider": "amazon",
+      "input_cost_per_1k_tokens": 5.9999999999999995e-05,
+      "output_cost_per_1k_tokens": 0.00023999999999999998,
+      "context_window": 300000,
+      "max_output_tokens": 5120,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "nova-micro",
+      "provider": "amazon",
+      "input_cost_per_1k_tokens": 3.5000000000000004e-05,
+      "output_cost_per_1k_tokens": 0.00014000000000000001,
+      "context_window": 128000,
+      "max_output_tokens": 5120,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "titan-embed-text",
+      "provider": "amazon",
+      "input_cost_per_1k_tokens": 0.0001,
+      "output_cost_per_1k_tokens": 0.0,
+      "context_window": 8192,
+      "max_output_tokens": null,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    },
+    {
+      "model_name": "cohere-embed",
+      "provider": "cohere",
+      "input_cost_per_1k_tokens": 0.0001,
+      "output_cost_per_1k_tokens": 0.0,
+      "context_window": 8192,
+      "max_output_tokens": null,
+      "aliases": [],
+      "rate_card_extras": null,
+      "source_url": null,
+      "effective_from": null,
+      "verified_on": null,
+      "origin": "builtin-table@feb8c62104c0"
+    }
+  ]
+}
