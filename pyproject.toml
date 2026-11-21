@@ -215,6 +215,9 @@ python-source = "."
 # importlib.resources; maturin only ships non-.py files that are listed here, so they MUST be
 # enumerated explicitly (a missing entry silently drops them from the wheel — see check_imports.py).
 include = [
+    "briefcase/connect/conformance.json",
+    "briefcase/connect/conformance-report.json",
+    "briefcase/_features/*.json",
     "briefcase/data/pricing/v1.json",
     "briefcase/data/pricing/unpriced.json",
     "LICENSE",
