@@ -101,7 +101,10 @@ class _CallableAutoModule(_types.ModuleType):
 _auto_module.__class__ = _CallableAutoModule
 auto = _sys.modules["briefcase.auto"]
 
+from briefcase.prompts import prompt  # noqa: E402
+
 __all__ = [
+    "prompt",
     "DecisionSnapshot",
     "ExecutionContext",
     "HardwareMetadata",
