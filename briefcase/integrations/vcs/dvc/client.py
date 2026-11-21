@@ -1,16 +1,20 @@
 """DVC client for data versioning and artifact tracking.
 
-Requires ``dvc`` for live mode: ``pip install briefcase-ai[vcs-dvc]`` or
-``pip install dvc``. The import is lazy; without it the client runs in
-mock mode (reads return placeholder bytes, writes and versions are
-recorded in metadata only).
+Requires ``dvc``: ``pip install briefcase-ai[vcs-dvc]`` or
+``pip install dvc``. Without it the constructor raises ``ImportError``.
+``mock=True`` opts into an offline stub (placeholder reads and version
+ids, tagged ``"mock": True`` in every metadata dict).
 """
 
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Sequence
 import os
 
 from briefcase._logging import get_logger
-from briefcase.integrations.vcs.base import VcsClientBase
+from briefcase.integrations.vcs.base import (
+    DEFAULT_COMMAND_TIMEOUT,
+    VcsClientBase,
+    git_commit_version,
+)
 
 logger = get_logger(__name__)
 
@@ -50,6 +54,10 @@ class DvcClient(VcsClientBase):
         briefcase_client=None,
         repo_path: Optional[str] = None,
         remote: Optional[str] = None,
+        mock: bool = False,
+        track_paths: Optional[Sequence[str]] = None,
+        add_all: bool = False,
+        command_timeout: float = DEFAULT_COMMAND_TIMEOUT,
         **extra
     ):
         """
@@ -61,6 +69,13 @@ class DvcClient(VcsClientBase):
             briefcase_client: Optional BriefcaseClient for instrumentation
             repo_path: Path to DVC repository root
             remote: DVC remote name or URL
+            mock: Opt into the offline stub (placeholder reads and version ids).
+            track_paths: Extra paths (relative to ``repo_path``) that
+                ``create_version`` commits besides those written through
+                ``write_object``.
+            add_all: Commit the whole working tree (``git add -A``) instead
+                of only the tracked paths.
+            command_timeout: Timeout in seconds for each git command.
             **extra: Additional DVC configuration options
         """
         super().__init__(
@@ -69,25 +84,35 @@ class DvcClient(VcsClientBase):
             branch=branch,
             briefcase_client=briefcase_client,
             endpoint=remote,
+            mock=mock,
             **extra
         )
 
         self.repo_path = repo_path or os.getenv("DVC_REPO_PATH", ".")
         self.remote = remote or os.getenv("DVC_REMOTE")
 
-        # The DVC repository handle validates repo_path; without it the
-        # client stays in mock mode.
+        self.add_all = add_all
+        self.command_timeout = command_timeout
+        self._track_paths: List[str] = list(track_paths or [])
+        self._pending_paths: List[str] = list(self._track_paths)
+
+        if self.mock:
+            return
         try:
             import dvc.repo
-            self._provider_client = dvc.repo.Repo(self.repo_path)
-            self._has_provider = True
-        except Exception as e:
-            logger.warning(f"DVC not available: {e}. Using mock mode. {_DVC_INSTALL_HINT}")
-            self._has_provider = False
+        except ImportError as e:
+            raise ImportError(
+                f"DvcClient requires dvc. {_DVC_INSTALL_HINT} "
+                "Pass mock=True for an offline stub."
+            ) from e
+        # The DVC repository handle validates repo_path; a path that is not
+        # a DVC repository raises here.
+        self._provider_client = dvc.repo.Repo(self.repo_path)
+        self._has_provider = True
 
     def _read_object_impl(self, path: str) -> bytes:
         """Read a DVC-tracked file from the working tree."""
-        if not self._has_provider:
+        if self.mock:
             return b"Mock DVC content: " + path.encode()
 
         try:
@@ -104,7 +129,7 @@ class DvcClient(VcsClientBase):
         content_type: str
     ) -> None:
         """Write a DVC-tracked file into the working tree."""
-        if not self._has_provider:
+        if self.mock:
             logger.info(f"Mock DVC: Would write {len(data)} bytes to {path}")
             return
 
@@ -113,6 +138,8 @@ class DvcClient(VcsClientBase):
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
             with open(full_path, "wb") as f:
                 f.write(data)
+            if path not in self._pending_paths:
+                self._pending_paths.append(path)
             logger.info(f"Wrote {len(data)} bytes to {path}")
         except Exception as e:
             logger.error(f"Failed to write DVC object: {e}")
@@ -123,33 +150,33 @@ class DvcClient(VcsClientBase):
         message: str,
         metadata: Optional[Dict[str, str]]
     ) -> str:
-        """Create a DVC version via Git commit; returns the commit SHA."""
-        if not self._has_provider:
+        """Create a DVC version via Git commit; returns the commit SHA.
+
+        Commits the paths written through ``write_object`` plus
+        ``track_paths`` (or the whole tree with ``add_all=True``). Raises
+        ``NothingToCommitError`` when there is no change to commit.
+        """
+        if self.mock:
             return f"dvc-{self.branch}-mock-version"
 
         try:
-            import subprocess
-            subprocess.run(
-                ["git", "add", "-A"],
-                cwd=self.repo_path,
-                check=True,
-                capture_output=True
+            sha = git_commit_version(
+                self.repo_path,
+                message,
+                paths=None if self.add_all else self._commit_paths(),
+                timeout=self.command_timeout,
             )
-            subprocess.run(
-                ["git", "commit", "-m", message],
-                cwd=self.repo_path,
-                capture_output=True,
-                text=True
-            )
-
-            sha_result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=self.repo_path,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return sha_result.stdout.strip()
         except Exception as e:
             logger.error(f"Failed to create DVC version: {e}")
             raise
+        self._pending_paths = [p for p in self._pending_paths if p in self._track_paths]
+        return sha
+
+    def _commit_paths(self) -> List[str]:
+        if not self._pending_paths:
+            raise ValueError(
+                "DvcClient.create_version: no paths to commit. Write through "
+                "write_object, pass track_paths=[...], or pass add_all=True to "
+                "commit the whole working tree."
+            )
+        return list(self._pending_paths)

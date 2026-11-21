@@ -1,9 +1,11 @@
 """ArtiVC client for Git-like artifact versioning.
 
 Stdlib only: ArtiVC ships as a command-line tool with no Python SDK, so
-this client captures endpoint, branch and version provenance and runs in
-mock mode. Wiring a live backend means subclassing and overriding
+this client captures endpoint and branch configuration only. The object
+operations raise ``NotImplementedError`` until a subclass overrides
 ``_read_object_impl``, ``_write_object_impl`` and ``_create_version_impl``.
+``mock=True`` opts into an offline stub that returns placeholder bytes and
+version ids, tagged ``"mock": True`` in every metadata dict.
 """
 
 from typing import Optional, Dict
@@ -45,6 +47,7 @@ class ArtiVCClient(VcsClientBase):
         briefcase_client=None,
         endpoint: Optional[str] = None,
         token: Optional[str] = None,
+        mock: bool = False,
         **extra
     ):
         """
@@ -56,6 +59,7 @@ class ArtiVCClient(VcsClientBase):
             briefcase_client: Optional BriefcaseClient for instrumentation
             endpoint: ArtiVC server endpoint
             token: Authentication token
+            mock: Opt into the offline stub (placeholder reads and version ids).
             **extra: Additional ArtiVC configuration
         """
         resolved_endpoint = (
@@ -71,24 +75,20 @@ class ArtiVCClient(VcsClientBase):
             briefcase_client=briefcase_client,
             endpoint=resolved_endpoint,
             token=token,
+            mock=mock,
             **extra
         )
 
-        # ArtiVC has no Python SDK; the client runs in mock mode until a
-        # subclass wires a live backend.
+        # ArtiVC has no Python SDK: without mock=True every operation raises
+        # NotImplementedError until a subclass wires a live backend.
         self._provider_client = None
         self._has_provider = False
 
     def _read_object_impl(self, path: str) -> bytes:
-        """Read an artifact from the ArtiVC repository."""
-        if not self._has_provider:
+        """Read an object. Placeholder bytes only with ``mock=True``."""
+        if self.mock:
             return b"Mock ArtiVC artifact: " + path.encode()
-
-        try:
-            return f"ArtiVC artifact: {path}".encode()
-        except Exception as e:
-            logger.error(f"Failed to read ArtiVC object: {e}")
-            raise
+        raise self._not_implemented("read_object")
 
     def _write_object_impl(
         self,
@@ -96,28 +96,18 @@ class ArtiVCClient(VcsClientBase):
         data: bytes,
         content_type: str
     ) -> None:
-        """Write an artifact into the ArtiVC repository."""
-        if not self._has_provider:
+        """Write an object. A no-op only with ``mock=True``."""
+        if self.mock:
             logger.info(f"Mock ArtiVC: Would push {len(data)} bytes to {path}")
             return
-
-        try:
-            logger.info(f"ArtiVC: Uploaded {len(data)} bytes to {path}")
-        except Exception as e:
-            logger.error(f"Failed to write ArtiVC object: {e}")
-            raise
+        raise self._not_implemented("write_object")
 
     def _create_version_impl(
         self,
         message: str,
         metadata: Optional[Dict[str, str]]
     ) -> str:
-        """Create an ArtiVC version (tag/commit)."""
-        if not self._has_provider:
+        """Create a version. A placeholder id only with ``mock=True``."""
+        if self.mock:
             return f"artivc-{self.branch}-v1"
-
-        try:
-            return f"artivc-{len(message)}"
-        except Exception as e:
-            logger.error(f"Failed to create ArtiVC version: {e}")
-            raise
+        raise self._not_implemented("create_version")

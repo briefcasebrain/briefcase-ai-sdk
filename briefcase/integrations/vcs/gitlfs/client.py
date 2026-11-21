@@ -2,17 +2,21 @@
 
 Stdlib only: the client shells out to the ``git`` and ``git lfs``
 command-line tools; no pip extra is needed. Without a Git LFS
-installation and an LFS-configured repository it runs in mock mode
-(reads return placeholder bytes, writes and versions are recorded in
-metadata only).
+installation and an LFS-configured repository every operation raises
+``RuntimeError``. ``mock=True`` opts into an offline stub (placeholder
+reads and version ids, tagged ``"mock": True`` in every metadata dict).
 """
 
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Sequence
 import os
 import subprocess
 
 from briefcase._logging import get_logger
-from briefcase.integrations.vcs.base import VcsClientBase
+from briefcase.integrations.vcs.base import (
+    DEFAULT_COMMAND_TIMEOUT,
+    VcsClientBase,
+    git_commit_version,
+)
 
 logger = get_logger(__name__)
 
@@ -47,6 +51,10 @@ class GitLFSClient(VcsClientBase):
         briefcase_client=None,
         endpoint: Optional[str] = None,
         repo_path: Optional[str] = None,
+        mock: bool = False,
+        track_paths: Optional[Sequence[str]] = None,
+        add_all: bool = False,
+        command_timeout: float = DEFAULT_COMMAND_TIMEOUT,
         **extra
     ):
         """
@@ -58,6 +66,13 @@ class GitLFSClient(VcsClientBase):
             briefcase_client: Optional BriefcaseClient for instrumentation
             endpoint: Git LFS server endpoint
             repo_path: Local repository path
+            mock: Opt into the offline stub (placeholder reads and version ids).
+            track_paths: Extra paths (relative to ``repo_path``) that
+                ``create_version`` commits besides those written through
+                ``write_object``.
+            add_all: Commit the whole working tree (``git add -A``) instead
+                of only the tracked paths.
+            command_timeout: Timeout in seconds for each git command.
             **extra: Additional Git LFS configuration
         """
         resolved_endpoint = (
@@ -72,11 +87,24 @@ class GitLFSClient(VcsClientBase):
             branch=branch,
             briefcase_client=briefcase_client,
             endpoint=resolved_endpoint,
+            mock=mock,
             **extra
         )
 
         self.repo_path = repo_path or "."
-        self._has_provider = self._detect_provider()
+        self.add_all = add_all
+        self.command_timeout = command_timeout
+        self._track_paths: List[str] = list(track_paths or [])
+        self._pending_paths: List[str] = list(self._track_paths)
+        self._has_provider = False if self.mock else self._detect_provider()
+
+    def _require_provider(self, operation: str) -> None:
+        if not self._has_provider:
+            raise RuntimeError(
+                f"GitLFSClient.{operation}: Git LFS is not installed or "
+                f"{self.repo_path!r} has no 'filter=lfs' entry in "
+                ".gitattributes. Pass mock=True for an offline stub."
+            )
 
     def _detect_provider(self) -> bool:
         """Detect whether Git LFS is installed and configured for this repo path."""
@@ -84,7 +112,8 @@ class GitLFSClient(VcsClientBase):
             result = subprocess.run(
                 ["git", "lfs", "version"],
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=self.command_timeout,
             )
             if result.returncode != 0:
                 return False
@@ -98,7 +127,7 @@ class GitLFSClient(VcsClientBase):
                 return "filter=lfs" in attributes_file.read()
         except FileNotFoundError:
             logger.debug(
-                "Git LFS not configured in %s (.gitattributes missing). Using mock mode.",
+                "Git LFS not configured in %s (.gitattributes missing).",
                 self.repo_path,
             )
             return False
@@ -108,8 +137,9 @@ class GitLFSClient(VcsClientBase):
 
     def _read_object_impl(self, path: str) -> bytes:
         """Read a large file from the Git LFS repository."""
-        if not self._has_provider:
+        if self.mock:
             return b"Mock Git LFS file: " + path.encode()
+        self._require_provider("read_object")
 
         try:
             full_path = f"{self.repo_path}/{path}"
@@ -125,15 +155,18 @@ class GitLFSClient(VcsClientBase):
         content_type: str
     ) -> None:
         """Write a large file into the Git LFS repository."""
-        if not self._has_provider:
+        if self.mock:
             logger.info(f"Mock Git LFS: Would track {len(data)} bytes at {path}")
             return
+        self._require_provider("write_object")
 
         try:
             full_path = f"{self.repo_path}/{path}"
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
             with open(full_path, "wb") as f:
                 f.write(data)
+            if path not in self._pending_paths:
+                self._pending_paths.append(path)
             logger.info(f"Git LFS: Wrote {len(data)} bytes to {path}")
         except Exception as e:
             logger.error(f"Failed to write Git LFS object: {e}")
@@ -144,31 +177,34 @@ class GitLFSClient(VcsClientBase):
         message: str,
         metadata: Optional[Dict[str, str]]
     ) -> str:
-        """Create a Git LFS version via Git commit; returns the commit SHA."""
-        if not self._has_provider:
+        """Create a Git LFS version via Git commit; returns the commit SHA.
+
+        Commits the paths written through ``write_object`` plus
+        ``track_paths`` (or the whole tree with ``add_all=True``). Raises
+        ``NothingToCommitError`` when there is no change to commit.
+        """
+        if self.mock:
             return f"gitlfs-{self.branch}-mock-commit"
+        self._require_provider("create_version")
 
         try:
-            subprocess.run(
-                ["git", "add", "-A"],
-                cwd=self.repo_path,
-                check=True,
-                capture_output=True
+            sha = git_commit_version(
+                self.repo_path,
+                message,
+                paths=None if self.add_all else self._commit_paths(),
+                timeout=self.command_timeout,
             )
-            subprocess.run(
-                ["git", "commit", "-m", message],
-                cwd=self.repo_path,
-                capture_output=True
-            )
-
-            sha_result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=self.repo_path,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return sha_result.stdout.strip()
         except Exception as e:
             logger.error(f"Failed to create Git LFS version: {e}")
             raise
+        self._pending_paths = [p for p in self._pending_paths if p in self._track_paths]
+        return sha
+
+    def _commit_paths(self) -> List[str]:
+        if not self._pending_paths:
+            raise ValueError(
+                "GitLFSClient.create_version: no paths to commit. Write through "
+                "write_object, pass track_paths=[...], or pass add_all=True to "
+                "commit the whole working tree."
+            )
+        return list(self._pending_paths)

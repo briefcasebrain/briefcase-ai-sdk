@@ -12,8 +12,11 @@ providers, all implementing :class:`VcsClientBase`:
 - Iceberg (Apache Iceberg table format)
 - Git LFS (Git Large File Storage)
 
-Provider SDKs import lazily inside each client; a provider whose SDK is
-absent runs in mock mode rather than failing at import time.
+Provider SDKs import lazily inside each client, so importing this package
+never needs one. Constructing a client whose SDK is absent raises
+``ImportError`` naming the pip extra, and an operation with no live
+implementation raises ``NotImplementedError``. Placeholder data and version
+ids are returned only by a client built with ``mock=True``.
 
 Usage:
     from briefcase.integrations.vcs import DvcClient, NessieClient

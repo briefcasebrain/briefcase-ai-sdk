@@ -19,9 +19,17 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from briefcase._export_mixin import ExportMixin
+from briefcase._logging import get_logger
+from briefcase.integrations.frameworks._capture_state import (
+    DEFAULT_MAX_RECORDS,
+    CaptureOptions,
+    bounded_records,
+)
+
+logger = get_logger(__name__)
 
 _INSTALL_HINT = (
     "autogen-agentchat is required for AutoGenEventHandler. "
@@ -47,6 +55,7 @@ def install(
     context_version: Optional[str] = None,
     async_capture: bool = True,
     exporter: Any = None,
+    **handler_kwargs: Any,
 ) -> "AutoGenEventHandler":
     """Install AutoGenEventHandler globally into AutoGen's logging layer.
 
@@ -57,6 +66,8 @@ def install(
         context_version: Optional version tag added to all decision records.
         async_capture: If True (default), export is fire-and-forget.
         exporter: Briefcase exporter instance; falls back to the global config.
+        **handler_kwargs: Further AutoGenEventHandler options
+            (``capture_content``, ``redact``, ``max_records``, ...).
 
     Returns:
         The installed AutoGenEventHandler instance.
@@ -76,6 +87,7 @@ def install(
         context_version=context_version,
         async_capture=async_capture,
         exporter=exporter,
+        **handler_kwargs,
     )
     handler.attach()
     _INSTALLED_HANDLER = handler
@@ -117,6 +129,9 @@ class AutoGenEventHandler(ExportMixin, logging.Handler):
         max_input_chars: int = 10000,
         max_output_chars: int = 10000,
         exporter: Any = None,
+        capture_content: str = "full",
+        redact: Optional[Callable[[str], str]] = None,
+        max_records: Optional[int] = DEFAULT_MAX_RECORDS,
     ):
         if not _AUTOGEN_AVAILABLE:
             raise ImportError(_INSTALL_HINT)
@@ -130,7 +145,11 @@ class AutoGenEventHandler(ExportMixin, logging.Handler):
         self.max_output_chars = max_output_chars
         self._exporter = exporter
 
-        self._records: List[Dict[str, Any]] = []
+        self._capture_options = CaptureOptions(capture_content, redact)
+        self.max_records = max_records
+        # Completed records: a ring buffer that applies the capture options
+        # to each record as it is appended.
+        self._records = bounded_records(max_records, self._capture_options)
         self._attached_loggers: List[str] = []
 
     # logging.Handler interface
@@ -151,8 +170,8 @@ class AutoGenEventHandler(ExportMixin, logging.Handler):
             briefcase_record = self._build_record(event_data, logger_name)
             self._records.append(briefcase_record)
             self._trigger_export(briefcase_record)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("emit: ignored error: %s", exc)
 
     # Public API
 

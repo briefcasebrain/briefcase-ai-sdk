@@ -342,6 +342,20 @@ class TestFromEnv:
         client = StagedArtifactClient.from_env(repository="test-repo")
         assert client.mode == "oss"
 
+    def test_from_env_without_credentials_raises_unless_mock(self, monkeypatch):
+        """No silent mock: outside simulate mode a missing client is an error."""
+        monkeypatch.delenv("LAKEFS_MODE", raising=False)
+        monkeypatch.setitem(sys.modules, "lakefs", MagicMock())
+        with pytest.raises(ValueError, match="LAKEFS_ACCESS_KEY"):
+            StagedArtifactClient.from_env(repository="test-repo")
+
+        monkeypatch.setitem(sys.modules, "lakefs", None)
+        with pytest.raises(ImportError, match=r"briefcase-ai\[lakefs\]"):
+            StagedArtifactClient.from_env(repository="test-repo")
+
+        client = StagedArtifactClient.from_env(repository="test-repo", mock=True)
+        assert client._branch_manager.mock is True
+
 
 # ---------------------------------------------------------------------------
 # StagedCommitResult contract

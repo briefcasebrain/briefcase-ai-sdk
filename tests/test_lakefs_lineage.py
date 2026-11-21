@@ -355,3 +355,30 @@ def test_state_file_load_save_extract_and_split_helpers(tmp_path: Path):
     # split token helper
     tokens = _split_token_candidates("a,b;c\n[d](e):f")
     assert "a" in tokens and "f" in tokens
+
+
+def test_run_checked_passes_timeout_and_reports_expiry(monkeypatch, tmp_path: Path):
+    """lakectl calls carry a timeout, and a hung call surfaces as an error."""
+    client = ArtifactLineageClient(
+        ArtifactLineageConfig(
+            repository="repo", mode="simulate", local_state_dir=tmp_path, command_timeout=3.0,
+        )
+    )
+    seen = {}
+
+    def run_ok(cmd, **kwargs):
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(cmd, 0, "out", "")
+
+    monkeypatch.setattr(subprocess, "run", run_ok)
+    client._run_checked(["lakectl", "repo", "list"])
+    assert seen["timeout"] == 3.0
+    assert "shell" not in seen
+
+    def run_hang(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", run_hang)
+    with pytest.raises(ArtifactLineageError, match="timed out after 3.0s"):
+        client._run_checked(["lakectl", "repo", "list"])
+    assert ArtifactLineageConfig(repository="r").command_timeout == 120.0

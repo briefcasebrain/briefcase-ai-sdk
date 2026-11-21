@@ -29,9 +29,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from briefcase._export_mixin import ExportMixin
+from briefcase._logging import get_logger
+from briefcase.integrations.frameworks._capture_state import (
+    DEFAULT_MAX_RECORDS,
+    CaptureOptions,
+    bounded_records,
+)
+
+logger = get_logger(__name__)
 
 # Optional dependency guard: used only to build a client from api_key.
 try:
@@ -104,6 +112,9 @@ class PageIndexTracer(ExportMixin):
         client: Optional[Any] = None,
         fetch_tree_metadata: bool = True,
         exporter: Any = None,
+        capture_content: str = "full",
+        redact: Optional[Callable[[str], str]] = None,
+        max_records: Optional[int] = DEFAULT_MAX_RECORDS,
     ) -> None:
         """
         Args:
@@ -128,7 +139,11 @@ class PageIndexTracer(ExportMixin):
         else:
             self._client = None
 
-        self._records: List[Dict[str, Any]] = []
+        self._capture_options = CaptureOptions(capture_content, redact)
+        self.max_records = max_records
+        # Completed records: a ring buffer that applies the capture options
+        # to each record as it is appended.
+        self._records = bounded_records(max_records, self._capture_options)
 
     # Public API
 
@@ -152,9 +167,27 @@ class PageIndexTracer(ExportMixin):
         attach tree metadata. On API error, records an error decision and
         re-raises. Returns the original PageIndex response unchanged.
         """
-        if self._client is None:
+        client = self._client
+        if client is None:
             raise ImportError(_INSTALL_HINT)
+        return self._capture_chat(
+            client, client.chat_completions, messages, doc_id, **kwargs
+        )
 
+    def _capture_chat(
+        self,
+        client: Any,
+        call: Any,
+        messages: List[Dict[str, str]],
+        doc_id: Optional[Union[str, List[str]]] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Run ``call`` for ``client`` and record the decision.
+
+        ``client`` and ``call`` are passed in rather than read from the
+        tracer, so one tracer can serve many clients concurrently (as
+        ``briefcase.auto("pageindex")`` does) without shared mutable state.
+        """
         started_at = datetime.now(timezone.utc)
         decision_id = str(uuid.uuid4())
 
@@ -162,9 +195,7 @@ class PageIndexTracer(ExportMixin):
         primary_doc_id = _normalize_doc_id(doc_id)
 
         try:
-            response = self._client.chat_completions(
-                messages=messages, doc_id=doc_id, **kwargs
-            )
+            response = call(messages=messages, doc_id=doc_id, **kwargs)
         except Exception as exc:
             ended_at = datetime.now(timezone.utc)
             record = self._build_record(
@@ -183,7 +214,7 @@ class PageIndexTracer(ExportMixin):
 
         ended_at = datetime.now(timezone.utc)
 
-        tree_meta = self._fetch_tree_meta(primary_doc_id)
+        tree_meta = self._fetch_tree_meta(primary_doc_id, client)
         record = self._build_record(
             decision_id=decision_id,
             doc_id=primary_doc_id,
@@ -206,12 +237,13 @@ class PageIndexTracer(ExportMixin):
 
     # Internal helpers
 
-    def _fetch_tree_meta(self, doc_id: str) -> Dict[str, Any]:
+    def _fetch_tree_meta(self, doc_id: str, client: Any = None) -> Dict[str, Any]:
         """Call get_tree() and compute tree metadata. Returns {} on any failure."""
-        if not self.fetch_tree_metadata or not doc_id or self._client is None:
+        client = client if client is not None else self._client
+        if not self.fetch_tree_metadata or not doc_id or client is None:
             return {}
         try:
-            tree_response = self._client.get_tree(doc_id)
+            tree_response = client.get_tree(doc_id)
             # Support both {"tree": {...}} and {"data": {...}} response shapes
             tree = tree_response.get("tree") or tree_response.get("data")
             if not isinstance(tree, dict):
@@ -223,7 +255,8 @@ class PageIndexTracer(ExportMixin):
                 "pageindex.tree.path": _build_tree_path(tree),
                 "pageindex.tree.backtrack_count": 0,
             }
-        except Exception:
+        except Exception as exc:
+            logger.debug("PageIndex tree metadata unavailable for %s: %s", doc_id, exc)
             return {}
 
     def _build_record(

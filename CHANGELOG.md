@@ -45,7 +45,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `briefcase` directly.
 - `GatewayConfig.run_sync_in_thread` (default `True`).
 
+- `NessieClient` now talks to a Nessie server over its REST v1 API (read
+  content, staged writes, commit with `expectedHash`).
+- Framework handlers accept `capture_content`, `redact`, `max_records`, and
+  (LangChain, LlamaIndex, CrewAI, OpenAI Agents) `max_inflight` /
+  `inflight_ttl_seconds`. The LangChain handler exports failed chains and
+  standalone LLM/tool/retriever runs, reads `usage_metadata`, and captures
+  streamed tokens.
+
 ### Changed
+- **Breaking:** VCS clients, `BranchManager`, `StagedArtifactClient.from_env`,
+  `VersionedEmbeddingPipeline`, and `InstrumentedRetriever` no longer return
+  placeholder data unless `mock=True`. They raise `ImportError` (missing
+  provider SDK), `NotImplementedError` (DuckLake, Iceberg, Pachyderm, and
+  ArtiVC operations have no real implementation yet), or `ValueError`.
+  Embedding-model errors propagate; zero vectors are never stored.
+- **Breaking:** `VcsClientBase.read_object`, `write_object`, and
+  `create_version` propagate provider errors. DVC and git-LFS
+  `create_version` commit only paths written through the client or passed as
+  `track_paths` (`add_all=True` restores `git add -A`) and raise
+  `NothingToCommitError` instead of returning the previous HEAD.
+- **Breaking:** `SamplingWrapper` denies unsampled requests by default
+  (`skip_effect=Effect.ALLOW` restores the old behaviour), and
+  `GuardrailPipeline` turns a raising stage into a DENY (`on_error="raise"`
+  restores propagation).
+- **Breaking:** `briefcase.auto.auto()` raises `ImportError` for a framework
+  that is not installed.
+- `briefcase.guardrails.framework` is now a package; every public name is
+  re-exported. `VectorGuardrailEnv` evaluates in a thread pool,
+  `AuditWrapper` is a ring buffer with a `dropped` count, and `SyncAdapter`
+  runs off the event loop.
+- External-data snapshot ids are unique (microseconds plus a random suffix),
+  `snapshot_stored` is `False` with `snapshot_error` when the upload fails,
+  and a configured retention policy is enforced after each snapshot.
 - Background export now uses a bounded queue (10,000 records by default,
   `BRIEFCASE_EXPORT_QUEUE_SIZE` or `configure_export(max_queue_size=)`). When
   it is full, new records are dropped, counted, and reported at WARNING

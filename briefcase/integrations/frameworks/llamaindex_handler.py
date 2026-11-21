@@ -2,7 +2,7 @@
 
 Intercepts LLM calls, query engine operations, retriever events, and
 embedding operations and records each as a Briefcase decision record.
-Query completions are exported through the configured exporter.
+Query completions and failures are exported through the configured exporter.
 
 Usage:
     from briefcase.integrations.frameworks import BriefcaseLlamaIndexHandler
@@ -18,12 +18,24 @@ Usage:
 
 from __future__ import annotations
 
+import threading
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Deque, Dict, List, Optional
 
 from briefcase._export_mixin import ExportMixin
+from briefcase._logging import get_logger
+from briefcase.integrations.frameworks._capture_state import (
+    DEFAULT_INFLIGHT_TTL_SECONDS,
+    DEFAULT_MAX_INFLIGHT,
+    DEFAULT_MAX_RECORDS,
+    CaptureOptions,
+    InflightStore,
+    bounded_records,
+)
 from briefcase.integrations.frameworks.langchain_handler import CapturedDecision
+
+logger = get_logger(__name__)
 
 _INSTALL_HINT = (
     "llama-index-core is required for BriefcaseLlamaIndexHandler. "
@@ -64,6 +76,12 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
     - Query and synthesis events (full pipeline tracking)
 
     Uses the on_event_start/on_event_end pairing from LlamaIndex.
+
+    Completed decisions are kept in a ring buffer of ``max_records``. An
+    event whose end never arrives is dropped from the in-flight table after
+    ``inflight_ttl_seconds`` (or when ``max_inflight`` events are open) and
+    recorded with an ``abandoned`` error. ``capture_content`` and ``redact``
+    behave as for ``@briefcase.capture``.
     """
 
     def __init__(
@@ -79,6 +97,11 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
         context_version: Optional[str] = None,
         exporter: Any = None,
         async_capture: bool = True,
+        capture_content: str = "full",
+        redact: Optional[Callable[[str], str]] = None,
+        max_records: Optional[int] = DEFAULT_MAX_RECORDS,
+        max_inflight: Optional[int] = DEFAULT_MAX_INFLIGHT,
+        inflight_ttl_seconds: Optional[float] = DEFAULT_INFLIGHT_TTL_SECONDS,
     ):
         if not _LLAMAINDEX_AVAILABLE:
             raise ImportError(_INSTALL_HINT)
@@ -97,11 +120,19 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
         self.event_starts_to_ignore = event_starts_to_ignore or []
         self.event_ends_to_ignore = event_ends_to_ignore or []
 
-        # Accumulated decisions
-        self._decisions: List[CapturedDecision] = []
+        self._capture_options = CaptureOptions(capture_content, redact)
+        self.max_records = max_records
+        self._lock = threading.RLock()
+
+        # Completed decisions (ring buffer)
+        self._decisions: Deque[CapturedDecision] = bounded_records(max_records)
 
         # In-flight tracking (event_id to partial decision)
-        self._inflight: Dict[str, CapturedDecision] = {}
+        self._inflight = InflightStore(
+            max_size=max_inflight,
+            ttl_seconds=inflight_ttl_seconds,
+            on_evict=self._on_inflight_evicted,
+        )
 
         # Trace map for hierarchical event tracking
         self._trace_map: Dict[str, List[str]] = {}
@@ -110,12 +141,13 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
     # Public API
 
     def get_decisions(self) -> List[CapturedDecision]:
-        """Return all captured decisions."""
-        return list(self._decisions)
+        """Return the captured decisions (the most recent ``max_records``)."""
+        with self._lock:
+            return list(self._decisions)
 
     def get_decisions_as_dicts(self) -> List[Dict[str, Any]]:
         """Return all captured decisions as serializable dicts."""
-        return [d.to_dict() for d in self._decisions]
+        return [d.to_dict() for d in self.get_decisions()]
 
     def clear(self) -> None:
         """Clear all captured decisions and in-flight state."""
@@ -127,6 +159,25 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
     def decision_count(self) -> int:
         """Number of completed decisions captured."""
         return len(self._decisions)
+
+    # Completion funnel
+
+    def _store(self, decision: CapturedDecision, export: bool = False) -> None:
+        """Apply the content options, keep the decision, optionally export it."""
+        options = self._capture_options
+        decision.inputs = options.content(decision.inputs)
+        decision.outputs = options.content(decision.outputs)
+        decision.error = options.error(decision.error)
+        with self._lock:
+            self._decisions.append(decision)
+        if export:
+            self._trigger_export(decision.to_dict())
+
+    def _on_inflight_evicted(self, event_id: Any, decision: Any, reason: str) -> None:
+        """Record an event whose end never arrived as abandoned."""
+        decision.ended_at = datetime.now(timezone.utc)
+        decision.error = f"abandoned: no end event ({reason})"
+        self._store(decision, export=decision.decision_type == "query")
 
     # LlamaIndex callback interface
 
@@ -276,7 +327,7 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
                                         token_count if isinstance(token_count, int) else 0),
             }
 
-        self._decisions.append(decision)
+        self._store(decision)
 
     def _on_embedding_start(
         self, event_id: str, parent_id: str, payload: Dict[str, Any]
@@ -315,7 +366,7 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
             "embedding_count": len(chunks),
             "dimensions": len(chunks[0]) if chunks and isinstance(chunks[0], (list, tuple)) else 0,
         }
-        self._decisions.append(decision)
+        self._store(decision)
 
     def _on_retrieve_start(
         self, event_id: str, parent_id: str, payload: Dict[str, Any]
@@ -368,7 +419,7 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
             "document_count": len(doc_summaries),
             "documents": doc_summaries,
         }
-        self._decisions.append(decision)
+        self._store(decision)
 
     def _on_query_start(
         self, event_id: str, parent_id: str, payload: Dict[str, Any]
@@ -407,8 +458,7 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
         decision.outputs = {
             "response": response_text[:self.max_output_chars],
         }
-        self._decisions.append(decision)
-        self._trigger_export(decision.to_dict())
+        self._store(decision, export=True)
 
     def _on_synthesize_start(
         self, event_id: str, parent_id: str, payload: Dict[str, Any]
@@ -447,7 +497,7 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
         decision.outputs = {
             "response": response_text[:self.max_output_chars],
         }
-        self._decisions.append(decision)
+        self._store(decision)
 
     def _on_exception(
         self, event_id: str, payload: Dict[str, Any]
@@ -467,8 +517,9 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
             if decision.started_at:
                 delta = (decision.ended_at - decision.started_at).total_seconds()
                 decision.execution_time_ms = delta * 1000
-            decision.error = str(error)
-            self._decisions.append(decision)
+            decision.error = str(error) or type(error).__name__
+            # A failed query is exported like a completed one.
+            self._store(decision, export=decision.decision_type == "query")
 
 
 # Helpers

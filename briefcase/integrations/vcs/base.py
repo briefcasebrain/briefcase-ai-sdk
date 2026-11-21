@@ -9,13 +9,65 @@ Provides common functionality for all VCS providers including:
 - OpenTelemetry instrumentation
 """
 
-from typing import Optional, Dict, Any, Tuple, Union
+import subprocess
+from typing import Optional, Dict, Any, List, Sequence, Tuple, Union
 from datetime import datetime
 from briefcase._logging import get_logger
 
 from briefcase._otel import trace, HAS_OTEL
 
 logger = get_logger(__name__)
+
+
+DEFAULT_COMMAND_TIMEOUT = 60.0
+
+
+class NothingToCommitError(RuntimeError):
+    """Raised when a version is requested but there are no changes to commit."""
+
+
+def git_commit_version(
+    repo_path: str,
+    message: str,
+    paths: Optional[Sequence[str]] = None,
+    timeout: float = DEFAULT_COMMAND_TIMEOUT,
+) -> str:
+    """Commit changes in ``repo_path`` and return the new commit SHA.
+
+    Args:
+        repo_path: Working tree to commit in.
+        message: Commit message.
+        paths: Paths (relative to ``repo_path``) to stage and commit. ``None``
+            stages the whole working tree (``git add -A``).
+        timeout: Per-command timeout in seconds.
+
+    Raises:
+        NothingToCommitError: The selected paths have no changes, so no new
+            version exists. The previous HEAD is never returned in its place.
+        subprocess.CalledProcessError: A git command failed.
+        subprocess.TimeoutExpired: A git command exceeded ``timeout``.
+    """
+    scope: List[str] = ["--", *paths] if paths else []
+
+    def run(args: List[str]) -> "subprocess.CompletedProcess[str]":
+        return subprocess.run(
+            ["git", *args],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
+    run(["add", *scope] if paths else ["add", "-A"])
+    status = run(["status", "--porcelain", *scope])
+    if not status.stdout.strip():
+        raise NothingToCommitError(
+            f"Nothing to commit in {repo_path!r}"
+            + (f" for paths {list(paths)!r}" if paths else "")
+        )
+    run(["commit", "-m", message, *scope])
+    return run(["rev-parse", "HEAD"]).stdout.strip()
 
 
 class VcsClientBase:
@@ -51,6 +103,7 @@ class VcsClientBase:
         access_key: Optional[str] = None,
         secret_key: Optional[str] = None,
         token: Optional[str] = None,
+        mock: bool = False,
         **extra
     ):
         """
@@ -65,6 +118,10 @@ class VcsClientBase:
             access_key: Access key for authentication
             secret_key: Secret key for authentication
             token: Bearer token for authentication
+            mock: Opt into an offline stub. Only with ``mock=True`` may a
+                client return placeholder bytes or version ids; every
+                metadata dict it returns then carries ``"mock": True``.
+                Without it, an operation with no live backend raises.
             **extra: Provider-specific configuration options
         """
         self.provider_type = provider_type
@@ -75,6 +132,7 @@ class VcsClientBase:
         self.access_key = access_key
         self.secret_key = secret_key
         self.token = token
+        self.mock = bool(mock)
         self.extra = extra
 
         # Version tracking
@@ -99,9 +157,14 @@ class VcsClientBase:
 
         Returns:
             Object content as bytes, optionally with metadata dict
+
+        Raises:
+            Exception: Whatever the provider raised. A failed read never
+                returns empty bytes in place of the object.
         """
         start_time = datetime.now()
         content = b""
+        error: Optional[BaseException] = None
         metadata: Dict[str, Any] = {
             "path": path,
             "provider": self.provider_type,
@@ -119,10 +182,16 @@ class VcsClientBase:
             logger.error(f"Failed to read {path} from {self.provider_type}: {e}")
             metadata["status"] = "error"
             metadata["error"] = str(e)
+            error = e
+        if self.mock:
+            metadata["mock"] = True
 
         # Record access if instrumentation available
         if self.briefcase_client:
             self._record_access(path, metadata, start_time)
+
+        if error is not None:
+            raise error
 
         if return_metadata:
             return content, metadata
@@ -144,9 +213,13 @@ class VcsClientBase:
 
         Returns:
             Metadata dict with write result
+
+        Raises:
+            Exception: Whatever the provider raised.
         """
         start_time = datetime.now()
-        metadata = {
+        error: Optional[BaseException] = None
+        metadata: Dict[str, Any] = {
             "path": path,
             "provider": self.provider_type,
             "repository": self.repository,
@@ -162,10 +235,16 @@ class VcsClientBase:
             logger.error(f"Failed to write {path} to {self.provider_type}: {e}")
             metadata["status"] = "error"
             metadata["error"] = str(e)
+            error = e
+        if self.mock:
+            metadata["mock"] = True
 
         # Record write if instrumentation available
         if self.briefcase_client:
             self._record_write(path, metadata, start_time)
+
+        if error is not None:
+            raise error
 
         return metadata
 
@@ -183,9 +262,14 @@ class VcsClientBase:
 
         Returns:
             Version metadata dict with identifier
+
+        Raises:
+            Exception: Whatever the provider raised. A failed version is
+                never reported with a stale or invented identifier.
         """
         start_time = datetime.now()
-        version_metadata = {
+        error: Optional[BaseException] = None
+        version_metadata: Dict[str, Any] = {
             "provider": self.provider_type,
             "repository": self.repository,
             "branch": self.branch,
@@ -205,10 +289,16 @@ class VcsClientBase:
             logger.error(f"Failed to create version in {self.provider_type}: {e}")
             version_metadata["status"] = "error"
             version_metadata["error"] = str(e)
+            error = e
+        if self.mock:
+            version_metadata["mock"] = True
 
         # Record version creation
         if self.briefcase_client:
             self._record_version_creation(version_metadata, start_time)
+
+        if error is not None:
+            raise error
 
         return version_metadata
 
@@ -234,6 +324,7 @@ class VcsClientBase:
             "version": self.version,
             "timestamp": datetime.now().isoformat(),
             "version_metadata": self._version_metadata,
+            "mock": self.mock,
         }
 
     def __enter__(self):
@@ -254,6 +345,14 @@ class VcsClientBase:
             logger.warning(f"Failed to close {self.provider_type} client: {e}")
 
     # Protected methods for subclasses to override
+
+    def _not_implemented(self, operation: str) -> NotImplementedError:
+        """Build the error for an operation that has no live implementation."""
+        return NotImplementedError(
+            f"{self.__class__.__name__}.{operation} has no live implementation "
+            f"for the {self.provider_type!r} provider. Subclass and override "
+            f"it, or pass mock=True for an offline stub."
+        )
 
     def _read_object_impl(self, path: str) -> bytes:
         """

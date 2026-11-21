@@ -1,9 +1,13 @@
 """DuckLake client for DuckDB plus lakeFS integration.
 
-Requires ``duckdb`` for live mode: ``pip install briefcase-ai[vcs-ducklake]``
-or ``pip install duckdb``. The import is lazy; without it the client runs
-in mock mode (reads return placeholder bytes, writes and versions are
-recorded in metadata only).
+Requires ``duckdb``: ``pip install briefcase-ai[vcs-ducklake]`` or
+``pip install duckdb``. Without it the constructor raises ``ImportError``.
+
+The object operations (``read_object``, ``write_object``,
+``create_version``) have no live implementation yet and raise
+``NotImplementedError``; subclass and override the ``_*_impl`` hooks to
+wire them. ``mock=True`` opts into an offline stub that returns placeholder
+bytes and version ids, tagged ``"mock": True`` in every metadata dict.
 """
 
 from typing import Optional, Dict
@@ -50,6 +54,7 @@ class DuckLakeClient(VcsClientBase):
         briefcase_client=None,
         endpoint: Optional[str] = None,
         db_path: Optional[str] = None,
+        mock: bool = False,
         **extra
     ):
         """
@@ -61,6 +66,7 @@ class DuckLakeClient(VcsClientBase):
             briefcase_client: Optional BriefcaseClient for instrumentation
             endpoint: lakeFS endpoint for remote storage
             db_path: Path to DuckDB database file
+            mock: Opt into the offline stub (placeholder reads and version ids).
             **extra: Additional DuckLake configuration
         """
         resolved_endpoint = (
@@ -75,29 +81,29 @@ class DuckLakeClient(VcsClientBase):
             branch=branch,
             briefcase_client=briefcase_client,
             endpoint=resolved_endpoint,
+            mock=mock,
             **extra
         )
 
         self.db_path = db_path or os.getenv("DUCKLAKE_DB_PATH", ":memory:")
 
+        if self.mock:
+            return
         try:
             import duckdb
-            self._provider_client = duckdb.connect(self.db_path)
-            self._has_provider = True
-        except Exception as e:
-            logger.warning(f"DuckDB not available: {e}. Using mock mode. {_DUCKDB_INSTALL_HINT}")
-            self._has_provider = False
+        except ImportError as e:
+            raise ImportError(
+                f"DuckLakeClient requires duckdb. {_DUCKDB_INSTALL_HINT} "
+                "Pass mock=True for an offline stub."
+            ) from e
+        self._provider_client = duckdb.connect(self.db_path)
+        self._has_provider = True
 
     def _read_object_impl(self, path: str) -> bytes:
-        """Read a query result from DuckLake."""
-        if not self._has_provider:
+        """Read an object. Placeholder bytes only with ``mock=True``."""
+        if self.mock:
             return b"Mock DuckLake result: " + path.encode()
-
-        try:
-            return f"DuckLake query result: {path}".encode()
-        except Exception as e:
-            logger.error(f"Failed to read DuckLake object: {e}")
-            raise
+        raise self._not_implemented("read_object")
 
     def _write_object_impl(
         self,
@@ -105,28 +111,18 @@ class DuckLakeClient(VcsClientBase):
         data: bytes,
         content_type: str
     ) -> None:
-        """Write a table or data into DuckLake."""
-        if not self._has_provider:
+        """Write an object. A no-op only with ``mock=True``."""
+        if self.mock:
             logger.info(f"Mock DuckLake: Would insert {len(data)} bytes to {path}")
             return
-
-        try:
-            logger.info(f"DuckLake: Stored {len(data)} bytes in {path}")
-        except Exception as e:
-            logger.error(f"Failed to write DuckLake object: {e}")
-            raise
+        raise self._not_implemented("write_object")
 
     def _create_version_impl(
         self,
         message: str,
         metadata: Optional[Dict[str, str]]
     ) -> str:
-        """Create a DuckLake version (DuckDB plus lakeFS commit)."""
-        if not self._has_provider:
+        """Create a version. A placeholder id only with ``mock=True``."""
+        if self.mock:
             return f"ducklake-{self.branch}-v1"
-
-        try:
-            return f"ducklake-snapshot-{len(message)}"
-        except Exception as e:
-            logger.error(f"Failed to create DuckLake version: {e}")
-            raise
+        raise self._not_implemented("create_version")

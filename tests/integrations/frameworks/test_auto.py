@@ -66,12 +66,35 @@ class TestAutoUnknownFramework:
 
 class TestAutoIdempotency:
     def test_langchain_idempotent_returns_same_handler(self):
-        with patch.dict("sys.modules", {"langchain_core": None,
-                                        "langchain_core.runnables": None,
-                                        "langchain_core.runnables.config": None}):
+        modules, _cfg, _orig = _mock_langchain_modules()
+        with patch.dict("sys.modules", modules):
             h1 = auto("langchain")
             h2 = auto("langchain")
             assert h1 is h2
+            undo("langchain")
+
+    def test_langchain_missing_raises_and_registers_nothing(self):
+        """A missing framework is an ImportError, not a silent no-op."""
+        with patch.dict("sys.modules", {"langchain_core": None,
+                                        "langchain_core.runnables": None,
+                                        "langchain_core.runnables.config": None}):
+            with pytest.raises(ImportError, match=r"briefcase-ai\[langchain\]"):
+                auto("langchain")
+        assert "langchain" not in _PATCHES
+
+    @pytest.mark.parametrize("framework,modules", [
+        ("llamaindex", {"llama_index": None, "llama_index.core": None}),
+        ("ag2", {"autogen": None}),
+        ("pageindex", {"pageindex": None}),
+    ])
+    def test_missing_framework_raises_and_registers_nothing(self, mocker, framework, modules):
+        mocker.patch(
+            "briefcase.integrations.frameworks.ag2_handler._AG2_AVAILABLE", True
+        )
+        with patch.dict("sys.modules", modules):
+            with pytest.raises(ImportError, match="nothing was instrumented"):
+                auto(framework)
+        assert framework not in _PATCHES
 
     def test_crewai_missing_dependency_raises(self, mocker):
         mocker.patch(
@@ -182,8 +205,9 @@ class TestAutoAG2:
             "briefcase.integrations.frameworks.ag2_handler.ConversableAgent",
             MagicMock,
         )
-        # Make the autogen import fail: no patch applied, handler still returned
-        mocker.patch.dict("sys.modules", {"autogen": None})
+        mock_ag2 = MagicMock()
+        mock_ag2.ConversableAgent = type("ConversableAgent", (), {"__init__": lambda self: None})
+        mocker.patch.dict("sys.modules", {"autogen": mock_ag2})
         auto("ag2")
         assert "ag2" in _PATCHES
         undo("ag2")
@@ -286,79 +310,113 @@ class TestAutoAutoGen:
 class TestAutoLlamaIndex:
     def test_llamaindex_returns_handler(self):
         from briefcase.integrations.frameworks.llamaindex_handler import BriefcaseLlamaIndexHandler
-        with patch.dict("sys.modules", {
-            "llama_index": None,
-            "llama_index.core": None,
-        }):
-            handler = auto("llamaindex")
+        handler = auto("llamaindex")
         assert isinstance(handler, BriefcaseLlamaIndexHandler)
 
     def test_llamaindex_in_patches(self):
-        with patch.dict("sys.modules", {
-            "llama_index": None,
-            "llama_index.core": None,
-        }):
-            auto("llamaindex")
+        auto("llamaindex")
         assert "llamaindex" in _PATCHES
 
 
 # PageIndex auto()
 
 class TestAutoPageIndex:
-    def test_pageindex_returns_tracer(self):
+    def test_pageindex_returns_tracer(self, mocker):
         from briefcase.integrations.frameworks.pageindex_handler import PageIndexTracer
-        with patch.dict("sys.modules", {"pageindex": None}):
-            handler = auto("pageindex")
-        assert isinstance(handler, PageIndexTracer)
 
-    def test_pageindex_patched_init_body_executed(self, mocker):
-        """Calling the patched PageIndexClient.__init__ executes its body."""
         class FakeClient:
-            def __init__(self, *a, **k):
-                pass
-
             def chat_completions(self, messages, doc_id=None, **kw):
-                return {"response": "ok"}
+                return {}
 
         mock_pi = MagicMock()
         mock_pi.PageIndexClient = FakeClient
         mocker.patch.dict("sys.modules", {"pageindex": mock_pi})
-
-        tracer = auto("pageindex")
-
-        # FakeClient.__init__ is now the patched init
-        instance = object.__new__(FakeClient)
-        FakeClient.__init__(instance)  # covers the patched init body
-        # The patched init points the tracer at the new client instance
-        assert tracer._client is instance
+        handler = auto("pageindex")
+        assert isinstance(handler, PageIndexTracer)
         undo("pageindex")
 
-    def test_pageindex_patched_chat_body_executed(self, mocker):
-        """Calling the patched chat_completions delegates through the tracer."""
+    def test_pageindex_patched_chat_calls_original_once(self, mocker):
+        """The patched method records the call and reaches the original
+        exactly once (no re-entry through the patched method)."""
+        calls = []
+
         class FakeClient:
-            def __init__(self, *a, **k):
-                pass
+            def __init__(self, name="c"):
+                self.name = name
 
             def chat_completions(self, messages, doc_id=None, **kw):
-                return {"response": "original"}
+                calls.append((self.name, doc_id))
+                return {"choices": [{"message": {"content": f"from {self.name}"}}]}
 
+            def get_tree(self, doc_id):
+                return {"tree": {"title": f"tree-{self.name}", "nodes": []}}
+
+        original = FakeClient.chat_completions
         mock_pi = MagicMock()
         mock_pi.PageIndexClient = FakeClient
         mocker.patch.dict("sys.modules", {"pageindex": mock_pi})
 
-        tracer = auto("pageindex")
-        # Mock tracer.chat_completions to avoid real API calls
-        mocker.patch.object(tracer, "chat_completions", return_value={"response": "mocked"})
+        tracer = auto("pageindex", async_capture=False)
+        assert FakeClient.chat_completions is not original
 
-        # FakeClient.chat_completions is now the patched method
-        instance = object.__new__(FakeClient)
-        result = FakeClient.chat_completions(
-            instance,
-            messages=[{"role": "user", "content": "hello"}],
+        client = FakeClient("a")
+        result = client.chat_completions(
+            messages=[{"role": "user", "content": "hello"}], doc_id="d1"
         )
-        # The patched method points the tracer at this client and delegates
-        assert tracer._client is instance
-        assert result == {"response": "mocked"}
+        assert result["choices"][0]["message"]["content"] == "from a"
+        assert calls == [("a", "d1")]
+        record = tracer.get_records()[0]
+        assert record["outputs"] == {"content": "from a"}
+        assert record["pageindex.tree.path"] == "tree-a"
+        # No per-call state is parked on the shared tracer.
+        assert tracer._client is None
+
+        undo("pageindex")
+        assert FakeClient.chat_completions is original
+
+    def test_pageindex_concurrent_clients_do_not_cross(self, mocker):
+        """Calls on different clients through one tracer stay attributed to
+        the client that made them."""
+        import threading
+
+        barrier = threading.Barrier(8)
+
+        class FakeClient:
+            def __init__(self, name):
+                self.name = name
+
+            def chat_completions(self, messages, doc_id=None, **kw):
+                barrier.wait(timeout=5)
+                return {"choices": [{"message": {"content": self.name}}]}
+
+            def get_tree(self, doc_id):
+                return {"tree": {"title": self.name, "nodes": []}}
+
+        mock_pi = MagicMock()
+        mock_pi.PageIndexClient = FakeClient
+        mocker.patch.dict("sys.modules", {"pageindex": mock_pi})
+        tracer = auto("pageindex", async_capture=False)
+
+        results = {}
+
+        def work(i):
+            client = FakeClient(f"client-{i}")
+            out = client.chat_completions(messages=[], doc_id=f"doc-{i}")
+            results[i] = out["choices"][0]["message"]["content"]
+
+        threads = [threading.Thread(target=work, args=(i,)) for i in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert results == {i: f"client-{i}" for i in range(8)}
+        records = tracer.get_records()
+        assert len(records) == 8
+        for record in records:
+            n = record["pageindex.doc_id"].split("-")[1]
+            assert record["outputs"] == {"content": f"client-{n}"}
+            assert record["pageindex.tree.path"] == f"client-{n}"
         undo("pageindex")
 
 

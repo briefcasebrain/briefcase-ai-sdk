@@ -18,9 +18,17 @@ Usage (explicit):
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from briefcase._export_mixin import ExportMixin
+from briefcase.integrations.frameworks._capture_state import (
+    DEFAULT_INFLIGHT_TTL_SECONDS,
+    DEFAULT_MAX_INFLIGHT,
+    DEFAULT_MAX_RECORDS,
+    CaptureOptions,
+    InflightStore,
+    bounded_records,
+)
 from briefcase._logging import get_logger
 
 logger = get_logger(__name__)
@@ -59,6 +67,7 @@ def install(
     context_version: Optional[str] = None,
     async_capture: bool = True,
     exporter: Any = None,
+    **tracer_kwargs: Any,
 ) -> "OpenAIAgentsTracer":
     """Install OpenAIAgentsTracer globally into the agents tracing layer.
 
@@ -69,6 +78,8 @@ def install(
         context_version: Optional version tag added to all decision records.
         async_capture: If True (default), export is fire-and-forget.
         exporter: Briefcase exporter instance; falls back to the global config.
+        **tracer_kwargs: Further OpenAIAgentsTracer options
+            (``capture_content``, ``redact``, ``max_records``, ...).
 
     Returns:
         The installed OpenAIAgentsTracer instance.
@@ -88,6 +99,7 @@ def install(
         context_version=context_version,
         async_capture=async_capture,
         exporter=exporter,
+        **tracer_kwargs,
     )
     _agents_add_trace_processor(processor)
     _INSTALLED_PROCESSOR = processor
@@ -114,6 +126,11 @@ class OpenAIAgentsTracer(ExportMixin, _TracingBase):  # type: ignore[valid-type,
         context_version: Optional[str] = None,
         async_capture: bool = True,
         exporter: Any = None,
+        capture_content: str = "full",
+        redact: Optional[Callable[[str], str]] = None,
+        max_records: Optional[int] = DEFAULT_MAX_RECORDS,
+        max_inflight: Optional[int] = DEFAULT_MAX_INFLIGHT,
+        inflight_ttl_seconds: Optional[float] = DEFAULT_INFLIGHT_TTL_SECONDS,
     ):
         if not _AGENTS_AVAILABLE:
             raise ImportError(_INSTALL_HINT)
@@ -122,14 +139,31 @@ class OpenAIAgentsTracer(ExportMixin, _TracingBase):  # type: ignore[valid-type,
         self.async_capture = async_capture
         self._exporter = exporter
 
+        # Open traces and spans are capped and expire, so a trace or span
+        # whose end callback never arrives cannot leak.
         # Active trace records: trace_id to record dict
-        self._traces: Dict[str, Dict[str, Any]] = {}
+        self._traces = InflightStore(
+            max_size=max_inflight,
+            ttl_seconds=inflight_ttl_seconds,
+            on_evict=self._on_trace_evicted,
+        )
         # Trace start times: trace_id to datetime
-        self._trace_starts: Dict[str, datetime] = {}
+        self._trace_starts = InflightStore(max_inflight, inflight_ttl_seconds)
         # Span start times: span_id to datetime
-        self._span_starts: Dict[str, datetime] = {}
-        # Completed records (for inspection and testing)
-        self._records: List[Dict[str, Any]] = []
+        self._span_starts = InflightStore(max_inflight, inflight_ttl_seconds)
+        self._capture_options = CaptureOptions(capture_content, redact)
+        self.max_records = max_records
+        # Completed records: a ring buffer that applies the capture options
+        # to each record as it is appended.
+        self._records = bounded_records(max_records, self._capture_options)
+
+    def _on_trace_evicted(self, trace_id: Any, record: Any, reason: str) -> None:
+        """Record a trace whose end callback never arrived as abandoned."""
+        self._trace_starts.pop(trace_id, None)
+        record["error"] = f"abandoned: no trace end ({reason})"
+        record["ended_at"] = datetime.now(timezone.utc).isoformat()
+        self._records.append(record)
+        self._trigger_export(record)
 
     # TracingProcessor interface
 

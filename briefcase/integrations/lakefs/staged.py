@@ -182,6 +182,7 @@ class StagedArtifactClient:
         repository: str,
         branch: str = "main",
         validators: Optional[list[Callable]] = None,
+        mock: Optional[bool] = None,
     ) -> StagedArtifactClient:
         """Build a :class:`StagedArtifactClient` from environment variables.
 
@@ -190,14 +191,22 @@ class StagedArtifactClient:
         plus the ``LAKEFS_ENDPOINT``, ``LAKEFS_ACCESS_KEY``, and
         ``LAKEFS_PRIVATE_KEY`` credential variables consumed by
         :class:`~briefcase.integrations.lakefs.client.VersionedClient`.
-        When any credential variable is missing, or the ``lakefs`` SDK is
-        not installed, the underlying :class:`BranchManager` runs in mock
-        mode.
+        When any credential variable is missing, the ``lakefs`` SDK is not
+        installed, or the client cannot be built, this raises unless mock
+        mode was requested. Mock mode is opt-in: pass ``mock=True`` or set
+        ``LAKEFS_MODE=simulate``.
 
         Args:
             repository: lakeFS repository name.
             branch: Target branch. Defaults to ``"main"``.
             validators: Optional list of validator callables.
+            mock: Allow the underlying :class:`BranchManager` to run in mock
+                mode when no live client is available. Defaults to ``True``
+                only when ``LAKEFS_MODE=simulate``.
+
+        Raises:
+            ImportError: The ``lakefs`` SDK is missing and mock mode is off.
+            ValueError: Credentials are missing and mock mode is off.
 
         Returns:
             A configured :class:`StagedArtifactClient` instance.
@@ -211,7 +220,11 @@ class StagedArtifactClient:
             config_path=os.getenv("LAKEFS_CONFIG_PATH"),
         )
 
+        if mock is None:
+            mock = config.mode.lower().strip() == "simulate"
+
         lakefs_client = None
+        failure: Optional[Exception] = None
         try:
             import lakefs
 
@@ -224,13 +237,29 @@ class StagedArtifactClient:
                     username=access_key,
                     password=secret_key,
                 )
+            else:
+                failure = ValueError(
+                    "missing lakeFS configuration (set LAKEFS_ENDPOINT, "
+                    "LAKEFS_ACCESS_KEY and LAKEFS_PRIVATE_KEY)"
+                )
+        except ImportError as exc:
+            failure = ImportError(
+                "StagedArtifactClient.from_env requires the lakefs SDK. Install "
+                f"with 'pip install briefcase-ai[lakefs]'. ({exc})"
+            )
         except Exception as exc:
-            logger.debug("Could not initialise live lakeFS client: %s", exc)
+            failure = exc
+
+        if lakefs_client is None:
+            if not mock:
+                raise failure or ValueError("lakeFS client unavailable")
+            logger.debug("lakeFS client unavailable, using mock BranchManager: %s", failure)
 
         branch_manager = BranchManager(
             repository=repository,
             lakefs_client=lakefs_client,
             default_source_branch=branch,
+            mock=lakefs_client is None,
         )
         return cls(config=config, branch_manager=branch_manager, validators=validators)
 
@@ -455,5 +484,5 @@ class StagedArtifactClient:
             span = trace.get_current_span()
             if span and span.is_recording():
                 span.add_event(name, attributes=attributes)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("_emit_span_event: ignored error: %s", exc)

@@ -11,7 +11,7 @@ An EmbeddingManifest captures the complete state of an embedding index:
 import hashlib
 import json
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from briefcase._logging import get_logger
@@ -144,7 +144,7 @@ class InvalidationReport:
     new_model: Optional[str] = None
     old_model_version: Optional[str] = None
     new_model_version: Optional[str] = None
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     # lakeFS diff fields (populated when branch_manager is passed to check_invalidation)
     diff_entries: Optional[List] = None   # list[DiffEntry] from branches.py
     source_ref: Optional[str] = None      # ref compared from
@@ -176,7 +176,22 @@ class VersionedEmbeddingPipeline:
         lakefs_client: Any = None,
         repository: Optional[str] = None,
         branch: str = "main",
+        mock: bool = False,
     ):
+        """
+        Args:
+            embedding_model: Object with an ``embed(texts)`` method (and
+                optional ``name`` / ``version`` attributes).
+            lakefs_client: Optional lakeFS client for commit resolution and
+                manifest upload.
+            repository: lakeFS repository name.
+            branch: lakeFS branch.
+            mock: Opt into placeholder all-zero embeddings, labelled with the
+                model name ``"mock-model"``, when no ``embedding_model`` is
+                given. Without it a missing model raises. A configured model
+                that fails always raises; its vectors are never substituted.
+        """
+        self.mock = bool(mock)
         self.model = embedding_model
         self.lakefs = lakefs_client
         self.repository = repository
@@ -201,34 +216,57 @@ class VersionedEmbeddingPipeline:
         """
         Create embeddings for a batch of documents.
 
-        If self.model has an `embed(texts)` method, uses it.
-        Otherwise falls back to mock embeddings.
+        Uses ``self.model.embed(texts)``. Errors from the model propagate:
+        a failed batch is never stored with substitute vectors.
+
+        Raises:
+            ValueError: No embedding model is configured and the pipeline
+                was not built with ``mock=True``, or the model returned a
+                different number of vectors than documents.
+            TypeError: The configured model has no ``embed`` method.
         """
+        if self.model is None and not self.mock:
+            raise ValueError(
+                "VersionedEmbeddingPipeline has no embedding_model. Pass one, "
+                "or pass mock=True for placeholder embeddings."
+            )
+        if self.model is not None and not hasattr(self.model, 'embed'):
+            raise TypeError(
+                f"embedding_model {type(self.model).__name__!r} has no embed(texts) method"
+            )
+
         if batch_id is None:
-            batch_id = f"batch_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            now = datetime.now(timezone.utc)
+            batch_id = f"batch_{now.strftime('%Y%m%d_%H%M%S')}"
 
         if source_commit is None:
             if self.lakefs and hasattr(self.lakefs, 'get_commit'):
                 try:
                     source_commit = self.lakefs.get_commit()
-                except Exception:
+                except Exception as e:
+                    logger.debug("Could not resolve lakeFS source commit: %s", e)
                     source_commit = "unknown"
             else:
                 source_commit = "unknown"
 
-        model_name = getattr(self.model, 'name', 'mock-model') if self.model else 'mock-model'
-        model_version = getattr(self.model, 'version', '1.0') if self.model else '1.0'
-
-        # Generate embeddings
         texts = [doc.content for doc in documents]
-        if self.model and hasattr(self.model, 'embed'):
+        if self.model is not None:
+            model_name = getattr(self.model, 'name', type(self.model).__name__)
+            model_version = getattr(self.model, 'version', 'unknown')
             try:
                 raw_embeddings = self.model.embed(texts)
-                embeddings = [list(e) for e in raw_embeddings]
             except Exception as e:
-                logger.warning(f"Embedding model failed, using mock: {e}")
-                embeddings = self._mock_embeddings(len(texts))
+                logger.error(f"Embedding model {model_name} failed for batch {batch_id}: {e}")
+                raise
+            embeddings = [list(e) for e in raw_embeddings]
+            if len(embeddings) != len(texts):
+                raise ValueError(
+                    f"Embedding model {model_name} returned {len(embeddings)} "
+                    f"vectors for {len(texts)} documents"
+                )
         else:
+            model_name = 'mock-model'
+            model_version = '1.0'
             embeddings = self._mock_embeddings(len(texts))
 
         dimensions = len(embeddings[0]) if embeddings else 0
@@ -243,7 +281,7 @@ class VersionedEmbeddingPipeline:
             embeddings=embeddings,
             document_ids=document_ids,
             document_hashes=document_hashes,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             source_commit=source_commit,
         )
 
@@ -286,7 +324,7 @@ class VersionedEmbeddingPipeline:
         source_commit = first.source_commit
 
         parent = self.get_latest_manifest(index_name)
-        manifest_id = f"{index_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{first.source_commit[:8]}"
+        manifest_id = f"{index_name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{first.source_commit[:8]}"
 
         manifest = EmbeddingManifest(
             manifest_id=manifest_id,
@@ -298,7 +336,7 @@ class VersionedEmbeddingPipeline:
             document_count=len(doc_hashes),
             document_hashes=doc_hashes,
             batch_ids=batch_ids,
-            created_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
             status=ManifestStatus.CURRENT.value,
             parent_manifest_id=parent.manifest_id if parent else None,
             metadata=metadata or {},

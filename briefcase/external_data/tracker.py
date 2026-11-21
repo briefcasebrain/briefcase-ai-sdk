@@ -5,6 +5,8 @@ drift detection, and lakeFS storage integration.
 
 import hashlib
 import json
+import secrets
+import threading
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -90,6 +92,9 @@ class Snapshot:
     parent_snapshot_id: Optional[str] = None
     valid_time: Optional[str] = None  # ISO-8601; defaults to timestamp
     source_trust_level: Optional[str] = None
+    # Set when a configured durable store (lakeFS) rejected the upload; the
+    # snapshot then exists in memory only and ``lakefs_path`` is ``None``.
+    storage_error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v is not None}
@@ -161,6 +166,10 @@ class ExternalDataTracker:
         # payload, so drift detection is unaffected.
         self._sanitizer = sanitizer
 
+        # Guards _snapshots, _last_snapshot_times and _policies; trackers are
+        # shared across request threads.
+        self._lock = threading.RLock()
+
         # source_name -> SnapshotPolicy
         self._policies: Dict[str, SnapshotPolicy] = {}
 
@@ -179,11 +188,13 @@ class ExternalDataTracker:
 
     def set_policy(self, source_name: str, policy: SnapshotPolicy) -> None:
         """Set snapshot policy for a specific source."""
-        self._policies[source_name] = policy
+        with self._lock:
+            self._policies[source_name] = policy
 
     def get_policy(self, source_name: str) -> SnapshotPolicy:
         """Get policy for source, falling back to default."""
-        return self._policies.get(source_name, self._default_policy)
+        with self._lock:
+            return self._policies.get(source_name, self._default_policy)
 
     def set_change_detector(
         self, source_name: str, detector: Callable[[Any, Any], float]
@@ -218,6 +229,11 @@ class ExternalDataTracker:
 
         Returns dict with: data_hash, timestamp, snapshot_id (if stored),
         snapshot_stored (bool), drift_detected (bool).
+
+        When lakeFS is configured and the upload fails, ``snapshot_stored``
+        is ``False`` and ``snapshot_error`` carries the reason; the snapshot
+        record is kept in memory (``lakefs_path`` is ``None``) and the next
+        call for the source retries the upload.
 
         ``valid_time`` is the time the fetched data was true in the real
         world (e.g. the "as-of" date on a Bloomberg snapshot). When
@@ -275,7 +291,9 @@ class ExternalDataTracker:
                         source_trust_level=source_trust_level,
                     )
                     result["snapshot_id"] = snapshot.snapshot_id
-                    result["snapshot_stored"] = True
+                    result["snapshot_stored"] = snapshot.storage_error is None
+                    if snapshot.storage_error is not None:
+                        result["snapshot_error"] = snapshot.storage_error
 
                 result["drift_detected"] = drift
 
@@ -369,7 +387,9 @@ class ExternalDataTracker:
                             source_trust_level=source_trust_level,
                         )
                         result["snapshot_id"] = snapshot.snapshot_id
-                        result["snapshot_stored"] = True
+                        result["snapshot_stored"] = snapshot.storage_error is None
+                        if snapshot.storage_error is not None:
+                            result["snapshot_error"] = snapshot.storage_error
 
                     result["drift_detected"] = drift
 
@@ -447,7 +467,9 @@ class ExternalDataTracker:
                         source_trust_level=source_trust_level,
                     )
                     result["snapshot_id"] = snapshot.snapshot_id
-                    result["snapshot_stored"] = True
+                    result["snapshot_stored"] = snapshot.storage_error is None
+                    if snapshot.storage_error is not None:
+                        result["snapshot_error"] = snapshot.storage_error
 
                 result["drift_detected"] = drift
 
@@ -482,11 +504,9 @@ class ExternalDataTracker:
         Provide either current_data (will be hashed) or current_hash directly.
         Returns None if no previous snapshot exists.
         """
-        snapshots = self._snapshots.get(source_name)
-        if not snapshots:
+        baseline = self.get_latest_snapshot(source_name)  # most recent
+        if baseline is None:
             return None
-
-        baseline = snapshots[-1]  # most recent
 
         if current_hash is None and current_data is not None:
             if isinstance(current_data, bytes):
@@ -577,7 +597,8 @@ class ExternalDataTracker:
         limit: Optional[int] = None,
     ) -> List[Snapshot]:
         """Get snapshots for a source, optionally filtered by time range."""
-        snaps = self._snapshots.get(source_name, [])
+        with self._lock:
+            snaps = list(self._snapshots.get(source_name, []))
 
         if since:
             since_str = since.isoformat()
@@ -592,18 +613,21 @@ class ExternalDataTracker:
 
     def get_latest_snapshot(self, source_name: str) -> Optional[Snapshot]:
         """Get the most recent snapshot for a source."""
-        snaps = self._snapshots.get(source_name, [])
-        return snaps[-1] if snaps else None
+        with self._lock:
+            snaps = self._snapshots.get(source_name, [])
+            return snaps[-1] if snaps else None
 
     def get_all_sources(self) -> List[str]:
         """List all tracked source names."""
-        return list(self._snapshots.keys())
+        with self._lock:
+            return list(self._snapshots.keys())
 
     def get_snapshot_count(self, source_name: Optional[str] = None) -> int:
         """Count snapshots, optionally for a specific source."""
-        if source_name:
-            return len(self._snapshots.get(source_name, []))
-        return sum(len(v) for v in self._snapshots.values())
+        with self._lock:
+            if source_name:
+                return len(self._snapshots.get(source_name, []))
+            return sum(len(v) for v in self._snapshots.values())
 
     # ------------------------------------------------------------------
     # Retention / cleanup
@@ -614,30 +638,38 @@ class ExternalDataTracker:
         Remove snapshots that exceed their policy's retention period
         or max_snapshots limit.
 
+        Runs automatically for a source after each snapshot it stores, so
+        the in-memory history stays bounded by the policy. Only the
+        tracker's records are pruned; objects already uploaded to lakeFS
+        are left in place.
+
         Returns the number of snapshots removed.
         """
         removed = 0
-        sources = [source_name] if source_name else list(self._snapshots.keys())
+        with self._lock:
+            sources = [source_name] if source_name else list(self._snapshots.keys())
 
-        for src in sources:
-            policy = self.get_policy(src)
-            snaps = self._snapshots.get(src, [])
-            if not snaps:
-                continue
+            for src in sources:
+                policy = self.get_policy(src)
+                snaps = self._snapshots.get(src, [])
+                if not snaps:
+                    continue
 
-            original_count = len(snaps)
+                original_count = len(snaps)
 
-            # Remove by retention_days
-            if policy.retention_days > 0:
-                cutoff = (datetime.now(timezone.utc) - timedelta(days=policy.retention_days)).isoformat()
-                snaps = [s for s in snaps if s.timestamp >= cutoff]
+                # Remove by retention_days
+                if policy.retention_days > 0:
+                    cutoff = (
+                        datetime.now(timezone.utc) - timedelta(days=policy.retention_days)
+                    ).isoformat()
+                    snaps = [s for s in snaps if s.timestamp >= cutoff]
 
-            # Remove by max_snapshots (keep most recent)
-            if policy.max_snapshots > 0 and len(snaps) > policy.max_snapshots:
-                snaps = snaps[-policy.max_snapshots:]
+                # Remove by max_snapshots (keep most recent)
+                if policy.max_snapshots > 0 and len(snaps) > policy.max_snapshots:
+                    snaps = snaps[-policy.max_snapshots:]
 
-            self._snapshots[src] = snaps
-            removed += original_count - len(snaps)
+                self._snapshots[src] = snaps
+                removed += original_count - len(snaps)
 
         return removed
 
@@ -668,6 +700,11 @@ class ExternalDataTracker:
         # Check drift
         drift_detected = data_hash != last_snap.data_hash
 
+        # The last upload to the durable store failed: retry rather than
+        # treating the in-memory record as stored.
+        if last_snap.storage_error is not None:
+            return True, drift_detected
+
         if policy.frequency == SnapshotFrequency.EVERY_CALL:
             return True, drift_detected
 
@@ -681,13 +718,18 @@ class ExternalDataTracker:
                     score = self._change_detectors[source_name](None, data)
                     if score < policy.change_threshold:
                         return False, True  # Drift detected but below threshold
-                except Exception:
-                    pass  # Fall through to store
+                except Exception as e:
+                    # Fall through to store
+                    logger.debug(
+                        "Change detector failed for %s; storing snapshot: %s",
+                        source_name, e,
+                    )
 
             return True, drift_detected
 
         # Time-based frequencies
-        last_time = self._last_snapshot_times.get(source_name)
+        with self._lock:
+            last_time = self._last_snapshot_times.get(source_name)
         if last_time is None:
             return True, drift_detected
 
@@ -734,7 +776,13 @@ class ExternalDataTracker:
             if parent_snapshot_id is not None
             else (inferred_parent.snapshot_id if inferred_parent else None)
         )
-        snapshot_id = f"{source_name}_{data_hash[:12]}_{timestamp.strftime('%Y%m%d%H%M%S')}"
+        # Microseconds plus a random suffix: two snapshots of the same data
+        # in the same second (or microsecond, across threads) never collide.
+        snapshot_id = (
+            f"{source_name}_{data_hash[:12]}_"
+            f"{timestamp.strftime('%Y%m%d%H%M%S%f')}_{secrets.token_hex(3)}"
+        )
+        storage_error: Optional[str] = None
 
         lakefs_path = None
         if self.lakefs and self.repository:
@@ -754,6 +802,7 @@ class ExternalDataTracker:
             except Exception as e:
                 logger.warning(f"Failed to upload snapshot to lakeFS: {e}")
                 lakefs_path = None
+                storage_error = f"{type(e).__name__}: {e}"
 
         snapshot = Snapshot(
             snapshot_id=snapshot_id,
@@ -768,14 +817,21 @@ class ExternalDataTracker:
             parent_snapshot_id=resolved_parent,
             valid_time=(valid_time or timestamp).isoformat(),
             source_trust_level=source_trust_level,
+            storage_error=storage_error,
         )
 
-        self._snapshots.setdefault(source_name, []).append(snapshot)
-        self._last_snapshot_times[source_name] = timestamp
+        with self._lock:
+            self._snapshots.setdefault(source_name, []).append(snapshot)
+            self._last_snapshot_times[source_name] = timestamp
+            # Keep the in-memory history bounded by the source's policy.
+            policy = self.get_policy(source_name)
+            if policy.retention_days > 0 or policy.max_snapshots > 0:
+                self.enforce_retention(source_name)
 
         logger.info(
-            f"Stored snapshot {snapshot_id} for {source_name} "
-            f"(hash={data_hash[:12]}, size={size_bytes})"
+            f"Recorded snapshot {snapshot_id} for {source_name} "
+            f"(hash={data_hash[:12]}, size={size_bytes}, "
+            f"stored={storage_error is None})"
         )
 
         return snapshot
@@ -805,10 +861,11 @@ class ExternalDataTracker:
 
     def _find_snapshot(self, snapshot_id: str) -> Optional[Snapshot]:
         """Find a snapshot by ID across all sources."""
-        for snaps in self._snapshots.values():
-            for snap in snaps:
-                if snap.snapshot_id == snapshot_id:
-                    return snap
+        with self._lock:
+            for snaps in self._snapshots.values():
+                for snap in snaps:
+                    if snap.snapshot_id == snapshot_id:
+                        return snap
         return None
 
     # ------------------------------------------------------------------

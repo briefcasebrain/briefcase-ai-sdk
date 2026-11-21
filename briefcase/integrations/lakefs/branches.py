@@ -3,8 +3,9 @@ Branch management for lakeFS agent isolation workflows.
 
 Provides ``BranchManager``, a high-level wrapper around the lakeFS Python SDK
 for creating, merging, diffing, and cleaning up branches used by AI agents.
-Runs in mock mode when no lakeFS client is supplied or the ``lakefs`` SDK is
-not installed (``pip install briefcase-ai[lakefs]``).
+Requires a lakeFS client and the ``lakefs`` SDK
+(``pip install briefcase-ai[lakefs]``); without them the constructor raises.
+``mock=True`` opts into an offline stub.
 """
 
 from __future__ import annotations
@@ -98,15 +99,16 @@ class BranchManager:
     """Manages lakeFS branches for agent isolation workflows.
 
     Wraps lakeFS branch/merge/diff operations via the ``lakefs`` Python SDK.
-    Runs in mock mode (returning fake but structurally valid data, with
-    ``mock-`` prefixed commit ids) when ``lakefs_client`` is ``None`` or the
-    SDK is not installed, so no mock value is ever mistaken for real
-    provenance.
+    A live manager needs both ``lakefs_client`` and the installed SDK:
+    without the SDK the constructor raises ``ImportError``, without a client
+    ``ValueError``. Mock mode (fake but structurally valid data, with
+    ``mock-`` prefixed commit ids) is entered only with ``mock=True``, so no
+    mock value is ever mistaken for real provenance.
 
     Args:
         repository: lakeFS repository name.
-        lakefs_client: Authenticated ``lakefs.Client`` instance (or ``None``
-            for mock mode).
+        lakefs_client: Authenticated ``lakefs.Client`` instance (``None``
+            only together with ``mock=True``).
         default_source_branch: Branch to use as the source when
             :meth:`create_branch` is called without an explicit ``source``.
         briefcase_client: Optional Briefcase client used to gate OTel span
@@ -132,6 +134,7 @@ class BranchManager:
         default_source_branch: str = "main",
         briefcase_client: Any = None,
         default_strategy: MergeStrategy = MergeStrategy.DEFAULT,
+        mock: bool = False,
     ) -> None:
         self.repository = repository
         self._lakefs_client = lakefs_client
@@ -139,19 +142,27 @@ class BranchManager:
         self.briefcase_client = briefcase_client
         self.default_strategy = default_strategy
 
+        self.mock = bool(mock)
+
         self._lakefs: Any = None
         self._has_lakefs = False
+        if self.mock:
+            return
         try:
             import lakefs
-
-            self._lakefs = lakefs
-            self._has_lakefs = lakefs_client is not None
-        except ImportError:
-            logger.warning(
-                "lakefs SDK not available (install with "
-                "'pip install briefcase-ai[lakefs]'); "
-                "BranchManager running in mock mode."
+        except ImportError as exc:
+            raise ImportError(
+                "BranchManager requires the lakefs SDK. Install with "
+                "'pip install briefcase-ai[lakefs]', or pass mock=True for an "
+                "offline stub."
+            ) from exc
+        if lakefs_client is None:
+            raise ValueError(
+                "BranchManager requires lakefs_client; pass mock=True for an "
+                "offline stub."
             )
+        self._lakefs = lakefs
+        self._has_lakefs = True
 
     # ------------------------------------------------------------------
     # Public API
@@ -509,5 +520,5 @@ class BranchManager:
             span = trace.get_current_span()
             if span and span.is_recording():
                 span.add_event(name, attributes=attributes)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("_emit_span_event: ignored error: %s", exc)

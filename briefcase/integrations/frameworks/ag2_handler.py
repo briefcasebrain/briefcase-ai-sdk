@@ -18,9 +18,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from briefcase._export_mixin import ExportMixin
+from briefcase._logging import get_logger
+from briefcase.integrations.frameworks._capture_state import (
+    DEFAULT_MAX_RECORDS,
+    CaptureOptions,
+    bounded_records,
+)
+
+logger = get_logger(__name__)
 
 _INSTALL_HINT = (
     "ag2 is required for AG2HookTracer. "
@@ -101,6 +109,9 @@ class AG2HookTracer(ExportMixin):
         max_input_chars: int = 10000,
         max_output_chars: int = 10000,
         exporter: Any = None,
+        capture_content: str = "full",
+        redact: Optional[Callable[[str], str]] = None,
+        max_records: Optional[int] = DEFAULT_MAX_RECORDS,
     ):
         if not _AG2_AVAILABLE:
             raise ImportError(_INSTALL_HINT)
@@ -115,7 +126,11 @@ class AG2HookTracer(ExportMixin):
         self.max_output_chars = max_output_chars
         self._exporter = exporter
 
-        self._records: List[Dict[str, Any]] = []
+        self._capture_options = CaptureOptions(capture_content, redact)
+        self.max_records = max_records
+        # Completed records: a ring buffer that applies the capture options
+        # to each record as it is appended.
+        self._records = bounded_records(max_records, self._capture_options)
 
     # Public API
 
@@ -209,8 +224,8 @@ class AG2HookTracer(ExportMixin):
                     },
                 )
                 tracer._append_and_export(record)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("_hook: ignored error: %s", exc)
             return message
 
         return _hook
@@ -235,8 +250,8 @@ class AG2HookTracer(ExportMixin):
                     },
                 )
                 tracer._append_and_export(record)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("_hook: ignored error: %s", exc)
             return messages
 
         return _hook
@@ -256,8 +271,8 @@ class AG2HookTracer(ExportMixin):
                     },
                 )
                 tracer._append_and_export(record)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("_hook: ignored error: %s", exc)
             return agent_state
 
         return _hook
@@ -281,8 +296,8 @@ class AG2HookTracer(ExportMixin):
                     },
                 )
                 tracer._append_and_export(record)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("_hook: ignored error: %s", exc)
             return messages
 
         return _hook
@@ -302,8 +317,8 @@ class AG2HookTracer(ExportMixin):
                     },
                 )
                 tracer._append_and_export(record)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("_hook: ignored error: %s", exc)
             return response
 
         return _hook
@@ -323,8 +338,8 @@ class AG2HookTracer(ExportMixin):
                     },
                 )
                 tracer._append_and_export(record)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("_hook: ignored error: %s", exc)
             return tool_call
 
         return _hook
@@ -344,8 +359,8 @@ class AG2HookTracer(ExportMixin):
                     },
                 )
                 tracer._append_and_export(record)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("_hook: ignored error: %s", exc)
             return tool_result
 
         return _hook
