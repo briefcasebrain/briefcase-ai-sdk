@@ -73,7 +73,7 @@ def test_native_names_raise_a_clear_import_error_only_when_used():
 def test_replay_import_error_does_not_point_at_an_empty_extra():
     result = _run_without_native("""
         try:
-            import briefcase.replay  # noqa: F401
+            from briefcase.replay import ReplayEngine  # noqa: F401
         except ImportError as exc:
             print(exc)
         else:
