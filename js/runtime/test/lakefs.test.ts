@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createLakefsClient } from "../src/lakefs/index.js";
+import { LakeFSError, LakefsError, createLakefsClient } from "../src/lakefs/index.js";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -24,6 +24,54 @@ describe("lakeFS client", () => {
     expect(new Headers(init?.headers).get("authorization")).toBe(
       `Basic ${Buffer.from("key:secret").toString("base64")}`,
     );
+  });
+
+  it("refuses to send credentials over plain http unless explicitly allowed", () => {
+    const credentials = { accessKeyId: "key", secretAccessKey: "secret", fetch: vi.fn() };
+    expect(() => createLakefsClient({ endpoint: "http://lakefs.example", ...credentials })).toThrow(/https/);
+    expect(() => createLakefsClient({ endpoint: "http://localhost.evil.example", ...credentials })).toThrow(/https/);
+    expect(() => createLakefsClient({ endpoint: "ftp://lakefs.example", ...credentials })).toThrow(/https/);
+    expect(() => createLakefsClient({ endpoint: "lakefs.example", ...credentials })).toThrow(/absolute/);
+    for (const endpoint of ["http://localhost:8000", "http://127.0.0.1:8000/api/v1", "http://[::1]:8000"]) {
+      expect(() => createLakefsClient({ endpoint, ...credentials })).not.toThrow();
+    }
+    expect(() => createLakefsClient({ endpoint: "http://lakefs.internal:8000", allowInsecure: true, ...credentials })).not.toThrow();
+    expect(credentials.fetch).not.toHaveBeenCalled();
+  });
+
+  it("throws a typed error carrying the status and response body", async () => {
+    const client = createLakefsClient({
+      endpoint: "https://lakefs.example",
+      accessKeyId: "key",
+      secretAccessKey: "secret",
+      fetch: vi.fn(async () => new Response('{"message":"repository not found"}', { status: 404, statusText: "Not Found" })),
+    });
+    const error = await client.commit({ repo: "r", branch: "main", message: "m" }).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(LakefsError);
+    expect(LakeFSError).toBe(LakefsError);
+    expect(error).toMatchObject({
+      name: "LakefsError",
+      status: 404,
+      statusText: "Not Found",
+      operation: "/repositories/r/branches/main/commits",
+      body: '{"message":"repository not found"}',
+    });
+    expect((error as Error).message).toMatch(/^lakefs 404 Not Found on /);
+  });
+
+  it("treats only an HTTP 409 as already-exists, not matching error text", async () => {
+    const client = (response: () => Response) => createLakefsClient({
+      endpoint: "https://lakefs.example",
+      accessKeyId: "key",
+      secretAccessKey: "secret",
+      fetch: vi.fn(async () => response()),
+    });
+    // A server error whose path or body merely mentions 409 / "already exists" must surface.
+    const failing = client(() => new Response("tag already exists? no: disk full", { status: 500 }));
+    await expect(failing.tag({ repo: "repo-409", id: "v1", ref: "abc" })).rejects.toMatchObject({ status: 500 });
+    await expect(failing.branch({ repo: "repo-409", sourceRef: "main", name: "b" })).rejects.toMatchObject({ status: 500 });
+    const conflicting = client(() => new Response("conflict", { status: 409 }));
+    await expect(conflicting.tag({ repo: "r", id: "v1", ref: "abc" })).resolves.toBeUndefined();
   });
 
   it("retries one transient read but never retries a write", async () => {

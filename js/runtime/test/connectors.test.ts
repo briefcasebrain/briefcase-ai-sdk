@@ -165,6 +165,85 @@ describe("connector runner", () => {
     });
   });
 
+  it("writes each page from a paginated strategy before fetching the next", async () => {
+    const connectorStore = store(connection({ tokenExpiresAt: new Date("2026-01-01T01:00:00Z") }));
+    const order: string[] = [];
+    const sink = {
+      write: vi.fn(async (resources: readonly Resource[]) => {
+        order.push(`write:${resources.map((resource) => resource.externalId).join(",")}`);
+        return { written: resources.length };
+      }),
+    };
+    const page = (...values: number[]): Resource[] =>
+      values.map((value) => ({ externalId: `r${value}`, occurredAt: new Date(`2025-12-0${value}T00:00:00Z`), value }));
+    const result = await runConnectorSync<Resource>({
+      tenantId: "tenant-1",
+      connectionId: "connection-1",
+      provider: "example",
+      store: connectorStore,
+      sink,
+      now: () => new Date("2026-01-01T00:00:00Z"),
+      strategy: {
+        provider: "example",
+        async *fetchResources() {
+          for (const values of [[1, 2], [], [4, 3]]) {
+            order.push(`fetch:${values.length}`);
+            yield page(...values);
+          }
+        },
+      },
+    });
+    expect(order).toEqual(["fetch:2", "write:r1,r2", "fetch:0", "fetch:2", "write:r4,r3"]);
+    expect(result).toEqual({ runId: "run-1", fetched: 4, written: 4 });
+    expect(connectorStore.completeRun).toHaveBeenCalledWith(
+      expect.objectContaining({ fetched: 4, written: 4, cursor: "2025-12-04T00:00:00.000Z" }),
+    );
+  });
+
+  it("fails the run without advancing the cursor when a later page throws", async () => {
+    const connectorStore = store(connection({ tokenExpiresAt: new Date("2026-01-01T01:00:00Z") }));
+    const sink = { write: vi.fn(async (resources: readonly Resource[]) => ({ written: resources.length })) };
+    await expect(runConnectorSync<Resource>({
+      tenantId: "tenant-1",
+      connectionId: "connection-1",
+      provider: "example",
+      store: connectorStore,
+      sink,
+      now: () => new Date("2026-01-01T00:00:00Z"),
+      strategy: {
+        provider: "example",
+        async *fetchResources() {
+          yield [{ externalId: "r1", occurredAt: new Date("2025-12-01T00:00:00Z"), value: 1 }];
+          throw new Error("page 2 unavailable");
+        },
+      },
+    })).rejects.toThrow("page 2 unavailable");
+    expect(sink.write).toHaveBeenCalledTimes(1);
+    expect(connectorStore.completeRun).not.toHaveBeenCalled();
+    expect(connectorStore.failRun).toHaveBeenCalledWith(expect.objectContaining({ error: "page 2 unavailable" }));
+  });
+
+  it("rethrows the original error when failRun itself throws", async () => {
+    const connectorStore = store(connection({ tokenExpiresAt: new Date("2026-01-01T01:00:00Z") }));
+    const failRunError = new Error("run table unavailable");
+    connectorStore.failRun = vi.fn(async () => { throw failRunError; });
+    const original = new Error("provider exploded");
+    const onFailRunError = vi.fn();
+    const run = (extra: object) => runConnectorSync<Resource>({
+      tenantId: "tenant-1",
+      connectionId: "connection-1",
+      provider: "example",
+      store: connectorStore,
+      sink: { write: vi.fn(async () => ({ written: 0 })) },
+      strategy: { provider: "example", fetchResources: async () => { throw original; } },
+      ...extra,
+    });
+    await expect(run({ onFailRunError })).rejects.toBe(original);
+    expect(onFailRunError).toHaveBeenCalledWith(failRunError, original);
+    await expect(run({})).rejects.toBe(original);
+    await expect(run({ onFailRunError: () => { throw new Error("observer bug"); } })).rejects.toBe(original);
+  });
+
   it("marks a terminal refresh failure for reconnect and records the failed run", async () => {
     const state = store();
     await expect(

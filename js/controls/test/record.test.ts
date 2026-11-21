@@ -73,7 +73,10 @@ describe("decision record wire schema (fixture parity)", () => {
   });
 
   it("optional fields in the fixture stay optional", () => {
-    expect([...fixture.optional_fields].sort()).toEqual(["context_version", "error"]);
+    // The shared fixture also lists optional fields only the Python recorder
+    // emits; the ones this recorder emits must be among them.
+    expect(fixture.optional_fields).toEqual(expect.arrayContaining(["context_version", "error"]));
+    for (const field of fixture.optional_fields) expect(fixture.required_fields).not.toContain(field);
   });
 });
 

@@ -70,11 +70,72 @@ describe("MemoryQuotaStore", () => {
     expect(after.tokensRemaining).toBe(0);
   });
 
-  it("fails open on a broken policy", () => {
+  it("fails closed on a broken policy", () => {
     const store = new MemoryQuotaStore();
-    const d = store.acquire({ tenantId: "t1", bucket: "draft", policy: {}, now: T0 });
-    expect(d.allowed).toBe(true);
-    expect(d.tokensRemaining).toBeNull();
+    const broken: Array<Record<string, unknown>> = [
+      {},
+      { capacity: 3 },
+      { refillSecondsPerToken: 60 },
+      { capacity: "many", refillSecondsPerToken: 60 },
+      { capacity: 3, refillSecondsPerToken: 0 },
+      { capacity: 3, refillSecondsPerToken: -1 },
+      { capacity: 0, refillSecondsPerToken: 60 },
+      { capacity: -5, refillSecondsPerToken: 60 },
+      { capacity: Number.POSITIVE_INFINITY, refillSecondsPerToken: 60 },
+      { capacity: null, refillSecondsPerToken: null },
+    ];
+    for (const policy of broken) {
+      // Repeated calls stay denied: no unlimited pass-through.
+      for (let i = 0; i < 3; i++) {
+        const d = store.acquire({ tenantId: "t1", bucket: "draft", policy, now: T0 });
+        expect(d, JSON.stringify(policy)).toEqual({ allowed: false, tokensRemaining: 0 });
+      }
+    }
+    expect(store.size).toBe(0);
+    // A valid policy on the same bucket is unaffected.
+    expect(store.acquire({ tenantId: "t1", bucket: "draft", policy: POLICY, now: T0 }).allowed).toBe(true);
+  });
+
+  it("evicts buckets that have refilled to capacity", () => {
+    const store = new MemoryQuotaStore({ sweepIntervalMs: 1_000 });
+    for (let i = 0; i < 50; i++) {
+      store.acquire({ tenantId: `tenant-${i}`, bucket: "draft", policy: POLICY, now: T0 });
+    }
+    drain(store, T0, 3);
+    expect(store.size).toBe(51);
+    // One token debited refills in 60s; the drained bucket needs 180s.
+    store.acquire({ tenantId: "probe", bucket: "draft", policy: POLICY, now: T0 + 61_000 });
+    expect(store.size).toBe(2);
+    const partial = store.acquire({ tenantId: "t1", bucket: "draft", policy: POLICY, now: T0 + 61_000 });
+    expect(partial).toEqual({ allowed: true, tokensRemaining: 0 });
+    expect(store.evictExpired(T0 + 61_000 + 181_000)).toBe(2);
+    expect(store.size).toBe(0);
+  });
+
+  it("eviction never changes a decision", () => {
+    const run = (sweepIntervalMs: number) => {
+      const store = new MemoryQuotaStore({ sweepIntervalMs });
+      const decisions: unknown[] = [];
+      for (const offset of [0, 0, 0, 0, 59_000, 60_000, 61_000, 125_000, 400_000, 400_000, 1_000_000]) {
+        decisions.push(store.acquire({ tenantId: "t1", bucket: "draft", policy: POLICY, now: T0 + offset }));
+      }
+      return decisions;
+    };
+    expect(run(1)).toEqual(run(Number.POSITIVE_INFINITY));
+  });
+
+  it("evicts a lapsed cooldown only once its bucket has refilled", () => {
+    const store = new MemoryQuotaStore();
+    drain(store, T0, 1);
+    store.markCooldown({ tenantId: "t1", bucket: "draft", seconds: 30, now: T0 });
+    // Cooldown over, but the zeroed bucket has not refilled: it must persist.
+    expect(store.evictExpired(T0 + 31_000)).toBe(1);
+    expect(store.size).toBe(1);
+    const after = store.acquire({ tenantId: "t1", bucket: "draft", policy: POLICY, now: T0 + 70_000 });
+    expect(after).toEqual({ allowed: true, tokensRemaining: 0 });
+    store.markCooldown({ tenantId: "t1", bucket: "draft", seconds: 30, now: T0 + 70_000 });
+    expect(store.evictExpired(T0 + 70_000 + 181_000)).toBe(2);
+    expect(store.size).toBe(0);
   });
 
   it("reset clears all state", () => {

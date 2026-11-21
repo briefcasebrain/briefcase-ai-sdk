@@ -7,10 +7,13 @@
 
 export {
   BEDROCK_DEFAULT_RATE,
+  BEDROCK_MODEL_ALIASES,
   BEDROCK_RATES,
   BEDROCK_RATE_PER_TOKENS,
   priceForUsage,
+  rateForModel,
   type BedrockRate,
+  type BedrockTokenRate,
 } from "./pricing.js";
 
 export interface ResolveModelIdArgs {

@@ -1,4 +1,10 @@
-# cargo-deny configuration; CI runs `check advisories`.
+# cargo-deny configuration; CI runs `check advisories licenses bans sources`.
+
+[graph]
+# Check every feature combination, not only the defaults: optional
+# dependencies (otel, tokens, compression, ...) ship to users who enable them.
+all-features = true
+
 [advisories]
 ignore = [
     # RUSTSEC-2026-0176 / RUSTSEC-2026-0177: out-of-bounds read in the
@@ -10,3 +16,40 @@ ignore = [
     "RUSTSEC-2026-0176",
     "RUSTSEC-2026-0177",
 ]
+
+[licenses]
+# Permissive licenses only. A dependency under any other license (copyleft
+# included) fails the check until it is reviewed and listed here.
+# Derived from `cargo deny check licenses` over the locked graph with all
+# features; every entry is in use.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception", # target-lexicon (pyo3 build)
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",         # ICU4X data crates (url/idna) and unicode-ident
+    "CDLA-Permissive-2.0", # webpki-roots: the Mozilla CA bundle, data only
+]
+confidence-threshold = 0.8
+
+[licenses.private]
+# Workspace crates marked `publish = false` (the Node binding crate) are
+# never distributed on crates.io and need no license field of their own.
+ignore = true
+
+[bans]
+# Duplicate versions are reported, not failed: the tree legitimately carries
+# several majors of some transitive crates.
+multiple-versions = "warn"
+wildcards = "deny"
+# Path dependencies inside this workspace are not wildcard requirements.
+allow-wildcard-paths = true
+
+[sources]
+# crates.io only: no git dependencies and no alternative registries.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

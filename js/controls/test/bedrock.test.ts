@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   BEDROCK_DEFAULT_RATE,
+  BEDROCK_MODEL_ALIASES,
   BEDROCK_RATES,
   BEDROCK_RATE_PER_TOKENS,
   __resetForTests,
@@ -11,6 +12,7 @@ import {
   createMemoizedCredentialProvider,
   normalizeBedrockModelId,
   priceForUsage,
+  rateForModel,
   resolveModelId,
   supportsConverseTools,
   supportsPriorityServiceTier,
@@ -114,22 +116,73 @@ describe("normalizeBedrockModelId", () => {
   });
 });
 
-describe("pricing table parity with the shared fixture", () => {
-  const fixture = JSON.parse(
-    readFileSync(new URL("../../../tests/fixtures/bedrock_rates.json", import.meta.url), "utf8"),
-  ) as {
-    per_tokens: number;
-    rates: Array<{ match: string; input: number; output: number }>;
-    default: { input: number; output: number };
-  };
+/** Per-1M-token rates registered in the Rust cost engine, keyed by model name. */
+function rustEngineRates(): Map<string, { input: number; output: number }> {
+  const source = readFileSync(
+    new URL("../../../crates/briefcase-core/src/cost.rs", import.meta.url),
+    "utf8",
+  );
+  const rates = new Map<string, { input: number; output: number }>();
+  const number = "([0-9][0-9_]*(?:\\.[0-9]+)?)";
+  const parse = (text: string) => Number(text.replaceAll("_", ""));
+  // ModelPricing::from_mtok("name", "provider", input_per_mtok, output_per_mtok, ...)
+  const perMillion = new RegExp(`from_mtok\\(\\s*"([^"]+)",\\s*"[^"]+",\\s*${number},\\s*${number},`, "g");
+  for (const [, model, input, output] of source.matchAll(perMillion)) {
+    rates.set(model!, { input: parse(input!), output: parse(output!) });
+  }
+  // ModelPricing { model_name: "name", ..., input_cost_per_1k_tokens: x, output_cost_per_1k_tokens: y }
+  const perThousand = new RegExp(
+    `model_name:\\s*"([^"]+)"\\.to_string\\(\\),\\s*provider:[^,]+,\\s*` +
+      `input_cost_per_1k_tokens:\\s*${number},\\s*output_cost_per_1k_tokens:\\s*${number},`,
+    "g",
+  );
+  for (const [, model, input, output] of source.matchAll(perThousand)) {
+    if (!rates.has(model!)) rates.set(model!, { input: parse(input!) * 1000, output: parse(output!) * 1000 });
+  }
+  return rates;
+}
 
-  it("matches the fixture rates in order and value", () => {
-    expect([...BEDROCK_RATES]).toEqual(fixture.rates);
+describe("pricing table parity with the Rust cost engine", () => {
+  const engine = rustEngineRates();
+
+  it("finds the engine's table", () => {
+    expect(engine.size).toBeGreaterThan(20);
+    expect(engine.get("claude-opus-4-1")).toEqual({ input: 15, output: 75 });
   });
 
-  it("matches the fixture default and denominator", () => {
-    expect(BEDROCK_DEFAULT_RATE).toEqual(fixture.default);
+  it.each(BEDROCK_RATES.map((rate) => [rate.model, rate] as const))(
+    "prices %s exactly as the engine does",
+    (model, rate) => {
+      const expected = engine.get(model);
+      expect(expected, `${model} is not registered in cost.rs`).toBeDefined();
+      expect(rate.input).toBeCloseTo(expected!.input, 9);
+      expect(rate.output).toBeCloseTo(expected!.output, 9);
+    },
+  );
+
+  it("has unique models and aliases that point at priced models", () => {
+    const models = BEDROCK_RATES.map((rate) => rate.model);
+    expect(new Set(models).size).toBe(models.length);
+    for (const [alias, target] of Object.entries(BEDROCK_MODEL_ALIASES)) {
+      expect(models, alias).toContain(target);
+      expect(models, alias).not.toContain(alias);
+    }
+  });
+
+  it("agrees with the shared fixture on the flat-rate families and denominator", () => {
+    const fixture = JSON.parse(
+      readFileSync(new URL("../../../tests/fixtures/bedrock_rates.json", import.meta.url), "utf8"),
+    ) as { per_tokens: number; rates: Array<{ match: string; input: number; output: number }> };
     expect(BEDROCK_RATE_PER_TOKENS).toBe(fixture.per_tokens);
+    // The fixture's Claude rows are per-family regexes, which cannot express
+    // per-model prices; only its Nova and embedding rows are exact.
+    for (const model of ["nova-pro", "nova-lite", "nova-micro"]) {
+      const { input, output } = fixture.rates.find((rate) => rate.match === model)!;
+      expect(rateForModel(model)).toMatchObject({ input, output });
+    }
+    const embed = fixture.rates.find((rate) => rate.match.includes("embed"))!;
+    expect(rateForModel("titan-embed-text")).toMatchObject({ input: embed.input, output: embed.output });
+    expect(rateForModel("cohere-embed")).toMatchObject({ input: embed.input, output: embed.output });
   });
 });
 
@@ -144,20 +197,59 @@ describe("priceForUsage", () => {
     expect(priceForUsage("amazon.nova-micro-v1:0", 2_000_000, 0)).toBeCloseTo(0.07, 10);
   });
 
-  it("applies the default when nothing matches", () => {
-    expect(priceForUsage("mystery-model", 1_000_000, 1_000_000)).toBe(18);
+  it("prices each Claude model at its own rate, not its family's", () => {
+    const perMillion = (model: string) => [priceForUsage(model, 1_000_000, 0), priceForUsage(model, 0, 1_000_000)];
+    expect(perMillion("us.anthropic.claude-opus-4-1-20250805-v1:0")).toEqual([15, 75]);
+    expect(perMillion("global.anthropic.claude-opus-4-5-20251101-v1:0")).toEqual([5, 25]);
+    expect(perMillion("anthropic.claude-opus-4-6-v1")).toEqual([5, 25]);
+    expect(perMillion("anthropic.claude-opus-4-7")).toEqual([5, 25]);
+    expect(perMillion("anthropic.claude-3-opus-20240229-v1:0")).toEqual([15, 75]);
+    expect(perMillion("us.anthropic.claude-haiku-4-5-20251001-v1:0")).toEqual([1, 5]);
+    expect(perMillion("anthropic.claude-3-5-haiku-20241022-v1:0")).toEqual([0.8, 4]);
+    expect(perMillion("anthropic.claude-3-haiku-20240307-v1:0")).toEqual([0.25, 1.25]);
+    expect(perMillion("anthropic.claude-3-5-sonnet-20241022-v2:0")).toEqual([3, 15]);
+    expect(perMillion("us.amazon.nova-premier-v1:0")).toEqual([2.5, 12.5]);
   });
 
-  it("takes the first match in table order", () => {
-    expect(priceForUsage("claude-opus-sonnet-hybrid", 1_000_000, 1_000_000)).toBe(90);
+  it("returns undefined for a model without a known rate", () => {
+    for (const model of [
+      "mystery-model",
+      "OPUS-TEST",
+      "claude-opus-sonnet-hybrid",
+      "anthropic.claude-opus-9-9-v1:0",
+      "anthropic.claude-sonnet-4-20250514-v1:0",
+      "meta.llama3-70b-instruct-v1:0",
+      "",
+    ]) {
+      expect(priceForUsage(model, 1_000_000, 1_000_000), model).toBeUndefined();
+      expect(rateForModel(model), model).toBeUndefined();
+    }
   });
 
-  it("matches case-insensitively", () => {
-    expect(priceForUsage("OPUS-TEST", 1_000_000, 0)).toBe(15);
+  it("uses a fallback rate only when the caller opts in", () => {
+    const fallback = { fallbackRate: BEDROCK_DEFAULT_RATE };
+    const price: number = priceForUsage("mystery-model", 1_000_000, 1_000_000, fallback);
+    expect(price).toBe(18);
+    // A known model ignores the fallback.
+    expect(priceForUsage("anthropic.claude-opus-4-7", 1_000_000, 1_000_000, fallback)).toBe(30);
+  });
+
+  it("resolves ids case-insensitively, through ARNs and inference profiles", () => {
+    expect(priceForUsage("US.Anthropic.Claude-Haiku-4-5-20251001-v1:0", 1_000_000, 0)).toBe(1);
+    expect(
+      priceForUsage(
+        "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.amazon.nova-pro-v1:0",
+        1_000_000,
+        0,
+      ),
+    ).toBeCloseTo(0.8, 10);
+    expect(rateForModel("nova-lite")?.model).toBe("nova-lite");
   });
 
   it("prices embeddings with zero output cost", () => {
     expect(priceForUsage("cohere.embed-english-v3", 1_000_000, 1_000_000)).toBeCloseTo(0.1, 10);
+    expect(priceForUsage("cohere.embed-multilingual-v3", 1_000_000, 1_000_000)).toBeCloseTo(0.1, 10);
+    expect(priceForUsage("amazon.titan-embed-text-v2:0", 1_000_000, 1_000_000)).toBeCloseTo(0.1, 10);
   });
 });
 
