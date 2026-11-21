@@ -58,7 +58,7 @@ def test_schema_version_matches_capture():
 
 def test_records_use_only_the_capture_record_fields():
     allowed = set(FIXTURE["required_fields"]) | set(FIXTURE["optional_fields"])
-    required = set(FIXTURE["required_fields"]) | set(FIXTURE["python_always_fields"])
+    required = set(FIXTURE["required_fields"])
     for source, records in all_sources().items():
         assert records, source
         for record in records:

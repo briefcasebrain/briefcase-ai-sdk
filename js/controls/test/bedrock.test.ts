@@ -169,20 +169,45 @@ describe("pricing table parity with the Rust cost engine", () => {
     }
   });
 
-  it("agrees with the shared fixture on the flat-rate families and denominator", () => {
+  describe("shared fixture (tests/fixtures/bedrock_rates.json)", () => {
     const fixture = JSON.parse(
       readFileSync(new URL("../../../tests/fixtures/bedrock_rates.json", import.meta.url), "utf8"),
-    ) as { per_tokens: number; rates: Array<{ match: string; input: number; output: number }> };
-    expect(BEDROCK_RATE_PER_TOKENS).toBe(fixture.per_tokens);
-    // The fixture's Claude rows are per-family regexes, which cannot express
-    // per-model prices; only its Nova and embedding rows are exact.
-    for (const model of ["nova-pro", "nova-lite", "nova-micro"]) {
-      const { input, output } = fixture.rates.find((rate) => rate.match === model)!;
-      expect(rateForModel(model)).toMatchObject({ input, output });
-    }
-    const embed = fixture.rates.find((rate) => rate.match.includes("embed"))!;
-    expect(rateForModel("titan-embed-text")).toMatchObject({ input: embed.input, output: embed.output });
-    expect(rateForModel("cohere-embed")).toMatchObject({ input: embed.input, output: embed.output });
+    ) as {
+      per_tokens: number;
+      rates: Array<{ model: string; input: number; output: number }>;
+      aliases: Record<string, string>;
+      fallback_rate_model: string;
+      opt_in_fallback_rate: { input: number; output: number };
+    };
+
+    it("is the same per-model table, row for row", () => {
+      expect(BEDROCK_RATE_PER_TOKENS).toBe(fixture.per_tokens);
+      expect(fixture.rates).toEqual(BEDROCK_RATES);
+      expect(fixture.aliases).toEqual(BEDROCK_MODEL_ALIASES);
+    });
+
+    it("has no regex family rows", () => {
+      for (const row of fixture.rates) {
+        expect(Object.keys(row).sort()).toEqual(["input", "model", "output"]);
+        expect(row.model).toMatch(/^[a-z0-9.-]+$/);
+      }
+    });
+
+    it("holds no price the engine does not register", () => {
+      for (const row of fixture.rates) {
+        const expected = engine.get(row.model);
+        expect(expected, `${row.model} is not registered in cost.rs`).toBeDefined();
+        expect(row.input).toBeCloseTo(expected!.input, 9);
+        expect(row.output).toBeCloseTo(expected!.output, 9);
+      }
+      expect(fixture.opt_in_fallback_rate).toEqual(BEDROCK_DEFAULT_RATE);
+      expect(engine.get(fixture.fallback_rate_model)).toEqual(fixture.opt_in_fallback_rate);
+    });
+
+    it.each(fixture.rates.map((row) => [row.model, row] as const))("prices %s from the fixture row", (model, row) => {
+      expect(priceForUsage(model, 1_000_000, 0)).toBeCloseTo(row.input, 9);
+      expect(priceForUsage(model, 0, 1_000_000)).toBeCloseTo(row.output, 9);
+    });
   });
 });
 

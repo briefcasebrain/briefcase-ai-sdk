@@ -9,7 +9,8 @@ use briefcase_core::replay::ReplayError;
 use briefcase_core::storage::StorageError;
 use once_cell::sync::OnceCell;
 use pyo3::exceptions::{
-    PyConnectionError, PyKeyError, PyOSError, PyPermissionError, PyRuntimeError, PyValueError,
+    PyConnectionError, PyFileExistsError, PyKeyError, PyOSError, PyPermissionError, PyRuntimeError,
+    PyValueError,
 };
 use pyo3::prelude::*;
 use std::future::Future;
@@ -97,6 +98,7 @@ impl IntoPyErr for StorageError {
                 PyValueError::new_err(msg)
             }
             StorageError::IoError(_) => PyOSError::new_err(msg),
+            StorageError::AlreadyExists(_) => PyFileExistsError::new_err(msg),
             StorageError::QuotaExceeded => PyRuntimeError::new_err(msg),
         }
     }

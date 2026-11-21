@@ -10,6 +10,7 @@ An EmbeddingManifest captures the complete state of an embedding index:
 
 import hashlib
 import json
+import secrets
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
@@ -19,6 +20,13 @@ from briefcase._logging import get_logger
 import briefcase.semantic_conventions.rag as rag_conventions  # noqa: F401
 
 logger = get_logger(__name__)
+
+
+def _unique_suffix(now: datetime) -> str:
+    """Timestamp to the microsecond plus a random suffix, the scheme
+    ``ExternalDataTracker`` uses for snapshot ids: two ids minted in the same
+    second (or the same microsecond, across threads) never collide."""
+    return f"{now.strftime('%Y%m%d_%H%M%S_%f')}_{secrets.token_hex(3)}"
 
 
 # ---------------------------------------------------------------------------
@@ -87,6 +95,13 @@ class EmbeddingManifest:
 
     This is the core versioning artifact: it records exactly which documents
     were embedded, with which model, at which lakeFS commit.
+
+    ``uploaded`` and ``upload_error`` report what happened when
+    ``create_manifest`` tried to store the manifest in lakeFS: ``uploaded`` is
+    ``None`` when no lakeFS client/repository is configured, ``True`` when the
+    upload succeeded, and ``False`` when it failed, with the reason in
+    ``upload_error``. They describe this process's attempt, not the index, so
+    they are left out of ``to_dict`` / ``to_json`` and of comparisons.
     """
     manifest_id: str
     index_name: str
@@ -101,16 +116,25 @@ class EmbeddingManifest:
     status: str = ManifestStatus.CURRENT.value
     parent_manifest_id: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    uploaded: Optional[bool] = field(default=None, compare=False)
+    upload_error: Optional[str] = field(default=None, compare=False)
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        d.pop("uploaded", None)
+        d.pop("upload_error", None)
+        return d
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), sort_keys=True, indent=2)
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "EmbeddingManifest":
-        return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
+        skip = ("uploaded", "upload_error")
+        return cls(**{
+            k: v for k, v in d.items()
+            if k in cls.__dataclass_fields__ and k not in skip
+        })
 
     @classmethod
     def from_json(cls, s: str) -> "EmbeddingManifest":
@@ -236,8 +260,7 @@ class VersionedEmbeddingPipeline:
             )
 
         if batch_id is None:
-            now = datetime.now(timezone.utc)
-            batch_id = f"batch_{now.strftime('%Y%m%d_%H%M%S')}"
+            batch_id = f"batch_{_unique_suffix(datetime.now(timezone.utc))}"
 
         if source_commit is None:
             if self.lakefs and hasattr(self.lakefs, 'get_commit'):
@@ -304,6 +327,12 @@ class VersionedEmbeddingPipeline:
         Create an atomic manifest from one or more embedding batches.
 
         The manifest captures the full state of the index at this point.
+
+        When a lakeFS client and repository are configured the manifest is
+        uploaded. An upload failure does not raise: the manifest is still
+        returned and tracked in memory, with ``uploaded=False`` and the
+        reason in ``upload_error``, so callers can tell a manifest that
+        exists only in this process from one that was stored.
         """
         if not batches:
             raise ValueError("At least one batch is required to create a manifest")
@@ -324,7 +353,11 @@ class VersionedEmbeddingPipeline:
         source_commit = first.source_commit
 
         parent = self.get_latest_manifest(index_name)
-        manifest_id = f"{index_name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{first.source_commit[:8]}"
+        now = datetime.now(timezone.utc)
+        stamp, micros, suffix = _unique_suffix(now).rsplit("_", 2)
+        manifest_id = (
+            f"{index_name}_{stamp}_{micros}_{first.source_commit[:8]}_{suffix}"
+        )
 
         manifest = EmbeddingManifest(
             manifest_id=manifest_id,
@@ -336,7 +369,7 @@ class VersionedEmbeddingPipeline:
             document_count=len(doc_hashes),
             document_hashes=doc_hashes,
             batch_ids=batch_ids,
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=now.isoformat(),
             status=ManifestStatus.CURRENT.value,
             parent_manifest_id=parent.manifest_id if parent else None,
             metadata=metadata or {},
@@ -349,8 +382,14 @@ class VersionedEmbeddingPipeline:
             path = f"manifests/{index_name}/{manifest_id}.json"
             try:
                 self.lakefs.upload_object(path, manifest.to_json().encode("utf-8"))
+                manifest.uploaded = True
             except Exception as e:
-                logger.warning(f"Failed to upload manifest to lakeFS: {e}")
+                manifest.uploaded = False
+                manifest.upload_error = f"{type(e).__name__}: {e}"
+                logger.warning(
+                    "Manifest %s was NOT stored in lakeFS (%s); it exists only "
+                    "in this process: %s", manifest_id, path, manifest.upload_error,
+                )
 
         logger.info(
             f"Created manifest {manifest_id}: {len(doc_hashes)} docs, "

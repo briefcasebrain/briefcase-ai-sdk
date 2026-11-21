@@ -141,6 +141,9 @@ pub enum StorageError {
     SerializationError(String),
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
+    /// An append-only backend was asked to save an id it already holds.
+    #[error("Already exists: {0}")]
+    AlreadyExists(String),
     #[error("Quota exceeded")]
     QuotaExceeded,
     #[error("Invalid query: {0}")]

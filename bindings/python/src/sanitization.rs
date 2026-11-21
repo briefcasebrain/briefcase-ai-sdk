@@ -116,6 +116,20 @@ impl PySanitizer {
         self.inner.set_enabled(enabled);
     }
 
+    /// Choose whether `sanitize_json` redacts PII found in dict keys. On by
+    /// default: a key holding PII becomes its redacted text plus an index
+    /// that keeps every key of the dict distinct, e.g. `"[REDACTED_EMAIL]_1"`.
+    /// Pass False to leave keys untouched.
+    fn set_redact_json_keys(&mut self, redact: bool) {
+        self.inner.set_redact_json_keys(redact);
+    }
+
+    /// Whether `sanitize_json` redacts PII found in dict keys
+    #[getter]
+    fn redact_json_keys(&self) -> bool {
+        self.inner.redacts_json_keys()
+    }
+
     /// Check if sanitizer is enabled
     #[getter]
     fn enabled(&self) -> bool {

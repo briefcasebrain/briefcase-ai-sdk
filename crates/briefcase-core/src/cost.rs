@@ -1607,7 +1607,7 @@ mod tests {
         );
 
         calc.remove_model("gemini-2.5-pro");
-        assert!(calc.extras.get("gemini-2.5-pro").is_none());
+        assert!(!calc.extras.contains_key("gemini-2.5-pro"));
     }
 
     #[test]

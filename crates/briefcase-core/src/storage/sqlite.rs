@@ -44,6 +44,37 @@ const MIGRATIONS: &[&str] = &[
 
 pub struct SqliteBackend {
     pub conn: Arc<Mutex<Connection>>,
+    /// See [`SqliteBackend::with_append_only`].
+    append_only: bool,
+}
+
+/// The two write statements. `INSERT OR REPLACE` is the default and lets a
+/// save overwrite the row holding the same id; a plain `INSERT` fails on the
+/// primary key instead, which append-only mode turns into
+/// [`StorageError::AlreadyExists`].
+const UPSERT_SQL: &str = r#"
+            INSERT OR REPLACE INTO snapshots (
+                id, snapshot_type, data_json, created_at, created_by, checksum
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            "#;
+const INSERT_ONLY_SQL: &str = r#"
+            INSERT INTO snapshots (
+                id, snapshot_type, data_json, created_at, created_by, checksum
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            "#;
+
+/// Map a failed write. A primary-key conflict can only happen under the plain
+/// `INSERT` of append-only mode, and it means the id is already stored.
+fn insert_error(id: &str, e: rusqlite::Error) -> StorageError {
+    if let rusqlite::Error::SqliteFailure(ref code, _) = e {
+        if code.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY {
+            return StorageError::AlreadyExists(format!(
+                "snapshot {} is already stored and this backend is append-only",
+                id
+            ));
+        }
+    }
+    StorageError::ConnectionError(format!("Failed to insert snapshot: {}", e))
 }
 
 impl SqliteBackend {
@@ -63,6 +94,7 @@ impl SqliteBackend {
 
         let backend = Self {
             conn: Arc::new(Mutex::new(conn)),
+            append_only: false,
         };
 
         // Run migrations
@@ -125,6 +157,7 @@ impl SqliteBackend {
 
         let backend = Self {
             conn: Arc::new(Mutex::new(conn)),
+            append_only: false,
         };
 
         // Run migrations
@@ -134,6 +167,31 @@ impl SqliteBackend {
         }
 
         Ok(backend)
+    }
+
+    /// Opt in to append-only writes. Off by default, where saving an id that
+    /// is already stored replaces the row. When on, such a save fails with
+    /// [`StorageError::AlreadyExists`] and leaves the stored row untouched (a
+    /// batch save is rejected as a whole), and `delete` fails with
+    /// [`StorageError::PermissionDenied`], so a recorded decision cannot be
+    /// rewritten through this handle. The flag belongs to the handle, not the
+    /// database file: another handle opened without it can still overwrite.
+    pub fn with_append_only(mut self, append_only: bool) -> Self {
+        self.append_only = append_only;
+        self
+    }
+
+    /// Whether this handle refuses to overwrite or delete stored snapshots.
+    pub fn is_append_only(&self) -> bool {
+        self.append_only
+    }
+
+    fn write_sql(&self) -> &'static str {
+        if self.append_only {
+            INSERT_ONLY_SQL
+        } else {
+            UPSERT_SQL
+        }
     }
 
     /// Lock the connection. A panic in another thread while it held the lock
@@ -234,11 +292,7 @@ impl SqliteBackend {
 
         conn_guard
             .execute(
-                r#"
-            INSERT OR REPLACE INTO snapshots (
-                id, snapshot_type, data_json, created_at, created_by, checksum
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            "#,
+                self.write_sql(),
                 params![
                     snapshot_id,
                     format!("{:?}", snapshot.snapshot_type),
@@ -248,9 +302,7 @@ impl SqliteBackend {
                     snapshot.metadata.checksum,
                 ],
             )
-            .map_err(|e| {
-                StorageError::ConnectionError(format!("Failed to insert snapshot: {}", e))
-            })?;
+            .map_err(|e| insert_error(&snapshot_id, e))?;
 
         Ok(snapshot_id)
     }
@@ -275,6 +327,7 @@ impl SqliteBackend {
         &self,
         decisions: &[DecisionSnapshot],
     ) -> Result<Vec<String>, StorageError> {
+        let write_sql = self.write_sql();
         let mut conn_guard = self.lock_conn();
         let tx = conn_guard
             .transaction()
@@ -292,11 +345,7 @@ impl SqliteBackend {
                 .map_err(|e| StorageError::SerializationError(e.to_string()))?;
 
             tx.execute(
-                r#"
-            INSERT OR REPLACE INTO snapshots (
-                id, snapshot_type, data_json, created_at, created_by, checksum
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            "#,
+                write_sql,
                 params![
                     snapshot_id,
                     format!("{:?}", snapshot.snapshot_type),
@@ -306,13 +355,32 @@ impl SqliteBackend {
                     snapshot.metadata.checksum,
                 ],
             )
-            .map_err(|e| StorageError::ConnectionError(format!("Failed to insert: {}", e)))?;
+            .map_err(|e| insert_error(&snapshot_id, e))?;
             ids.push(snapshot_id);
         }
 
         tx.commit()
             .map_err(|e| StorageError::ConnectionError(format!("Failed to commit: {}", e)))?;
         Ok(ids)
+    }
+
+    /// Delete a snapshot by id; `Ok(false)` when no such id is stored.
+    /// Refused with `PermissionDenied` in append-only mode.
+    pub fn delete_internal(&self, snapshot_id: &str) -> Result<bool, StorageError> {
+        if self.append_only {
+            return Err(StorageError::PermissionDenied(format!(
+                "cannot delete snapshot {}: this backend is append-only",
+                snapshot_id
+            )));
+        }
+        let rows_affected = self
+            .lock_conn()
+            .execute("DELETE FROM snapshots WHERE id = ?", params![snapshot_id])
+            .map_err(|e| {
+                StorageError::ConnectionError(format!("Failed to delete snapshot: {}", e))
+            })?;
+
+        Ok(rows_affected > 0)
     }
 
     pub fn load_internal(&self, snapshot_id: &str) -> Result<Snapshot, StorageError> {
@@ -565,19 +633,9 @@ impl StorageBackend for SqliteBackend {
         let id = snapshot_id.to_string();
         let self_clone = self.clone();
 
-        task::spawn_blocking(move || {
-            let conn_guard = self_clone.lock_conn();
-
-            let rows_affected = conn_guard
-                .execute("DELETE FROM snapshots WHERE id = ?", params![id])
-                .map_err(|e| {
-                    StorageError::ConnectionError(format!("Failed to delete snapshot: {}", e))
-                })?;
-
-            Ok(rows_affected > 0)
-        })
-        .await
-        .map_err(|e| StorageError::ConnectionError(format!("Task join error: {}", e)))?
+        task::spawn_blocking(move || self_clone.delete_internal(&id))
+            .await
+            .map_err(|e| StorageError::ConnectionError(format!("Task join error: {}", e)))?
     }
 
     async fn flush(&self) -> Result<FlushResult, StorageError> {
@@ -632,6 +690,7 @@ impl Clone for SqliteBackend {
     fn clone(&self) -> Self {
         Self {
             conn: Arc::clone(&self.conn),
+            append_only: self.append_only,
         }
     }
 }
@@ -657,6 +716,85 @@ mod tests {
         let mut snapshot = Snapshot::new(SnapshotType::Session);
         snapshot.add_decision(decision);
         snapshot
+    }
+
+    #[tokio::test]
+    async fn test_default_backend_still_replaces_by_id() {
+        let backend = SqliteBackend::in_memory().unwrap();
+        assert!(!backend.is_append_only());
+
+        let first = DecisionSnapshot::new("original");
+        let mut second = DecisionSnapshot::new("rewritten");
+        second.metadata.snapshot_id = first.metadata.snapshot_id;
+
+        let id = backend.save_decision(&first).await.unwrap();
+        assert_eq!(backend.save_decision(&second).await.unwrap(), id);
+        let stored = backend.load_decision(&id).await.unwrap();
+        assert_eq!(stored.function_name, "rewritten");
+        assert!(backend.delete(&id).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_append_only_rejects_an_existing_id() {
+        let backend = SqliteBackend::in_memory().unwrap().with_append_only(true);
+        assert!(backend.is_append_only());
+        // Clones share the flag along with the connection.
+        assert!(backend.clone().is_append_only());
+
+        let first = DecisionSnapshot::new("original");
+        let mut second = DecisionSnapshot::new("rewritten");
+        second.metadata.snapshot_id = first.metadata.snapshot_id;
+
+        let id = backend.save_decision(&first).await.unwrap();
+        let err = backend.save_decision(&second).await.unwrap_err();
+        assert!(matches!(err, StorageError::AlreadyExists(_)), "{err:?}");
+
+        // Same through `save`, and the stored row is untouched.
+        let mut snapshot = Snapshot::new(SnapshotType::Session);
+        snapshot.metadata.snapshot_id = first.metadata.snapshot_id;
+        let err = backend.save(&snapshot).await.unwrap_err();
+        assert!(matches!(err, StorageError::AlreadyExists(_)), "{err:?}");
+        let stored = backend.load_decision(&id).await.unwrap();
+        assert_eq!(stored.function_name, "original");
+
+        // A new id still saves.
+        backend
+            .save_decision(&DecisionSnapshot::new("another"))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_append_only_rejects_a_batch_as_a_whole() {
+        let backend = SqliteBackend::in_memory().unwrap().with_append_only(true);
+        let stored = DecisionSnapshot::new("original");
+        backend.save_decision(&stored).await.unwrap();
+
+        let fresh = DecisionSnapshot::new("fresh");
+        let fresh_id = fresh.metadata.snapshot_id.to_string();
+        let mut clash = DecisionSnapshot::new("rewritten");
+        clash.metadata.snapshot_id = stored.metadata.snapshot_id;
+
+        let err = backend.save_decisions(&[fresh, clash]).await.unwrap_err();
+        assert!(matches!(err, StorageError::AlreadyExists(_)), "{err:?}");
+        // The transaction rolled back: the fresh decision did not land.
+        assert!(matches!(
+            backend.load_decision(&fresh_id).await,
+            Err(StorageError::NotFound(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_append_only_refuses_delete() {
+        let backend = SqliteBackend::in_memory().unwrap().with_append_only(true);
+        let id = backend
+            .save_decision(&DecisionSnapshot::new("original"))
+            .await
+            .unwrap();
+
+        let err = backend.delete(&id).await.unwrap_err();
+        assert!(matches!(err, StorageError::PermissionDenied(_)), "{err:?}");
+        assert!(backend.load_decision(&id).await.is_ok());
     }
 
     #[tokio::test]

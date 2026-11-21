@@ -11,6 +11,9 @@ pub struct Sanitizer {
     /// are the same on every run.
     patterns: Vec<(PiiType, Regex)>,
     enabled: bool,
+    /// Whether `sanitize_json` redacts PII found in object keys. On by
+    /// default; see [`Sanitizer::set_redact_json_keys`].
+    redact_json_keys: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -138,6 +141,7 @@ impl Sanitizer {
         Self {
             patterns: BUILTIN_PATTERNS.clone(),
             enabled: true,
+            redact_json_keys: true,
         }
     }
 
@@ -145,6 +149,7 @@ impl Sanitizer {
         Self {
             patterns: Vec::new(),
             enabled: false,
+            redact_json_keys: true,
         }
     }
 
@@ -171,6 +176,21 @@ impl Sanitizer {
     /// Enable or disable sanitization
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
+    }
+
+    /// Choose whether `sanitize_json` redacts PII found in object keys
+    /// (on by default). When on, a key such as `"jane@example.com"` becomes
+    /// `"[REDACTED_EMAIL]_1"`: the redacted text plus an index that keeps
+    /// every key of the object distinct, so two redacted keys can never
+    /// collapse into one entry. Turn it off to pass keys through untouched,
+    /// for callers whose consumers look values up by the original key.
+    pub fn set_redact_json_keys(&mut self, redact: bool) {
+        self.redact_json_keys = redact;
+    }
+
+    /// Whether `sanitize_json` redacts PII found in object keys.
+    pub fn redacts_json_keys(&self) -> bool {
+        self.redact_json_keys
     }
 
     /// Every redactable match in `text` as `(start, end, pattern index)`,
@@ -264,8 +284,17 @@ impl Sanitizer {
     /// and one that is PII (a card number, or an SSN or phone number under a
     /// key that names it, such as `{"ssn": 123456789}`) is replaced by its
     /// redaction marker, which turns that value into a string. A value's own
-    /// key counts as context for the context-dependent patterns. Object keys
-    /// themselves are left as they are.
+    /// key counts as context for the context-dependent patterns.
+    ///
+    /// Object keys are scanned as well (unless turned off with
+    /// [`set_redact_json_keys`](Self::set_redact_json_keys)). A key holding
+    /// PII is replaced by its redacted text plus `_N`, where the index makes
+    /// the key unique within its object: `{"a@x.io": 1, "b@x.io": 2}` becomes
+    /// `{"[REDACTED_EMAIL]_1": 1, "[REDACTED_EMAIL]_2": 2}`, so no entry is
+    /// lost to a collision. Indices follow the object's iteration order.
+    /// Each key redaction is reported at the path of the renamed key, and
+    /// paths below it use the renamed key, so the PII does not survive in
+    /// `redactions` either.
     pub fn sanitize_json(&self, value: &serde_json::Value) -> SanitizationJsonResult {
         if !self.enabled {
             return SanitizationJsonResult {
@@ -275,7 +304,7 @@ impl Sanitizer {
         }
 
         let mut redactions = Vec::new();
-        let sanitized = self.sanitize_json_recursive(value, &mut redactions, String::new());
+        let sanitized = self.sanitize_json_recursive(value, &mut redactions, String::new(), "");
 
         SanitizationJsonResult {
             sanitized,
@@ -283,15 +312,18 @@ impl Sanitizer {
         }
     }
 
+    /// `context` is the object key the value sits under (the original key,
+    /// before any redaction; array elements inherit their array's key).
     fn sanitize_json_recursive(
         &self,
         value: &serde_json::Value,
         redactions: &mut Vec<JsonRedaction>,
         path: String,
+        context: &str,
     ) -> serde_json::Value {
         match value {
             serde_json::Value::String(s) => {
-                let result = self.sanitize_in_context(s, json_key(&path));
+                let result = self.sanitize_in_context(s, context);
                 for redaction in result.redactions {
                     redactions.push(JsonRedaction {
                         path: path.clone(),
@@ -303,7 +335,7 @@ impl Sanitizer {
             }
             // Floats are measurements; only whole numbers carry identifiers.
             serde_json::Value::Number(n) if n.is_i64() || n.is_u64() => {
-                let result = self.sanitize_in_context(&n.to_string(), json_key(&path));
+                let result = self.sanitize_in_context(&n.to_string(), context);
                 if result.redactions.is_empty() {
                     return value.clone();
                 }
@@ -317,17 +349,54 @@ impl Sanitizer {
                 serde_json::Value::String(result.sanitized)
             }
             serde_json::Value::Object(obj) => {
+                // First pass: decide every output key, so a renamed key can
+                // be kept clear of all the keys that pass through unchanged.
+                let scanned: Vec<Option<SanitizationResult>> = obj
+                    .keys()
+                    .map(|key| {
+                        if !self.redact_json_keys {
+                            return None;
+                        }
+                        let result = self.sanitize(key);
+                        (!result.redactions.is_empty()).then_some(result)
+                    })
+                    .collect();
+                let mut taken: std::collections::HashSet<String> = obj
+                    .keys()
+                    .zip(&scanned)
+                    .filter(|(_, redacted)| redacted.is_none())
+                    .map(|(key, _)| key.clone())
+                    .collect();
+
                 let mut new_obj = serde_json::Map::new();
-                for (key, val) in obj {
-                    let new_path = if path.is_empty() {
-                        key.clone()
-                    } else {
-                        format!("{}.{}", path, key)
+                let mut next_index = 1usize;
+                for ((key, val), redacted) in obj.iter().zip(scanned) {
+                    let new_key = match &redacted {
+                        None => key.clone(),
+                        Some(result) => loop {
+                            let candidate = format!("{}_{}", result.sanitized, next_index);
+                            next_index += 1;
+                            if taken.insert(candidate.clone()) {
+                                break candidate;
+                            }
+                        },
                     };
-                    new_obj.insert(
-                        key.clone(),
-                        self.sanitize_json_recursive(val, redactions, new_path),
-                    );
+                    let new_path = if path.is_empty() {
+                        new_key.clone()
+                    } else {
+                        format!("{}.{}", path, new_key)
+                    };
+                    if let Some(result) = redacted {
+                        for redaction in result.redactions {
+                            redactions.push(JsonRedaction {
+                                path: new_path.clone(),
+                                pii_type: redaction.pii_type,
+                                original_length: redaction.original_length,
+                            });
+                        }
+                    }
+                    let new_val = self.sanitize_json_recursive(val, redactions, new_path, key);
+                    new_obj.insert(new_key, new_val);
                 }
                 serde_json::Value::Object(new_obj)
             }
@@ -335,7 +404,7 @@ impl Sanitizer {
                 let mut new_arr = Vec::new();
                 for (i, val) in arr.iter().enumerate() {
                     let new_path = format!("{}[{}]", path, i);
-                    new_arr.push(self.sanitize_json_recursive(val, redactions, new_path));
+                    new_arr.push(self.sanitize_json_recursive(val, redactions, new_path, context));
                 }
                 serde_json::Value::Array(new_arr)
             }
@@ -399,12 +468,6 @@ impl Default for Sanitizer {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// The key a JSON path ends in (`user.ssn` -> `ssn`, `ids[2]` -> `ids`).
-fn json_key(path: &str) -> &str {
-    let key = path.rsplit('.').next().unwrap_or(path);
-    key.split('[').next().unwrap_or(key)
 }
 
 /// Whether a pattern match is redacted, for the types whose regex alone is
@@ -1271,6 +1334,94 @@ mod tests {
         // Same shape, wrong check digits.
         assert_kept(&sanitizer, "ref GB00WEST12345698765432");
         assert_kept(&sanitizer, "part AB12CDEF34567890");
+    }
+
+    #[test]
+    fn test_json_keys_holding_pii_are_redacted_without_collisions() {
+        let sanitizer = Sanitizer::new();
+        assert!(sanitizer.redacts_json_keys());
+
+        let data = json!({
+            "alice@example.com": {"plan": "pro"},
+            "bob@example.com": {"plan": "free", "contact": "bob@example.com"},
+            "note for carol@example.com": 1,
+            "plain": true,
+            "nested": [{"dave@example.com": "x"}]
+        });
+        let result = sanitizer.sanitize_json(&data);
+        let text = result.sanitized.to_string();
+        for leaked in ["alice@", "bob@", "carol@", "dave@"] {
+            assert!(!text.contains(leaked), "{leaked} survived in {text}");
+        }
+
+        let obj = result.sanitized.as_object().unwrap();
+        // Nothing was lost: five entries in, five out, each key distinct.
+        assert_eq!(obj.len(), 5);
+        assert_eq!(obj["[REDACTED_EMAIL]_1"]["plan"], "pro");
+        assert_eq!(obj["[REDACTED_EMAIL]_2"]["plan"], "free");
+        assert_eq!(obj["[REDACTED_EMAIL]_2"]["contact"], "[REDACTED_EMAIL]");
+        assert_eq!(obj["note for [REDACTED_EMAIL]_3"], 1);
+        assert_eq!(obj["plain"], true);
+        // The index restarts in each object.
+        assert_eq!(obj["nested"][0]["[REDACTED_EMAIL]_1"], "x");
+
+        // Key redactions are reported, and no path carries the original key.
+        let paths: Vec<_> = result.redactions.iter().map(|r| r.path.as_str()).collect();
+        assert!(paths.contains(&"[REDACTED_EMAIL]_1"));
+        assert!(paths.contains(&"[REDACTED_EMAIL]_2.contact"));
+        assert!(paths.contains(&"nested[0].[REDACTED_EMAIL]_1"));
+        assert!(paths.iter().all(|p| !p.contains('@')), "{paths:?}");
+        assert_eq!(result.redactions.len(), 5);
+    }
+
+    #[test]
+    fn test_a_redacted_json_key_never_overwrites_an_existing_key() {
+        let sanitizer = Sanitizer::new();
+
+        // The object already holds the exact names the redaction would pick.
+        let data = json!({
+            "[REDACTED_EMAIL]_1": "literal one",
+            "[REDACTED_EMAIL]_3": "literal three",
+            "a@example.com": "first",
+            "b@example.com": "second"
+        });
+        let result = sanitizer.sanitize_json(&data);
+        let obj = result.sanitized.as_object().unwrap();
+
+        assert_eq!(obj.len(), 4);
+        assert_eq!(obj["[REDACTED_EMAIL]_1"], "literal one");
+        assert_eq!(obj["[REDACTED_EMAIL]_3"], "literal three");
+        assert_eq!(obj["[REDACTED_EMAIL]_2"], "first");
+        assert_eq!(obj["[REDACTED_EMAIL]_4"], "second");
+    }
+
+    #[test]
+    fn test_json_key_redaction_can_be_turned_off() {
+        let mut sanitizer = Sanitizer::new();
+        sanitizer.set_redact_json_keys(false);
+        assert!(!sanitizer.redacts_json_keys());
+
+        let data = json!({"alice@example.com": "bob@example.com"});
+        let result = sanitizer.sanitize_json(&data);
+
+        // Keys pass through; values are still sanitized.
+        assert_eq!(
+            result.sanitized,
+            json!({"alice@example.com": "[REDACTED_EMAIL]"})
+        );
+        assert_eq!(result.redactions.len(), 1);
+    }
+
+    #[test]
+    fn test_json_key_context_still_applies_under_arrays_and_dotted_keys() {
+        let sanitizer = Sanitizer::new();
+
+        let data = json!({"ssn": [123456789], "a.ssn": 123456789, "order.id": 123456789});
+        let result = sanitizer.sanitize_json(&data);
+
+        assert_eq!(result.sanitized["ssn"][0], "[REDACTED_SSN]");
+        assert_eq!(result.sanitized["a.ssn"], "[REDACTED_SSN]");
+        assert_eq!(result.sanitized["order.id"], 123456789);
     }
 
     #[test]

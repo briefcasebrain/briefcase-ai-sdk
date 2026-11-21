@@ -101,9 +101,8 @@ autogen = ["autogen-agentchat>=0.4"]
 ag2 = ["ag2>=0.4"]
 pageindex = ["pageindex>=0.1"]
 openai-agents = ["openai-agents>=0.1"]
-# mcp 2.0 removed mcp.server.fastmcp, which briefcase.mcp is built on, so the
-# floor alone was not enough: a fresh install resolved 2.x and broke the extra.
-mcp = ["mcp>=1.2,<2"]
+# briefcase.mcp imports FastMCP (mcp 1.x) or its 2.x rename MCPServer; verified on 1.30 and 2.3.
+mcp = ["mcp>=1.2,<3"]
 # The `briefcase` evaluation-run CLI talks to oci-jj-server over gRPC, discovering the schema via
 # server reflection (no generated stubs). grpcio-reflection is the PyPI wheel; the import is
 # grpc_reflection.v1alpha. The subprocess oci-jj fallback (BRIEFCASE_ENGINE=cli) needs none of these.

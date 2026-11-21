@@ -1,5 +1,5 @@
 use crate::models::DecisionSnapshot;
-#[cfg(all(feature = "sqlite-storage", feature = "async"))]
+#[cfg(feature = "sqlite-storage")]
 use crate::models::Output;
 
 #[cfg(all(feature = "sqlite-storage", feature = "async"))]
@@ -134,15 +134,15 @@ pub struct PolicyViolation {
 }
 
 /// The outputs a replay produced, or `None` when nothing re-executed.
-#[cfg(all(feature = "sqlite-storage", feature = "async"))]
+#[cfg(feature = "sqlite-storage")]
 fn replayed_outputs(result: &ReplayResult) -> Option<Vec<Output>> {
     let value = result.replay_output.as_ref()?;
     serde_json::from_value::<Vec<Output>>(value.clone()).ok()
 }
 
 /// Resolve a rule's field against a replay's outputs. `output` and an empty
-/// field both mean "the first output", matching `extract_field_value`.
-#[cfg(all(feature = "sqlite-storage", feature = "async"))]
+/// field both mean "the first output", matching `recorded_field_value`.
+#[cfg(feature = "sqlite-storage")]
 fn field_from_outputs(outputs: &[Output], field: &str) -> Option<serde_json::Value> {
     if field == "output" || field.is_empty() {
         return outputs.first().map(|o| o.value.clone());
@@ -155,7 +155,7 @@ fn field_from_outputs(outputs: &[Output], field: &str) -> Option<serde_json::Val
 
 /// Render a JSON value for a violation message: strings unquoted, everything
 /// else as compact JSON.
-#[cfg(all(feature = "sqlite-storage", feature = "async"))]
+#[cfg(feature = "sqlite-storage")]
 fn value_text(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::String(s) => s.clone(),
@@ -163,12 +163,200 @@ fn value_text(value: &serde_json::Value) -> String {
     }
 }
 
-#[cfg(all(feature = "sqlite-storage", feature = "async"))]
+#[cfg(feature = "sqlite-storage")]
 fn text_similarity(a: &str, b: &str) -> f64 {
     if a == b {
         1.0
     } else {
         strsim::normalized_levenshtein(a, b)
+    }
+}
+
+/// What a replay produced, as far as a policy rule can see it.
+#[cfg(feature = "sqlite-storage")]
+pub(crate) struct Replayed<'a> {
+    pub outputs: &'a [Output],
+    /// How long the re-execution took.
+    pub execution_time_ms: f64,
+}
+
+/// Build the replayed view of a result, or `None` when nothing re-executed.
+#[cfg(feature = "sqlite-storage")]
+pub(crate) fn check_result_policy(
+    result: &ReplayResult,
+    policy: &ReplayPolicy,
+) -> Vec<PolicyViolation> {
+    let outputs = replayed_outputs(result);
+    let replayed = outputs.as_deref().map(|outputs| Replayed {
+        outputs,
+        execution_time_ms: result.execution_time_ms,
+    });
+    check_policy(&result.original_snapshot, replayed.as_ref(), policy)
+}
+
+/// Check each rule by comparing the recorded value against the replayed
+/// one. `replayed` is `None` when nothing re-executed, which makes every
+/// rule a violation: an unchecked rule must never read as a pass.
+#[cfg(feature = "sqlite-storage")]
+pub(crate) fn check_policy(
+    original: &DecisionSnapshot,
+    replayed: Option<&Replayed<'_>>,
+    policy: &ReplayPolicy,
+) -> Vec<PolicyViolation> {
+    policy
+        .rules
+        .iter()
+        .filter_map(|rule| check_rule(original, replayed, rule))
+        .collect()
+}
+
+/// The recorded value a rule's field names. A rule can reference the
+/// snapshot-level fields `function_name` and `execution_time_ms`, the first
+/// output (`output` or an empty field), or any output by name.
+#[cfg(feature = "sqlite-storage")]
+fn recorded_field_value(snapshot: &DecisionSnapshot, field: &str) -> Option<serde_json::Value> {
+    match field {
+        "function_name" => Some(serde_json::Value::String(snapshot.function_name.clone())),
+        "execution_time_ms" => snapshot
+            .execution_time_ms
+            .and_then(serde_json::Number::from_f64)
+            .map(serde_json::Value::Number),
+        // Anything else names an output. A policy is written against the
+        // fields a decision produced, so `with_exact_match("category")`
+        // has to resolve to the output called "category".
+        other => field_from_outputs(&snapshot.outputs, other),
+    }
+}
+
+/// The replayed counterpart of `recorded_field_value`, resolving the same
+/// field names so that a snapshot-level rule compares like with like.
+#[cfg(feature = "sqlite-storage")]
+fn replayed_field_value(
+    original: &DecisionSnapshot,
+    replayed: &Replayed<'_>,
+    field: &str,
+) -> Option<serde_json::Value> {
+    match field {
+        // A replay re-executes the recorded decision, so the function it
+        // ran is the recorded one by construction.
+        "function_name" => Some(serde_json::Value::String(original.function_name.clone())),
+        "execution_time_ms" => {
+            serde_json::Number::from_f64(replayed.execution_time_ms).map(serde_json::Value::Number)
+        }
+        other => field_from_outputs(replayed.outputs, other),
+    }
+}
+
+#[cfg(feature = "sqlite-storage")]
+fn check_rule(
+    original: &DecisionSnapshot,
+    replayed: Option<&Replayed<'_>>,
+    rule: &ValidationRule,
+) -> Option<PolicyViolation> {
+    // A rule on a field the decision never recorded cannot be checked,
+    // and an unchecked rule must never read as a pass.
+    let Some(recorded) = recorded_field_value(original, &rule.field) else {
+        return Some(PolicyViolation {
+            rule_name: rule.field.clone(),
+            field: rule.field.clone(),
+            expected: "a recorded value".to_string(),
+            actual: "absent".to_string(),
+            message: format!(
+                "Rule names field '{}', which the recorded decision does not have",
+                rule.field
+            ),
+        });
+    };
+
+    let Some(replayed) = replayed else {
+        return Some(PolicyViolation {
+            rule_name: rule.field.clone(),
+            field: rule.field.clone(),
+            expected: value_text(&recorded),
+            actual: "not replayed".to_string(),
+            message: format!(
+                "Rule on '{}' could not be checked: no executor is set, so nothing \
+                 re-executed. Set one with with_executor.",
+                rule.field
+            ),
+        });
+    };
+
+    let Some(actual) = replayed_field_value(original, replayed, &rule.field) else {
+        return Some(PolicyViolation {
+            rule_name: rule.field.clone(),
+            field: rule.field.clone(),
+            expected: value_text(&recorded),
+            actual: "absent".to_string(),
+            message: format!("Replay produced no '{}' output", rule.field),
+        });
+    };
+
+    let violation = |expected: String, message: String| {
+        Some(PolicyViolation {
+            rule_name: rule.field.clone(),
+            field: rule.field.clone(),
+            expected,
+            actual: value_text(&actual),
+            message,
+        })
+    };
+
+    match rule.comparator {
+        Comparator::ExactMatch => {
+            if recorded == actual {
+                None
+            } else {
+                violation(
+                    value_text(&recorded),
+                    format!("Field '{}' changed on replay", rule.field),
+                )
+            }
+        }
+        Comparator::SemanticSimilarity => {
+            let similarity = text_similarity(&value_text(&recorded), &value_text(&actual));
+            if similarity >= rule.threshold {
+                None
+            } else {
+                violation(
+                    format!("similarity >= {}", rule.threshold),
+                    format!(
+                        "Field '{}' similarity {:.3} is below the {} threshold",
+                        rule.field, similarity, rule.threshold
+                    ),
+                )
+            }
+        }
+        Comparator::MaxIncreasePercent
+        | Comparator::MaxDecreasePercent
+        | Comparator::WithinRange => {
+            let (Some(before), Some(after)) = (recorded.as_f64(), actual.as_f64()) else {
+                return violation(
+                    "a number".to_string(),
+                    format!(
+                        "Field '{}' is not numeric, so {:?} cannot be applied",
+                        rule.field, rule.comparator
+                    ),
+                );
+            };
+            let ok = match rule.comparator {
+                Comparator::MaxIncreasePercent => {
+                    before == 0.0 || (after - before) / before * 100.0 <= rule.threshold
+                }
+                Comparator::MaxDecreasePercent => {
+                    before == 0.0 || (before - after) / before * 100.0 <= rule.threshold
+                }
+                _ => (after - before).abs() <= rule.threshold,
+            };
+            if ok {
+                None
+            } else {
+                violation(
+                    format!("{:?} within {}", rule.comparator, rule.threshold),
+                    format!("Field '{}' moved from {} to {}", rule.field, before, after),
+                )
+            }
+        }
     }
 }
 
@@ -287,9 +475,7 @@ impl<S: StorageBackend> ReplayEngine<S> {
 
         // Rules are checked against what the replay produced, so a policy can
         // only pass when something actually re-executed.
-        let replayed = replayed_outputs(&result);
-        let violations = self.check_policy(&result.original_snapshot, replayed.as_deref(), policy);
-        result.policy_violations = violations;
+        result.policy_violations = check_result_policy(&result, policy);
 
         if !result.policy_violations.is_empty() {
             result.status = ReplayStatus::Failed;
@@ -542,154 +728,7 @@ impl<S: StorageBackend> ReplayEngine<S> {
     ) -> Result<Vec<PolicyViolation>, ReplayError> {
         // No replay ran, so there is nothing to compare the recorded values
         // against. Every rule reports as unverified rather than passing.
-        Ok(self.check_policy(snapshot, None, policy))
-    }
-
-    /// Check each rule by comparing the recorded value against the replayed
-    /// one. `replayed` is `None` when nothing re-executed, which makes every
-    /// rule a violation: an unchecked rule must never read as a pass.
-    fn check_policy(
-        &self,
-        original: &DecisionSnapshot,
-        replayed: Option<&[Output]>,
-        policy: &ReplayPolicy,
-    ) -> Vec<PolicyViolation> {
-        policy
-            .rules
-            .iter()
-            .filter_map(|rule| self.check_rule(original, replayed, rule))
-            .collect()
-    }
-
-    fn check_rule(
-        &self,
-        original: &DecisionSnapshot,
-        replayed: Option<&[Output]>,
-        rule: &ValidationRule,
-    ) -> Option<PolicyViolation> {
-        // A rule on a field the decision never recorded cannot be checked,
-        // and an unchecked rule must never read as a pass.
-        let Some(recorded) = self.extract_field_value(original, &rule.field) else {
-            return Some(PolicyViolation {
-                rule_name: rule.field.clone(),
-                field: rule.field.clone(),
-                expected: "a recorded value".to_string(),
-                actual: "absent".to_string(),
-                message: format!(
-                    "Rule names field '{}', which the recorded decision does not have",
-                    rule.field
-                ),
-            });
-        };
-
-        let Some(replayed) = replayed else {
-            return Some(PolicyViolation {
-                rule_name: rule.field.clone(),
-                field: rule.field.clone(),
-                expected: value_text(&recorded),
-                actual: "not replayed".to_string(),
-                message: format!(
-                    "Rule on '{}' could not be checked: no executor is set, so nothing \
-                     re-executed. Set one with ReplayEngine::with_executor.",
-                    rule.field
-                ),
-            });
-        };
-
-        let Some(actual) = field_from_outputs(replayed, &rule.field) else {
-            return Some(PolicyViolation {
-                rule_name: rule.field.clone(),
-                field: rule.field.clone(),
-                expected: value_text(&recorded),
-                actual: "absent".to_string(),
-                message: format!("Replay produced no '{}' output", rule.field),
-            });
-        };
-
-        let violation = |expected: String, message: String| {
-            Some(PolicyViolation {
-                rule_name: rule.field.clone(),
-                field: rule.field.clone(),
-                expected,
-                actual: value_text(&actual),
-                message,
-            })
-        };
-
-        match rule.comparator {
-            Comparator::ExactMatch => {
-                if recorded == actual {
-                    None
-                } else {
-                    violation(
-                        value_text(&recorded),
-                        format!("Field '{}' changed on replay", rule.field),
-                    )
-                }
-            }
-            Comparator::SemanticSimilarity => {
-                let similarity = text_similarity(&value_text(&recorded), &value_text(&actual));
-                if similarity >= rule.threshold {
-                    None
-                } else {
-                    violation(
-                        format!("similarity >= {}", rule.threshold),
-                        format!(
-                            "Field '{}' similarity {:.3} is below the {} threshold",
-                            rule.field, similarity, rule.threshold
-                        ),
-                    )
-                }
-            }
-            Comparator::MaxIncreasePercent
-            | Comparator::MaxDecreasePercent
-            | Comparator::WithinRange => {
-                let (Some(before), Some(after)) = (recorded.as_f64(), actual.as_f64()) else {
-                    return violation(
-                        "a number".to_string(),
-                        format!(
-                            "Field '{}' is not numeric, so {:?} cannot be applied",
-                            rule.field, rule.comparator
-                        ),
-                    );
-                };
-                let ok = match rule.comparator {
-                    Comparator::MaxIncreasePercent => {
-                        before == 0.0 || (after - before) / before * 100.0 <= rule.threshold
-                    }
-                    Comparator::MaxDecreasePercent => {
-                        before == 0.0 || (before - after) / before * 100.0 <= rule.threshold
-                    }
-                    _ => (after - before).abs() <= rule.threshold,
-                };
-                if ok {
-                    None
-                } else {
-                    violation(
-                        format!("{:?} within {}", rule.comparator, rule.threshold),
-                        format!("Field '{}' moved from {} to {}", rule.field, before, after),
-                    )
-                }
-            }
-        }
-    }
-
-    fn extract_field_value(
-        &self,
-        snapshot: &DecisionSnapshot,
-        field_path: &str,
-    ) -> Option<serde_json::Value> {
-        match field_path {
-            "function_name" => Some(serde_json::Value::String(snapshot.function_name.clone())),
-            "execution_time_ms" => snapshot
-                .execution_time_ms
-                .and_then(serde_json::Number::from_f64)
-                .map(serde_json::Value::Number),
-            // Anything else names an output. A policy is written against the
-            // fields a decision produced, so `with_exact_match("category")`
-            // has to resolve to the output called "category".
-            other => field_from_outputs(&snapshot.outputs, other),
-        }
+        Ok(check_policy(snapshot, None, policy))
     }
 
     fn calculate_diff(&self, original: &DecisionSnapshot, new: &DecisionSnapshot) -> SnapshotDiff {
@@ -1068,6 +1107,48 @@ mod honest_replay_tests {
             .with_model_parameters(ModelParameters::new("gpt-4"));
         let id = storage.save_decision(&decision).await.unwrap();
         (storage, id)
+    }
+
+    #[tokio::test]
+    async fn a_policy_rule_can_name_snapshot_level_fields() {
+        let storage = SqliteBackend::in_memory().unwrap();
+        let decision = DecisionSnapshot::new("classify_ticket")
+            .add_input(Input::new("text", json!("reset my password"), "string"))
+            .add_output(Output::new("answer", json!("account_access"), "string"))
+            .with_execution_time(60_000.0);
+        let id = storage.save_decision(&decision).await.unwrap();
+        let engine = ReplayEngine::new(storage).with_executor(Arc::new(FixedExecutor {
+            value: json!("account_access"),
+        }));
+
+        // `function_name` and `execution_time_ms` resolve on the replayed
+        // side too, so these rules are checked rather than reported "absent".
+        let policy = ReplayPolicy::new("p")
+            .with_exact_match("function_name")
+            .add_rule(ValidationRule {
+                field: "execution_time_ms".to_string(),
+                comparator: Comparator::MaxIncreasePercent,
+                threshold: 5.0,
+            });
+        let result = engine.replay_with_policy(&id, &policy, None).await.unwrap();
+        assert!(
+            result.policy_violations.is_empty(),
+            "{:?}",
+            result.policy_violations
+        );
+        assert_eq!(result.status, ReplayStatus::Success);
+
+        // A replay that finishes in milliseconds against a recorded minute
+        // violates "no more than 1% faster", with the replayed time reported.
+        let policy = ReplayPolicy::new("p").add_rule(ValidationRule {
+            field: "execution_time_ms".to_string(),
+            comparator: Comparator::MaxDecreasePercent,
+            threshold: 1.0,
+        });
+        let result = engine.replay_with_policy(&id, &policy, None).await.unwrap();
+        assert_eq!(result.policy_violations.len(), 1);
+        assert_ne!(result.policy_violations[0].actual, "absent");
+        assert_eq!(result.status, ReplayStatus::Failed);
     }
 
     #[tokio::test]

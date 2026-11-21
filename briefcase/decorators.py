@@ -555,6 +555,12 @@ def _finalize_record(
     collected chunks and the dict (chunk_count, stream_completed, ...) is
     merged into the outputs."""
     ended_at = datetime.now(timezone.utc)
+    # The record's timestamps and its duration come from the same two
+    # instants. ``_build_record`` stamps a provisional ``started_at`` before
+    # correlation lookup; the wrapper's ``started_at`` (taken immediately
+    # before the call) replaces it so that ended_at - started_at equals
+    # execution_time_ms exactly.
+    record["started_at"] = started_at.isoformat()
     record["ended_at"] = ended_at.isoformat()
     record["execution_time_ms"] = (ended_at - started_at).total_seconds() * 1000
 

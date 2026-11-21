@@ -1,7 +1,9 @@
 """Tests for briefcase.controls.gateway."""
 
 import asyncio
+import json
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -171,17 +173,12 @@ class TestGatewayRecords:
         run(gw.invoke(tenant_id="org1", bucket="chat", fn=lambda: "v"))
         assert len(mem.records) == 1
         rec = mem.records[0]
-        for field in (
-            "decision_id",
-            "decision_type",
-            "function_name",
-            "inputs",
-            "outputs",
-            "started_at",
-            "ended_at",
-            "execution_time_ms",
-        ):
-            assert field in rec, field
+        # The same required list @capture and the TypeScript recorders satisfy.
+        fixture = json.loads(
+            (Path(__file__).parent.parent / "fixtures" / "decision_record.json").read_text()
+        )
+        assert set(rec) == set(fixture["required_fields"])
+        assert rec["schema_version"] == fixture["schema_version"]
         assert rec["outputs"]["briefcase.controls.gateway.outcome"] == "ok"
 
     def test_no_exporter_means_no_export(self):

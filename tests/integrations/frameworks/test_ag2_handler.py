@@ -694,3 +694,39 @@ def test_safe_serialize_small_exception():
 
     result = _safe_serialize_small(Broken())
     assert result == "<unserializable>"
+
+
+# ---------------------------------------------------------------------------
+# Swallowed hook errors say what was lost
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "hook_name, args, decision_type",
+    [
+        ("process_message_before_send", ("hello", None, False), "message_send"),
+        ("process_all_messages_before_reply", ([{"content": "m"}],), "message_context"),
+        ("update_agent_state", ({"k": "v"},), "state_update"),
+    ],
+)
+def test_a_lost_record_is_a_warning_that_names_it(
+    monkeypatch, caplog, hook_name, args, decision_type
+):
+    tracer = AG2HookTracer(async_capture=False)
+    agent = _make_mock_agent("Planner")
+    tracer.instrument(agent)
+
+    def boom(*a, **k):
+        raise RuntimeError("record builder exploded")
+
+    monkeypatch.setattr(tracer, "_build_record", boom)
+    with caplog.at_level("DEBUG", logger="briefcase"):
+        result = _fire_hook(agent, hook_name, *args)
+
+    # The hook still hands the framework its value back untouched.
+    assert result == args[0]
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert warnings == [
+        f"ag2: {decision_type} record for agent 'Planner' was not captured: "
+        "record builder exploded"
+    ]
+    assert tracer.get_records() == []

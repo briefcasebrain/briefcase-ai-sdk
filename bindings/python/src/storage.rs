@@ -123,8 +123,16 @@ pub struct PySqliteBackend {
 
 #[pymethods]
 impl PySqliteBackend {
+    /// Open (or create) the database at `path`, or an in-memory one when
+    /// `path` is None.
+    ///
+    /// `append_only` is off by default: saving an id that is already stored
+    /// replaces the row. With `append_only=True` such a save raises
+    /// `FileExistsError` and leaves the stored row untouched, and `delete`
+    /// raises `PermissionError`.
     #[new]
-    fn new(path: Option<String>) -> PyResult<Self> {
+    #[pyo3(signature = (path=None, append_only=false))]
+    fn new(path: Option<String>, append_only: bool) -> PyResult<Self> {
         let backend = if let Some(path) = path {
             SqliteBackend::new(path)
         } else {
@@ -132,7 +140,9 @@ impl PySqliteBackend {
         };
 
         match backend {
-            Ok(backend) => Ok(Self { inner: backend }),
+            Ok(backend) => Ok(Self {
+                inner: backend.with_append_only(append_only),
+            }),
             Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
                 "Failed to create SQLite backend: {}",
                 e
@@ -141,10 +151,19 @@ impl PySqliteBackend {
     }
 
     #[classmethod]
-    fn in_memory(_cls: &Bound<'_, pyo3::types::PyType>) -> PyResult<Self> {
+    #[pyo3(signature = (append_only=false))]
+    fn in_memory(_cls: &Bound<'_, pyo3::types::PyType>, append_only: bool) -> PyResult<Self> {
         SqliteBackend::in_memory()
-            .map(|inner| Self { inner })
+            .map(|inner| Self {
+                inner: inner.with_append_only(append_only),
+            })
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+    }
+
+    /// Whether this backend refuses to overwrite or delete stored snapshots.
+    #[getter]
+    fn append_only(&self) -> bool {
+        self.inner.is_append_only()
     }
 
     fn save(&self, snapshot: PyRef<PySnapshot>) -> PyResult<String> {
@@ -187,6 +206,10 @@ impl PySqliteBackend {
         self.inner.health_check().block_on_python()
     }
     fn __repr__(&self) -> String {
-        "SqliteBackend()".into()
+        if self.inner.is_append_only() {
+            "SqliteBackend(append_only=True)".into()
+        } else {
+            "SqliteBackend()".into()
+        }
     }
 }

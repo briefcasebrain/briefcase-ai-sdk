@@ -99,6 +99,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   load user-supplied model prices; `add_model` / `remove_model` are exposed to
   Python. New sanitizer detectors: JWT, bearer tokens, IPv6, IBAN, and
   contextual AWS secret keys.
+- `SqliteBackend(path, append_only=True)`: saving an existing id raises
+  instead of overwriting, and deletes are refused. Off by default.
+- The sanitizer redacts PII in JSON object keys (`set_redact_json_keys(False)`
+  restores the old behaviour).
+- `briefcase.mcp` supports `mcp` 2.x as well as 1.x.
+- TypeScript decision records and Gateway records in both languages carry
+  `schema_version` "1.1".
 
 ### Changed
 - **Breaking:** VCS clients, `BranchManager`, `StagedArtifactClient.from_env`,
@@ -171,6 +178,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   says how to get the core when first used.
 
 ### Fixed
+- `@capture` records are self-consistent: `ended_at - started_at` equals
+  `execution_time_ms` (both now come from the same two instants).
+- `FixedWindowQuotaStore` denies on an invalid policy (it used to allow
+  without limit) and evicts expired windows and cooldowns on a timer.
+- `BriefcaseLlamaIndexHandler` exports every root event with its nested
+  events as `child_spans`, and reads token usage from the response.
+- Embedding batch and manifest ids are collision-free; `EmbeddingManifest`
+  reports `uploaded` / `upload_error`.
+- Framework handlers log lost records at WARNING.
+- Replay without an executor reports Pending, not a matching success, in the
+  sync engine too; policy rules on `function_name` and `execution_time_ms`
+  resolve on replay.
 - Rust core, SQLite store: single and batch saves write `created_at` in one
   format, so time-range queries no longer drop batch-saved (and therefore all
   `BufferedBackend`) rows; `PRAGMA user_version` migrations normalise existing

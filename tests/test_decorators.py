@@ -103,6 +103,31 @@ class TestCaptureSync:
         assert "ended_at" in record
         assert record["execution_time_ms"] >= 0
 
+    def test_duration_matches_the_recorded_timestamps(self):
+        from datetime import datetime
+
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def trivial():
+            return 1
+
+        async def atrivial():
+            return 1
+
+        def gen():
+            yield 1
+
+        trivial()
+        asyncio.run(capture(exporter=exp, async_capture=False)(atrivial)())
+        list(capture(exporter=exp, async_capture=False)(gen)())
+        assert exp.export.call_count == 3
+        for call in exp.export.call_args_list:
+            record = call[0][0]
+            started = datetime.fromisoformat(record["started_at"])
+            ended = datetime.fromisoformat(record["ended_at"])
+            assert (ended - started).total_seconds() * 1000 == record["execution_time_ms"]
+
     def test_inputs_captured_in_record(self):
         exp = _make_exporter()
 

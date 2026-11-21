@@ -15,6 +15,15 @@ ignore = [
     # here. Remove both entries with the pyo3 0.29 upgrade.
     "RUSTSEC-2026-0176",
     "RUSTSEC-2026-0177",
+    # RUSTSEC-2026-0543: chrono is flagged unmaintained. This is a
+    # maintenance notice, not a vulnerability, and no fixed release exists
+    # ("No safe upgrade is available"). chrono's `DateTime<Utc>` is part of
+    # briefcase-core's public model types and of the SQLite `created_at`
+    # format, so replacing it (jiff or time) is a breaking API change to be
+    # scheduled with the next major version. Remove this entry with that
+    # migration, or sooner if a vulnerability advisory is filed against
+    # chrono, which this entry does not cover.
+    "RUSTSEC-2026-0543",
 ]
 
 [licenses]

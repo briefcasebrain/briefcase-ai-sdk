@@ -16,9 +16,9 @@ FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures" / "decision_record.json").read_text()
 )
 OPTIONAL = set(FIXTURE["optional_fields"])
-# Fields every Python record carries: the cross-language required set plus
-# the optional fields Python always emits (schema_version).
-REQUIRED = set(FIXTURE["required_fields"]) | set(FIXTURE["python_always_fields"])
+# One required list for both languages: the TypeScript recorder asserts the
+# same set, so a field Python always emits must be emitted there too.
+REQUIRED = set(FIXTURE["required_fields"])
 
 
 def _capture_record(**kwargs):
@@ -64,14 +64,24 @@ def test_fixture_example_conforms_to_its_own_schema():
     shared = set(FIXTURE["required_fields"])
     assert shared.issubset(set(example))
     assert set(example) - shared <= OPTIONAL
-    assert set(FIXTURE["python_always_fields"]) <= OPTIONAL
+    assert not (shared & OPTIONAL)
+    assert example["schema_version"] == FIXTURE["schema_version"]
+
+
+def test_fixture_has_no_per_language_field_lists():
+    # A "python_always_fields"-style escape hatch is how the two recorders
+    # drifted apart; the fixture carries exactly one required list.
+    assert set(FIXTURE) == {
+        "description", "schema_version", "required_fields", "optional_fields", "example",
+    }
+    assert "schema_version" in FIXTURE["required_fields"]
 
 
 def test_schema_version_is_emitted_and_documented():
     from briefcase.decorators import SCHEMA_VERSION
 
     record = _capture_record()
-    assert record["schema_version"] == SCHEMA_VERSION == "1.1"
+    assert record["schema_version"] == SCHEMA_VERSION == FIXTURE["schema_version"] == "1.1"
 
 
 def test_all_capture_content_modes_keep_the_field_set():

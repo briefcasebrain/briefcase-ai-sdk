@@ -12,40 +12,52 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 try:
+    # mcp 1.x
     from mcp.server.fastmcp import FastMCP
-except ImportError as exc:  # pragma: no cover - needs the extra absent or wrong
-    # Distinguish "not installed" from "installed but incompatible". mcp 2.0
-    # dropped mcp.server.fastmcp, so blaming a missing extra sent users to
-    # install a package they already had.
-    _installed: Optional[str]
+except ImportError as exc:
+    # mcp 2.0 renamed FastMCP to mcp.server.mcpserver.MCPServer. The surface
+    # this module uses -- the constructor, the tool() and resource()
+    # decorators, list_tools / list_resources / call_tool and run() -- is the
+    # same in both (verified against mcp 1.x and mcp 2.3.0), so 2.x is
+    # supported by importing the class under its new name.
     try:
-        import mcp  # noqa: F401  (presence check only)
-        from importlib.metadata import PackageNotFoundError, version
-
-        try:
-            _installed = version("mcp")
-        except PackageNotFoundError:  # pragma: no cover - installed without metadata
-            _installed = "unknown"
+        from mcp.server.mcpserver import MCPServer as FastMCP
     except ImportError:
-        _installed = None
+        # Distinguish "not installed" from "installed but unusable", so a
+        # user who already has mcp is not told to install it.
+        _installed: Optional[str]
+        try:
+            import mcp  # noqa: F401  (presence check only)
+            from importlib.metadata import PackageNotFoundError, version
 
-    if _installed is None:
+            try:
+                _installed = version("mcp")
+            except PackageNotFoundError:  # pragma: no cover - no metadata
+                _installed = "unknown"
+        except ImportError:
+            _installed = None
+
+        if _installed is None:
+            raise ImportError(
+                "briefcase.mcp requires the 'mcp' extra. "
+                "Install it with: pip install briefcase-ai[mcp]"
+            ) from exc
         raise ImportError(
-            "briefcase.mcp requires the 'mcp' extra. "
-            "Install it with: pip install briefcase-ai[mcp]"
+            f"briefcase.mcp found mcp {_installed}, which provides neither "
+            "mcp.server.fastmcp.FastMCP (mcp 1.x) nor "
+            "mcp.server.mcpserver.MCPServer (mcp 2.x). Install a supported "
+            'release with: pip install "briefcase-ai[mcp]"'
         ) from exc
-    raise ImportError(
-        f"briefcase.mcp needs mcp 1.x, but mcp {_installed} is installed and no "
-        "longer provides mcp.server.fastmcp. Install a compatible release with: "
-        'pip install "briefcase-ai[mcp]" or pip install "mcp<2"'
-    ) from exc
 
 
 from briefcase.mcp._guide import llms_full_text as _llms_full_text
 
 
 def build_server() -> FastMCP:
-    """Construct the briefcase FastMCP server with its tools and resources."""
+    """Construct the briefcase MCP server with its tools and resources.
+
+    The returned object is ``FastMCP`` on mcp 1.x and ``MCPServer`` on mcp 2.x.
+    """
     server = FastMCP("briefcase")
 
     @server.tool()

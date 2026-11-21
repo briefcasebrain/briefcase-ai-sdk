@@ -53,6 +53,13 @@ impl SyncSqliteBackend {
         let inner = super::sqlite::SqliteBackend::in_memory()?;
         Ok(Self { inner })
     }
+
+    /// Opt in to append-only writes; see
+    /// [`SqliteBackend::with_append_only`](super::sqlite::SqliteBackend::with_append_only).
+    pub fn with_append_only(mut self, append_only: bool) -> Self {
+        self.inner = self.inner.with_append_only(append_only);
+        self
+    }
 }
 
 #[cfg(feature = "sqlite-storage")]
@@ -86,18 +93,7 @@ impl SyncStorageBackend for SyncSqliteBackend {
     }
 
     fn delete(&self, snapshot_id: &str) -> Result<bool, StorageError> {
-        let conn_guard = self.inner.lock_conn();
-
-        let rows_affected = conn_guard
-            .execute(
-                "DELETE FROM snapshots WHERE id = ?",
-                rusqlite::params![snapshot_id],
-            )
-            .map_err(|e| {
-                StorageError::ConnectionError(format!("Failed to delete snapshot: {}", e))
-            })?;
-
-        Ok(rows_affected > 0)
+        self.inner.delete_internal(snapshot_id)
     }
 
     fn flush(&self) -> Result<FlushResult, StorageError> {

@@ -23,6 +23,7 @@ from briefcase._export_mixin import ExportMixin
 from briefcase._logging import get_logger
 from briefcase.controls.ports import QuotaDecision, QuotaStore
 from briefcase.controls.throttle import classify_provider_error
+from briefcase.decorators import SCHEMA_VERSION
 from briefcase.semantic_conventions.controls import (
     CONTROLS_GATEWAY_BUCKET,
     CONTROLS_GATEWAY_OUTCOME,
@@ -327,6 +328,7 @@ class Gateway:
         ended_at = cfg.clock()
         key = "ok" if outcome.ok else (outcome.reason or "internal")
         record = {
+            "schema_version": SCHEMA_VERSION,
             "decision_id": str(uuid.uuid4()),
             "decision_type": f"controls.gateway.{bucket}",
             "function_name": getattr(fn, "__name__", "<callable>"),

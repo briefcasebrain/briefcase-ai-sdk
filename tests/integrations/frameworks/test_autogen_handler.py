@@ -533,3 +533,25 @@ def test_string_msg_captured():
     assert len(records) == 1
     assert records[0]["decision_type"] == "autogen_event"
     assert records[0]["function_name"] == "autogen"
+
+
+# ---------------------------------------------------------------------------
+# Swallowed emit errors say what was lost
+# ---------------------------------------------------------------------------
+
+def test_a_lost_record_is_a_warning_that_names_the_event_logger(monkeypatch, caplog):
+    handler = AutoGenEventHandler(async_capture=False)
+
+    def boom(*a, **k):
+        raise RuntimeError("record builder exploded")
+
+    monkeypatch.setattr(handler, "_build_record", boom)
+    with caplog.at_level("DEBUG", logger="briefcase"):
+        handler.emit(_make_log_record(MagicMock()))  # must not raise into logging
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert warnings == [
+        f"autogen: record for a {EVENT_LOGGER_NAME} log event was not captured: "
+        "record builder exploded"
+    ]
+    assert handler.get_records() == []

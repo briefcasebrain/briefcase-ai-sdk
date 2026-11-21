@@ -171,7 +171,10 @@ class AutoGenEventHandler(ExportMixin, logging.Handler):
             self._records.append(briefcase_record)
             self._trigger_export(briefcase_record)
         except Exception as exc:
-            logger.debug("emit: ignored error: %s", exc)
+            logger.warning(
+                "autogen: record for a %s log event was not captured: %s",
+                getattr(record, "name", "?"), exc,
+            )
 
     # Public API
 

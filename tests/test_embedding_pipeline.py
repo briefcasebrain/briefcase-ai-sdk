@@ -96,3 +96,115 @@ def test_real_model_batch_is_labelled_and_timezone_aware():
     assert (batch.model, batch.model_version) == ("real-model", "2.1")
     assert batch.created_at.tzinfo is not None
     assert batch.created_at.utcoffset().total_seconds() == 0
+
+
+# Ids
+
+def test_default_batch_ids_do_not_collide_within_a_second():
+    """One-second ids made a second batch overwrite the first in _batches."""
+    pipeline = VersionedEmbeddingPipeline(mock=True)
+    batches = [
+        pipeline.create_embedding_batch([Document(id=f"d{i}", content=str(i))])
+        for i in range(200)
+    ]
+    ids = [b.batch_id for b in batches]
+    assert len(set(ids)) == 200
+    assert len(pipeline._batches) == 200
+    assert all(pipeline._batches[b.batch_id] is b for b in batches)
+
+
+def test_batch_and_manifest_ids_are_unique_even_at_a_frozen_clock(monkeypatch):
+    import datetime as real_datetime
+
+    import briefcase.rag.embedding_pipeline as module
+
+    frozen = real_datetime.datetime(2026, 1, 2, 3, 4, 5, 678901, tzinfo=real_datetime.timezone.utc)
+
+    class FrozenDatetime(real_datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return frozen
+
+    monkeypatch.setattr(module, "datetime", FrozenDatetime)
+    pipeline = VersionedEmbeddingPipeline(mock=True)
+    doc = [Document(id="d1", content="hello")]
+    first, second = pipeline.create_embedding_batch(doc), pipeline.create_embedding_batch(doc)
+    assert first.batch_id != second.batch_id
+    # Microsecond resolution, then a random suffix.
+    assert first.batch_id.startswith("batch_20260102_030405_678901_")
+    assert len(first.batch_id.rsplit("_", 1)[1]) == 6
+
+    m1 = pipeline.create_manifest("idx", [first])
+    m2 = pipeline.create_manifest("idx", [second])
+    assert m1.manifest_id != m2.manifest_id
+    assert m1.manifest_id.startswith("idx_20260102_030405_678901_unknown_")
+    assert m2.parent_manifest_id == m1.manifest_id
+
+
+def test_manifest_ids_do_not_collide_within_a_second():
+    lakefs = VersionedClientDouble()
+    pipeline = VersionedEmbeddingPipeline(lakefs_client=lakefs, repository="repo", mock=True)
+    batch = pipeline.create_embedding_batch([Document(id="d1", content="hello")])
+    manifests = [pipeline.create_manifest("idx", [batch]) for _ in range(100)]
+    assert len({m.manifest_id for m in manifests}) == 100
+    # A collision used to overwrite the earlier manifest's object in lakeFS.
+    assert len(lakefs.uploads) == 100
+    assert manifests[-1].parent_manifest_id == manifests[-2].manifest_id
+
+
+# Manifest upload outcome
+
+class _FailingUploadClient(VersionedClientDouble):
+    def upload_object(self, path, data, content_type="application/octet-stream"):
+        raise ConnectionError("lakeFS unreachable")
+
+
+def test_manifest_upload_failure_is_surfaced_on_the_result(caplog):
+    pipeline = VersionedEmbeddingPipeline(
+        lakefs_client=_FailingUploadClient(), repository="repo", mock=True
+    )
+    batch = pipeline.create_embedding_batch([Document(id="d1", content="hello")])
+    with caplog.at_level("WARNING", logger="briefcase"):
+        manifest = pipeline.create_manifest("idx", [batch])  # does not raise
+
+    assert manifest.uploaded is False
+    assert manifest.upload_error == "ConnectionError: lakeFS unreachable"
+    assert any("NOT stored" in r.getMessage() for r in caplog.records)
+    # Still tracked in memory, as before.
+    assert pipeline.get_latest_manifest("idx") is manifest
+    # rebuild_index returns the same manifest type, so it reports it too.
+    rebuilt = pipeline.rebuild_index("idx", [Document(id="d1", content="hello")])
+    assert rebuilt.uploaded is False and rebuilt.upload_error
+
+
+def test_manifest_upload_success_and_no_lakefs_are_distinguishable():
+    stored = VersionedEmbeddingPipeline(
+        lakefs_client=VersionedClientDouble(), repository="repo", mock=True
+    )
+    batch = stored.create_embedding_batch([Document(id="d1", content="hello")])
+    manifest = stored.create_manifest("idx", [batch])
+    assert manifest.uploaded is True and manifest.upload_error is None
+
+    local = VersionedEmbeddingPipeline(mock=True)
+    manifest = local.create_manifest(
+        "idx", [local.create_embedding_batch([Document(id="d1", content="hello")])]
+    )
+    assert manifest.uploaded is None and manifest.upload_error is None
+
+
+def test_upload_outcome_is_not_part_of_the_stored_manifest():
+    import json
+
+    from briefcase.rag.embedding_pipeline import EmbeddingManifest
+
+    lakefs = VersionedClientDouble()
+    pipeline = VersionedEmbeddingPipeline(lakefs_client=lakefs, repository="repo", mock=True)
+    batch = pipeline.create_embedding_batch([Document(id="d1", content="hello")])
+    manifest = pipeline.create_manifest("idx", [batch])
+    stored = json.loads(lakefs.uploads[f"manifests/idx/{manifest.manifest_id}.json"])
+    assert "uploaded" not in stored and "upload_error" not in stored
+    assert "uploaded" not in manifest.to_dict()
+    # Round-trips, and a reloaded manifest makes no claim about an upload.
+    reloaded = EmbeddingManifest.from_json(manifest.to_json())
+    assert reloaded == manifest and reloaded.uploaded is None
+    assert EmbeddingManifest.from_dict({**manifest.to_dict(), "uploaded": True}).uploaded is None

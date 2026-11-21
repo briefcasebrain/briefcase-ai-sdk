@@ -225,7 +225,10 @@ class AG2HookTracer(ExportMixin):
                 )
                 tracer._append_and_export(record)
             except Exception as exc:
-                logger.debug("_hook: ignored error: %s", exc)
+                logger.warning(
+                    "ag2: message_send record for agent %r was not captured: %s",
+                    _agent_name(agent), exc,
+                )
             return message
 
         return _hook
@@ -251,7 +254,10 @@ class AG2HookTracer(ExportMixin):
                 )
                 tracer._append_and_export(record)
             except Exception as exc:
-                logger.debug("_hook: ignored error: %s", exc)
+                logger.warning(
+                    "ag2: message_context record for agent %r was not captured: %s",
+                    _agent_name(agent), exc,
+                )
             return messages
 
         return _hook
@@ -272,7 +278,10 @@ class AG2HookTracer(ExportMixin):
                 )
                 tracer._append_and_export(record)
             except Exception as exc:
-                logger.debug("_hook: ignored error: %s", exc)
+                logger.warning(
+                    "ag2: state_update record for agent %r was not captured: %s",
+                    _agent_name(agent), exc,
+                )
             return agent_state
 
         return _hook
@@ -297,7 +306,10 @@ class AG2HookTracer(ExportMixin):
                 )
                 tracer._append_and_export(record)
             except Exception as exc:
-                logger.debug("_hook: ignored error: %s", exc)
+                logger.warning(
+                    "ag2: llm_input record for agent %r was not captured: %s",
+                    _agent_name(agent), exc,
+                )
             return messages
 
         return _hook
@@ -318,7 +330,10 @@ class AG2HookTracer(ExportMixin):
                 )
                 tracer._append_and_export(record)
             except Exception as exc:
-                logger.debug("_hook: ignored error: %s", exc)
+                logger.warning(
+                    "ag2: llm_output record for agent %r was not captured: %s",
+                    _agent_name(agent), exc,
+                )
             return response
 
         return _hook
@@ -339,7 +354,10 @@ class AG2HookTracer(ExportMixin):
                 )
                 tracer._append_and_export(record)
             except Exception as exc:
-                logger.debug("_hook: ignored error: %s", exc)
+                logger.warning(
+                    "ag2: tool_input record for agent %r was not captured: %s",
+                    _agent_name(agent), exc,
+                )
             return tool_call
 
         return _hook
@@ -360,7 +378,10 @@ class AG2HookTracer(ExportMixin):
                 )
                 tracer._append_and_export(record)
             except Exception as exc:
-                logger.debug("_hook: ignored error: %s", exc)
+                logger.warning(
+                    "ag2: tool_output record for agent %r was not captured: %s",
+                    _agent_name(agent), exc,
+                )
             return tool_result
 
         return _hook

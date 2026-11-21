@@ -102,8 +102,10 @@ def test_llm_event_captures_messages_output_and_tokens():
     assert decision.context_version == "v7"
     assert decision.execution_time_ms is not None and decision.execution_time_ms >= 0
     assert len(handler._inflight) == 0
-    # LLM events are not exported on their own.
-    assert exporter.records == []
+    # A standalone LLM call (the callback manager's "root" parent) is exported.
+    assert [r["decision_id"] for r in exporter.records] == ["e1"]
+    assert exporter.records[0]["token_usage"] == decision.token_usage
+    assert exporter.records[0]["child_spans"] == []
 
 
 def test_llm_response_shapes_and_integer_token_count():
@@ -185,17 +187,20 @@ def test_query_event_is_exported():
     assert record["function_name"] == "query_engine"
     assert record["inputs"] == {"query": "why?"}
     assert record["outputs"] == {"response": "because"}
-    assert handler.get_decisions_as_dicts() == [record]
+    assert record["child_spans"] == []
+    assert handler.get_decisions_as_dicts() == [
+        {k: v for k, v in record.items() if k != "child_spans"}
+    ]
 
 
-def test_synthesize_event_recorded_but_not_exported():
+def test_standalone_synthesize_event_is_exported():
     handler, exporter = _handler()
     handler.on_event_start(EventType.SYNTHESIZE, {"query_str": "why?"}, event_id="s")
     handler.on_event_end(EventType.SYNTHESIZE, {"response": "text answer"}, event_id="s")
     decision = handler.get_decisions()[0]
     assert decision.decision_type == "synthesize"
     assert decision.outputs == {"response": "text answer"}
-    assert exporter.records == []
+    assert [r["decision_id"] for r in exporter.records] == ["s"]
 
 
 # Exceptions
@@ -221,7 +226,8 @@ def test_exception_event_falls_back_to_latest_inflight():
     assert [d.decision_id for d in handler.get_decisions()] == ["second"]
     assert handler.get_decisions()[0].error == "boom"
     assert list(handler._inflight) == ["first"]
-    assert exporter.records == []  # a failed LLM event is not a query
+    # A failed standalone LLM call is exported like a completed one.
+    assert [(r["decision_id"], r["error"]) for r in exporter.records] == [("second", "boom")]
 
     # No in-flight decision at all: nothing happens.
     handler.clear()
@@ -314,8 +320,9 @@ def test_unfinished_events_are_abandoned_not_leaked():
     abandoned = handler.get_decisions()
     assert [d.decision_id for d in abandoned] == ["q0", "l1"]
     assert all(d.error.startswith("abandoned") for d in abandoned)
-    # The abandoned query is exported like any other failed query.
-    assert [r["decision_id"] for r in exporter.records] == ["q0"]
+    # Abandoned roots are exported like any other failed event.
+    assert [r["decision_id"] for r in exporter.records] == ["q0", "l1"]
+    assert all(r["error"].startswith("abandoned") for r in exporter.records)
 
 
 def test_redact_and_capture_content():
@@ -338,3 +345,230 @@ def test_redact_and_capture_content():
     record = none_exporter.records[0]
     assert record["inputs"] == {} and record["outputs"] == {}
     assert record["error"] == "<omitted>"
+
+
+# Root-level export (standalone events, nesting, failures)
+
+@pytest.mark.parametrize(
+    "event_type, start, end, decision_type",
+    [
+        (EventType.LLM, {"messages": ["hi"]}, {"response": "yo"}, "llm"),
+        (EventType.RETRIEVE, {"query_str": "q"}, {"nodes": []}, "retriever"),
+        (EventType.EMBEDDING, {"serialized": {}}, {"chunks": ["a"], "embeddings": [[0.1]]},
+         "embedding"),
+    ],
+)
+@pytest.mark.parametrize("parent_id", ["", "root", "an-event-this-handler-never-saw"])
+def test_standalone_events_are_exported_once(event_type, start, end, decision_type, parent_id):
+    # Used to be recorded in memory only: nothing but a query was exported.
+    handler, exporter = _handler()
+    handler.on_event_start(event_type, start, event_id="e", parent_id=parent_id)
+    handler.on_event_end(event_type, end, event_id="e")
+    handler.on_event_end(event_type, end, event_id="e")  # a duplicate end is ignored
+    assert [(r["decision_id"], r["decision_type"]) for r in exporter.records] == [
+        ("e", decision_type)
+    ]
+    assert exporter.records[0]["child_spans"] == []
+    assert handler._root_of == {} and handler._children == {}
+
+
+def test_nested_events_are_attached_to_their_root_and_not_exported_alone():
+    handler, exporter = _handler()
+    handler.on_event_start(EventType.QUERY, {"query_str": "why?"}, event_id="q", parent_id="root")
+    handler.on_event_start(EventType.RETRIEVE, {"query_str": "why?"}, event_id="r", parent_id="q")
+    handler.on_event_start(EventType.EMBEDDING, {}, event_id="e", parent_id="r")
+    handler.on_event_end(EventType.EMBEDDING, {"chunks": ["why?"], "embeddings": [[1.0, 2.0]]},
+                         event_id="e")
+    handler.on_event_end(EventType.RETRIEVE, {"nodes": []}, event_id="r")
+    handler.on_event_start(EventType.SYNTHESIZE, {"query_str": "why?"}, event_id="s", parent_id="q")
+    handler.on_event_start(EventType.LLM, {"messages": ["why?"]}, event_id="l", parent_id="s")
+    handler.on_event_end(EventType.LLM, {"response": "because"}, event_id="l")
+    handler.on_event_end(EventType.SYNTHESIZE, {"response": "because"}, event_id="s")
+    assert exporter.records == []  # nothing leaves before the root ends
+
+    handler.on_event_end(EventType.QUERY, {"response": "because"}, event_id="q")
+    assert len(exporter.records) == 1
+    record = exporter.records[0]
+    assert record["decision_id"] == "q"
+    assert [(c["decision_id"], c["parent_run_id"]) for c in record["child_spans"]] == [
+        ("e", "r"), ("r", "q"), ("l", "s"), ("s", "q"),
+    ]
+    assert handler.decision_count == 5
+    assert handler._root_of == {} and handler._children == {}
+
+
+def test_events_under_an_untracked_parent_are_their_own_roots():
+    # With queries filtered out, the LLM call inside one has no tracked
+    # ancestor; it must still be exported.
+    handler, exporter = _handler(capture_queries=False)
+    handler.on_event_start(EventType.QUERY, {"query_str": "q"}, event_id="q", parent_id="root")
+    handler.on_event_start(EventType.SYNTHESIZE, {"query_str": "q"}, event_id="s", parent_id="q")
+    handler.on_event_start(EventType.LLM, {"messages": ["q"]}, event_id="l", parent_id="s")
+    handler.on_event_end(EventType.LLM, {"response": "a"}, event_id="l")
+    handler.on_event_end(EventType.SYNTHESIZE, {"response": "a"}, event_id="s")
+    handler.on_event_end(EventType.QUERY, {"response": "a"}, event_id="q")
+    assert [r["decision_id"] for r in exporter.records] == ["l"]
+
+
+def test_end_event_carrying_an_exception_marks_the_decision_failed():
+    # LlamaIndex reports a failure as the event's own end with an
+    # "exception" payload, not as a separate exception event.
+    handler, exporter = _handler()
+    handler.on_event_start(EventType.LLM, {"messages": ["hi"]}, event_id="l", parent_id="root")
+    handler.on_event_end(EventType.LLM, {"exception": TimeoutError("provider timed out")},
+                         event_id="l")
+    handler.on_event_start(EventType.QUERY, {"query_str": "q"}, event_id="q", parent_id="root")
+    handler.on_event_start(EventType.RETRIEVE, {"query_str": "q"}, event_id="r", parent_id="q")
+    handler.on_event_end(EventType.RETRIEVE, {"exception": RuntimeError("")}, event_id="r")
+    handler.on_event_end(EventType.QUERY, {"exception": RuntimeError("index offline")},
+                         event_id="q")
+
+    llm, query = exporter.records
+    assert (llm["decision_id"], llm["error"], llm["outputs"]) == ("l", "provider timed out", {})
+    assert (query["decision_id"], query["error"]) == ("q", "index offline")
+    # An exception with an empty message falls back to its class name.
+    assert [(c["decision_id"], c["error"]) for c in query["child_spans"]] == [("r", "RuntimeError")]
+
+
+def test_child_of_an_abandoned_root_is_exported_on_its_own():
+    handler, exporter = _handler(max_inflight=2)
+    handler.on_event_start(EventType.QUERY, {"query_str": "q"}, event_id="q", parent_id="root")
+    handler.on_event_start(EventType.LLM, {}, event_id="l1", parent_id="q")
+    handler.on_event_start(EventType.LLM, {}, event_id="l2", parent_id="q")  # evicts q
+    assert [r["decision_id"] for r in exporter.records] == ["q"]
+    handler.on_event_end(EventType.LLM, {"response": "late"}, event_id="l1")
+    assert [r["decision_id"] for r in exporter.records] == ["q", "l1"]
+
+
+# Payload shapes of current LlamaIndex (verified against llama-index-core 0.14.26)
+
+def test_llm_start_reads_model_and_prompt_from_current_payload_keys():
+    handler, _ = _handler()
+    handler.on_event_start(
+        EventType.LLM,
+        {
+            "formatted_prompt": "Say hi",
+            "additional_kwargs": {},
+            "serialized": {"class_name": "OpenAI", "model": "gpt-4o-mini",
+                           "temperature": 0.1, "max_tokens": None},
+        },
+        event_id="l",
+    )
+    handler.on_event_end(EventType.LLM, {"formatted_prompt": "Say hi",
+                                         "completion": SimpleNamespace(text="hi")}, event_id="l")
+    decision = handler.get_decisions()[0]
+    assert decision.function_name == "gpt-4o-mini"
+    assert decision.inputs == {"prompt": "Say hi"}
+    assert decision.outputs == {"text": "hi"}
+    assert decision.model_parameters == {"temperature": 0.1}
+
+    handler.on_event_start(EventType.LLM, {"serialized": {"class_name": "MockLLM"}}, event_id="m")
+    handler.on_event_end(
+        EventType.LLM,
+        {"response": SimpleNamespace(message=SimpleNamespace(content=None))},
+        event_id="m",
+    )
+    fallback = handler.get_decisions()[1]
+    assert fallback.function_name == "MockLLM"
+    assert fallback.outputs == {"text": ""}  # a tool-call-only message has no content
+
+
+@pytest.mark.parametrize(
+    "response, expected",
+    [
+        # OpenAI: raw is the SDK response object, usage an object on it.
+        (SimpleNamespace(text="x", raw=SimpleNamespace(usage=SimpleNamespace(
+            prompt_tokens=11, completion_tokens=4, total_tokens=15)), additional_kwargs={}),
+         (11, 4, 15)),
+        # Anthropic-style dict raw with input/output spellings and no total.
+        (SimpleNamespace(text="x", raw={"usage": {"input_tokens": 7, "output_tokens": 2}},
+                         additional_kwargs={}),
+         (7, 2, 9)),
+        # Gemini: usage_metadata with *_token_count names.
+        (SimpleNamespace(text="x", raw={"usage_metadata": {
+            "prompt_token_count": 5, "candidates_token_count": 6, "total_token_count": 11}},
+            additional_kwargs={}),
+         (5, 6, 11)),
+        # Integrations that flatten usage into additional_kwargs.
+        (SimpleNamespace(text="x", raw=None,
+                         additional_kwargs={"prompt_tokens": 3, "completion_tokens": 1,
+                                            "total_tokens": 4}),
+         (3, 1, 4)),
+        # raw without usage falls through to additional_kwargs.
+        (SimpleNamespace(text="x", raw={"id": "r1"},
+                         additional_kwargs={"input_tokens": 2, "output_tokens": 2}),
+         (2, 2, 4)),
+    ],
+)
+@pytest.mark.parametrize("key", ["response", "completion"])
+def test_token_usage_is_read_from_the_response(response, expected, key):
+    handler, exporter = _handler()
+    handler.on_event_start(EventType.LLM, {}, event_id="l")
+    handler.on_event_end(EventType.LLM, {key: response}, event_id="l")
+    prompt, completion, total = expected
+    usage = {"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": total}
+    assert handler.get_decisions()[0].token_usage == usage
+    assert exporter.records[0]["token_usage"] == usage
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        "plain string",
+        SimpleNamespace(text="x", raw=None, additional_kwargs={}),
+        SimpleNamespace(text="x", raw={"usage": None}, additional_kwargs={}),
+        SimpleNamespace(text="x", raw={"usage": {"prompt_tokens": True}}, additional_kwargs={}),
+        SimpleNamespace(text="x", raw={"usage": {"service_tier": "default"}},
+                        additional_kwargs={"finish_reason": "stop"}),
+    ],
+)
+def test_token_usage_is_absent_when_the_provider_reported_none(response):
+    # Never estimated: an unreported count stays unreported.
+    handler, _ = _handler()
+    handler.on_event_start(EventType.LLM, {}, event_id="l")
+    handler.on_event_end(EventType.LLM, {"response": response}, event_id="l")
+    assert handler.get_decisions()[0].token_usage is None
+
+
+def test_embedding_end_reads_texts_from_chunks_and_vectors_from_embeddings():
+    handler, _ = _handler()
+    handler.on_event_start(
+        EventType.EMBEDDING,
+        {"serialized": {"class_name": "OpenAIEmbedding", "model_name": "text-embedding-3-small"}},
+        event_id="e",
+    )
+    handler.on_event_end(
+        EventType.EMBEDDING,
+        {"chunks": ["one", "two", "three"], "embeddings": [[0.1, 0.2]] * 3},
+        event_id="e",
+    )
+    decision = handler.get_decisions()[0]
+    assert decision.function_name == "text-embedding-3-small"
+    assert decision.inputs == {"text_count": 3}
+    assert decision.outputs == {"embedding_count": 3, "dimensions": 2}
+
+
+def test_placeholder_model_name_yields_to_the_class_name_and_roles_use_enum_values():
+    import enum
+
+    class Role(str, enum.Enum):  # same shape as llama_index MessageRole
+        USER = "user"
+
+    handler, _ = _handler()
+    handler.on_event_start(
+        EventType.LLM,
+        {"messages": [SimpleNamespace(role=Role.USER, content="hi")],
+         "serialized": {"class_name": "MockLLM", "model_name": "unknown"}},
+        event_id="l",
+    )
+    handler.on_event_end(EventType.LLM, {"response": "ok"}, event_id="l")
+    handler.on_event_start(
+        EventType.EMBEDDING,
+        {"serialized": {"class_name": "MockEmbedding", "model_name": "unknown"}}, event_id="e",
+    )
+    handler.on_event_end(EventType.EMBEDDING, {"chunks": ["a"], "embeddings": [[1.0]]},
+                         event_id="e")
+    llm, embedding = handler.get_decisions()
+    assert llm.function_name == "MockLLM"
+    assert llm.inputs == {"messages": [{"role": "user", "content": "hi"}]}
+    assert embedding.function_name == "MockEmbedding"

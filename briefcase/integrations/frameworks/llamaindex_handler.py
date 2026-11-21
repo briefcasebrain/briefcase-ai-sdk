@@ -1,8 +1,16 @@
 """LlamaIndex callback handler for automatic AI decision capture.
 
 Intercepts LLM calls, query engine operations, retriever events, and
-embedding operations and records each as a Briefcase decision record.
-Query completions and failures are exported through the configured exporter.
+embedding operations and records each as a Briefcase decision record. Every
+root event is exported once, when it ends or fails, with its nested events
+attached as ``child_spans``; a standalone LLM, retriever or embedding call
+(one made outside any query) is its own root and is exported too.
+
+Payload keys and token-usage locations were verified against
+llama-index-core 0.14.26 (``llama_index.core.callbacks.schema.EventPayload``,
+``llama_index.core.llms.callbacks`` and
+``llama_index.core.callbacks.token_counting.get_tokens_from_response``). The
+older key names this handler first shipped with are still read.
 
 Usage:
     from briefcase.integrations.frameworks import BriefcaseLlamaIndexHandler
@@ -49,6 +57,11 @@ except ImportError:
     _LLAMAINDEX_AVAILABLE = False
 
 
+# parent_id the LlamaIndex CallbackManager gives a top-level event
+# (llama_index.core.callbacks.schema.BASE_TRACE_EVENT).
+_BASE_TRACE_EVENT = "root"
+
+
 class EventType:
     """LlamaIndex event type constants, mirrored to avoid importing llama_index."""
     LLM = "llm"
@@ -76,6 +89,15 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
     - Query and synthesis events (full pipeline tracking)
 
     Uses the on_event_start/on_event_end pairing from LlamaIndex.
+
+    Export: every *root* event is exported once, when it ends or fails, with
+    all of its nested events attached as ``child_spans``. A root is an event
+    with no parent, the callback manager's ``"root"`` parent, or a parent
+    this handler is not tracking (for example an LLM call under a query when
+    ``capture_queries=False``), so a standalone LLM, retriever or embedding
+    call is exported too. A failure reaches the handler either as the event's
+    own end with an ``exception`` payload (what LlamaIndex emits) or as a
+    separate ``exception`` event.
 
     Completed decisions are kept in a ring buffer of ``max_records``. An
     event whose end never arrives is dropped from the in-flight table after
@@ -134,6 +156,11 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
             on_evict=self._on_inflight_evicted,
         )
 
+        # event_id -> event_id of the root it will be exported with
+        self._root_of: Dict[str, str] = {}
+        # root event_id -> completed descendants awaiting the root's export
+        self._children: Dict[str, Deque[CapturedDecision]] = {}
+
         # Trace map for hierarchical event tracking
         self._trace_map: Dict[str, List[str]] = {}
         self._current_trace_id: Optional[str] = None
@@ -151,33 +178,95 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
 
     def clear(self) -> None:
         """Clear all captured decisions and in-flight state."""
-        self._decisions.clear()
-        self._inflight.clear()
-        self._trace_map.clear()
+        with self._lock:
+            self._decisions.clear()
+            self._inflight.clear()
+            self._root_of.clear()
+            self._children.clear()
+            self._trace_map.clear()
 
     @property
     def decision_count(self) -> int:
         """Number of completed decisions captured."""
         return len(self._decisions)
 
-    # Completion funnel
+    # Event lifecycle
 
-    def _store(self, decision: CapturedDecision, export: bool = False) -> None:
-        """Apply the content options, keep the decision, optionally export it."""
+    def _begin(self, event_id: str, parent_id: str, decision: CapturedDecision) -> None:
+        """Track an event from its start, and settle which root exports it."""
+        with self._lock:
+            # An event is exported with its root. It is its own root when it
+            # has no parent, or when the parent is not an event this handler
+            # tracks (the callback manager's "root", or a filtered type).
+            if parent_id and parent_id in self._root_of:
+                self._root_of[event_id] = self._root_of[parent_id]
+            else:
+                self._root_of[event_id] = event_id
+            self._inflight[event_id] = decision
+
+    def _finish(
+        self,
+        event_id: str,
+        payload: Dict[str, Any],
+        fill: Callable[[CapturedDecision, Dict[str, Any]], None],
+    ) -> None:
+        """Complete an event from its end payload and export it if a root."""
+        with self._lock:
+            decision = self._inflight.pop(event_id, None)
+            if decision is None:
+                return
+            # LlamaIndex reports a failure as the event's own end, carrying
+            # the exception instead of a response.
+            failure = payload.get("exception")
+            if failure is not None:
+                decision.error = str(failure) or type(failure).__name__
+            else:
+                fill(decision, payload)
+            record = self._complete(event_id, decision)
+        if record is not None:
+            self._trigger_export(record)
+
+    def _complete(
+        self, event_id: str, decision: CapturedDecision
+    ) -> Optional[Dict[str, Any]]:
+        """Finalize a decision. Returns the export record when it is a root.
+
+        Caller holds ``self._lock``.
+        """
+        decision.ended_at = datetime.now(timezone.utc)
+        if decision.started_at:
+            delta = (decision.ended_at - decision.started_at).total_seconds()
+            decision.execution_time_ms = delta * 1000
+
         options = self._capture_options
         decision.inputs = options.content(decision.inputs)
         decision.outputs = options.content(decision.outputs)
         decision.error = options.error(decision.error)
-        with self._lock:
-            self._decisions.append(decision)
-        if export:
-            self._trigger_export(decision.to_dict())
+        self._decisions.append(decision)
+
+        root_key = self._root_of.pop(event_id, event_id)
+        if root_key != event_id and root_key in self._inflight:
+            # Nested event: held until its root finishes.
+            children = self._children.get(root_key)
+            if children is None:
+                children = self._children[root_key] = bounded_records(self.max_records)
+            children.append(decision)
+            return None
+
+        # Root event (or a nested event whose root is gone): export it now.
+        record = decision.to_dict()
+        record["child_spans"] = [
+            child.to_dict() for child in self._children.pop(event_id, ())
+        ]
+        return record
 
     def _on_inflight_evicted(self, event_id: Any, decision: Any, reason: str) -> None:
         """Record an event whose end never arrived as abandoned."""
-        decision.ended_at = datetime.now(timezone.utc)
-        decision.error = f"abandoned: no end event ({reason})"
-        self._store(decision, export=decision.decision_type == "query")
+        with self._lock:
+            decision.error = f"abandoned: no end event ({reason})"
+            record = self._complete(str(event_id), decision)
+        if record is not None:
+            self._trigger_export(record)
 
     # LlamaIndex callback interface
 
@@ -261,12 +350,21 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
     def _on_llm_start(
         self, event_id: str, parent_id: str, payload: Dict[str, Any]
     ) -> None:
-        model_name = (
-            payload.get("model_name")
-            or payload.get("model_dict", {}).get("model", "unknown_llm")
+        # Current LlamaIndex describes the model under "serialized"; older
+        # payloads used "model_name" / "model_dict".
+        serialized = _as_dict(payload.get("serialized"))
+        model_dict = _as_dict(payload.get("model_dict"))
+        model_name = _model_name(
+            payload.get("model_name"),
+            model_dict.get("model"),
+            serialized.get("model"),
+            serialized.get("model_name"),
+            serialized.get("class_name"),
+            default="unknown_llm",
         )
 
         messages = payload.get("messages", [])
+        prompt = payload.get("formatted_prompt", "")
         template = payload.get("template", "")
 
         input_data: Dict[str, Any] = {}
@@ -274,71 +372,67 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
             input_data["messages"] = _serialize_payload_messages(
                 messages, self.max_input_chars
             )
+        if prompt:
+            input_data["prompt"] = str(prompt)[:self.max_input_chars]
         if template:
             input_data["template"] = str(template)[:self.max_input_chars]
 
         model_params = {}
-        model_dict = payload.get("model_dict", {})
-        for key in ("temperature", "max_tokens", "top_p"):
-            if key in model_dict:
-                model_params[key] = model_dict[key]
+        for source in (serialized, model_dict):
+            for key in ("temperature", "max_tokens", "top_p"):
+                if source.get(key) is not None:
+                    model_params[key] = source[key]
 
-        decision = CapturedDecision(
+        self._begin(event_id, parent_id, CapturedDecision(
             decision_id=event_id,
             decision_type="llm",
-            function_name=model_name,
+            function_name=str(model_name),
             inputs=input_data,
             model_parameters=model_params,
             started_at=datetime.now(timezone.utc),
             parent_run_id=parent_id or None,
             context_version=self.context_version,
-        )
-        self._inflight[event_id] = decision
+        ))
 
     def _on_llm_end(self, event_id: str, payload: Dict[str, Any]) -> None:
-        decision = self._inflight.pop(event_id, None)
-        if decision is None:
-            return
+        self._finish(event_id, payload, self._fill_llm)
 
-        decision.ended_at = datetime.now(timezone.utc)
-        if decision.started_at:
-            delta = (decision.ended_at - decision.started_at).total_seconds()
-            decision.execution_time_ms = delta * 1000
-
-        response = payload.get("response", "")
-        if hasattr(response, "text"):
+    def _fill_llm(self, decision: CapturedDecision, payload: Dict[str, Any]) -> None:
+        # A chat call ends with "response" (ChatResponse), a completion call
+        # with "completion" (CompletionResponse).
+        response = payload.get("response")
+        if response is None:
+            response = payload.get("completion", "")
+        if getattr(response, "text", None) is not None:
             response_text = response.text
         elif hasattr(response, "message") and hasattr(response.message, "content"):
             response_text = response.message.content
         else:
-            response_text = str(response)
-
+            response_text = response
         decision.outputs = {
-            "text": response_text[:self.max_output_chars],
+            "text": str("" if response_text is None else response_text)[:self.max_output_chars],
         }
-
-        token_count = payload.get("token_count")
-        if token_count:
-            decision.token_usage = {
-                "prompt_tokens": getattr(token_count, "prompt_tokens",
-                                         token_count if isinstance(token_count, int) else 0),
-                "completion_tokens": getattr(token_count, "completion_tokens", 0),
-                "total_tokens": getattr(token_count, "total_tokens",
-                                        token_count if isinstance(token_count, int) else 0),
-            }
-
-        self._store(decision)
+        token_usage = _token_usage(payload, response)
+        if token_usage:
+            decision.token_usage = token_usage
 
     def _on_embedding_start(
         self, event_id: str, parent_id: str, payload: Dict[str, Any]
     ) -> None:
-        model_name = payload.get("model_name", "unknown_embedding_model")
         serialized = payload.get("serialized", {})
+        described = _as_dict(serialized)
+        model_name = _model_name(
+            payload.get("model_name"),
+            described.get("model_name"),
+            described.get("model"),
+            described.get("class_name"),
+            default="unknown_embedding_model",
+        )
 
-        decision = CapturedDecision(
+        self._begin(event_id, parent_id, CapturedDecision(
             decision_id=event_id,
             decision_type="embedding",
-            function_name=model_name,
+            function_name=str(model_name),
             inputs={
                 "text_count": len(payload.get("texts", [])),
             },
@@ -346,34 +440,35 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
             started_at=datetime.now(timezone.utc),
             parent_run_id=parent_id or None,
             context_version=self.context_version,
-        )
-        self._inflight[event_id] = decision
+        ))
 
     def _on_embedding_end(
         self, event_id: str, payload: Dict[str, Any]
     ) -> None:
-        decision = self._inflight.pop(event_id, None)
-        if decision is None:
-            return
+        self._finish(event_id, payload, self._fill_embedding)
 
-        decision.ended_at = datetime.now(timezone.utc)
-        if decision.started_at:
-            delta = (decision.ended_at - decision.started_at).total_seconds()
-            decision.execution_time_ms = delta * 1000
-
-        chunks = payload.get("chunks", payload.get("embeddings", []))
+    def _fill_embedding(self, decision: CapturedDecision, payload: Dict[str, Any]) -> None:
+        # Current LlamaIndex ends an embedding event with the embedded texts
+        # under "chunks" and the vectors under "embeddings"; older payloads
+        # carried the vectors under "chunks".
+        chunks = payload.get("chunks") or []
+        vectors = payload.get("embeddings")
+        if vectors is None:
+            vectors = chunks
+        elif chunks:
+            decision.inputs = {"text_count": len(chunks)}
+        first = vectors[0] if vectors else None
         decision.outputs = {
-            "embedding_count": len(chunks),
-            "dimensions": len(chunks[0]) if chunks and isinstance(chunks[0], (list, tuple)) else 0,
+            "embedding_count": len(vectors),
+            "dimensions": len(first) if isinstance(first, (list, tuple)) else 0,
         }
-        self._store(decision)
 
     def _on_retrieve_start(
         self, event_id: str, parent_id: str, payload: Dict[str, Any]
     ) -> None:
         query_str = payload.get("query_str", "")
 
-        decision = CapturedDecision(
+        self._begin(event_id, parent_id, CapturedDecision(
             decision_id=event_id,
             decision_type="retriever",
             function_name="retriever",
@@ -381,21 +476,14 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
             started_at=datetime.now(timezone.utc),
             parent_run_id=parent_id or None,
             context_version=self.context_version,
-        )
-        self._inflight[event_id] = decision
+        ))
 
     def _on_retrieve_end(
         self, event_id: str, payload: Dict[str, Any]
     ) -> None:
-        decision = self._inflight.pop(event_id, None)
-        if decision is None:
-            return
+        self._finish(event_id, payload, self._fill_retrieve)
 
-        decision.ended_at = datetime.now(timezone.utc)
-        if decision.started_at:
-            delta = (decision.ended_at - decision.started_at).total_seconds()
-            decision.execution_time_ms = delta * 1000
-
+    def _fill_retrieve(self, decision: CapturedDecision, payload: Dict[str, Any]) -> None:
         nodes = payload.get("nodes", [])
         doc_summaries = []
         for node in nodes:
@@ -419,14 +507,13 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
             "document_count": len(doc_summaries),
             "documents": doc_summaries,
         }
-        self._store(decision)
 
     def _on_query_start(
         self, event_id: str, parent_id: str, payload: Dict[str, Any]
     ) -> None:
         query_str = payload.get("query_str", "")
 
-        decision = CapturedDecision(
+        self._begin(event_id, parent_id, CapturedDecision(
             decision_id=event_id,
             decision_type="query",
             function_name="query_engine",
@@ -434,21 +521,14 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
             started_at=datetime.now(timezone.utc),
             parent_run_id=parent_id or None,
             context_version=self.context_version,
-        )
-        self._inflight[event_id] = decision
+        ))
 
     def _on_query_end(
         self, event_id: str, payload: Dict[str, Any]
     ) -> None:
-        decision = self._inflight.pop(event_id, None)
-        if decision is None:
-            return
+        self._finish(event_id, payload, self._fill_response)
 
-        decision.ended_at = datetime.now(timezone.utc)
-        if decision.started_at:
-            delta = (decision.ended_at - decision.started_at).total_seconds()
-            decision.execution_time_ms = delta * 1000
-
+    def _fill_response(self, decision: CapturedDecision, payload: Dict[str, Any]) -> None:
         response = payload.get("response", "")
         if hasattr(response, "response"):
             response_text = str(response.response)
@@ -458,14 +538,13 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
         decision.outputs = {
             "response": response_text[:self.max_output_chars],
         }
-        self._store(decision, export=True)
 
     def _on_synthesize_start(
         self, event_id: str, parent_id: str, payload: Dict[str, Any]
     ) -> None:
         query_str = payload.get("query_str", "")
 
-        decision = CapturedDecision(
+        self._begin(event_id, parent_id, CapturedDecision(
             decision_id=event_id,
             decision_type="synthesize",
             function_name="synthesizer",
@@ -473,53 +552,32 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
             started_at=datetime.now(timezone.utc),
             parent_run_id=parent_id or None,
             context_version=self.context_version,
-        )
-        self._inflight[event_id] = decision
+        ))
 
     def _on_synthesize_end(
         self, event_id: str, payload: Dict[str, Any]
     ) -> None:
-        decision = self._inflight.pop(event_id, None)
-        if decision is None:
-            return
-
-        decision.ended_at = datetime.now(timezone.utc)
-        if decision.started_at:
-            delta = (decision.ended_at - decision.started_at).total_seconds()
-            decision.execution_time_ms = delta * 1000
-
-        response = payload.get("response", "")
-        if hasattr(response, "response"):
-            response_text = str(response.response)
-        else:
-            response_text = str(response)
-
-        decision.outputs = {
-            "response": response_text[:self.max_output_chars],
-        }
-        self._store(decision)
+        self._finish(event_id, payload, self._fill_response)
 
     def _on_exception(
         self, event_id: str, payload: Dict[str, Any]
     ) -> None:
-        """Attach exception events to the matching in-flight decision."""
+        """Attach a separate exception event to the matching in-flight decision."""
         error = payload.get("exception", payload.get("error", "unknown error"))
 
-        decision = self._inflight.pop(event_id, None)
-        if decision is None:
-            # Fall back to the most recent in-flight decision
-            if self._inflight:
-                last_key = list(self._inflight.keys())[-1]
-                decision = self._inflight.pop(last_key)
-
-        if decision:
-            decision.ended_at = datetime.now(timezone.utc)
-            if decision.started_at:
-                delta = (decision.ended_at - decision.started_at).total_seconds()
-                decision.execution_time_ms = delta * 1000
+        with self._lock:
+            key = event_id
+            decision = self._inflight.pop(event_id, None)
+            if decision is None and self._inflight:
+                # Fall back to the most recent in-flight decision
+                key = list(self._inflight.keys())[-1]
+                decision = self._inflight.pop(key)
+            if decision is None:
+                return
             decision.error = str(error) or type(error).__name__
-            # A failed query is exported like a completed one.
-            self._store(decision, export=decision.decision_type == "query")
+            record = self._complete(key, decision)
+        if record is not None:
+            self._trigger_export(record)
 
 
 # Helpers
@@ -534,8 +592,10 @@ def _serialize_payload_messages(
 
     for msg in messages:
         if hasattr(msg, "role") and hasattr(msg, "content"):
+            role = getattr(msg, "role", "unknown")
             result.append({
-                "role": str(getattr(msg, "role", "unknown")),
+                # MessageRole is a str enum; its value is the wire name.
+                "role": str(getattr(role, "value", role)),
                 "content": str(getattr(msg, "content", ""))[:max_chars],
             })
         elif isinstance(msg, dict):
@@ -547,3 +607,83 @@ def _serialize_payload_messages(
             result.append({"role": "unknown", "content": str(msg)[:max_chars]})
 
     return result
+
+
+def _model_name(*candidates: Any, default: str) -> str:
+    """First usable name. LlamaIndex reports ``"unknown"`` for a model with
+    no configured name, so that placeholder yields to the next candidate
+    (typically the integration's class name)."""
+    for candidate in candidates:
+        if candidate and candidate != "unknown":
+            return str(candidate)
+    return default
+
+
+def _as_dict(value: Any) -> Dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _read(source: Any, *names: str) -> Any:
+    """First non-None value among ``names`` on a mapping or an object."""
+    for name in names:
+        value = source.get(name) if isinstance(source, dict) else getattr(source, name, None)
+        if value is not None:
+            return value
+    return None
+
+
+def _count(source: Any, *names: str) -> Optional[int]:
+    value = _read(source, *names)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return int(value)
+    return None
+
+
+def _normalize_usage(usage: Any) -> Optional[Dict[str, int]]:
+    """Map a provider usage mapping/object onto prompt/completion/total tokens.
+
+    The key names are the ones ``get_tokens_from_response`` accepts in
+    llama-index-core 0.14.26 (OpenAI, Anthropic and Gemini spellings).
+    """
+    if not usage:
+        return None
+    prompt = _count(usage, "prompt_tokens", "input_tokens", "prompt_token_count")
+    completion = _count(
+        usage, "completion_tokens", "output_tokens", "candidates_token_count"
+    )
+    total = _count(usage, "total_tokens", "total_token_count")
+    if prompt is None and completion is None and total is None:
+        return None
+    prompt = prompt or 0
+    completion = completion or 0
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": total if total is not None else prompt + completion,
+    }
+
+
+def _token_usage(payload: Dict[str, Any], response: Any) -> Optional[Dict[str, int]]:
+    """Token usage for an LLM end event, or None when none was reported.
+
+    LlamaIndex has no token-count payload key: the provider's usage sits on
+    the response, under ``raw["usage"]`` / ``raw["usage_metadata"]`` (a dict
+    or the provider SDK's response object), or flattened into
+    ``additional_kwargs``. Only reported counts are recorded; nothing is
+    estimated by tokenizing. A ``token_count`` payload entry, which older
+    callers passed, is honoured first.
+    """
+    legacy = payload.get("token_count")
+    if legacy:
+        if isinstance(legacy, int) and not isinstance(legacy, bool):
+            return {"prompt_tokens": legacy, "completion_tokens": 0, "total_tokens": legacy}
+        usage = _normalize_usage(legacy)
+        if usage:
+            return usage
+
+    raw = getattr(response, "raw", None)
+    if raw is not None:
+        usage = _normalize_usage(_read(raw, "usage", "usage_metadata"))
+        if usage:
+            return usage
+    return _normalize_usage(getattr(response, "additional_kwargs", None))
