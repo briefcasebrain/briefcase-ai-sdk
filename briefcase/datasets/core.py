@@ -272,7 +272,7 @@ def _sanitize(value: Any, fn: Callable[[str], str]) -> Any:
     if isinstance(value, str):
         return fn(value)
     if isinstance(value, dict):
-        return {k: _sanitize(v, fn) for k, v in value.items()}
+        return {(fn(k) if isinstance(k, str) else k): _sanitize(v, fn) for k, v in value.items()}
     if isinstance(value, list):
         return [_sanitize(v, fn) for v in value]
     return value

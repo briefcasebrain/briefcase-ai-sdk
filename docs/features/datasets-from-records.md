@@ -20,40 +20,38 @@ briefcase dataset from-records runs.jsonl --name triage --where decision_type=tr
 briefcase eval run --dataset triage --target myapp.triage:classify --fail-under 0.9
 ```
 
-Output below is real, captured in a temporary `HOME` from the demo app in
-`docs/features/prompt-versions.md` (8 `triage` records, 3 `lookup` records captured with
-`capture_content="hash"`; the scratch directory is shown as `/tmp/demo`). The native
-extension was not built in that environment, so the sanitizer gate is visible.
+Output below is real, captured in a temporary `HOME` with the compiled native extension
+built from this checkout (`maturin develop`), so `briefcase.sanitize` ran for real. The demo
+app has two prompt versions, `triage_v1` (the one "in production") and `triage_v2`; it
+captured 8 `triage` records with `capture_content="full"` (one repeated, one containing an
+e-mail address and a phone number) and 3 `lookup` records with `capture_content="hash"`.
+The scratch directory is shown as `/tmp/demo`.
 
 ```text
-$ briefcase dataset from-records runs.jsonl --name triage
-error: the native sanitizer (briefcase.sanitize) is not available, so PII in inputs/outputs would be copied as-is. Install a wheel with the native core (pip install --force-reinstall briefcase-ai) or re-run with --allow-unsanitized
-[exit 2]
-
-$ briefcase dataset from-records runs.jsonl --name triage --where decision_type=triage,status=ok --dedupe --allow-unsanitized
-Created triage@v1: 7 cases, hash 7ab9e89f3986
-  source     runs.jsonl  sha256 b0774d7402e0  (11 records)
-  filters    decision_type=triage, status=ok
-  reference  recorded output
-  sanitized  NO — --allow-unsanitized given; native sanitizer not available, content copied as recorded
-  3 of 11 records skipped: did not match --where
-  1 of 11 records skipped: duplicate inputs (--dedupe)
-Next: briefcase eval run --dataset triage@v1 --target module:function
-[exit 0]
-
-$ briefcase dataset from-records runs.jsonl --name lookups --where decision_type=lookup --allow-unsanitized
+$ briefcase dataset from-records runs.jsonl --name lookups --where decision_type=lookup
 No dataset created: none of the 11 records in runs.jsonl became a case.
   8 of 11 records skipped: did not match --where
   3 of 11 records skipped: captured without content — re-capture with content: @briefcase.capture(capture_content="full"), briefcase.auto("<provider>", capture_content=True), or `briefcase exec --capture-content full -- <command>`
 [exit 1]
 
-$ briefcase dataset show triage
-triage@v1  hash 7ab9e89f3986  7 cases  created 2026-11-21T23:19:24+00:00
+$ briefcase dataset from-records runs.jsonl --name triage --where decision_type=triage,status=ok --dedupe
+Created triage@v1: 7 cases, hash ebc456c41a1b
+  source     runs.jsonl  sha256 27205a1945c2  (11 records)
+  filters    decision_type=triage, status=ok
+  reference  recorded output
+  sanitized  yes (briefcase.sanitize, native extension)
+  3 of 11 records skipped: did not match --where
+  1 of 11 records skipped: duplicate inputs (--dedupe)
+Next: briefcase eval run --dataset triage@v1 --target module:function
+[exit 0]
+
+$ briefcase dataset show triage --cases 7
+triage@v1  hash ebc456c41a1b  7 cases  created 2026-11-22T04:47:05+00:00
   versions   v1 (latest v1)
-  source     runs.jsonl  sha256 b0774d7402e0  (11 records)
+  source     runs.jsonl  sha256 27205a1945c2  (11 records)
   filters    decision_type=triage, status=ok
   reference  recorded
-  sanitized  no (--allow-unsanitized)
+  sanitized  yes
   sdk        briefcase-ai 4.4.0, dataset schema 1
   id               input                                            reference
   c-26b681b7db7c   {"args": ["The app crashes on login"]}           'bug'
@@ -61,12 +59,19 @@ triage@v1  hash 7ab9e89f3986  7 cases  created 2026-11-21T23:19:24+00:00
   c-bc5e1f41767c   {"args": ["I was charged twice this month"]}     'bug'
   c-3062b45e6c38   {"args": ["Error 500 when saving"]}              'bug'
   c-d71faf6872ed   {"args": ["Can I get a refund for March?"]}      'bug'
-  … 2 more (--cases N, or --json)
+  c-01f7a6f00f75   {"args": ["Invoice for [REDACTED_EMAIL] is wron… 'bug'
+  c-0ab06d110b4c   {"args": ["How do I change my password?"]}       'question'
 Next: briefcase eval run --dataset triage@v1 --target module:function
 [exit 0]
 ```
 
-Correcting expected outputs by hand (here: three charges that production labelled `bug`
+The sanitizer ran on every string in the case input and expected output, so the e-mail
+address and phone number in the seventh ticket are already `[REDACTED_EMAIL]` and
+`[REDACTED_PHONE]` in the version file, in `show` and in `export`; the case id and content
+hash are computed from the sanitized text. What it does and does not catch is listed under
+"What the sanitizer redacts".
+
+Correcting expected outputs by hand (here: three tickets that production labelled `bug`
 are really `billing`) is export, edit, import:
 
 ```text
@@ -75,43 +80,123 @@ writing triage.jsonl (7 cases from triage@v1)
 Next: edit triage.jsonl, then: briefcase dataset import triage.jsonl --name triage
 [exit 0]
 
-$ briefcase dataset import triage.jsonl --name triage --allow-unsanitized
-Created triage@v2: 7 cases, hash 30b18383a34a (imported from triage.jsonl)
-  sanitized  NO — --allow-unsanitized given; native sanitizer not available, content copied as recorded
+$ briefcase dataset import triage.jsonl --name triage
+Created triage@v2: 7 cases, hash 41b577a112a6 (imported from triage.jsonl)
+  sanitized  yes (briefcase.sanitize, native extension)
 Next: briefcase dataset diff triage@v1 triage@v2
 [exit 0]
 
 $ briefcase dataset diff triage@v1 triage@v2
-triage@v1 (7ab9e89f3986) -> triage@v2 (30b18383a34a)
+triage@v1 (ebc456c41a1b) -> triage@v2 (41b577a112a6)
   +0 added  -0 removed  ~3 changed  4 unchanged
   reference: 'recorded' -> 'provided'
   source: 'records from runs.jsonl' -> 'import of triage.jsonl'
 ~ c-bc5e1f41767c   reference: 'bug' -> 'billing'
 ~ c-d71faf6872ed   reference: 'bug' -> 'billing'
-~ c-2fad186dfaf9   reference: 'bug' -> 'billing'
+~ c-01f7a6f00f75   reference: 'bug' -> 'billing'
 [exit 0]
+```
 
+Compare the two prompts. With several targets, say what is gated: the old prompt is expected
+to score lower, so `--fail-under` alone exits 2 and prints the command to use. Here the new
+prompt must reach 90% and must not score below the old one:
+
+```text
 $ briefcase eval run --dataset triage --target triage_app:triage_v1 --target triage_app:triage_v2
-eval triage@v2 (30b18383a34a): 7 cases, scorer exact
-  target                prompt               cases  passed  pass rate  mean score  errors
-  triage_app:triage_v1  triage@1aa8e1bfefb4  7      4       57.1%      0.57        0
-  triage_app:triage_v2  triage@f64e29b2acce  7      7       100.0%     1.00        0
+eval triage@v2 (41b577a112a6): 7 cases, scorer exact
+  target                prompt               cases  passed  pass rate  mean score  errors  gate  result
+  triage_app:triage_v1  triage@1aa8e1bfefb4  7      4       57.1%      0.57        0       -     -
+  triage_app:triage_v2  triage@f64e29b2acce  7      7       100.0%     1.00        0       -     -
 Worst failures (triage_app:triage_v1):
-  c-2fad186dfaf9   score 0.00  expected 'billing'  got 'bug'
+  c-01f7a6f00f75   score 0.00  expected 'billing'  got 'bug'
   c-bc5e1f41767c   score 0.00  expected 'billing'  got 'bug'
   c-d71faf6872ed   score 0.00  expected 'billing'  got 'bug'
 records: 14 eval.case + 2 eval.run -> /tmp/demo/home/.briefcase/evals/records.jsonl
-Next: add --fail-under 0.9 to gate CI on this pass rate
+Next: add --no-regression triage_app:triage_v1 (or --fail-under 0.9 --gate triage_app:triage_v2) to gate CI
 [exit 0]
 
+$ briefcase eval run --dataset triage --target triage_app:triage_v1 --target triage_app:triage_v2 --fail-under 0.9
+error: --fail-under with 2 targets does not say which must reach it (an old prompt is expected to score lower than a new one). Name the gated target(s):
+  briefcase eval run --dataset triage --target triage_app:triage_v1 --target triage_app:triage_v2 --fail-under 0.9 --gate triage_app:triage_v2
+or compare against a baseline:
+  briefcase eval run --dataset triage --target triage_app:triage_v1 --target triage_app:triage_v2 --no-regression triage_app:triage_v1
+(both flags can be combined; repeat --gate for more targets)
+[exit 2]
+
+$ briefcase eval run --dataset triage --target triage_app:triage_v1 --target triage_app:triage_v2 --fail-under 0.9 --gate triage_app:triage_v2 --no-regression triage_app:triage_v1
+eval triage@v2 (41b577a112a6): 7 cases, scorer exact
+  target                prompt               cases  passed  pass rate  mean score  errors  gate                            result
+  triage_app:triage_v1  triage@1aa8e1bfefb4  7      4       57.1%      0.57        0       -                               -
+  triage_app:triage_v2  triage@f64e29b2acce  7      7       100.0%     1.00        0       >= 90.0% + >= 57.1% (baseline)  PASS
+Worst failures (triage_app:triage_v1):
+  c-01f7a6f00f75   score 0.00  expected 'billing'  got 'bug'
+  c-bc5e1f41767c   score 0.00  expected 'billing'  got 'bug'
+  c-d71faf6872ed   score 0.00  expected 'billing'  got 'bug'
+records: 14 eval.case + 2 eval.run -> /tmp/demo/home/.briefcase/evals/records.jsonl
+PASS  triage_app:triage_v2: pass rate 100.0% >= 90.0% (--fail-under 0.9)
+PASS  triage_app:triage_v2: pass rate 100.0% >= 57.1% (baseline triage_app:triage_v1 57.1%, tolerance 0)
+Next: briefcase dataset show triage@v2
+[exit 0]
+
+$ briefcase eval run --dataset triage --target triage_app:triage_v2 --target triage_app:triage_v1 --no-regression triage_app:triage_v2
+eval triage@v2 (41b577a112a6): 7 cases, scorer exact
+  target                prompt               cases  passed  pass rate  mean score  errors  gate                  result
+  triage_app:triage_v2  triage@f64e29b2acce  7      7       100.0%     1.00        0       -                     -
+  triage_app:triage_v1  triage@1aa8e1bfefb4  7      4       57.1%      0.57        0       >= 100.0% (baseline)  FAIL
+Worst failures (triage_app:triage_v1):
+  c-01f7a6f00f75   score 0.00  expected 'billing'  got 'bug'
+  c-bc5e1f41767c   score 0.00  expected 'billing'  got 'bug'
+  c-d71faf6872ed   score 0.00  expected 'billing'  got 'bug'
+records: 14 eval.case + 2 eval.run -> /tmp/demo/home/.briefcase/evals/records.jsonl
+FAIL  triage_app:triage_v1: pass rate 57.1% < 100.0% (baseline triage_app:triage_v2 100.0%, tolerance 0)
+Next: briefcase dataset show triage@v2 --cases 20  (inspect the failing inputs)
+[exit 1]
+```
+
+A single target keeps the short form (`--fail-under` gates it):
+
+```text
 $ briefcase eval run --dataset triage --target triage_app:triage_v2 --fail-under 0.9
-eval triage@v2 (30b18383a34a): 7 cases, scorer exact
-  target                prompt               cases  passed  pass rate  mean score  errors
-  triage_app:triage_v2  triage@f64e29b2acce  7      7       100.0%     1.00        0
+eval triage@v2 (41b577a112a6): 7 cases, scorer exact
+  target                prompt               cases  passed  pass rate  mean score  errors  gate      result
+  triage_app:triage_v2  triage@f64e29b2acce  7      7       100.0%     1.00        0       >= 90.0%  PASS
 records: 7 eval.case + 1 eval.run -> /tmp/demo/home/.briefcase/evals/records.jsonl
 PASS  triage_app:triage_v2: pass rate 100.0% >= 90.0% (--fail-under 0.9)
 Next: briefcase dataset show triage@v2
 [exit 0]
+```
+
+### What the sanitizer redacts
+
+`briefcase.sanitize.Sanitizer` was run on a ticket and on a captured output (both inside
+`@capture(capture_content="full")` records, then `dataset from-records` without
+`--allow-unsanitized`). Checked against the real extension:
+
+| Content | Result |
+|---|---|
+| E-mail (`jane.doe@example.com`, `jane.doe+tag@sub.example.co.uk`, upper case) | redacted: `[REDACTED_EMAIL]` |
+| US phone (`+1 415-555-0132`, `(415) 555-0132`) | redacted: `[REDACTED_PHONE]` |
+| International phone (`+44 20 7946 0958`, `+49 30 901820`), bare digits (`4155550132`) | **not redacted** |
+| IBAN (`DE89370400440532013000`, spaced `DE89 3704 0044 …`, `GB82WEST12345698765432`) | redacted: `[REDACTED_IBAN]` |
+| AWS access key id (`AKIAIOSFODNN7EXAMPLE`), AWS secret key assignment, GitHub / Slack tokens | redacted: `[REDACTED_API_KEY]` |
+| JWT with a full-length signature | redacted: `[REDACTED_API_KEY]` |
+| A short, truncated JWT (`eyJ….eyJ….abc`) | **not redacted** |
+| SSN, credit card number, IPv4 address | redacted |
+| `password=…`, `Authorization: Bearer abc.def.ghi`, PEM private keys | **not redacted** |
+| Names, street addresses, dates of birth, passport numbers, free text | **not redacted** |
+| Dictionary keys | redacted since this change (values always were) |
+| Numbers that are not strings (an `int` phone number) | not touched |
+
+Treat the sanitizer as a safety net for the common patterns, not as anonymization: read the
+`dataset show` / `export` output of a new dataset before sharing it, and use
+`--redact-fields name,address` for fields you know are personal.
+
+Without the native extension the command refuses (captured on a build that lacked it):
+
+```text
+$ briefcase dataset from-records runs.jsonl --name triage
+error: the native sanitizer (briefcase.sanitize) is not available, so PII in inputs/outputs would be copied as-is. Install a wheel with the native core (pip install --force-reinstall briefcase-ai) or re-run with --allow-unsanitized
+[exit 2]
 ```
 
 ## What it writes or sends, and where
@@ -147,7 +232,7 @@ input and `content_sha256` is always recomputed.
 | No field redaction | `--redact-fields email,phone` replaces those keys anywhere with `[REDACTED]` |
 | Scorer `exact` (strings compared after trimming whitespace) | `--scorer contains`, `json` (parse and compare), or `module:function(output, reference, case)` returning a bool, a number (passes at >= 1.0) or `{"score": …, "passed": …}` |
 | One case at a time | `--concurrency N` (threads; results and order are identical) |
-| Exit 0 whatever the pass rate | `--fail-under 0.9`: exit 1 when any `--target` is below the rate |
+| Exit 0 whatever the pass rate | One target: `--fail-under 0.9` exits 1 below the rate. Several targets: `--fail-under 0.9 --gate NEW` (repeat `--gate`) gates only the named targets; `--no-regression OLD [--tolerance 0.02]` exits 1 when any other target scores below `OLD` by more than the tolerance. Several targets with `--fail-under` and no `--gate` exit 2. Exit codes: 0 pass, 1 gate failed, 2 usage |
 
 Calling convention: an input `{"args": [...], "kwargs": {...}}` (what `@capture` records
 decode to) is called as `target(*args, **kwargs)`; any other input (provider requests,
@@ -202,5 +287,6 @@ Export formats:
 | `dataset import` lists `line N: …` | Fix those lines; each line is `{"input": …, "reference": …}` |
 | `cannot import 'myapp' for --target` | Run from your project root or set `PYTHONPATH` |
 | `has no references` | The dataset was made with `--reference none`: pass `--scorer module:function`, or export, add `reference`, import |
+| `error: --fail-under with N targets does not say which must reach it` | Add `--gate TARGET` for the target that must pass, or `--no-regression BASELINE`; the message prints both commands |
 | CI fails with `FAIL … pass rate … <` | `briefcase dataset show NAME --cases 20` and the `Worst failures` list |
-| `briefcase status` shows datasets as `attention` | The last `eval run` was below `--fail-under`; re-run the `next` command it prints |
+| `briefcase status` shows datasets as `attention` | The last `eval run` failed a gate (`--fail-under` / `--no-regression`); re-run the `next` command it prints |

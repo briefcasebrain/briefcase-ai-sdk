@@ -9,6 +9,8 @@ exports through the real tools: inspect-ai 0.3.291 (`inspect eval` with
 import json
 from pathlib import Path
 
+import pytest
+
 from briefcase.datasets import core
 from briefcase.datasets import evaluate as ev
 from briefcase.integrations.evals import from_inspect_log, from_lm_eval_results
@@ -95,3 +97,66 @@ def test_real_lm_eval_samples_from_exported_docs_parse():
     assert [c["inputs"] for c in parsed.cases] == [d["input"] for d in docs]
     assert [c["target"] for c in parsed.cases] == [d["target"] for d in docs]
     assert "exact_match" in parsed.metrics
+
+
+def test_sanitizer_also_cleans_dict_keys():
+    res = core.promote([(1, {"decision_type": "t", "status": "ok", "inputs": {"args": "({'a@b.co': 'x'},)"},
+                             "outputs": {"result": "'ok'"}})],
+                       sanitizer=lambda t: t.replace("a@b.co", "[EMAIL]"))
+    assert res.cases[0]["input"] == {"args": [{"[EMAIL]": "x"}]}
+
+
+_REAL_SANITIZER_SCRIPT = r"""
+import json, sys
+from briefcase.datasets import core
+fn = core.native_sanitizer()
+if fn is None:
+    sys.exit(3)
+rec = json.loads(sys.stdin.read())
+res = core.promote([(1, rec)], sanitizer=fn)
+print(json.dumps(res.cases[0]))
+"""
+
+
+def _run_with_real_extension(record):
+    """tests/mock_core.py replaces briefcase._native in this process, so the
+    real compiled extension is exercised in a subprocess. None when it is not
+    importable there."""
+    import subprocess
+    import sys
+
+    root = str(Path(__file__).resolve().parent.parent)
+    proc = subprocess.run([sys.executable, "-c", _REAL_SANITIZER_SCRIPT], input=json.dumps(record),
+                          capture_output=True, text=True, cwd=root, timeout=120,
+                          env={**__import__("os").environ, "PYTHONPATH": root})
+    if proc.returncode == 3:
+        return None
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)
+
+
+def test_native_sanitizer_on_captured_records():
+    """Runs against the compiled extension, not a stub: what it redacts and what it leaves."""
+    jwt = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0."
+           "dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PjtoYOabcdE")
+    text = (f"mail jane.doe@example.com tel (415) 555-0132 IBAN DE89370400440532013000 "
+            f"key AKIAIOSFODNN7EXAMPLE jwt {jwt}")
+    rec = {"decision_type": "triage", "status": "ok", "decision_id": "d1",
+           "inputs": {"args": repr((text,)), "kwargs": repr({"user": {"email": "x@y.com"}})},
+           "outputs": {"result": repr({"note": text, "label": "bug"})}}
+    case = _run_with_real_extension(rec)
+    if case is None:
+        pytest.skip("native extension not importable")
+    blob = json.dumps(case)
+    for secret in ("jane.doe@example.com", "x@y.com", "555-0132", "DE89370400440532013000",
+                   "AKIAIOSFODNN7EXAMPLE", jwt, "dozjgNryP4J3"):
+        assert secret not in blob
+    assert case["input"]["args"] == [
+        "mail [REDACTED_EMAIL] tel [REDACTED_PHONE] IBAN [REDACTED_IBAN] key [REDACTED_API_KEY] "
+        "jwt [REDACTED_API_KEY]"]
+    assert case["input"]["kwargs"] == {"user": {"email": "[REDACTED_EMAIL]"}}
+    assert case["reference"]["note"] == case["input"]["args"][0]
+    assert case["reference"]["label"] == "bug"
+    # the id and content hash are computed from the sanitized content, never the raw text
+    assert case["id"] == core.case_id_for(case["input"])
+    assert case["content_sha256"] == core.case_content_hash(case["input"], case["reference"])

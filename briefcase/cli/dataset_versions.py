@@ -539,8 +539,9 @@ def status() -> dict:
     again = f"briefcase eval run --dataset {runs[-1].get('dataset')} " + " ".join(
         f"--target {r.get('target')}" for r in runs)
     if failing:
+        gate = failing[0].get("gate") or f"--fail-under {failing[0].get('fail_under')}"
         return {"id": STATUS_ID, "state": "attention",
-                "detail": (detail + f"; below --fail-under {failing[0].get('fail_under')}: "
+                "detail": (detail + f"; gate failed ({gate}): "
                            + ", ".join(str(r.get("target")) for r in failing)),
                 "next": again}
     return {"id": STATUS_ID, "state": "on", "detail": detail, "next": again}

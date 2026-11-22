@@ -486,6 +486,141 @@ def test_reference_none_needs_custom_scorer(tmp_path, records, toy, monkeypatch,
     assert rc == 0
 
 
+# -- eval run gates -------------------------------------------------------------------
+# toy:weak scores 2/3 (pass rate 66.7%), toy:good 3/3, toy:async_good 3/3.
+
+def _gate_run(tmp_path, records, toy, monkeypatch, capsys, *argv):
+    _make(tmp_path, records, monkeypatch, capsys)
+    rc, out, err = run(["eval", "run", "--dataset", "t", "--json", "--to", str(tmp_path / "g.jsonl"), *argv],
+                       tmp_path, monkeypatch, capsys)
+    return rc, (json.loads(out) if out.strip().startswith("{") else None), err
+
+
+def _t(toy, name):
+    return f"{toy}:{name}"
+
+
+@pytest.mark.parametrize("argv, rc, gates", [
+    # single target: --fail-under applies to it, unchanged behaviour
+    (["--target", "good", "--fail-under", "1.0"], 0, {"good": "pass"}),
+    (["--target", "weak", "--fail-under", "0.9"], 1, {"weak": "fail"}),
+    (["--target", "good", "--fail-under", "0.9", "--gate", "good"], 0, {"good": "pass"}),
+    (["--target", "weak"], 0, {"weak": None}),
+    # several targets, --gate names who must reach the rate; the old one may be worse
+    (["--target", "weak", "--target", "good", "--fail-under", "0.9", "--gate", "good"], 0,
+     {"weak": None, "good": "pass"}),
+    (["--target", "weak", "--target", "good", "--fail-under", "0.9", "--gate", "weak"], 1,
+     {"weak": "fail", "good": None}),
+    (["--target", "weak", "--target", "good", "--fail-under", "0.9", "--gate", "weak", "--gate", "good"], 1,
+     {"weak": "fail", "good": "pass"}),
+    # several targets, no gate flags at all: report only
+    (["--target", "weak", "--target", "good"], 0, {"weak": None, "good": None}),
+    # --no-regression: every other target against the baseline
+    (["--target", "weak", "--target", "good", "--no-regression", "weak"], 0, {"weak": None, "good": "pass"}),
+    (["--target", "weak", "--target", "good", "--no-regression", "good"], 1, {"weak": "fail", "good": None}),
+    (["--target", "good", "--target", "async_good", "--no-regression", "good"], 0,
+     {"good": None, "async_good": "pass"}),
+    (["--target", "good", "--target", "weak", "--target", "async_good", "--no-regression", "good"], 1,
+     {"good": None, "weak": "fail", "async_good": "pass"}),
+    # tolerance: weak is 33.3 points below good
+    (["--target", "good", "--target", "weak", "--no-regression", "good", "--tolerance", "0.4"], 0,
+     {"good": None, "weak": "pass"}),
+    (["--target", "good", "--target", "weak", "--no-regression", "good", "--tolerance", "0.3"], 1,
+     {"good": None, "weak": "fail"}),
+    # both together: new must reach 0.9 AND not regress against old
+    (["--target", "weak", "--target", "good", "--no-regression", "weak", "--fail-under", "0.9", "--gate", "good"],
+     0, {"weak": None, "good": "pass"}),
+    (["--target", "good", "--target", "weak", "--no-regression", "good", "--fail-under", "0.9", "--gate", "weak"],
+     1, {"good": None, "weak": "fail"}),
+    (["--target", "weak", "--target", "async_good", "--no-regression", "weak", "--fail-under", "1.0",
+      "--gate", "weak", "--gate", "async_good"], 1, {"weak": "fail", "async_good": "pass"}),
+])
+def test_eval_gate_combinations(tmp_path, records, toy, monkeypatch, capsys, argv, rc, gates):
+    argv = [(_t(toy, a) if a in ("good", "weak", "async_good") else a) for a in argv]
+    got_rc, data, err = _gate_run(tmp_path, records, toy, monkeypatch, capsys, *argv)
+    assert got_rc == rc, err
+    by = {t["target"]: t for t in data["targets"]}
+    assert {k.split(":")[-1]: v["gate"]["result"] for k, v in by.items()} == gates
+    assert data["ok"] is (rc == 0)
+    for t in data["targets"]:
+        assert t["gate"]["applied"] is (t["gate"]["result"] is not None)
+        assert t["ok"] is (t["gate"]["result"] != "fail")
+
+
+def test_eval_gate_json_describes_each_clause(tmp_path, records, toy, monkeypatch, capsys):
+    rc, data, _ = _gate_run(
+        tmp_path, records, toy, monkeypatch, capsys, "--target", _t(toy, "good"), "--target", _t(toy, "weak"),
+        "--no-regression", _t(toy, "good"), "--tolerance", "0.1", "--fail-under", "0.2", "--gate", _t(toy, "weak"))
+    assert rc == 1
+    assert data["no_regression"] == _t(toy, "good") and data["tolerance"] == 0.1 and data["gate"] == [_t(toy, "weak")]
+    weak = data["targets"][1]["gate"]
+    assert [c["kind"] for c in weak["clauses"]] == ["fail_under", "no_regression"]
+    assert [c["passed"] for c in weak["clauses"]] == [True, False]
+    assert weak["clauses"][1]["baseline_rate"] == 1.0 and weak["clauses"][1]["min_rate"] == pytest.approx(0.9)
+    assert weak["description"] == ">= 20.0% + >= 90.0% (baseline)" and weak["result"] == "fail"
+    assert data["targets"][0]["gate"] == {"applied": False, "description": "-", "result": None, "clauses": []}
+
+
+def test_eval_gate_table_shows_score_gate_and_result(tmp_path, records, toy, monkeypatch, capsys):
+    _make(tmp_path, records, monkeypatch, capsys)
+    rc, out, _ = run(["eval", "run", "--dataset", "t", "--target", _t(toy, "weak"), "--target", _t(toy, "good"),
+                      "--no-regression", _t(toy, "weak"), "--fail-under", "0.9", "--gate", _t(toy, "good"),
+                      "--to", str(tmp_path / "g.jsonl")], tmp_path, monkeypatch, capsys)
+    assert rc == 0
+    header = next(line for line in out.splitlines() if "pass rate" in line and "gate" in line)
+    assert header.split()[-2:] == ["gate", "result"] or header.rstrip().endswith("result")
+    weak = next(line for line in out.splitlines() if line.strip().startswith(f"{toy}:weak"))
+    good = next(line for line in out.splitlines() if line.strip().startswith(f"{toy}:good"))
+    assert "66.7%" in weak and weak.split()[-2:] == ["-", "-"]
+    assert "100.0%" in good and ">= 90.0% + >= 66.7% (baseline)" in good and good.rstrip().endswith("PASS")
+    assert f"PASS  {toy}:good: pass rate 100.0% >= 90.0% (--fail-under 0.9)" in out
+    assert f"PASS  {toy}:good: pass rate 100.0% >= 66.7% (baseline {toy}:weak 66.7%, tolerance 0)" in out
+    rc, out, _ = run(["eval", "run", "--dataset", "t", "--target", _t(toy, "good"), "--target", _t(toy, "weak"),
+                      "--no-regression", _t(toy, "good"), "--to", str(tmp_path / "g.jsonl")],
+                     tmp_path, monkeypatch, capsys)
+    assert rc == 1 and f"FAIL  {toy}:weak: pass rate 66.7% < 100.0% (baseline {toy}:good 100.0%" in out
+
+
+def test_eval_fail_under_with_several_targets_needs_gate(tmp_path, records, toy, monkeypatch, capsys):
+    _make(tmp_path, records, monkeypatch, capsys)
+    rc, out, err = run(["eval", "run", "--dataset", "t", "--target", _t(toy, "weak"), "--target", _t(toy, "good"),
+                        "--fail-under", "0.9", "--to", str(tmp_path / "g.jsonl")], tmp_path, monkeypatch, capsys)
+    assert rc == 2 and out == ""
+    assert (f"briefcase eval run --dataset t --target {toy}:weak --target {toy}:good --fail-under 0.9 "
+            f"--gate {toy}:good") in err
+    assert f"--no-regression {toy}:weak" in err
+    assert not (tmp_path / "g.jsonl").exists()  # nothing ran
+
+
+@pytest.mark.parametrize("extra, message", [
+    (["--gate", "nope", "--fail-under", "0.9"], "--gate nope is not one of the --target values"),
+    (["--gate", "T0"], "give --fail-under"),
+    (["--no-regression", "nope"], "--no-regression nope is not one of the --target values"),
+    (["--tolerance", "0.1"], "--tolerance only applies with --no-regression"),
+    (["--no-regression", "T0", "--tolerance", "5"], "--tolerance is a rate"),
+    (["--no-regression", "T0"], "at least two --target"),
+    (["--target", "T0"], "given twice"),
+])
+def test_eval_gate_usage_errors_exit_2(tmp_path, records, toy, monkeypatch, capsys, extra, message):
+    _make(tmp_path, records, monkeypatch, capsys)
+    extra = [(_t(toy, "good") if a == "T0" else a) for a in extra]
+    rc, _, err = run(["eval", "run", "--dataset", "t", "--target", _t(toy, "good"), *extra,
+                      "--to", str(tmp_path / "g.jsonl")], tmp_path, monkeypatch, capsys)
+    assert rc == 2 and message in err
+    assert not (tmp_path / "g.jsonl").exists()
+
+
+def test_eval_gate_recorded_in_history(tmp_path, records, toy, monkeypatch, capsys):
+    monkeypatch.setenv("BRIEFCASE_HOME", str(tmp_path))
+    _gate_run(tmp_path, records, toy, monkeypatch, capsys, "--target", _t(toy, "good"),
+              "--target", _t(toy, "weak"), "--no-regression", _t(toy, "good"))
+    lines = [json.loads(x) for x in (tmp_path / "evals" / "history.jsonl").read_text().splitlines()]
+    assert [(r["target"].split(":")[-1], r["ok"], bool(r["gate"])) for r in lines] == [
+        ("good", True, False), ("weak", False, True)]
+    s = dataset_versions.status()
+    assert s["state"] == "attention" and "gate failed (--no-regression" in s["detail"]
+
+
 # -- status hook ---------------------------------------------------------------------
 
 def test_status_hook(tmp_path, records, toy, monkeypatch, capsys):
@@ -497,9 +632,10 @@ def test_status_hook(tmp_path, records, toy, monkeypatch, capsys):
     assert dataset_versions.status()["state"] == "on"
     assert "never evaluated" in dataset_versions.status()["detail"]
     run(["eval", "run", "--dataset", "t", "--target", f"{toy}:weak", "--target", f"{toy}:good",
-         "--fail-under", "0.9", "--to", str(tmp_path / "s.jsonl")], tmp_path, monkeypatch, capsys)
+         "--fail-under", "0.9", "--gate", f"{toy}:weak", "--to", str(tmp_path / "s.jsonl")],
+        tmp_path, monkeypatch, capsys)
     s = dataset_versions.status()
-    assert s["state"] == "attention" and "toyapp_ds:weak" in s["detail"]
+    assert s["state"] == "attention" and "toyapp_ds:weak" in s["detail"] and "gate failed" in s["detail"]
     assert s["next"].startswith("briefcase eval run --dataset t@v1")
 
 

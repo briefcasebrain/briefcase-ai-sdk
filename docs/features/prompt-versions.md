@@ -40,18 +40,18 @@ Output below is real, from the demo app used in
 is shown as `/tmp/demo`). A captured record:
 
 ```json
-{"schema_version": "1.1", "decision_id": "b132c0e6-2fd6-4966-ba0d-97f926a673cb", "decision_type": "triage", "function_name": "triage", "inputs": {"args": "('The app crashes on login',)"}, "outputs": {"result": "'bug'"}, "started_at": "2026-11-21T23:19:24.119117+00:00", "ended_at": "2026-11-21T23:19:24.119147+00:00", "execution_time_ms": 0.007, "prompt_name": "triage", "prompt_version": "1aa8e1bfefb4"}
+{"schema_version": "1.2", "decision_id": "af594d6a-f3be-428b-8040-d8546f80bf4b", "decision_type": "triage", "function_name": "triage_v1", "inputs": {"args": "('The app crashes on login',)"}, "outputs": {"result": "'bug'"}, "started_at": "2026-11-22T04:47:04.853290+00:00", "ended_at": "2026-11-22T04:47:04.853298+00:00", "execution_time_ms": 0.008, "prompt_name": "triage", "prompt_version": "1aa8e1bfefb4"}
 ```
 
 ```text
 $ briefcase prompt list
   name    versions  latest        first seen
-  triage  2         f64e29b2acce  2026-11-21T23:19:24
+  triage  2         f64e29b2acce  2026-11-22T04:47:04
 Next: briefcase prompt show triage
 [exit 0]
 
 $ briefcase prompt show triage@1aa8
-triage@1aa8e1bfefb4  first seen 2026-11-21T23:19:24+00:00  63 chars
+triage@1aa8e1bfefb4  first seen 2026-11-22T04:47:04+00:00  63 chars
 placeholders: text
 ---
 Classify the ticket as bug, question or billing.
@@ -71,12 +71,12 @@ $ briefcase prompt diff triage@1aa8e1bfefb4 triage@f64e29b2acce
 Next: briefcase eval run --dataset triage --target <old> --target <new>  (compare both versions)
 [exit 0]
 
-$ briefcase dataset from-records runs.jsonl --name triage-v1-prompt --where prompt_name=triage,prompt_version=1aa8e1bfefb4 --allow-unsanitized
-Created triage-v1-prompt@v1: 8 cases, hash ab66a6131f2b
-  source     runs.jsonl  sha256 b0774d7402e0  (11 records)
+$ briefcase dataset from-records runs.jsonl --name triage-v1-prompt --where prompt_name=triage,prompt_version=1aa8e1bfefb4
+Created triage-v1-prompt@v1: 8 cases, hash 56bb8587e84e
+  source     runs.jsonl  sha256 27205a1945c2  (11 records)
   filters    prompt_name=triage, prompt_version=1aa8e1bfefb4
   reference  recorded output
-  sanitized  NO — --allow-unsanitized given; native sanitizer not available, content copied as recorded
+  sanitized  yes (briefcase.sanitize, native extension)
   3 of 11 records skipped: did not match --where
 Next: briefcase eval run --dataset triage-v1-prompt@v1 --target module:function
 [exit 0]
@@ -87,17 +87,25 @@ the prompt version each call actually used.
 
 ```text
 $ briefcase eval run --dataset triage --target triage_app:triage_v1 --target triage_app:triage_v2
-eval triage@v2 (30b18383a34a): 7 cases, scorer exact
-  target                prompt               cases  passed  pass rate  mean score  errors
-  triage_app:triage_v1  triage@1aa8e1bfefb4  7      4       57.1%      0.57        0
-  triage_app:triage_v2  triage@f64e29b2acce  7      7       100.0%     1.00        0
+eval triage@v2 (41b577a112a6): 7 cases, scorer exact
+  target                prompt               cases  passed  pass rate  mean score  errors  gate  result
+  triage_app:triage_v1  triage@1aa8e1bfefb4  7      4       57.1%      0.57        0       -     -
+  triage_app:triage_v2  triage@f64e29b2acce  7      7       100.0%     1.00        0       -     -
 Worst failures (triage_app:triage_v1):
-  c-2fad186dfaf9   score 0.00  expected 'billing'  got 'bug'
+  c-01f7a6f00f75   score 0.00  expected 'billing'  got 'bug'
   c-bc5e1f41767c   score 0.00  expected 'billing'  got 'bug'
   c-d71faf6872ed   score 0.00  expected 'billing'  got 'bug'
 records: 14 eval.case + 2 eval.run -> /tmp/demo/home/.briefcase/evals/records.jsonl
-Next: add --fail-under 0.9 to gate CI on this pass rate
+Next: add --no-regression triage_app:triage_v1 (or --fail-under 0.9 --gate triage_app:triage_v2) to gate CI
 [exit 0]
+```
+
+In CI, gate the new prompt and fail if it regresses against the old one (the old one may be
+worse, so `--fail-under` is not applied to it):
+
+```bash
+briefcase eval run --dataset triage --target app:triage_v1 --target app:triage_v2 \
+  --no-regression app:triage_v1 --fail-under 0.9 --gate app:triage_v2
 ```
 
 ## What it writes or sends, and where
