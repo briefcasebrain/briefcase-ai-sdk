@@ -76,7 +76,7 @@ describe("openai chat.completions.create", () => {
     const [record, ...rest] = await records(mem, 1);
     expect(rest).toHaveLength(0);
     expect(record).toMatchObject({
-      schema_version: "1.1",
+      schema_version: "1.2",
       decision_type: "llm.openai.chat",
       function_name: "openai.chat.completions.create",
       inputs: {},

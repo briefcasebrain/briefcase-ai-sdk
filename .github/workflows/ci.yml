@@ -150,6 +150,7 @@ jobs:
           cache-dependency-path: |
             js/controls/package-lock.json
             js/runtime/package-lock.json
+            js/auto/package-lock.json
 
       - name: Install, typecheck, test, build, pack
         working-directory: js/controls
@@ -162,6 +163,15 @@ jobs:
 
       - name: Install, typecheck, test, build, pack runtime
         working-directory: js/runtime
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+          npm pack --dry-run
+
+      - name: Install, typecheck, test, build, pack auto
+        working-directory: js/auto
         run: |
           npm ci
           npm run typecheck

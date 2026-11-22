@@ -54,6 +54,18 @@ path = "js/runtime/package.json"
 pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
 replacement = '{pre}{version}{post}'
 
+[[targets]]
+id = "npm_auto"
+path = "js/auto/package.json"
+pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
+replacement = '{pre}{version}{post}'
+
+[[targets]]
+id = "npm_auto_scope_version"
+path = "js/auto/src/exporters.ts"
+pattern = '(?m)^(?P<pre>export const SCOPE_VERSION = ")(?P<version>[^"]+)(?P<post>";)$'
+replacement = '{pre}{version}{post}'
+
 # The npm native binding releases in lockstep; every platform binary
 # ships inside this one package.
 [[targets]]
