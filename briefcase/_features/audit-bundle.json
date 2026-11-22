@@ -1,11 +1,11 @@
 {
   "id": "audit-bundle",
-  "title": "Audit bundles and briefcase verify",
+  "title": "Evidence bundles and briefcase verify",
   "verb": "verify",
   "one_line": "Hand an auditor one file that proves which decisions were recorded, unaltered.",
   "command": "briefcase bundle create --from evidence.db --out evidence-bundle.zip",
   "docs_slug": "verify/audit-bundle",
   "status": "experimental",
   "requires_extra": null,
-  "verified_against": "End to end in a temp HOME: keygen, capture via briefcase.observe('chain:...'), verify, bundle create/verify, and tampering with the store and the bundle (output in docs/features/audit-bundle.md). Commands were run through each module's register() because CLI auto-discovery is built by another work package. Bundle verification also tested with neither PyNaCl nor the compiled core (pure-Python RFC 8032 fallback). No external auditor tooling was used."
+  "verified_against": "End to end in a temp HOME: keygen, capture via briefcase.observe('chain:...'), verify, bundle create/verify/inspect, tampering, and a released-format examiner bundle checked and re-packaged (output in docs/features/audit-bundle.md); CLI run through each module's register(). Format-1 compatibility: fixtures written by the released ExaminerBundle/SignedExaminerBundle code still verify. AWS KMS exercised only with an offline fake KMS client and with the existing moto tests (moto 5, run once in a scratch install); no real AWS call was made. TypeScript verifier tested on bundles written by the Python SDK. Ed25519 also tested with neither PyNaCl nor the compiled core."
 }

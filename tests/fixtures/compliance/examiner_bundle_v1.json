@@ -1,0 +1,62 @@
+{
+  "as_of_transaction_time": "2026-04-18T00:00:00+00:00",
+  "content_hash": "sha256:452b9636ddeea0e68ba9538e88f490ef9e9b98edff223776a6fa0d42cbd24c50",
+  "decision": {
+    "candidates": [
+      "USDC"
+    ],
+    "context": {
+      "jurisdiction": "US",
+      "sanctioned": false
+    },
+    "decided_at": "2026-04-18T00:00:00+00:00",
+    "decision_id": "4932cc33-17a6-4fe3-a84a-721455c3a7ab",
+    "evidence_refs": [
+      "4d61e655-1eef-417e-af79-40224df91eb7"
+    ],
+    "matched_rule_id": "r1",
+    "policy_id": "payout_router",
+    "policy_version": "1.0.0",
+    "rationale": "US clean: route USDC",
+    "selected": "USDC",
+    "use_case": "cross_border_payout"
+  },
+  "evidence": [
+    {
+      "decision": null,
+      "key": "ofac:counterparty:cp-42",
+      "metadata": {},
+      "parent_record_id": null,
+      "record_id": "4d61e655-1eef-417e-af79-40224df91eb7",
+      "source": "ofac",
+      "source_trust_level": null,
+      "transaction_time": "2026-04-17T00:00:00+00:00",
+      "valid_time": "2026-04-17T00:00:00+00:00",
+      "value": {
+        "sanctioned": false,
+        "score": 0.25
+      }
+    }
+  ],
+  "metadata": {
+    "case": "fixture"
+  },
+  "policy": {
+    "default_choice": "human_review",
+    "description": null,
+    "policy_id": "payout_router",
+    "rules": [
+      {
+        "choice": "USDC",
+        "condition": {
+          "jurisdiction": "US",
+          "sanctioned": false
+        },
+        "rationale": "US clean: route USDC",
+        "rule_id": "r1"
+      }
+    ],
+    "version": "1.0.0"
+  },
+  "schema_version": "1"
+}

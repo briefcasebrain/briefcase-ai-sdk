@@ -41,8 +41,8 @@ SQL shown. The `briefcase ...` commands were run through the command modules' `r
 ```text
 $ briefcase bundle keygen $HOME/.briefcase/signing-key.jwk
 Wrote private key $HOME/.briefcase/signing-key.jwk (mode 0600). Keep it private; back it up.
-  Key id (publish this so verifiers can pin it): 88ed9d51e8791dd0d572d469320ead053a94b03ef3cbfed86b21b86cc2f773a5
-  Public key: {"kty": "OKP", "crv": "Ed25519", "x": "ImilAvK2BUicqFU_kxSj9N7MNVusxYtUE8QO75KRjQk"}
+  Key id (publish this so verifiers can pin it): 9807a955e02e27829dce8bb6f4fa98cce0b73c0b12c83469fc3be5aeaf58f2c2
+  Public key: {"kty": "OKP", "crv": "Ed25519", "x": "OZW9V2fGoFuq9H_xu6Wwh07IOGW6l0f0l7suwN9yFh8"}
 Next: export BRIEFCASE_SIGNING_KEY=$HOME/.briefcase/signing-key.jwk   (then briefcase.observe('chain:evidence.db'))
 [exit 0]
 
@@ -52,7 +52,7 @@ $ BRIEFCASE_SIGNING_KEY=~/.briefcase/signing-key.jwk python capture.py
 $ briefcase verify evidence.db
 INTACT: evidence.db (chained store)
   Checked 4 entries (seq 1-4) and 1 checkpoint.
-  Signatures: 1 verified (key 88ed9d51e879).
+  Signatures: 1 verified (key 9807a955e02e).
   Every entry links to the one before it and matches its record.
   Note: Removal of the newest entries after the last checkpoint cannot be detected from the database alone; verify against a checkpoint kept outside it (--against FILE).
 Next: briefcase verify evidence.db --save-checkpoint anchor.json   (keep it off this machine)
@@ -61,7 +61,7 @@ Next: briefcase verify evidence.db --save-checkpoint anchor.json   (keep it off 
 $ briefcase verify evidence.db --save-checkpoint anchor.json
 INTACT: evidence.db (chained store)
   Checked 4 entries (seq 1-4) and 1 checkpoint.
-  Signatures: 1 verified (key 88ed9d51e879).
+  Signatures: 1 verified (key 9807a955e02e).
   Every entry links to the one before it and matches its record.
   Note: Removal of the newest entries after the last checkpoint cannot be detected from the database alone; verify against a checkpoint kept outside it (--against FILE).
   Saved the latest checkpoint to anchor.json. Keep a copy where the writer of evidence.db cannot change it.
@@ -73,9 +73,9 @@ $ python tamper.py evidence.db "UPDATE chain_entries SET record_json = replace(r
 $ briefcase verify evidence.db
 TAMPERED: evidence.db (chained store)
   Checked 4 entries (seq 1-4) and 1 checkpoint.
-  Signatures: 1 verified (key 88ed9d51e879).
+  Signatures: 1 verified (key 9807a955e02e).
   1 problem:
-    - entry 4 (record 9a2fb3f7-d856-47d1-8c8b-789b94ffe669) was changed after it was written
+    - entry 4 (record 2871002c-ed11-45da-ae9c-55cc2c8bce6e) was changed after it was written
   First broken entry: 4; changed: 4.
   Note: Removal of the newest entries after the last checkpoint cannot be detected from the database alone; verify against a checkpoint kept outside it (--against FILE).
 Next: briefcase verify evidence.db --json > verify-report.json   (keep the full report)
@@ -95,7 +95,7 @@ Next: briefcase verify cut.db --save-checkpoint anchor.json   (keep it off this 
 $ briefcase verify cut.db --against anchor.json
 INCOMPLETE: cut.db (chained store)
   Checked 3 entries (seq 1-3) and 0 checkpoints.
-  Signatures: 1 verified (key 88ed9d51e879).
+  Signatures: 1 verified (key 9807a955e02e).
   1 problem:
     - the log ends at entry 3 but the anchored checkpoint 1 covers up to entry 4: entry 4 was removed
 Next: briefcase verify cut.db --json > verify-report.json   (keep the full report)

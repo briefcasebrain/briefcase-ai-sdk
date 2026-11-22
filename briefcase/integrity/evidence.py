@@ -94,6 +94,9 @@ class VerifyReport:
     source: str = ""
     format: str = ""
     records_checked: int = 0
+    format_version: Optional[int] = None
+    signatures_unchecked: int = 0
+    signers: List[Dict[str, Any]] = field(default_factory=list)
 
     def problem(self, kind: str, seq: Optional[int], detail: str) -> None:
         if seq is not None:

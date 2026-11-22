@@ -67,7 +67,7 @@ it, the Python and Rust number formatters were also compared with V8 (`String(x)
 | `briefcase.integrity.canonical_json` | `json-sorted-1` (unchanged) | call `canonical_json_v2`, or `canonical_bytes(obj, "jcs-1")` |
 | `HashChainAppender` (Python) | `json-sorted-1` | `HashChainAppender(store, hash_scheme="jcs-1")` |
 | `HashChainAppender` (TypeScript) | `json-sorted-1` | `new HashChainAppender(store, { hashScheme: "jcs-1" })` |
-| Chained store, audit bundles | `jcs-1` (only) | - |
+| Chained store, evidence bundles (format 2) | `jcs-1` (only) | - |
 
 Why the existing appenders keep `json-sorted-1`: they write into stores that older SDK releases
 also read, and those verifiers do not know `hash_scheme`; they would reject `jcs-1` entries.

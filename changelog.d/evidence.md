@@ -21,14 +21,28 @@
   externally kept checkpoint (`against_checkpoint`). `inclusion_proof(seq)`.
 - `briefcase.observe("chain:evidence.db")` and `briefcase.exporters.ChainedSqliteExporter`
   (`BRIEFCASE_SIGNING_KEY`, `BRIEFCASE_CHECKPOINT_EVERY`); a checkpoint is written on shutdown.
-- `briefcase verify PATH` for a chained store, chain JSONL or bundle: plain-language verdict,
-  `--json`, `--against CHECKPOINT`, `--key`, `--save-checkpoint`; exit 0 intact, 1 tampered or
-  incomplete, 2 usage. Pure Python, read-only; works without the compiled core.
-- `briefcase bundle create|verify|keygen` and `briefcase.compliance.audit_bundle`: a
-  self-verifying ZIP (records, chain entries, Merkle proofs, signed checkpoints, public keys,
-  manifest, `README.txt` on what it does and does not prove), selectable by session, workflow,
-  trace or time. Verification needs only the SDK (PyNaCl, the core, or a pure-Python RFC 8032
-  fallback).
+- `briefcase verify PATH` for a chained store, chain JSONL or evidence bundle of any version:
+  plain-language verdict, `--json`, `--against CHECKPOINT`, `--key`, `--kms`,
+  `--save-checkpoint`; exit 0 intact, 1 tampered or incomplete, 2 usage. Pure Python, read-only.
+- One evidence bundle format (`briefcase.compliance.bundle`, `briefcase-bundle` format 2): a ZIP
+  with manifest (file hashes, RFC 8785 `content_hash`, sealed signer list, signatures), records
+  (one or many; a sealed routing decision is a bundle whose records are the decision, policy and
+  evidence), chain entries with Merkle proofs, checkpoints, public keys and a `README.txt` on what
+  it does and does not prove. One verifier, `verify_bundle`, dispatching on format version, hash
+  scheme and signer type, also accepts the released format-1 `ExaminerBundle` JSON.
+- Pluggable signers (`briefcase.compliance.signers`): `Ed25519Signer` (key files / JWK),
+  `KmsSigner` (AWS KMS, same key-id and signing-algorithm metadata as `SignedExaminerBundle`),
+  a `Signer` protocol and `register_verifier` for others. Verifiers pin keys; KMS is only called
+  when the caller passes a client (`--kms`).
+- `briefcase bundle create|verify|inspect|keygen`: create from a chained store (select by
+  session, workflow, trace or time) or re-package a format-1 examiner JSON (its KMS signature is
+  kept and still checked); `--sign-key` accepts key files and `kms:KEY_ID`.
+- `ExaminerBundle.to_bundle(path, signers=...)` / `from_bundle(path)`;
+  `SignedExaminerBundle.build_and_sign` / `verify_signature` accept `kms_client=`;
+  `briefcase.compliance.migrate_legacy`, `inspect_bundle`, `write_bundle`.
+- TypeScript: `verifyBundle`, `readZip` in `@briefcase-ai/runtime/integrity`: format-2 verifier
+  (files, seal, Ed25519 via `node:crypto`, checkpoints, Merkle proofs); KMS signatures are
+  reported unchecked and format 1 is not read.
 - `briefcase.integrity.merkle`, `briefcase.integrity.keys`, `briefcase.integrity.evidence`.
 - `status()` hook for `briefcase status` (`chained-store`).
 
@@ -41,5 +55,7 @@
   to the exact double (needed to re-verify hashes). Float parsing is slightly slower.
 - `JsonlHashChainStore` writes a `hash_scheme` field only for non-default schemes, so
   `json-sorted-1` lines are byte-identical to earlier releases.
-- Not breaking: existing hashes, chains and defaults are unchanged. Data written with `jcs-1`
+- `SignedExaminerBundle` signs and verifies through `KmsSigner` / `kms_verify_raw`; behaviour and
+  the format-1 JSON are unchanged (no deprecation).
+- Not breaking: existing hashes, chains, bundles and defaults are unchanged. Data written with `jcs-1`
   (including any chained store) cannot be verified by releases older than this one.

@@ -57,6 +57,17 @@ exactly and is then written as that double (`2n ** 60n` becomes
 `1152921504606847000`); any other `bigint` throws a `RangeError` instead of
 being rounded. Python `int` and Rust `i64`/`u64` follow the same rule.
 
+### Evidence bundles
+
+`verifyBundle(zipBytes, { expectedKeyIds })` checks a briefcase evidence bundle
+(format 2, written by the Python SDK's `briefcase bundle create`): every file
+against the sealed manifest, the manifest's RFC 8785 `content_hash`, Ed25519
+signatures (via `node:crypto`), checkpoint hashes, signatures and chaining, and
+each chained record's entry hash and Merkle inclusion proof. AWS KMS signatures
+are reported `unchecked` (they need a call to KMS), and the format-1 examiner
+JSON is not read; use the Python SDK for both. The format is specified in
+`docs/features/audit-bundle.md` of the SDK repository.
+
 Every chain entry records its scheme (`hashScheme`, absent meaning
 `json-sorted-1`) and `verifyChainSegment` dispatches on it, so one segment may
 mix schemes. Opt a new chain in with

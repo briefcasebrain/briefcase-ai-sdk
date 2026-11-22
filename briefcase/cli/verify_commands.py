@@ -1,7 +1,7 @@
 """``briefcase verify PATH``: is this evidence intact? One answer, in plain language.
 
     briefcase verify evidence.db                         # a chained store
-    briefcase verify evidence-bundle.zip --key KEYID     # an audit bundle
+    briefcase verify evidence-bundle.zip --key KEYID     # an evidence bundle (any version)
     briefcase verify chain-export.jsonl --json           # records with chain fields
 
 Exit codes: 0 intact, 1 tampered or incomplete, 2 usage (missing file,
@@ -26,7 +26,7 @@ FORMAT_LABELS = {
     "chained-store": "chained store",
     "chain-jsonl": "chain export (JSONL)",
     "hash-chain-jsonl": "hash-chain file (JSONL)",
-    "bundle": "audit bundle",
+    "bundle": "evidence bundle",
 }
 
 
@@ -47,8 +47,9 @@ def register(sub) -> None:
                    help="A checkpoint kept outside the store (from --save-checkpoint). The only way to "
                         "detect removal of the newest entries.")
     p.add_argument("--key", metavar="KEY", action="append",
-                   help="Require this signer: a 64-hex key id, or a public/private key file. Repeat to "
-                        "allow several keys (e.g. the store key and the bundle key).")
+                   help="Require this signer: a 64-hex Ed25519 key id, a public/private key file, or "
+                        "kms:KEY_ID / an AWS KMS key ARN. Repeat to allow several keys.")
+    add_kms_flags(p)
     p.add_argument("--save-checkpoint", metavar="FILE",
                    help="Also write the store's latest checkpoint to FILE (a new file) so it can be "
                         "kept elsewhere and used with --against later.")
@@ -56,18 +57,46 @@ def register(sub) -> None:
     p.set_defaults(func=cmd_verify)
 
 
+_KMS_PREFIXES = ("kms:", "arn:aws:kms:", "arn:aws-us-gov:kms:", "arn:aws-cn:kms:", "alias/")
+
+
+def add_kms_flags(p) -> None:
+    p.add_argument("--kms", action="store_true",
+                   help="Check AWS KMS signatures by calling KMS with your AWS credentials (needs boto3 "
+                        "and a pinned --key kms:KEY_ID). Off by default: nothing is sent to AWS.")
+    p.add_argument("--kms-algorithm", action="append", metavar="ALG",
+                   help="Accepted KMS signing algorithm (default RSASSA_PSS_SHA_256; repeatable).")
+
+
 def resolve_key_id(value: Union[None, str, Sequence[str]]) -> Optional[List[str]]:
-    """Key ids from ``--key``: each a 64-hex id or a key file (public or private)."""
+    """Key ids from ``--key``: a 64-hex Ed25519 key id, a key file (public or
+    private), or an AWS KMS key (``kms:ID``, a KMS key ARN, or ``alias/...``),
+    returned as ``kms:ID``."""
     if not value:
         return None
     from briefcase.integrity import keys
 
     out = []
     for item in [value] if isinstance(value, str) else value:
-        if _KEY_ID.match(item.strip().lower()):
-            out.append(item.strip().lower())
+        item = item.strip()
+        if _KEY_ID.match(item.lower()):
+            out.append(item.lower())
+        elif item.startswith(_KMS_PREFIXES):
+            out.append(item if item.startswith("kms:") else "kms:" + item)
         else:
             out.append(keys.key_id(keys.load_public_key(item)["x"]))
+    return out
+
+
+def kms_options(args) -> Dict[str, Any]:
+    """``verify_bundle`` keyword arguments for ``--kms`` / ``--kms-algorithm``."""
+    from briefcase.compliance import signers
+
+    out: Dict[str, Any] = {}
+    if getattr(args, "kms", False):
+        out["kms_client"] = signers.kms_client_from(None)
+    if getattr(args, "kms_algorithm", None):
+        out["kms_algorithms"] = list(args.kms_algorithm)
     return out
 
 
@@ -81,13 +110,14 @@ def _usage_error(message: str, fix: Optional[str], as_json: bool) -> int:
     return 2
 
 
-def run_verification(path: Path, against: Optional[Dict[str, Any]], key_id: Optional[List[str]]):
+def run_verification(path: Path, against: Optional[Dict[str, Any]], key_id: Optional[List[str]],
+                     kms: Optional[Dict[str, Any]] = None):
     """Dispatch on what ``path`` is; returns a ``VerifyReport``."""
-    from briefcase.compliance.audit_bundle import is_bundle, verify_bundle
+    from briefcase.compliance.bundle import is_bundle, verify_bundle
     from briefcase.integrity.evidence import is_sqlite, verify_jsonl, verify_store
 
     if is_bundle(path):
-        return verify_bundle(path, expected_key_id=key_id)
+        return verify_bundle(path, expected_key_ids=key_id, **(kms or {}))
     if is_sqlite(path):
         return verify_store(path, against=against, expected_key_id=key_id)
     return verify_jsonl(path, against=against, expected_key_id=key_id)
@@ -119,6 +149,8 @@ def verdict(report) -> str:
 
 def render(report, path: Path) -> List[str]:
     label = FORMAT_LABELS.get(report.format, report.format)
+    if report.format == "bundle" and getattr(report, "format_version", None):
+        label = "evidence bundle, format %d" % report.format_version
     lines = ["%s: %s (%s)" % (verdict(report).upper(), path.name, label)]
     if report.format == "bundle":
         lines.append(
@@ -132,11 +164,21 @@ def render(report, path: Path) -> List[str]:
             % (_plural(report.entries_checked, "entry"), _range(report),
                _plural(report.checkpoints_checked, "checkpoint"))
         )
-    if report.signed_checkpoints or report.signatures_verified:
+    signers = getattr(report, "signers", None) or []
+    if signers:
+        status_text = {"valid": "valid", "invalid": "INVALID", "unchecked": "not checked",
+                       "untrusted": "not trusted (key not pinned)"}
+        lines.append("  Signatures: " + "; ".join(
+            "%s %s on the %s: %s" % (s["type"], str(s["key_id"])[:12] if s["type"] == "ed25519" else s["key_id"],
+                                     s["covers"], status_text.get(s["status"], s["status"]))
+            for s in signers) + ".")
+    elif report.signed_checkpoints or report.signatures_verified:
         keys_text = ", ".join(k[:12] for k in report.key_ids) or "-"
         lines.append(
             "  Signatures: %d verified (key %s)." % (report.signatures_verified, keys_text)
         )
+    elif report.format == "bundle":
+        lines.append("  Signatures: none (the bundle is not signed).")
     elif report.checkpoints_checked:
         lines.append("  Signatures: none (checkpoints are not signed).")
     if report.intact:
@@ -151,8 +193,13 @@ def render(report, path: Path) -> List[str]:
                 )
             if report.anchored:
                 lines.append("  Checked against your saved checkpoint: nothing was cut from the end.")
+        elif report.format == "bundle" and report.format_version == 1:
+            lines.append("  The content hash matches the decision, policy and evidence.")
         elif report.format == "bundle":
-            lines.append("  Every record matches its chain entry and its Merkle proof leads to a checkpoint.")
+            lines.append("  Every file matches the sealed manifest.")
+            if report.entries_checked:
+                lines.append("  Every chained record matches its chain entry and its Merkle proof leads to a "
+                             "checkpoint.")
     else:
         lines.append("  %s:" % _plural(len(report.problems), "problem"))
         for problem in report.problems[:20]:
@@ -178,6 +225,8 @@ def _next_line(report, path: Path, args, saved: bool = False) -> str:
     if not report.intact:
         return "Next: briefcase verify %s --json > verify-report.json   (keep the full report)" % path
     if report.format == "bundle":
+        if report.signatures_unchecked:
+            return "Next: briefcase bundle verify %s --key kms:KEY_ID --kms   (check the KMS signature)" % path
         if not args.key and report.key_ids:
             return "Next: briefcase bundle verify %s%s" % (path, "".join(" --key " + k for k in report.key_ids))
         return "Next: keep this bundle with the audit file; it verifies offline."
@@ -227,7 +276,11 @@ def cmd_verify(args, store=None, engine=None, stack=None) -> int:
         return _usage_error("cannot use --key %s: %s" % (" ".join(args.key or []), exc),
                             "pass a 64-hex key id or a key file", as_json)
     try:
-        report = run_verification(path, against, key_id)
+        kms = kms_options(args)
+    except ImportError as exc:
+        return _usage_error(str(exc), "pip install 'briefcase-ai[compliance-kms]'", as_json)
+    try:
+        report = run_verification(path, against, key_id, kms)
     except EvidenceFormatError as exc:
         return _usage_error(str(exc), None, as_json)
     saved_error = None
