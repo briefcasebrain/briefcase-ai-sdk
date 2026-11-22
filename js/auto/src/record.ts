@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import { correlationFields } from "./context.js";
 import { isoTimestamp } from "./util.js";
 
-export const SCHEMA_VERSION = "1.1";
+export const SCHEMA_VERSION = "1.2";
 
 export interface TokenUsage {
   prompt_tokens: number | null;
