@@ -1,0 +1,12 @@
+{
+  "id": "compliance-bundle",
+  "title": "Examiner bundle",
+  "verb": "verify",
+  "one_line": "Package a decision, its evidence and its policy version for an auditor.",
+  "command": "briefcase features compliance-bundle",
+  "docs_slug": "verify/compliance-bundle",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Bundle export, re-import and content-hash verification tested in-process with synthetic decisions. Not reviewed against a specific regulator's submission format.",
+  "docs_path": "briefcase/compliance/__init__.py"
+}

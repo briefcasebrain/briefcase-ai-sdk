@@ -1,0 +1,14 @@
+{
+  "id": "exporters",
+  "title": "Record destinations",
+  "verb": "capture",
+  "one_line": "Send records to the console, a JSON Lines file or memory with one line.",
+  "command": "briefcase exec --to runs.jsonl -- python app.py",
+  "docs_slug": "capture/exporters",
+  "status": "stable",
+  "requires_extra": null,
+  "verified_against": "Console, JSON Lines and memory exporters exercised end to end in tests (real files, real background queue).",
+  "docs_path": "llms-full.txt",
+  "snippet": "import briefcase\n\nbriefcase.observe(\"runs.jsonl\")   # or \"console\", \"memory\"",
+  "status_id": "records"
+}

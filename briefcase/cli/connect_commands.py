@@ -22,6 +22,8 @@ CAPTURE_WARNING = (
 )
 RECEIVER_EXTRA = "pip install 'briefcase-ai[receiver]'"
 
+GROUP = "connect"
+
 
 def register(sub) -> None:
     p = sub.add_parser(

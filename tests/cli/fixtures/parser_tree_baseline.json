@@ -1,0 +1,1132 @@
+{
+ "": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "dry_run",
+    "flags": [
+     "--dry-run"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "repo",
+    "flags": [
+     "--repo"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "server",
+    "flags": [
+     "--server"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {},
+  "subcommands": [
+   "connect",
+   "dataset",
+   "doctor",
+   "exec",
+   "hook",
+   "mcp",
+   "receive",
+   "run",
+   "secret",
+   "stack"
+  ]
+ },
+ "connect": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "tools",
+    "flags": [],
+    "metavar": "TOOL",
+    "nargs": "*",
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "all",
+    "flags": [
+     "--all"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "capture_content",
+    "flags": [
+     "--capture-content"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "connect_dry_run",
+    "flags": [
+     "--dry-run"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "endpoint",
+    "flags": [
+     "--endpoint"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "force",
+    "flags": [
+     "--force"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_AppendAction",
+    "choices": null,
+    "const": null,
+    "default": [],
+    "dest": "headers",
+    "flags": [
+     "--headers"
+    ],
+    "metavar": "K=V",
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": true,
+    "dest": "mcp",
+    "flags": [
+     "--mcp"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreFalseAction",
+    "choices": null,
+    "const": false,
+    "default": true,
+    "dest": "mcp",
+    "flags": [
+     "--no-mcp"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": [
+     "project",
+     "user"
+    ],
+    "const": null,
+    "default": "user",
+    "dest": "scope",
+    "flags": [
+     "--scope"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "start",
+    "flags": [
+     "--start"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "undo",
+    "flags": [
+     "--undo"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "yes",
+    "flags": [
+     "--yes",
+     "-y"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.connect_commands.cmd_connect",
+   "telemetry": true
+  },
+  "subcommands": []
+ },
+ "dataset": {
+  "add_help": true,
+  "arguments": [],
+  "defaults": {},
+  "subcommands": [
+   "list",
+   "register"
+  ]
+ },
+ "dataset list": {
+  "add_help": true,
+  "arguments": [],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_dataset_list"
+  },
+  "subcommands": []
+ },
+ "dataset register": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "name",
+    "flags": [],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "uri",
+    "flags": [
+     "--uri"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_dataset_register"
+  },
+  "subcommands": []
+ },
+ "doctor": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "connect",
+    "flags": [
+     "--connect"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "strict",
+    "flags": [
+     "--strict"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.doctor.cmd_doctor"
+  },
+  "subcommands": []
+ },
+ "exec": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "exec_command",
+    "flags": [],
+    "metavar": "-- command [args...]",
+    "nargs": "...",
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": [
+     "full",
+     "hash",
+     "none"
+    ],
+    "const": null,
+    "default": null,
+    "dest": "capture_content",
+    "flags": [
+     "--capture-content"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "no_replace",
+    "flags": [
+     "--no-replace"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "skip",
+    "flags": [
+     "--skip"
+    ],
+    "metavar": "NAMES",
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "to",
+    "flags": [
+     "--to"
+    ],
+    "metavar": "DEST",
+    "nargs": null,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.exec_commands.cmd_exec"
+  },
+  "subcommands": []
+ },
+ "hook": {
+  "add_help": true,
+  "arguments": [],
+  "defaults": {},
+  "subcommands": [
+   "cursor"
+  ]
+ },
+ "hook cursor": {
+  "add_help": false,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "hook_args",
+    "flags": [],
+    "metavar": null,
+    "nargs": "...",
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.hook_commands.cmd_hook_cursor"
+  },
+  "subcommands": []
+ },
+ "mcp": {
+  "add_help": true,
+  "arguments": [],
+  "defaults": {},
+  "subcommands": [
+   "install",
+   "link"
+  ]
+ },
+ "mcp install": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "tools",
+    "flags": [],
+    "metavar": null,
+    "nargs": "*",
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "connect_dry_run",
+    "flags": [
+     "--dry-run"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "force",
+    "flags": [
+     "--force"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": [
+     "project",
+     "user"
+    ],
+    "const": null,
+    "default": "user",
+    "dest": "scope",
+    "flags": [
+     "--scope"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "yes",
+    "flags": [
+     "--yes",
+     "-y"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.mcp_commands.cmd_mcp_install"
+  },
+  "subcommands": []
+ },
+ "mcp link": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "tool",
+    "flags": [],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.mcp_commands.cmd_mcp_link"
+  },
+  "subcommands": []
+ },
+ "receive": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "detach",
+    "flags": [
+     "--detach"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": "127.0.0.1",
+    "dest": "host",
+    "flags": [
+     "--host"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "keep_content",
+    "flags": [
+     "--keep-content"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": 8.0,
+    "dest": "max_body_mb",
+    "flags": [
+     "--max-body-mb"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": "builtins.float"
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "metrics",
+    "flags": [
+     "--metrics"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": 4318,
+    "dest": "port",
+    "flags": [
+     "--port"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": "builtins.int"
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "status",
+    "flags": [
+     "--status"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "stop",
+    "flags": [
+     "--stop"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "to",
+    "flags": [
+     "--to"
+    ],
+    "metavar": "console|PATH.jsonl|https://...|otlp",
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "token",
+    "flags": [
+     "--token"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.receive_commands.cmd_receive"
+  },
+  "subcommands": []
+ },
+ "run": {
+  "add_help": true,
+  "arguments": [],
+  "defaults": {},
+  "subcommands": [
+   "delete",
+   "inspect",
+   "list",
+   "logs",
+   "results",
+   "stop",
+   "submit"
+  ]
+ },
+ "run delete": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "id",
+    "flags": [],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_run_delete"
+  },
+  "subcommands": []
+ },
+ "run inspect": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "id",
+    "flags": [],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_run_inspect"
+  },
+  "subcommands": []
+ },
+ "run list": {
+  "add_help": true,
+  "arguments": [],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_run_list"
+  },
+  "subcommands": []
+ },
+ "run logs": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "id",
+    "flags": [],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "follow",
+    "flags": [
+     "-f",
+     "--follow"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_run_logs"
+  },
+  "subcommands": []
+ },
+ "run results": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "id",
+    "flags": [],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_run_results"
+  },
+  "subcommands": []
+ },
+ "run stop": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "id",
+    "flags": [],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_run_stop"
+  },
+  "subcommands": []
+ },
+ "run submit": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "name",
+    "flags": [],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "checkpoint",
+    "flags": [
+     "--checkpoint"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "dataset",
+    "flags": [
+     "--dataset"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   },
+   {
+    "action": "_AppendAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "env",
+    "flags": [
+     "--env"
+    ],
+    "metavar": "KEY=VALUE",
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": "f1",
+    "dest": "metric",
+    "flags": [
+     "--metric"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": [
+     "gate",
+     "hunt"
+    ],
+    "const": null,
+    "default": "gate",
+    "dest": "mode",
+    "flags": [
+     "--mode"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "repository",
+    "flags": [
+     "--repository"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": true,
+    "type": null
+   },
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "revision",
+    "flags": [
+     "--revision"
+    ],
+    "metavar": null,
+    "nargs": null,
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_AppendAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "secret",
+    "flags": [
+     "--secret"
+    ],
+    "metavar": "KEY[=VALUE]",
+    "nargs": null,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_run_submit"
+  },
+  "subcommands": []
+ },
+ "secret": {
+  "add_help": true,
+  "arguments": [],
+  "defaults": {},
+  "subcommands": [
+   "list",
+   "set"
+  ]
+ },
+ "secret list": {
+  "add_help": true,
+  "arguments": [],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_secret_list"
+  },
+  "subcommands": []
+ },
+ "secret set": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "assignment",
+    "flags": [],
+    "metavar": "KEY[=VALUE]",
+    "nargs": null,
+    "required": true,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.commands.cmd_secret_set"
+  },
+  "subcommands": []
+ },
+ "stack": {
+  "add_help": true,
+  "arguments": [],
+  "defaults": {},
+  "subcommands": [
+   "down",
+   "logs",
+   "status",
+   "up"
+  ]
+ },
+ "stack down": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "volumes",
+    "flags": [
+     "--volumes"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.stack_commands.cmd_stack_down"
+  },
+  "subcommands": []
+ },
+ "stack logs": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreAction",
+    "choices": null,
+    "const": null,
+    "default": null,
+    "dest": "service",
+    "flags": [],
+    "metavar": null,
+    "nargs": "?",
+    "required": false,
+    "type": null
+   },
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "follow",
+    "flags": [
+     "-f",
+     "--follow"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.stack_commands.cmd_stack_logs"
+  },
+  "subcommands": []
+ },
+ "stack status": {
+  "add_help": true,
+  "arguments": [],
+  "defaults": {
+   "func": "briefcase.cli.stack_commands.cmd_stack_status"
+  },
+  "subcommands": []
+ },
+ "stack up": {
+  "add_help": true,
+  "arguments": [
+   {
+    "action": "_StoreTrueAction",
+    "choices": null,
+    "const": true,
+    "default": false,
+    "dest": "no_scorer",
+    "flags": [
+     "--no-scorer"
+    ],
+    "metavar": null,
+    "nargs": 0,
+    "required": false,
+    "type": null
+   }
+  ],
+  "defaults": {
+   "func": "briefcase.cli.stack_commands.cmd_stack_up"
+  },
+  "subcommands": []
+ }
+}

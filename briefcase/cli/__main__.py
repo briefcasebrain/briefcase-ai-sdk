@@ -1,138 +1,129 @@
 """``briefcase`` CLI entry point: ``briefcase <command> ...`` (run ``python -m briefcase.cli``).
 
-A Briefcase-native job lifecycle:
-``dataset`` / ``secret`` / ``run {submit,list,inspect,logs,results,stop,delete}``.
+Commands are not listed here. Every ``briefcase/cli/*_commands.py`` module that exposes
+``register(subparsers)`` is discovered and registered (see ``briefcase/cli/_discovery.py`` for
+the module protocol: ``register``, ``GROUP`` and the optional ``status()`` hook). A module
+that fails to import is skipped; ``--debug`` says which and why.
 
-Plug-and-play integrations: ``connect`` (write coding tools' config), ``receive`` (local OTLP
-receiver), ``mcp {install,link}``, ``hook cursor``.
+Three front doors:
+
+- ``briefcase`` with no arguments: the guided setup on a first interactive run, otherwise
+  the status screen plus the grouped command list (exit 0, never a prompt in a script).
+- ``briefcase status``: what is on, what is off, what to do next.
+- ``briefcase features``: the catalog generated from ``briefcase/_features/*.json``.
+
+``briefcase --help`` groups commands under Connect, Capture, Enforce, Verify and Review
+(plus "Start here" and "Evaluate"); ``briefcase <command> --help`` is plain argparse.
 """
 from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
+import textwrap
+from typing import Any, List
 
-from briefcase.cli import (
-    commands,
-    connect_commands,
-    doctor,
-    hook_commands,
-    mcp_commands,
-    receive_commands,
-    stack_commands,
-)
+from briefcase.cli import _discovery, _ux
 from briefcase.cli.engine import OciJJEngine
 from briefcase.cli.state import Store
 
+DESCRIPTION = (
+    "Briefcase: record what AI coding tools and LLM apps do, limit it, and prove the records "
+    "are intact. Run `briefcase` with no arguments for a guided setup."
+)
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="briefcase",
-        description="Briefcase CLI: evaluation runs (oci-jj + verdictml), coding-tool integrations "
-                    "(connect / receive / mcp), and zero-code capture (exec).",
-    )
+
+class _GroupedParser(argparse.ArgumentParser):
+    """Top-level parser whose ``--help`` lists commands under the flow verbs instead of
+    argparse's single flat block. Subcommand parsers stay plain ``ArgumentParser``."""
+
+    modules: List[Any] = []
+    subparsers: Any = None
+
+    def _command_help(self) -> dict:
+        actions = getattr(self.subparsers, "_choices_actions", [])
+        return {action.dest: (action.help or "") for action in actions}
+
+    def _feature_counts(self) -> dict:
+        try:
+            from briefcase.features import load_catalog
+
+            return {verb: len(items) for verb, items in load_catalog().groups()}
+        except Exception:  # noqa: BLE001 - help must print even if the manifests are unreadable
+            return {}
+
+    def format_commands(self) -> str:
+        """The grouped command listing (also printed by a bare ``briefcase``)."""
+        helps = self._command_help()
+        by_group: dict = {}
+        for entry in sorted(self.modules, key=lambda module: module.order):
+            for command in entry.commands:
+                by_group.setdefault(entry.group, []).append(command)
+        width = max([len(name) for name in helps] + [8]) + 2
+        columns = max(shutil.get_terminal_size().columns - 2, 60)
+        counts = self._feature_counts()
+        lines = []
+        for key, heading, meaning in _discovery.GROUPS:
+            commands = by_group.get(key, [])
+            is_verb = key in _discovery.VERBS
+            if not commands and not is_verb:
+                continue
+            lines.append(f"{heading}: {meaning}" if meaning else heading)
+            for command in commands:
+                wrapped = textwrap.wrap(helps.get(command) or "", max(columns - width - 4, 30)) or [""]
+                lines.append(f"  {command:<{width}}{wrapped[0]}".rstrip())
+                lines.extend(f"  {'':<{width}}{more}" for more in wrapped[1:])
+            if is_verb and counts.get(key):
+                count = f"{counts[key]} feature" + ("" if counts[key] == 1 else "s")
+                lines.append(f"  ({count} in this group: briefcase features --verb {key})")
+            elif is_verb and not commands:
+                lines.append("  (nothing installed for this step yet)")
+            lines.append("")
+        return "\n".join(lines).rstrip("\n")
+
+    def format_help(self) -> str:
+        formatter = self._get_formatter()
+        formatter.add_usage(self.usage, self._actions, self._mutually_exclusive_groups)
+        formatter.add_text(self.description)
+        options = self._get_formatter()
+        options.start_section("Global options")
+        options.add_arguments([action for action in self._actions if action.option_strings])
+        options.end_section()
+        return "\n".join([
+            formatter.format_help().rstrip("\n"),
+            "",
+            self.format_commands(),
+            "",
+            options.format_help().rstrip("\n"),
+            "",
+            "Run `briefcase <command> --help` for one command, `briefcase status` to see where "
+            "you are,\nand `briefcase features` for everything briefcase can do.",
+            "",
+        ])
+
+
+def build_parser() -> _GroupedParser:
+    parser = _GroupedParser(prog="briefcase", description=DESCRIPTION)
     parser.add_argument("--server", help="oci-jj-server gRPC endpoint (default $OCI_JJ_SERVER).")
     parser.add_argument("--repo", help="oci-jj repository / image family (default $OCI_JJ_REPO).")
     parser.add_argument(
         "--dry-run", action="store_true",
         help="Print the resolved oci-jj command for a run submit instead of executing it.",
     )
-    sub = parser.add_subparsers(dest="command")
-
-    # dataset
-    ds = sub.add_parser("dataset", help="Register and list datasets.").add_subparsers(dest="sub")
-    ds_reg = ds.add_parser("register", help="Register a dataset by name.")
-    ds_reg.add_argument("name")
-    ds_reg.add_argument("--uri", required=True, help="e.g. synthetic://xor, file://…, s3://…")
-    ds_reg.set_defaults(func=commands.cmd_dataset_register)
-    ds.add_parser("list", help="List registered datasets.").set_defaults(func=commands.cmd_dataset_list)
-
-    # secret
-    sec = sub.add_parser("secret", help="Store and list secrets.").add_subparsers(dest="sub")
-    sec_set = sec.add_parser("set", help="Store a secret.")
-    sec_set.add_argument(
-        "assignment", metavar="KEY[=VALUE]",
-        help="A bare KEY reads the value from stdin (getpass on a tty), keeping it out of argv.",
+    parser.add_argument(
+        "--debug", action="store_true",
+        help="Show tracebacks and name any command module that failed to load (or set BRIEFCASE_DEBUG=1).",
     )
-    sec_set.set_defaults(func=commands.cmd_secret_set)
-    sec.add_parser("list", help="List secret keys (values never shown).").set_defaults(
-        func=commands.cmd_secret_list
+    parser.add_argument(
+        "--no-input", action="store_true",
+        help="Never prompt; a bare `briefcase` prints status and this list (or set BRIEFCASE_NO_INPUT=1).",
     )
-
-    # run
-    run = sub.add_parser("run", help="Submit and manage evaluation runs.").add_subparsers(dest="sub")
-    submit = run.add_parser("submit", help="Submit a verdict run (candidate vs checkpoint).")
-    submit.add_argument("name", help="Job name — the run's handle.")
-    submit.add_argument("--repository", required=True, help="Candidate environment ref/family.")
-    submit.add_argument("--revision", help="Pin a specific commit/ref.")
-    submit.add_argument("--dataset", required=True, help="Registered dataset name.")
-    submit.add_argument("--checkpoint", help="Baseline ref to score against.")
-    submit.add_argument("--metric", default="f1", help="Verdict metric (default f1).")
-    submit.add_argument("--mode", choices=("gate", "hunt"), default="gate")
-    submit.add_argument(
-        "--secret", action="append", metavar="KEY[=VALUE]",
-        help="Inject a secret; a bare KEY takes its value from $KEY in the caller's environment.",
-    )
-    submit.add_argument("--env", action="append", metavar="KEY=VALUE", help="Set an env var.")
-    submit.set_defaults(func=commands.cmd_run_submit)
-
-    run.add_parser("list", help="List submitted runs.").set_defaults(func=commands.cmd_run_list)
-    for name, func, follow in (
-        ("inspect", commands.cmd_run_inspect, False),
-        ("logs", commands.cmd_run_logs, True),
-        ("results", commands.cmd_run_results, False),
-        ("stop", commands.cmd_run_stop, False),
-        ("delete", commands.cmd_run_delete, False),
-    ):
-        p = run.add_parser(name, help=f"{name} a run.")
-        p.add_argument("id", help="Run name.")
-        if follow:
-            p.add_argument("-f", "--follow", action="store_true", help="Stream logs.")
-        p.set_defaults(func=func)
-
-    # stack — bring up the bundled, pinned engine images (no oci-jj checkout, no Rust).
-    st = sub.add_parser("stack", help="Manage the bundled engine stack (docker compose).").add_subparsers(
-        dest="sub"
-    )
-    st_up = st.add_parser("up", help="Pull and start the pinned engine images.")
-    st_up.add_argument(
-        "--no-scorer", action="store_true",
-        help="Skip the private verdict-worker (runs enqueue but are not scored).",
-    )
-    st_up.set_defaults(func=stack_commands.cmd_stack_up)
-    st_down = st.add_parser("down", help="Stop the stack.")
-    st_down.add_argument("--volumes", action="store_true", help="Also remove volumes (destroys data).")
-    st_down.set_defaults(func=stack_commands.cmd_stack_down)
-    st.add_parser("status", help="Show stack status.").set_defaults(func=stack_commands.cmd_stack_status)
-    st_logs = st.add_parser("logs", help="Tail stack logs.")
-    st_logs.add_argument("service", nargs="?", help="Service name (default: all services).")
-    st_logs.add_argument("-f", "--follow", action="store_true", help="Stream logs.")
-    st_logs.set_defaults(func=stack_commands.cmd_stack_logs)
-
-    # doctor — preflight: Docker, image pull access, server reflection, and the resolved compat matrix.
-    doc = sub.add_parser("doctor", help="Diagnose the install and print the compatibility matrix.")
-    doc.add_argument("--strict", action="store_true", help="Treat warnings as failures (for CI).")
-    doc.add_argument(
-        "--connect", action="store_true",
-        help="Check the `briefcase connect` integrations instead of the evaluation stack.",
-    )
-    doc.set_defaults(func=doctor.cmd_doctor)
-
-    # Plug-and-play integrations: tool config, the local receiver, MCP install payloads, hooks.
-    connect_commands.register(sub)
-    receive_commands.register(sub)
-    mcp_commands.register(sub)
-    hook_commands.register(sub)
-
-    # `briefcase exec -- <command>`: zero-code capture for a Python program. Named `exec` because
-    # `run` is the evaluation-job group. Guarded: the module is optional in a partial checkout.
-    try:
-        from briefcase.cli import exec_commands
-    except ImportError:
-        pass
-    else:
-        exec_commands.register(sub)
-
+    sub = parser.add_subparsers(dest="command", metavar="<command>", parser_class=argparse.ArgumentParser)
+    parser.subparsers = sub
+    # Every briefcase/cli/*_commands.py with a register(subparsers); one broken module is
+    # skipped, not fatal.
+    parser.modules = _discovery.register_all(sub)
     return parser
 
 
@@ -178,23 +169,69 @@ class _LazyEngine:
         return getattr(self._resolve(), name)
 
 
+def _subparser(parser, name):
+    choices = getattr(getattr(parser, "subparsers", None), "choices", {}) or {}
+    return choices.get(name)
+
+
 def main(argv=None, store=None, engine=None, stack=None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     if argv[:2] == ["hook", "cursor"]:
         # Hook entry point: must stay fail-open and silent, so it bypasses argparse (which exits
-        # non-zero and prints on a bad flag) and the store.
+        # non-zero and prints on a bad flag), command discovery and the store.
+        from briefcase.cli import hook_commands
+
         return hook_commands.run_cursor(argv[2:])
     parser = build_parser()
     args = parser.parse_args(argv)
+    _ux.set_debug(args.debug)
+    _ux.set_no_input(args.no_input)
+    if _ux.debug_enabled():
+        for line in _discovery.warnings(parser.modules):
+            print(line, file=sys.stderr)
+    if not args.command:
+        # The front door: guided setup on a first interactive run, else status + command list.
+        from briefcase.cli import setup_commands
+
+        return _run(lambda: setup_commands.front_door(parser.format_commands(), parser.modules), argv)
     if not getattr(args, "func", None):
-        parser.print_help(sys.stderr)
+        # A command group without its subcommand (`briefcase run`): show that group's help.
+        (_subparser(parser, args.command) or parser).print_help(sys.stderr)
         return 2
     # Lazy for the same reason as the engine: opening the store creates ~/.briefcase, which
     # `connect --dry-run`, `mcp link` and friends must not do.
     store = store or _LazyEngine(Store)
     engine = engine or _LazyEngine(lambda: make_engine(args))
-    stack = stack or stack_commands.Stack()
-    return args.func(args, store, engine, stack)
+    if stack is None:
+        from briefcase.cli import stack_commands
+
+        stack = stack_commands.Stack()
+    return _run(lambda: args.func(args, store, engine, stack), argv)
+
+
+def _run(call, argv) -> int:
+    """Run a handler. An unexpected exception becomes one ``error:`` line and exit 1; the
+    traceback is shown only with ``--debug``."""
+    try:
+        return call()
+    except KeyboardInterrupt:
+        print(file=sys.stderr)
+        return 130
+    except BrokenPipeError:
+        # The reader went away (`briefcase features | head`). Point stdout at /dev/null so the
+        # interpreter's exit-time flush does not raise again.
+        try:
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        except (OSError, ValueError, AttributeError):
+            pass
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        if _ux.debug_enabled():
+            raise
+        message = " ".join(str(exc).split())
+        rerun = " ".join(word for word in argv if word != "--debug")
+        return _ux.fail(f"{type(exc).__name__}: {message}" if message else type(exc).__name__,
+                        fix=f"briefcase --debug {rerun}".rstrip() + "   # shows the full traceback")
 
 
 if __name__ == "__main__":

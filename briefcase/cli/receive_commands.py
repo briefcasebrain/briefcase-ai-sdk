@@ -14,6 +14,8 @@ CONTENT_WARNING = (
     "host paths that the tools send will be written to the exporter unredacted."
 )
 
+GROUP = "connect"
+
 
 def register(sub) -> None:
     p = sub.add_parser(

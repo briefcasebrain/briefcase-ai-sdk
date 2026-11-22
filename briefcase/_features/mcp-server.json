@@ -1,0 +1,13 @@
+{
+  "id": "mcp-server",
+  "title": "MCP server",
+  "verb": "review",
+  "one_line": "Let your coding assistant redact text, price a call or check drift itself.",
+  "command": "briefcase mcp install",
+  "docs_slug": "review/mcp-server",
+  "status": "experimental",
+  "requires_extra": "mcp",
+  "verified_against": "Server tools tested in-process with mcp 1.x. Registration run against Claude Code 2.1.330. The server needs mcp 1.x and refuses to start with mcp 2.x.",
+  "docs_path": "README.md#using-with-ai-tools-cursor-claude-code-codex-",
+  "status_id": "mcp"
+}

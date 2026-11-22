@@ -27,6 +27,8 @@ CONTENT_FIELDS = ("prompt", "text", "tool_input", "tool_output", "attachments", 
                   "error_message", "user_email", "transcript_path", "workspace_roots", "cwd")
 _LENGTH_FIELDS = ("prompt", "text")
 
+GROUP = "connect"
+
 
 def scrub(payload: Dict[str, Any], capture_content: bool) -> Dict[str, Any]:
     if capture_content:

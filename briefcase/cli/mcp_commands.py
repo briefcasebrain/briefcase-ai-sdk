@@ -14,6 +14,8 @@ from briefcase.connect.adapters import registry, resolve_names, which
 
 LINK_TOOLS = ("cursor", "claude-code", "codex", "vscode-copilot")
 
+GROUP = "connect"
+
 
 def register(sub) -> None:
     mcp = sub.add_parser("mcp", help="Install the briefcase MCP server into coding tools.")

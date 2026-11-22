@@ -1,0 +1,14 @@
+{
+  "id": "exporter-http",
+  "title": "HTTPS export",
+  "verb": "capture",
+  "one_line": "POST records as JSON batches to your own endpoint, with retries and a token.",
+  "command": "briefcase exec --to https://collector.example.com/v1/decisions -- python app.py",
+  "docs_slug": "capture/exporter-http",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Tested against a local http.server (batching, retries, Retry-After, bearer token). Not run against a hosted collector.",
+  "docs_path": "llms-full.txt",
+  "snippet": "import briefcase\n\nbriefcase.observe(\"https://collector.example.com/v1/decisions\")",
+  "status_id": "records"
+}

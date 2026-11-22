@@ -43,5 +43,9 @@ def test_main_dry_run_end_to_end(tmp_path, monkeypatch, capsys):
     assert "attach-bench" in out  # the resolved oci-jj argv was printed, not executed
 
 
-def test_main_no_command_prints_help(capsys):
-    assert main([]) == 2
+def test_main_no_command_prints_the_command_list_and_status(shell_home, capsys):
+    # Without a terminal a bare `briefcase` never prompts and never fails a script: it prints
+    # the grouped command list and the status screen (see tests/cli/test_cli_shell.py).
+    assert main([]) == 0
+    out = capsys.readouterr().out
+    assert "Start here:" in out and "briefcase status" in out

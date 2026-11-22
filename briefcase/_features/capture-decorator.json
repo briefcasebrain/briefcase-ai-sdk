@@ -1,0 +1,13 @@
+{
+  "id": "capture-decorator",
+  "title": "@capture decorator",
+  "verb": "capture",
+  "one_line": "Record a function's inputs, outputs, timing and errors with one decorator.",
+  "command": "briefcase features capture-decorator",
+  "docs_slug": "capture/capture-decorator",
+  "status": "stable",
+  "requires_extra": null,
+  "verified_against": "Sync, async and generator functions exercised end to end in tests, including a fresh interpreter without the compiled core.",
+  "docs_path": "README.md#quick-example",
+  "snippet": "import briefcase\n\nbriefcase.observe(\"runs.jsonl\")\n\n@briefcase.capture\ndef classify(text):\n    return text.upper()\n\nclassify(\"hello\")\nbriefcase.shutdown()"
+}

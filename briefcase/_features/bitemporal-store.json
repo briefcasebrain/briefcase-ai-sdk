@@ -1,0 +1,12 @@
+{
+  "id": "bitemporal-store",
+  "title": "Bitemporal evidence store",
+  "verb": "verify",
+  "one_line": "Reconstruct what your system knew on the day a decision was made.",
+  "command": "briefcase features bitemporal-store",
+  "docs_slug": "verify/bitemporal-store",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "In-memory and SQLite backends tested for real; the Iceberg backend against a local SQL catalog when pyiceberg is installed; kdb+ against a stub connection. No live Glue or kdb+ service was used.",
+  "docs_path": "briefcase/bitemporal/__init__.py"
+}
