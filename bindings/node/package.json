@@ -16,7 +16,7 @@
     "*.node"
   ],
   "engines": {
-    "node": ">= 12.22"
+    "node": ">=22.0.0"
   },
   "publishConfig": {
     "access": "public",

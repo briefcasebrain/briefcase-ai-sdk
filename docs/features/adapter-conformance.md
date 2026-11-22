@@ -118,7 +118,7 @@ workflow in GitHub. `briefcase doctor --connect` simply omits the section's rows
 | --- | --- |
 | `doctor --connect` says "your version is newer, untested" | Nothing is broken yet. Run `python -m scripts.conformance run --use-path <tool>` to test your version. |
 | `doctor --connect` shows "no conformance data shipped for this tool" | The tool is not covered; see `briefcase connect list`. |
-| A tool run fails at install | Check `node --version` (22 works) and proxy settings; the check name and detail are printed per step. |
+| A tool run fails at install | Check `node --version` (22 or newer; CI runs 26) and proxy settings; the check name and detail are printed per step. |
 | `claude mcp list` check fails offline | The MCP health check starts `uvx --from briefcase-ai[mcp]`; the harness only requires that `briefcase` is listed. |
 | Drift reports `unknown` for every page | No network from this machine; nothing was checked. |
 | Drift reports a vanished string | Read the vendor page, update the adapter and `briefcase/connect/conformance.json`, then re-run `run <tool>`. |
