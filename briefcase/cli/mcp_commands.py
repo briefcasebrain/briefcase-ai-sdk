@@ -14,6 +14,30 @@ from briefcase.connect.adapters import registry, resolve_names, which
 
 LINK_TOOLS = ("cursor", "claude-code", "codex", "vscode-copilot")
 
+# What the briefcase-mcp server offers (kept equal to briefcase.mcp.server by tests/test_mcp_records.py;
+# not imported from there because that needs the mcp extra).
+SERVER_TOOLS = (
+    ("search_decisions", "find recorded decisions by time, type, model, tool, session or trace"),
+    ("get_decision", "one record; content only with include_content=true"),
+    ("get_trace", "a trace, session or workflow as a tree with durations, tokens and cost"),
+    ("summarize_usage", "cost, tokens and errors by model, tool or day"),
+    ("explain_policy_decision", "which policy rule allowed, asked or denied a tool call"),
+    ("verify_records", "check a hash chain for edited, removed or reordered records"),
+    ("replay_plan", "what a replay would run and cost (plans only, never runs)"),
+    ("drift_check", "compare recent records with a saved baseline"),
+    ("sanitize_text", "redact PII"),
+    ("estimate_cost", "price a model call"),
+    ("analyze_drift", "consistency of a list of outputs"),
+    ("how_to", "the briefcase usage guide"),
+)
+
+
+def tools_text() -> str:
+    lines = ["Tools briefcase-mcp gives your assistant (read-only over your records in ~/.briefcase):"]
+    lines += [f"  {name:<24} {what}" for name, what in SERVER_TOOLS]
+    return "\n".join(lines)
+
+
 GROUP = "connect"
 
 
@@ -54,6 +78,7 @@ def link_text(tool: str) -> str:
         lines += ["VS Code:", "  " + payloads.shell(payloads.vscode_add_argv(config)), "",
                   "Or add to .vscode/mcp.json in a workspace:",
                   payloads.mcp_servers_json(config, key="servers", typed=True)]
+    lines += ["", tools_text()]
     return "\n".join(lines)
 
 
@@ -81,4 +106,8 @@ def cmd_mcp_install(args, store=None, engine=None, stack=None) -> int:
     args.headers = []
     args.capture_content = False
     args.start = False
-    return connect_commands.run_connect(args, registry(), offer_receiver=False)
+    code = connect_commands.run_connect(args, registry(), offer_receiver=False)
+    if code == 0:
+        print("")
+        print(tools_text())
+    return code

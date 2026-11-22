@@ -3,10 +3,10 @@
      `briefcase features --markdown > docs/features/catalog.md`. -->
 # Feature catalog
 
-39 features · 5 groups. The same list, with
+41 features · 5 groups. The same list, with
 whether each feature is on for you, is in your terminal: `briefcase features`.
 
-## Connect (8)
+## Connect (9)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
@@ -17,6 +17,7 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Local receiver](../../docs/integrations/README.md#the-receiver) | Turn what your coding tools send into decision records on your own machine. | `briefcase receive --detach` | experimental |
 | [Managed rollout for a team](../../docs/features/managed-rollout.md) | Generate the files an admin deploys to set up briefcase on every machine. | `briefcase connect --managed --out ./briefcase-rollout` | experimental |
 | [MCP server install](../../docs/integrations/README.md#mcp-server-copy-paste-and-one-click-installs) | Register the briefcase MCP server with your coding tools, or print a link. | `briefcase mcp install` | experimental |
+| [Plugins from other packages](../../docs/features/plugins.md) | Add exporters, backends, commands and checks from other packages. | `briefcase plugins list` | experimental |
 | [Zero-code capture for Python apps](../../briefcase/cli/exec_commands.py) | Run any Python program with decision capture on, without editing it. | `briefcase exec -- python app.py` | experimental |
 
 ## Capture (8)
@@ -56,10 +57,11 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Tamper-evident decision store](../../docs/features/chained-store.md) | Records that cannot be edited, reordered or deleted without detection. | `briefcase verify evidence.db` | experimental |
 | [Tamper-evident hash chain](../../llms-full.txt) | Prove that stored records were not altered, removed or reordered. | `briefcase features integrity-chain` | experimental |
 
-## Review (9)
+## Review (10)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
+| [Ask your assistant about your records](../../docs/features/mcp-records.md) | Let your coding assistant search, explain and verify your recorded decisions. | `briefcase mcp install` | experimental |
 | [Baseline drift checks](../../docs/features/drift-baseline.md) | Save what normal looked like and flag when latency, errors or outputs shift. | `briefcase drift baseline save prod --from runs.jsonl` | experimental |
 | [Cost estimates](../../llms-full.txt) | Estimate what a model call costs and check it against a budget. | `briefcase features cost` | experimental |
 | [Drift detection](../../llms-full.txt) | Measure how consistent a model's answers are across repeated runs. | `briefcase features drift` | experimental |

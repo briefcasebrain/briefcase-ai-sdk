@@ -1,0 +1,13 @@
+{
+  "id": "mcp-records",
+  "title": "Ask your assistant about your records",
+  "verb": "review",
+  "one_line": "Let your coding assistant search, explain and verify your recorded decisions.",
+  "command": "briefcase mcp install",
+  "docs_slug": "review/mcp-records",
+  "status": "experimental",
+  "requires_extra": "mcp",
+  "verified_against": "Every tool called through an in-process MCP client session with mcp 2.3.0 and mcp 1.30.0, over receiver records built from the captured Claude Code 2.1.330 payload. Not run inside a real assistant. Local files only: the platform read API needs a browser session and is not queried.",
+  "docs_path": "docs/features/mcp-records.md",
+  "status_id": "mcp"
+}

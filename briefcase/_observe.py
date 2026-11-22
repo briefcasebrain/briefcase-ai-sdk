@@ -24,6 +24,9 @@ ENV_EXPORTER = "BRIEFCASE_EXPORTER"
 ENV_EXPORTER_TOKEN = "BRIEFCASE_EXPORTER_TOKEN"
 _OTLP_SHORTHANDS = ("otlp", "otel")
 _SHORTHANDS = ("console", "memory") + _OTLP_SHORTHANDS
+#: Names a ``briefcase.exporters`` plugin cannot take (the built-in always wins).
+BUILTIN_EXPORTER_NAMES = _SHORTHANDS + ("http", "https", "file", "jsonl")
+_PLUGIN_GROUP = "briefcase.exporters"
 # The OpenTelemetry specification's default OTLP protocol is http/protobuf,
 # whose default endpoint is http://localhost:4318 (traces: /v1/traces).
 _DEFAULT_OTLP_PROTOCOL = "http"
@@ -119,17 +122,61 @@ def _resolve_exporter(
     if isinstance(exporter, str) and exporter.lower().startswith(("http://", "https://")):
         _check_url(exporter, "The exporter URL")
         return HTTPExporter(exporter, token=token or _env_token(env), headers=headers)
-    if isinstance(exporter, str) and exporter.endswith(".jsonl"):
-        return JSONLFileExporter(exporter)
     if isinstance(exporter, str) and exporter.startswith("chain:") and exporter[6:].strip():
-        # Tamper-evident hash-chained SQLite store (needs the compiled core).
+        # Tamper-evident hash-chained SQLite store (needs the compiled core). Built-in
+        # shorthands are resolved before plugins, so a plugin cannot shadow them.
         from briefcase.exporters.chained import ChainedSqliteExporter
 
         return ChainedSqliteExporter(exporter[6:].strip())
+    if isinstance(exporter, str):
+        # "NAME" / "NAME:TARGET" of an installed plugin; checked before the ".jsonl" rule so
+        # "acme:out.jsonl" reaches the plugin. Unknown names fall through.
+        plugin = _plugin_exporter(exporter)
+        if plugin is not None:
+            return plugin
+    if isinstance(exporter, str) and exporter.endswith(".jsonl"):
+        return JSONLFileExporter(exporter)
     raise ValueError(
         f"Unknown exporter shorthand: {_safe_url(exporter)!r}. Pass a BaseExporter instance, "
-        "'console', 'memory', a path ending in '.jsonl', 'chain:PATH.db', or an http(s):// URL."
+        "'console', 'memory', a path ending in '.jsonl', 'chain:PATH.db', an http(s):// URL, "
+        "or the name of an installed exporter plugin ('NAME' or 'NAME:TARGET'; see `briefcase plugins`)."
     )
+
+
+def _plugin_name(value: str) -> Optional[str]:
+    if ":" not in value and value.endswith(".jsonl"):
+        return None  # a plain file path
+    name = value.partition(":")[0].strip()
+    if len(name) < 2 or name.lower() in BUILTIN_EXPORTER_NAMES or not name.replace("-", "").replace(
+            "_", "").replace(".", "").isalnum():
+        return None
+    return name
+
+
+def _plugin_exporter(value: str) -> Optional[BaseExporter]:
+    """``NAME`` or ``NAME:TARGET`` resolved through a ``briefcase.exporters`` entry point.
+    ``None`` when no installed package provides ``NAME``; ValueError when one does but it
+    cannot be used (the message says why)."""
+    name = _plugin_name(value)
+    if name is None:
+        return None
+    from briefcase import plugins
+
+    if plugins.find(_PLUGIN_GROUP, name) is None:
+        return None
+    cls = plugins.get(_PLUGIN_GROUP, name, BUILTIN_EXPORTER_NAMES)
+    if cls is None:
+        raise ValueError(f"Exporter plugin {name!r} cannot be used: {plugins.explain(_PLUGIN_GROUP, name)}")
+    target = value.partition(":")[2]
+    if hasattr(cls, "from_target"):
+        instance = cls.from_target(target)
+    elif target:
+        instance = cls(target)
+    else:
+        instance = cls()
+    if not isinstance(instance, BaseExporter):
+        raise ValueError(f"Exporter plugin {name!r} built {type(instance).__name__}, not a BaseExporter")
+    return instance
 
 
 def _otlp_protocol(env: Mapping[str, str], endpoint: Optional[str] = None) -> str:
@@ -301,12 +348,23 @@ def check_environment(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
         elif choice.lower().startswith(("http://", "https://")):
             _check_url(choice, f"{ENV_EXPORTER}")
         elif choice and choice not in ("console", "memory") and not choice.endswith(".jsonl"):
+            name = _plugin_name(choice)
+            if name is not None:
+                from briefcase import plugins
+
+                plugin = plugins.find(_PLUGIN_GROUP, name)
+                if plugin is not None and plugin.state in (plugins.AVAILABLE, plugins.LOADED):
+                    return None
+                if plugin is not None:
+                    return (f"{ENV_EXPORTER} names exporter plugin {name!r}, which cannot be used: "
+                            f"{plugins.explain(_PLUGIN_GROUP, name)}")
             hint = ""
             if choice.lower() in _SHORTHANDS:
                 hint = f" (did you mean {choice.lower()!r}?)"
             return (
                 f"{ENV_EXPORTER}={_safe_url(choice)!r} is not a destination{hint}. Use "
-                "console, memory, otlp, a path ending in .jsonl, or an http(s):// URL."
+                "console, memory, otlp, a path ending in .jsonl, an http(s):// URL, or an "
+                "installed exporter plugin (`briefcase plugins list`)."
             )
     except ValueError as exc:
         return str(exc)
@@ -338,6 +396,9 @@ def observe(
                 :class:`~briefcase.exporters.http.HTTPExporter`, which POSTs
                 JSON batches. Its bearer token is ``token``, else
                 ``BRIEFCASE_EXPORTER_TOKEN`` when set
+              - ``"NAME"`` or ``"NAME:TARGET"`` → the exporter an installed
+                package registers under the ``briefcase.exporters`` entry
+                point group (see :mod:`briefcase.plugins`)
 
             When omitted, the destination comes from the environment:
             ``BRIEFCASE_EXPORTER`` (any shorthand above, or ``otlp``; an

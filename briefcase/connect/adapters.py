@@ -519,9 +519,38 @@ ALIASES = {
 }
 
 
-def registry() -> Dict[str, Adapter]:
+def builtin_ids() -> List[str]:
+    return [cls.id for cls in _CLASSES] + list(ALIASES)
+
+
+def registry(plugins: bool = True) -> Dict[str, Adapter]:
+    """Every adapter by id: the built-in ones from ``adapters.json``, then (unless
+    ``plugins`` is false) adapters installed packages register under the
+    ``briefcase.connect_adapters`` entry point group. A plugin's class carries its own
+    ``DATA`` (the keys of an ``adapters.json`` entry); a built-in id always wins."""
     tools = load_data()["tools"]
-    return {cls.id: cls(tools[cls.id]) for cls in _CLASSES}
+    out: Dict[str, Adapter] = {cls.id: cls(tools[cls.id]) for cls in _CLASSES}
+    if plugins:
+        out.update(_plugin_adapters(out))
+    return out
+
+
+def _plugin_adapters(builtin: Dict[str, Adapter]) -> Dict[str, Adapter]:
+    from briefcase import plugins as _plugins
+    from briefcase._logging import get_logger
+
+    found: Dict[str, Adapter] = {}
+    for name, cls in _plugins.get_all("briefcase.connect_adapters", builtin_ids()).items():
+        if name in builtin:
+            continue
+        try:
+            adapter = cls(dict(cls.DATA))
+            adapter.id = name
+        except Exception as exc:  # noqa: BLE001 - one bad plugin must not break `connect`
+            get_logger(__name__).warning("connect adapter plugin %r could not be built: %s", name, exc)
+            continue
+        found[name] = adapter
+    return found
 
 
 def resolve_names(names: List[str]) -> List[str]:
