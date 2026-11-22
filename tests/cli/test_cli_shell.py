@@ -2,6 +2,7 @@
 
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -96,15 +97,28 @@ def test_status_json_shape_on_a_fresh_machine(shell_home, capsys):
     assert captured.err == ""
     assert set(report) == {"schema_version", "version", "home", "items", "summary", "next", "problems"}
     assert report["schema_version"] == 1 and report["home"] == str(shell_home / ".briefcase")
-    assert [item["id"] for item in report["items"]] == ["connect", "receive", "mcp", "records"]
-    for item in report["items"]:
-        assert set(item) == {"id", "title", "group", "state", "detail", "next", "source", "data"}
-        assert item["state"] == "off" and item["source"] == "core"
-    assert report["summary"] == {"on": 0, "off": 4, "attention": 0}
+    items = report["items"]
+    # Contract: the reserved core ids come first, in order; packages may add hook rows
+    # after them (e.g. eval_commands' datasets row), so the list is not pinned.
+    assert [item["id"] for item in items[:4]] == ["connect", "receive", "mcp", "records"]
+    extras = items[4:]
+    for item in items:
+        # `data` is optional on hook rows (docs/features/README.md); core rows always have it.
+        assert {"id", "title", "group", "state", "detail", "next", "source"} <= set(item) <= {
+            "id", "title", "group", "state", "detail", "next", "source", "data"}
+        assert item["state"] == "off"
+    assert all(item["source"] == "core" for item in items[:4])
+    ids = [item["id"] for item in items]
+    assert len(set(ids)) == len(ids)
+    for item in extras:
+        assert item["source"] != "core" and item["id"] not in status_commands.CORE_IDS
+        assert item["title"] and item["detail"] and item["group"] in _discovery.GROUP_KEYS
+        assert item["next"] is None or item["next"].startswith("briefcase ")
+    assert report["summary"] == {"on": 0, "off": 4 + len(extras), "attention": 0}
     assert report["next"] == {"command": "briefcase exec -- python your_app.py",
                               "reason": "no coding tool found here; capture a Python app instead"}
-    assert report["items"][3]["data"]["sdk"] == {"kind": "console", "target": "stderr", "kept": False,
-                                                 "problem": None}
+    assert items[3]["data"]["sdk"] == {"kind": "console", "target": "stderr", "kept": False,
+                                       "problem": None}
 
 
 def test_status_screen_ends_with_exactly_one_next_line(shell_home, capsys):
@@ -113,7 +127,7 @@ def test_status_screen_ends_with_exactly_one_next_line(shell_home, capsys):
     lines = out.rstrip("\n").splitlines()
     assert lines[0].startswith("briefcase status  (briefcase-ai ")
     assert "Connect" in lines and "Capture" in lines
-    assert lines[-2] == "0 on · 4 off · 0 need attention"
+    assert re.fullmatch(r"0 on · \d+ off · 0 need attention", lines[-2])
     assert lines[-1].startswith("Next: briefcase exec -- python your_app.py  # ")
     assert out.count("Next:") == 1 and "\033[" not in out
 
@@ -401,7 +415,8 @@ def test_setup_coding_tools_connects_then_starts_the_receiver(at_terminal, shell
                         "metrics": False, "token": None, "max_body_mb": 8.0}]
     assert setup_record(shell_home)["persona"] == "coding-tools"
     # The status screen at the end reflects what was just done.
-    assert "on        Coding tools  Claude Code connected" in out
+    # (column width depends on the longest row title, which hook rows can extend)
+    assert re.search(r"on {8}Coding tools +Claude Code connected", out)
 
 
 def test_setup_coding_tools_writes_nothing_when_the_user_says_no(at_terminal, shell_home, fake_tool, monkeypatch,

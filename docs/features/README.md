@@ -133,7 +133,9 @@ Rules for the hook:
 
 Optional keys: `docs_path` (the page, when it is not `docs/features/<id>.md`), `snippet`
 (a few lines of Python shown by `briefcase features <id>`), `status_id` (the status row
-that says whether the feature is on, when its id differs from the feature id). Unknown
+that says whether the feature is on, when its id differs from the feature id), `runtime`
+(`"node"` for a feature started from Node, whose `command` then need not begin with
+`briefcase`; default `"python"`). Unknown
 keys are ignored. A file that is not valid JSON, lacks a required key or names an unknown
 verb is skipped with a warning, never a crash; `tests/test_features.py` fails on any such
 file, on a `command` that is not a real `briefcase` command, and on a docs page that does

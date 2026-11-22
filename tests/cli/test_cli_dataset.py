@@ -65,24 +65,40 @@ def _snapshot(parser, prefix=()):
     return snap
 
 
+def _same_handler(a, b):
+    """Handlers are the same function, or closures built from the same code.
+    Modules such as drift register `lambda args, *rest: _usage(p)` on every
+    build_parser() call, so two parsers never share that object; comparing
+    `__code__` still catches a handler being swapped for a different function."""
+    return a is b or (getattr(a, "__code__", None) is not None and a.__code__ is getattr(b, "__code__", None))
+
+
 def test_existing_parser_surface_is_preserved():
+    """`job_commands.register` now calls `extend_dataset_parser(ds)` itself, so the
+    built-in parser already carries the dataset additions. What this guards:
+    (1) the pre-merge command surface (the discovery baseline file) is still a subset
+    of the parser, apart from the intentional `dataset list` change, and (2) applying
+    the extension again on top changes nothing."""
+    import json
+    from pathlib import Path
+
+    baseline = json.loads((Path(__file__).parent / "fixtures" / "parser_tree_baseline.json").read_text())
+    assert "dataset from-records" not in baseline  # the baseline predates the datasets package
     before = _snapshot(_BUILTIN_PARSER())
     after = _snapshot(_extended_parser())
     assert ("dataset", "register") in before and ("dataset", "list") in before
+    assert set(after) == set(before)  # discovery + job_commands already wired everything
     for path, (rows, func) in before.items():
         assert path in after, f"lost command {' '.join(path)}"
         after_rows, after_func = after[path]
-        if path == ("dataset", "list"):
-            # Only additive: --json, and a handler that prints the old lines first.
-            assert set(rows) <= set(after_rows)
-            assert {r[0] for r in set(after_rows) - set(rows)} == {("--json",)}
-            assert after_func is dataset_versions.cmd_list
-            continue
         assert after_rows == rows, f"flags changed on {' '.join(path)}"
-        assert after_func is func, f"handler changed on {' '.join(path)}"
-    new = set(after) - set(before)
-    assert {("dataset", s) for s in ("from-records", "show", "diff", "export", "import")} <= new
-    assert ("eval", "run") in new and ("prompt", "list") in new
+        assert _same_handler(after_func, func), f"handler changed on {' '.join(path)}"
+    # dataset list: baseline had no flags; now exactly one optional --json, new handler.
+    list_rows, list_func = before[("dataset", "list")]
+    assert [r[0] for r in list_rows] == [("--json",)] and not list_rows[0][3]
+    assert list_func is dataset_versions.cmd_list
+    assert {("dataset", s) for s in ("from-records", "show", "diff", "export", "import")} <= set(before)
+    assert ("eval", "run") in after and ("prompt", "list") in after
 
 
 def test_extension_is_idempotent_and_never_creates_dataset():
@@ -626,7 +642,7 @@ def test_eval_gate_recorded_in_history(tmp_path, records, toy, monkeypatch, caps
 def test_status_hook(tmp_path, records, toy, monkeypatch, capsys):
     monkeypatch.setenv("BRIEFCASE_HOME", str(tmp_path))
     s = dataset_versions.status()
-    assert set(s) == {"id", "state", "detail", "next"} and s["state"] == "off"
+    assert set(s) == {"id", "title", "state", "detail", "next"} and s["state"] == "off"
     assert s["id"] == "datasets-from-records"
     _make(tmp_path, records, monkeypatch, capsys)
     assert dataset_versions.status()["state"] == "on"

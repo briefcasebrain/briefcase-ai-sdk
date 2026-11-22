@@ -29,7 +29,9 @@ Required: ``id``, ``title``, ``verb`` (connect | capture | enforce | verify | re
 experimental). Optional: ``requires_extra`` (a pip extra name or null), ``verified_against``,
 ``docs_path`` (repo-relative path of the page, when it is not ``docs/features/<id>.md``),
 ``snippet`` (a few lines of code for a feature used from Python) and ``status_id`` (the id of
-the ``briefcase status`` row that says whether the feature is on; defaults to ``id``).
+the ``briefcase status`` row that says whether the feature is on; defaults to ``id``) and
+``runtime`` (``"python"``, the default, or ``"node"``: the feature is started from another
+runtime, so ``command`` need not begin with ``briefcase``).
 Unknown keys are kept in ``Feature.extra`` and otherwise ignored.
 
 Loading never raises. A file that is not valid JSON, is missing a required key or names an
@@ -57,7 +59,8 @@ VERB_TITLES = {"connect": "Connect", "capture": "Capture", "enforce": "Enforce",
                "verify": "Verify", "review": "Review"}
 STATUSES = ("stable", "experimental")
 REQUIRED = ("id", "title", "verb", "one_line", "command", "docs_slug", "status")
-OPTIONAL = ("requires_extra", "verified_against", "docs_path", "snippet", "status_id")
+OPTIONAL = ("requires_extra", "verified_against", "docs_path", "snippet", "status_id", "runtime")
+RUNTIMES = ("python", "node")
 ONE_LINE_MAX = 80
 REPO_URL = "https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/"
 
@@ -76,6 +79,7 @@ class Feature:
     docs_path: Optional[str] = None
     snippet: Optional[str] = None
     status_id: Optional[str] = None
+    runtime: Optional[str] = None
     extra: Dict[str, Any] = field(default_factory=dict, compare=False)
 
     @property
@@ -155,6 +159,12 @@ def parse_feature(data: Any, source: str = "<data>") -> Tuple[Optional[Feature],
             problems.append(f"{source}: {key} must be text or null; ignored")
             value = None
         optional[key] = value or None
+    if optional["runtime"] is not None:
+        optional["runtime"] = optional["runtime"].strip().lower()
+        if optional["runtime"] not in RUNTIMES:
+            problems.append(f"{source}: runtime {optional['runtime']!r} is not one of "
+                            f"{', '.join(RUNTIMES)}; ignored")
+            optional["runtime"] = None
     known = set(REQUIRED) | set(OPTIONAL)
     feature = Feature(
         id=data["id"].strip(), title=data["title"].strip(), verb=verb, one_line=one_line,

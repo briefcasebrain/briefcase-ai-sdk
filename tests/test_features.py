@@ -139,15 +139,20 @@ def test_shipped_manifest(path):
     assert feature.verified_against, "say what was and was not run for real"
     # The page a feature links to must exist in the repository.
     assert (REPO / feature.docs_file.split("#")[0]).exists(), feature.docs_file
-    # The first command must be a real briefcase command.
+    # The first command must be a real briefcase command, unless the manifest says the
+    # feature is started from another runtime (`"runtime": "node"`).
     from briefcase.cli.__main__ import build_parser
 
     words = shlex.split(feature.command)
-    assert words[0] == "briefcase"
-    parser = build_parser()
-    assert words[1] in parser.subparsers.choices, feature.command
-    if "--" not in words and "<" not in feature.command:
-        parser.parse_args(words[1:])
+    if feature.runtime == "node":
+        assert words[0] in ("node", "npx", "npm"), feature.command
+    else:
+        assert feature.runtime in (None, "python")
+        assert words[0] == "briefcase", "a non-briefcase command needs an explicit runtime in its manifest"
+        parser = build_parser()
+        assert words[1] in parser.subparsers.choices, feature.command
+        if "--" not in words and "<" not in feature.command:
+            parser.parse_args(words[1:])
     if feature.requires_extra:
         pyproject = (REPO / "pyproject.toml").read_text(encoding="utf-8")
         assert re.search(rf"^{re.escape(feature.requires_extra)} = \[", pyproject, re.M), feature.requires_extra

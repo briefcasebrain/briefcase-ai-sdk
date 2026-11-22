@@ -513,6 +513,10 @@ STATUS_ID = "datasets-from-records"
 def status() -> dict:
     """``briefcase status`` row: dataset count and the last eval result
     (exposed through ``eval_commands.status``)."""
+    return {**_status_row(), "title": "Datasets"}
+
+
+def _status_row() -> dict:
     from briefcase.datasets.evaluate import last_history
 
     home = core.default_home()

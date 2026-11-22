@@ -16,6 +16,21 @@ from tests.cli.parser_tree import files_under, parser_tree
 BASELINE = Path(__file__).parent / "fixtures" / "parser_tree_baseline.json"
 SHELL_COMMANDS = {"setup", "status", "features", "completion"}
 
+# Additive changes made by packages merged after the baseline was dumped. The
+# baseline is a floor, not an exact snapshot: every old argument and default must
+# survive unchanged, and anything new has to be listed here on purpose.
+#   path -> (new flags/dests allowed, new subcommands allowed, defaults that may change)
+ALLOWED_ADDITIONS = {
+    # datasets package: versioned datasets (`dataset_versions.extend_dataset_parser`).
+    "dataset": (set(), {"from-records", "show", "diff", "export", "import"}, set()),
+    # `dataset list` gained --json and a handler (dataset_versions.cmd_list) that prints
+    # the registered datasets exactly as before, then local versions
+    # (see test_old_dataset_list_output_unchanged in test_cli_dataset.py).
+    "dataset list": ({"--json"}, set(), {"func"}),
+    # red-team hardening of exec.
+    "exec": ({"--allow-uninstrumented", "--dedupe"}, set(), set()),
+}
+
 
 # --- the surface that existed before discovery ---------------------------------
 
@@ -34,7 +49,18 @@ def test_every_pre_existing_command_keeps_its_names_flags_and_handlers():
             assert set(before["subcommands"]) <= set(after["subcommands"])
             assert set(after["subcommands"]) - set(before["subcommands"]) >= SHELL_COMMANDS
             continue
-        assert after == before, path
+        new_flags, new_subs, changed_defaults = ALLOWED_ADDITIONS.get(path, (set(), set(), set()))
+        for argument in before["arguments"]:
+            assert argument in after["arguments"], (path, argument["flags"] or argument["dest"])
+        added = [a for a in after["arguments"] if a not in before["arguments"]]
+        assert {(a["flags"] or [a["dest"]])[0] for a in added} == new_flags, path
+        assert not any(a["required"] for a in added), f"{path}: new arguments must be optional"
+        assert set(after["subcommands"]) - set(before["subcommands"]) == new_subs, path
+        assert set(before["subcommands"]) <= set(after["subcommands"]), path
+        assert after["add_help"] == before["add_help"], path
+        for key, value in before["defaults"].items():
+            if key not in changed_defaults:
+                assert after["defaults"].get(key) == value, (path, key)
 
 
 @pytest.mark.parametrize("argv", [
@@ -70,8 +96,13 @@ def test_old_argv_still_parses_to_a_handler(argv):
 def test_handlers_are_the_same_functions_as_before():
     from briefcase.cli import commands, connect_commands, doctor, exec_commands, stack_commands
 
+    from briefcase.cli import dataset_versions
+
     parser = build_parser()
-    assert parser.parse_args(["dataset", "list"]).func is commands.cmd_dataset_list
+    # `dataset list` is deliberately served by the datasets package now; it prints the
+    # old lines first (test_old_dataset_list_output_unchanged covers the behaviour).
+    assert parser.parse_args(["dataset", "list"]).func is dataset_versions.cmd_list
+    assert commands.cmd_dataset_list is not None
     assert parser.parse_args(["run", "logs", "x"]).func is commands.cmd_run_logs
     assert parser.parse_args(["stack", "up"]).func is stack_commands.cmd_stack_up
     assert parser.parse_args(["doctor"]).func is doctor.cmd_doctor

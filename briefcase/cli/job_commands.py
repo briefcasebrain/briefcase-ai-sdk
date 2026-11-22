@@ -11,12 +11,20 @@ GROUP = "evaluate"
 
 def register(sub) -> None:
     # dataset
-    ds = sub.add_parser("dataset", help="Register and list datasets.").add_subparsers(dest="sub")
+    ds = sub.add_parser(
+        "dataset",
+        help="Evaluation datasets: version captured records, register engine datasets.",
+    ).add_subparsers(dest="sub")
     ds_reg = ds.add_parser("register", help="Register a dataset by name.")
     ds_reg.add_argument("name")
     ds_reg.add_argument("--uri", required=True, help="e.g. synthetic://xor, file://…, s3://…")
     ds_reg.set_defaults(func=commands.cmd_dataset_register)
     ds.add_parser("list", help="List registered datasets.").set_defaults(func=commands.cmd_dataset_list)
+    # Local dataset versions built from captured records (from-records, show,
+    # diff, export, import) live beside the engine registry commands.
+    from briefcase.cli.dataset_versions import extend_dataset_parser
+
+    extend_dataset_parser(ds)
 
     # secret
     sec = sub.add_parser("secret", help="Store and list secrets.").add_subparsers(dest="sub")
