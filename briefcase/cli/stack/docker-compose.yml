@@ -78,7 +78,10 @@ services:
     image: ghcr.io/briefcasebrain/oci-jj-server:${OCI_JJ_IMAGE_TAG:-0.1.0}
     environment:
       OCI_JJ_SERVER_GRPC_ADDR: 0.0.0.0:50051
-      OCI_JJ_CATALOG_URL: postgres://oci_jj:oci_jj@postgres:5432/oci_jj
+      # Catalog as the non-superuser oci_jj_app role (created by the baked schema) so Postgres RLS
+      # enforces tenant isolation, as in oci-jj's own compose. A superuser bypasses every policy.
+      # The graph store only touches the non-RLS graph_* tables, so it stays on oci_jj.
+      OCI_JJ_CATALOG_URL: postgres://oci_jj_app:oci_jj_app@postgres:5432/oci_jj
       OCI_JJ_GRAPH_URL: postgres://oci_jj:oci_jj@postgres:5432/oci_jj
       RUST_LOG: info
     depends_on:

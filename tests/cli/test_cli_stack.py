@@ -123,3 +123,15 @@ def test_compat_manifest_loads():
     assert compat["oci_jj_api_min"] == "v1"
     assert compat["oci_jj_image_tag"] == "0.1.0"
     assert compat["grpc_service"] == "oci_jj.v1.VcsService"
+
+
+def test_bundled_compose_connects_catalog_as_rls_role():
+    """The catalog must connect as oci-jj's non-superuser ``oci_jj_app`` role, as oci-jj's own
+    compose does: a superuser bypasses every Postgres RLS policy, so tenant isolation would rest on
+    application code alone."""
+    from briefcase.cli.stack import compose_path
+
+    with compose_path() as p:
+        text = p.read_text()
+    catalog = [ln.strip() for ln in text.splitlines() if ln.strip().startswith("OCI_JJ_CATALOG_URL:")]
+    assert catalog == ["OCI_JJ_CATALOG_URL: postgres://oci_jj_app:oci_jj_app@postgres:5432/oci_jj"]

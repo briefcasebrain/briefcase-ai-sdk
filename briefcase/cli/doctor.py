@@ -100,8 +100,12 @@ class Doctor:
                 out.append((OK, "server", f"{server} (oci_jj.{floor} reflection)"))
             else:
                 out.append((FAIL, "server", f"{server} exposes no oci_jj.{floor}.* service"))
-        except Exception:
-            out.append((WARN, "server", f"unreachable at {server}; is the stack up? (briefcase stack up)"))
+        except Exception as e:
+            if "UNAUTHENTICATED" in str(e) or "requires a bearer token" in str(e):
+                # Reachable but secured (oci-jj OCI_JJ_AUTH_TOKENS): not a "stack down" problem.
+                out.append((FAIL, "server", f"{server} requires a bearer token; set OCI_JJ_AUTH_TOKEN"))
+            else:
+                out.append((WARN, "server", f"unreachable at {server}; is the stack up? (briefcase stack up)"))
 
         return out
 
