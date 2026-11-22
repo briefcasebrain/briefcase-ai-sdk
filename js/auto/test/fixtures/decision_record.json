@@ -1,0 +1,42 @@
+{
+  "description": "Golden decision-record wire schema. Consumed by tests/test_record_schema.py and tests/receiver/test_records.py (Python) and js/controls/test/record.test.ts (TypeScript); all assert against this file so the implementations cannot drift apart. required_fields is the single list every recorder emits on every finished record; schema_version is the value each must emit.",
+  "schema_version": "1.1",
+  "required_fields": [
+    "schema_version",
+    "decision_id",
+    "decision_type",
+    "function_name",
+    "inputs",
+    "outputs",
+    "started_at",
+    "ended_at",
+    "execution_time_ms"
+  ],
+  "optional_fields": [
+    "error",
+    "context_version",
+    "status",
+    "workflow_id",
+    "trace_id",
+    "parent_span_id",
+    "trace_flags",
+    "prompt_name",
+    "prompt_version"
+  ],
+  "example": {
+    "schema_version": "1.1",
+    "decision_id": "6f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+    "decision_type": "classify_risk",
+    "function_name": "classify_risk",
+    "inputs": {
+      "args": "('claim-123',)"
+    },
+    "outputs": {
+      "result": "'approved'"
+    },
+    "started_at": "2026-08-15T12:00:00.000000+00:00",
+    "ended_at": "2026-08-15T12:00:00.250000+00:00",
+    "execution_time_ms": 250.0,
+    "context_version": "v3"
+  }
+}
