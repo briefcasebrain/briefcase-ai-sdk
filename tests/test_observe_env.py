@@ -90,6 +90,66 @@ def test_http_destination_without_token_sends_no_authorization(monkeypatch):
     assert "Authorization" not in briefcase.observe()._headers
 
 
+# -- explicit http(s) URL form ---------------------------------------------
+
+URL = "https://collector.example.com/v1/decisions"
+
+
+def test_explicit_url_reads_the_token_from_the_environment(monkeypatch):
+    monkeypatch.setenv("BRIEFCASE_EXPORTER_TOKEN", " tok-env ")
+    exporter = briefcase.observe(URL)
+    assert exporter._headers["Authorization"] == "Bearer tok-env"
+
+
+def test_explicit_url_without_any_token_sends_no_authorization():
+    assert "Authorization" not in briefcase.observe(URL)._headers
+
+
+def test_explicit_token_beats_the_environment(monkeypatch):
+    monkeypatch.setenv("BRIEFCASE_EXPORTER_TOKEN", "tok-env")
+    exporter = briefcase.observe(URL, token="tok-arg")
+    assert exporter._headers["Authorization"] == "Bearer tok-arg"
+
+
+def test_observe_accepts_headers(monkeypatch):
+    monkeypatch.setenv("BRIEFCASE_EXPORTER_TOKEN", "tok-env")
+    exporter = briefcase.observe(URL, headers={"X-Tenant": "acme"})
+    assert exporter._headers["X-Tenant"] == "acme"
+    assert exporter._headers["Authorization"] == "Bearer tok-env"
+    custom = briefcase.observe(URL, headers={"Authorization": "Basic abc"})
+    assert custom._headers["Authorization"] == "Basic abc"
+
+
+def test_token_with_a_non_http_destination_is_an_error():
+    with pytest.raises(ValueError, match="token"):
+        briefcase.observe("console", token="x")
+    with pytest.raises(ValueError, match="headers"):
+        briefcase.observe("memory", headers={"a": "b"})
+
+
+def test_token_and_headers_reach_the_env_resolved_http_exporter(monkeypatch):
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", URL)
+    exporter = briefcase.observe(token="tok-arg", headers={"X-Tenant": "acme"})
+    assert exporter._headers["Authorization"] == "Bearer tok-arg"
+    assert exporter._headers["X-Tenant"] == "acme"
+
+
+def test_receive_to_url_resolves_the_token_like_observe(monkeypatch):
+    from briefcase.receiver.server import make_exporter
+
+    monkeypatch.setenv("BRIEFCASE_EXPORTER_TOKEN", "tok-env")
+    assert make_exporter(URL)._headers["Authorization"] == "Bearer tok-env"
+    assert briefcase.observe(URL)._headers["Authorization"] == "Bearer tok-env"
+
+
+def test_eval_to_url_resolves_the_token_from_the_environment(monkeypatch, tmp_path):
+    from briefcase.datasets.evaluate import resolve_exporter
+
+    monkeypatch.setenv("BRIEFCASE_EXPORTER_TOKEN", "tok-env")
+    exporter, _ = resolve_exporter(URL, tmp_path)
+    assert exporter._headers["Authorization"] == "Bearer tok-env"
+
+
 def test_unknown_briefcase_exporter_value_raises(monkeypatch):
     monkeypatch.setenv("BRIEFCASE_EXPORTER", "carrier-pigeon")
     with pytest.raises(ValueError, match="Unknown exporter shorthand"):
@@ -109,7 +169,8 @@ def test_explicit_arguments_ignore_the_environment(monkeypatch, fake_otel):
     mine = briefcase.MemoryExporter()
     assert briefcase.observe(mine) is mine
     explicit_http = briefcase.observe("https://collector.example.com/ingest")
-    assert "Authorization" not in explicit_http._headers
+    # An explicit URL still resolves its credential from BRIEFCASE_EXPORTER_TOKEN.
+    assert explicit_http._headers["Authorization"] == "Bearer tok-123"
     with pytest.raises(ValueError):
         briefcase.observe("nope")
 

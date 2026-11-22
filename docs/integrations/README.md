@@ -347,8 +347,11 @@ This applies to every process that exports records (`briefcase.observe()` /
   that calls `os._exit` itself, or a pool that does (Celery's prefork pool
   uses billiard), can lose what is still queued: call `briefcase.flush()`
   before it exits.
-- Other exporters (GCP Logging, OpenTelemetry) handle forks as their own
-  libraries do.
+- The GCP Logging exporter follows the same rules (fresh locks, the parent's
+  unsent buffer is not re-sent, and the child builds its own client, since a
+  gRPC channel cannot cross a fork). The OpenTelemetry exporter relies on the
+  SDK's own at-fork handling (new lock, empty queue, new worker thread in the
+  child); a `multiprocessing` child's last spans are flushed by the exit drain.
 
 ### `status` values on provider records
 

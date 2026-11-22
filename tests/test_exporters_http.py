@@ -140,6 +140,33 @@ def test_client_error_is_not_retried_and_drops_the_batch(collector, caplog):
     assert any("not retryable" in r.getMessage() for r in caplog.records)
 
 
+@pytest.mark.parametrize("status", [401, 403])
+def test_auth_rejection_warns_once_per_exporter_naming_the_env_var(collector, caplog, status):
+    collector.statuses = [status] * 5
+    exp = _exporter(collector)
+    with caplog.at_level(logging.WARNING, logger="briefcase.exporters.http"):
+        for i in range(3):
+            _run(exp.export({"i": i}))
+            _run(exp.flush())
+    assert len(collector.requests) == 3
+    assert exp.dropped_records == 3
+    auth = [r for r in caplog.records if "BRIEFCASE_EXPORTER_TOKEN" in r.getMessage()]
+    assert len(auth) == 1, [r.getMessage() for r in caplog.records]
+    message = auth[0].getMessage()
+    assert str(status) in message and "dropped" in message
+    # one warning in total, not one more per batch from the generic path
+    assert len([r for r in caplog.records if r.levelno >= logging.WARNING]) == 1
+
+
+def test_auth_warning_does_not_leak_the_token(collector, caplog):
+    collector.statuses = [401]
+    exp = _exporter(collector, token="s3cret-token")
+    _run(exp.export({"a": 1}))
+    with caplog.at_level(logging.WARNING, logger="briefcase.exporters.http"):
+        _run(exp.flush())
+    assert "s3cret-token" not in caplog.text
+
+
 def test_network_error_is_retried_then_kept(caplog):
     # Nothing listens on this port.
     exp = HTTPExporter("http://127.0.0.1:9/x", flush_interval=None,

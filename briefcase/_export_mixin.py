@@ -27,6 +27,7 @@ import time
 import weakref
 from typing import Any, Callable, Dict, Optional
 
+from briefcase._exit_state import clear_exiting, exiting, mark_exiting  # noqa: F401
 from briefcase._logging import get_logger
 
 logger = get_logger(__name__)
@@ -280,7 +281,7 @@ def _worker_loop(q: "queue.Queue") -> None:
 
 
 def _ensure_worker() -> "queue.Queue":
-    global _export_queue, _export_worker, _atexit_registered
+    global _export_queue, _export_worker
     with _worker_state_lock:
         q = _export_queue
         if _export_worker is None or not _export_worker.is_alive() or q is None:
@@ -293,10 +294,26 @@ def _ensure_worker() -> "queue.Queue":
                 daemon=True,
             )
             _export_worker.start()
-        if not _atexit_registered:
-            atexit.register(_atexit_flush)
-            _atexit_registered = True
+    ensure_atexit_registered()
     return q
+
+
+def ensure_atexit_registered() -> None:
+    """Register the exit-time drain once. Called when an exporter is first
+    configured (``briefcase.setup`` / ``observe``), so the hook exists long
+    before shutdown; the first record only re-checks. Never raises: past
+    interpreter shutdown ``atexit.register`` itself fails, and there is
+    nothing left to register for."""
+    global _atexit_registered
+    with _worker_state_lock:
+        if _atexit_registered:
+            return
+        try:
+            atexit.register(_atexit_flush)
+        except RuntimeError:
+            logger.debug("could not register the exit-time drain", exc_info=True)
+            return
+        _atexit_registered = True
 
 
 def _remember_exporter(exporter: Any) -> None:
@@ -351,9 +368,14 @@ def wait_for_pending_exports(timeout: float = 5.0) -> bool:
     return done.wait(max(0.0, deadline - time.monotonic()))
 
 
-def _run_with_deadline(fn: Callable[[], Any], timeout: float) -> bool:
+def _run_with_deadline(fn: Callable[[], Any], timeout: float, inline: bool = False) -> bool:
     """Run ``fn`` (sync, or returning a coroutine) on a helper thread and wait
-    at most ``timeout`` seconds. True when it finished without raising."""
+    at most ``timeout`` seconds. True when it finished without raising.
+
+    ``inline`` (the exit-time drain) runs it in the calling thread instead:
+    no thread is started, so there is no deadline either; each exporter
+    bounds its own work (the HTTP exporter by its request timeout). A helper
+    thread that cannot be started falls back to the same inline run."""
     ok = []
 
     def _run() -> None:
@@ -369,9 +391,16 @@ def _run_with_deadline(fn: Callable[[], Any], timeout: float) -> bool:
         except Exception:
             logger.warning("Exporter flush/close failed", exc_info=True)
 
-    t = threading.Thread(target=_run, name="briefcase-flush", daemon=True)
-    t.start()
-    t.join(timeout=max(0.0, timeout))
+    if not inline:
+        t = threading.Thread(target=_run, name="briefcase-flush", daemon=True)
+        try:
+            t.start()
+        except RuntimeError:  # interpreter shutting down: cannot start threads
+            inline = True
+        else:
+            t.join(timeout=max(0.0, timeout))
+            return bool(ok)
+    _run()
     return bool(ok)
 
 
@@ -460,6 +489,7 @@ def _after_fork_in_child() -> None:
         _drop_warning.after_fork()
         _failure_warning.after_fork()
         _drained_at_exit.clear()
+        clear_exiting()
         for exporter in list(_seen_exporters):
             reset = getattr(exporter, "_after_fork_in_child", None)
             if callable(reset):
@@ -496,7 +526,7 @@ def _known_exporters() -> list:
     return exporters
 
 
-def _drain(timeout: float, method: str) -> bool:
+def _drain(timeout: float, method: str, inline: bool = False) -> bool:
     deadline = time.monotonic() + timeout
     ok = wait_for_pending_exports(timeout)
     for exporter in _known_exporters():
@@ -504,9 +534,9 @@ def _drain(timeout: float, method: str) -> bool:
         if not callable(fn):
             continue
         remaining = deadline - time.monotonic()
-        if remaining <= 0:
+        if remaining <= 0 and not inline:
             return False
-        ok = _run_with_deadline(fn, remaining) and ok
+        ok = _run_with_deadline(fn, remaining, inline) and ok
     return ok
 
 
@@ -533,8 +563,14 @@ def shutdown(timeout: float = 5.0) -> bool:
 
 
 def _atexit_flush() -> None:
+    """The exit-time drain. ``atexit`` hooks run after ``threading._shutdown``,
+    where Python 3.12+ refuses new executor work, so everything here runs in
+    the calling thread: the queue is waited on (its worker already exists),
+    then each exporter is closed inline. Once started, the exporters start no
+    thread either (see :mod:`briefcase._exit_state`)."""
+    mark_exiting()
     try:
-        if not shutdown(ATEXIT_FLUSH_TIMEOUT_SECONDS):
+        if not _drain(ATEXIT_FLUSH_TIMEOUT_SECONDS, "close", inline=True):
             logger.warning(
                 "Export queue did not drain within %.1fs at interpreter exit; "
                 "some decision records may be lost. Call briefcase.shutdown("
@@ -543,6 +579,8 @@ def _atexit_flush() -> None:
             )
     except Exception:  # pragma: no cover - never raise during interpreter exit
         pass
+    finally:
+        clear_exiting()
 
 
 class ExportMixin:

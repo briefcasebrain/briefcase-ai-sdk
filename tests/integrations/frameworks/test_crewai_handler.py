@@ -4,7 +4,7 @@ crewai is stubbed by conftest.py; a mock event bus stores registered
 handlers so tests can fire events directly.
 """
 
-import time
+import threading
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -196,12 +196,16 @@ def test_llm_call_captured(mock_bus):
 
 
 def test_async_non_blocking(mock_bus):
-    """async_capture=True returns without blocking on the exporter."""
+    """async_capture=True hands the record to the background worker: the
+    handler call returns while the export has not run, and it runs once the
+    exporter is released. Deterministic: the exporter blocks on an Event
+    instead of the test measuring wall-clock time."""
     calls = []
+    gate = threading.Event()
 
-    class SlowExporter:
+    class GatedExporter:
         async def export(self, record):
-            time.sleep(0.3)
+            assert gate.wait(10), "gate never released"
             calls.append(record)
 
         async def flush(self):
@@ -210,19 +214,20 @@ def test_async_non_blocking(mock_bus):
         async def close(self):
             pass
 
-    briefcase_setup(exporter=SlowExporter())
+    briefcase_setup(exporter=GatedExporter())
     listener = _make_listener_with_mock_bus(mock_bus, async_capture=True)
     assert listener.async_capture is True
 
     start = _make_crew_event("CrewKickoffStartedEvent", crew_id="cx", name="X")
     complete = _make_crew_event("CrewKickoffCompletedEvent", crew_id="cx")
 
-    t_start = time.monotonic()
-    _fire_on_bus(mock_bus, "CrewKickoffStartedEvent", start)
-    _fire_on_bus(mock_bus, "CrewKickoffCompletedEvent", complete)
-    elapsed = time.monotonic() - t_start
-
-    assert elapsed < 0.25, f"Blocked for {elapsed:.3f}s"
+    try:
+        _fire_on_bus(mock_bus, "CrewKickoffStartedEvent", start)
+        _fire_on_bus(mock_bus, "CrewKickoffCompletedEvent", complete)
+        # The handler returned, and the blocked exporter has exported nothing.
+        assert calls == []
+    finally:
+        gate.set()
     assert wait_for_pending_exports(5.0)
     assert len(calls) == 1
 

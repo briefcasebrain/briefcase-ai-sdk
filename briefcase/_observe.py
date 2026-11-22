@@ -82,11 +82,34 @@ def _check_url(value: str, what: str) -> None:
         )
 
 
+def _env_token(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
+    """``BRIEFCASE_EXPORTER_TOKEN`` from ``env`` (default: the process
+    environment), stripped; None when unset or blank."""
+    env = os.environ if env is None else env
+    return (env.get(ENV_EXPORTER_TOKEN) or "").strip() or None
+
+
 def _resolve_exporter(
     exporter: Union[str, BaseExporter, None],
     *,
     token: Optional[str] = None,
+    headers: Optional[Mapping[str, str]] = None,
+    env: Optional[Mapping[str, str]] = None,
 ) -> BaseExporter:
+    """Build the exporter a shorthand names.
+
+    For an ``http(s)://`` URL the bearer token is ``token`` when given, else
+    ``BRIEFCASE_EXPORTER_TOKEN``: the explicit form and the environment form
+    authenticate the same way. ``token`` and ``headers`` are meaningless for
+    any other destination and raise ValueError rather than being ignored.
+    """
+    is_url = isinstance(exporter, str) and exporter.lower().startswith(("http://", "https://"))
+    if (token or headers) and not is_url:
+        given = "token" if token else "headers"
+        raise ValueError(
+            f"observe(..., {given}=...) only applies to an http(s):// URL destination; "
+            "pass the credential to the exporter's own constructor instead."
+        )
     if isinstance(exporter, BaseExporter):
         return exporter
     if exporter is None or exporter == "console":
@@ -95,7 +118,7 @@ def _resolve_exporter(
         return MemoryExporter()
     if isinstance(exporter, str) and exporter.lower().startswith(("http://", "https://")):
         _check_url(exporter, "The exporter URL")
-        return HTTPExporter(exporter, token=token) if token else HTTPExporter(exporter)
+        return HTTPExporter(exporter, token=token or _env_token(env), headers=headers)
     if isinstance(exporter, str) and exporter.endswith(".jsonl"):
         return JSONLFileExporter(exporter)
     raise ValueError(
@@ -226,7 +249,9 @@ def _otel_from_env(env: Mapping[str, str], strict: bool = False) -> BaseExporter
 
 
 def _exporter_from_env(env: Optional[Mapping[str, str]] = None,
-                       strict: bool = False) -> BaseExporter:
+                       strict: bool = False, *,
+                       token: Optional[str] = None,
+                       headers: Optional[Mapping[str, str]] = None) -> BaseExporter:
     """Resolve the destination from the environment, in order:
 
     1. ``BRIEFCASE_EXPORTER``: ``console``, ``memory``, a ``*.jsonl`` path,
@@ -246,8 +271,7 @@ def _exporter_from_env(env: Optional[Mapping[str, str]] = None,
     if choice.lower() in _OTLP_SHORTHANDS:
         return _otel_from_env(env, strict)
     if choice:
-        token = (env.get(ENV_EXPORTER_TOKEN) or "").strip() or None
-        return _resolve_exporter(choice, token=token)
+        return _resolve_exporter(choice, token=token, headers=headers, env=env)
     if any((env.get(name) or "").strip() for name in _OTLP_VARIABLES):
         return _otel_from_env(env, strict)
     return ConsoleExporter()
@@ -288,6 +312,8 @@ def observe(
     exporter: Union[str, BaseExporter, None] = _FROM_ENV,
     *,
     level: Optional[Union[int, str]] = None,
+    token: Optional[str] = None,
+    headers: Optional[Mapping[str, str]] = None,
 ) -> BaseExporter:
     """Wire up decision-capture export in one call.
 
@@ -302,7 +328,8 @@ def observe(
               - a path ending in ``.jsonl`` → :class:`JSONLFileExporter`
               - an ``https://`` URL (or ``http://`` to localhost) →
                 :class:`~briefcase.exporters.http.HTTPExporter`, which POSTs
-                JSON batches; construct it yourself to pass a token
+                JSON batches. Its bearer token is ``token``, else
+                ``BRIEFCASE_EXPORTER_TOKEN`` when set
 
             When omitted, the destination comes from the environment:
             ``BRIEFCASE_EXPORTER`` (any shorthand above, or ``otlp``; an
@@ -322,6 +349,12 @@ def observe(
             warning says so.
         level: If given, also enable briefcase logging at this level
             (see :func:`briefcase.enable_logging`).
+        token: Bearer token for an ``http(s)://`` destination (the URL form
+            or ``BRIEFCASE_EXPORTER`` naming a URL). Overrides
+            ``BRIEFCASE_EXPORTER_TOKEN``. A ValueError for any other
+            destination.
+        headers: Extra request headers for an ``http(s)://`` destination
+            (they override the defaults, including ``Authorization``).
 
     Returns:
         The configured exporter — so a :class:`MemoryExporter` can be inspected.
@@ -337,9 +370,14 @@ def observe(
         print(mem.records)  # -> [{'decision_id': ..., 'function_name': 'classify', ...}]
     """
     if exporter is _FROM_ENV:
-        resolved = _exporter_from_env()
+        resolved = _exporter_from_env(token=token, headers=headers)
+        if (token or headers) and not isinstance(resolved, HTTPExporter):
+            raise ValueError(
+                "observe(token=..., headers=...) only applies to an http(s):// destination, "
+                "but the environment resolved to something else."
+            )
     else:
-        resolved = _resolve_exporter(exporter)
+        resolved = _resolve_exporter(exporter, token=token, headers=headers)
     setup(exporter=resolved)
     if level is not None:
         from briefcase._logging import enable_logging

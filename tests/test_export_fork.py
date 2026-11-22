@@ -233,3 +233,80 @@ def test_fork_hooks_are_registered_once():
     assert em._fork_hooks_registered is True
     em._register_fork_hooks()  # idempotent
     assert em._fork_hooks_registered is True
+
+
+# -- OpenTelemetry --------------------------------------------------------------
+#
+# OTelExporter holds no lock, buffer or thread of its own: spans go to the
+# SDK's TracerProvider / BatchSpanProcessor, which (opentelemetry-sdk 1.45)
+# registers its own os.register_at_fork hook: the child gets a fresh lock,
+# an empty queue (the parent exports its own spans) and a new worker thread.
+# So there is deliberately no hook in briefcase.exporters.otel; these tests
+# pin that behaviour, and that a multiprocessing child's last spans are
+# flushed by the pipeline's exit drain (the child skips atexit).
+
+def _otel_exporter(path, monkeypatch):
+    pytest.importorskip("opentelemetry.sdk.trace.export")
+    from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+
+    from briefcase.exporters.otel import OTelExporter
+
+    # Long delay: spans stay queued in the SDK until something flushes them.
+    monkeypatch.setenv("OTEL_BSP_SCHEDULE_DELAY", "600000")
+
+    class FileSpanExporter(SpanExporter):
+        def export(self, spans):
+            with open(path, "a") as handle:
+                for span in spans:
+                    row = {"pid": os.getpid(), "id": span.attributes["briefcase.decision.id"]}
+                    handle.write(json.dumps(row) + "\n")
+            return SpanExportResult.SUCCESS
+
+        def shutdown(self):
+            pass
+
+    return OTelExporter(span_exporter=FileSpanExporter())
+
+
+def _span_rows(path):
+    return lines(path)
+
+
+def test_otel_child_exports_its_spans_and_the_parents_queue_is_not_duplicated(tmp_path, monkeypatch):
+    path = tmp_path / "spans.jsonl"
+    exporter = _otel_exporter(str(path), monkeypatch)
+    work = make_capture(exporter)
+    work("parent")  # a span now queued in the SDK's batch processor
+    assert em.wait_for_pending_exports(5)
+    em._remember_exporter(exporter)
+
+    def child():
+        work("child")
+        return 0 if briefcase.flush(10) else 3
+
+    assert run_in_fork(child) == 0
+    rows = _span_rows(path)
+    assert len(rows) == 1 and rows[0]["pid"] != os.getpid(), rows  # the child's span only
+    exporter._provider.force_flush(5000)
+    assert len(_span_rows(path)) == 2  # the parent still exports its own, once
+
+
+def test_otel_multiprocessing_child_exports_what_it_queued_before_exiting(tmp_path, monkeypatch):
+    path = tmp_path / "mp-spans.jsonl"
+    exporter = _otel_exporter(str(path), monkeypatch)
+    work = make_capture(exporter)
+    em._remember_exporter(exporter)
+
+    def target():  # pragma: no cover - runs in the child
+        for index in range(5):
+            work(f"mp-{index}")
+
+    context = multiprocessing.get_context("fork")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        process = context.Process(target=target)
+        process.start()
+    process.join(CHILD_TIMEOUT)
+    assert process.exitcode == 0
+    assert len(_span_rows(path)) == 5
+    assert {row["pid"] for row in _span_rows(path)} == {process.pid}

@@ -23,9 +23,11 @@ Rules to follow when generating briefcase code:
 - `@briefcase.capture` needs no `briefcase.init()`. It works on sync and async
   functions and on (async) generators, with or without arguments. A generator
   emits one record when it finishes, holding the collected chunks.
-- Export runs on a bounded background queue. Call `briefcase.shutdown()` (or
-  `briefcase.flush()`) before exit in short-lived scripts; an atexit hook also
-  drains for up to 5 s. `briefcase.export_stats()` reports dropped/failed counts.
+- Export runs on a bounded background queue. An atexit hook drains it for up
+  to 5 s at a normal exit (also `sys.exit()`), so scripts need no explicit
+  flush; call `briefcase.shutdown()` (or `briefcase.flush()`) only before
+  `os._exit`, in prefork workers, or to drain earlier.
+  `briefcase.export_stats()` reports dropped/failed counts.
 - `import briefcase` works without the compiled core; only native-backed names
   (`briefcase.init`, `DecisionSnapshot`, `briefcase.replay`, …) need it.
 - Never log or persist raw PII. Sanitize first:

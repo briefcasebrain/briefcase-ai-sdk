@@ -18,10 +18,10 @@ construction.
 
 from __future__ import annotations
 
-import asyncio
 import threading
 from typing import Any, Dict, List, Optional
 
+from briefcase._exit_state import run_blocking
 from briefcase._logging import get_logger
 from briefcase.exporters.base import BaseExporter
 
@@ -57,11 +57,6 @@ class GCPCloudLoggingExporter(BaseExporter):
         batch_size: int = 100,
         max_buffer: int = 10_000,
     ) -> None:
-        try:
-            from google.cloud import logging as gcp_logging
-        except ImportError as exc:
-            raise ImportError(_GCP_INSTALL_HINT) from exc
-
         self._project = project
         self._log_name = log_name
         self._batch_size = max(1, batch_size)
@@ -74,19 +69,43 @@ class GCPCloudLoggingExporter(BaseExporter):
         self._send_lock = threading.Lock()
         self.dropped_records = 0
 
-        if credentials_path:
+        self._credentials_path = credentials_path
+        self._client: Any = None
+        self._logger: Any = None
+        self._build_client()  # raises ImportError with the install hint when missing
+
+    def _build_client(self) -> None:
+        """Create the Cloud Logging client (imports are lazy; see the module
+        docstring). Also used to rebuild it in a forked child."""
+        try:
+            from google.cloud import logging as gcp_logging
+        except ImportError as exc:
+            raise ImportError(_GCP_INSTALL_HINT) from exc
+
+        if self._credentials_path:
             try:
                 from google.oauth2 import service_account as gcp_service_account
             except ImportError as exc:
                 raise ImportError(_GCP_INSTALL_HINT) from exc
             credentials = gcp_service_account.Credentials.from_service_account_file(
-                credentials_path
+                self._credentials_path
             )
-            self._client = gcp_logging.Client(project=project, credentials=credentials)
+            self._client = gcp_logging.Client(project=self._project, credentials=credentials)
         else:
-            self._client = gcp_logging.Client(project=project)
+            self._client = gcp_logging.Client(project=self._project)
+        self._logger = self._client.logger(self._log_name)
 
-        self._logger = self._client.logger(log_name)
+    def _after_fork_in_child(self) -> None:
+        """Called by the export pipeline in a forked child. The buffer copy
+        holds the parent's unsent records (the parent sends those), the
+        locks may have been held by a thread that does not exist here, and
+        the client's gRPC channel and its threads cannot be used across a
+        fork: the child builds its own client on its first send."""
+        self._buffer = []
+        self._lock = threading.Lock()
+        self._send_lock = threading.Lock()
+        self._client = None
+        self._logger = None
 
     @staticmethod
     def _decision_to_dict(decision: Any) -> Dict[str, Any]:
@@ -125,7 +144,7 @@ class GCPCloudLoggingExporter(BaseExporter):
                 self._trim_locked()
                 full = len(self._buffer) >= self._batch_size
             if full:
-                return await asyncio.to_thread(self._flush_sync)
+                return await run_blocking(self._flush_sync)
             return True
         except Exception as e:
             logger.warning("GCPCloudLoggingExporter: export error: %s", e, exc_info=True)
@@ -133,7 +152,7 @@ class GCPCloudLoggingExporter(BaseExporter):
 
     async def flush(self) -> None:
         """Send buffered records as structured log entries."""
-        await asyncio.to_thread(self._flush_sync)
+        await run_blocking(self._flush_sync)
 
     async def close(self) -> None:
         """Flush remaining records."""
@@ -169,5 +188,7 @@ class GCPCloudLoggingExporter(BaseExporter):
 
     def _send(self, records: List[Dict[str, Any]]) -> None:
         """Write structured log entries to Google Cloud Logging."""
+        if self._logger is None:  # a forked child (callers hold _send_lock)
+            self._build_client()
         for record in records:
             self._logger.log_struct(record, severity="INFO")

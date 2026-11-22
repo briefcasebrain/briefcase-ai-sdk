@@ -193,6 +193,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   says how to get the core when first used.
 
 ### Fixed
+- `briefcase.observe("https://...")` sends `BRIEFCASE_EXPORTER_TOKEN` as the
+  bearer token and accepts `token=` and `headers=`; a 401/403 logs one WARNING
+  per exporter instead of silently dropping every batch.
+- Records queued before a normal exit (including `sys.exit()`) are flushed on
+  Python 3.12+; the exit drain no longer fails with "can't register atexit
+  after shutdown".
+- The GCP Logging exporter is fork-safe: fresh locks, the parent's unsent
+  buffer is not re-sent, and the client is rebuilt in the child.
 - `briefcase receive` default redaction keeps only identifier-shaped values:
   tool parameters, commands, file paths, URLs and error text are dropped
   unless `--keep-content` (a command such as `cat ~/project/.env` used to be

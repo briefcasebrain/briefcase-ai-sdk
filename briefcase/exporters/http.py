@@ -25,7 +25,6 @@ Example:
 
 from __future__ import annotations
 
-import asyncio
 import ipaddress
 import json
 import random
@@ -35,6 +34,7 @@ import urllib.request
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import urlsplit
 
+from briefcase._exit_state import exiting, run_blocking
 from briefcase._logging import get_logger
 from briefcase.exporters.base import BaseExporter
 
@@ -172,6 +172,9 @@ class HTTPExporter(BaseExporter):
         self._timer: Optional[threading.Thread] = None
         self._stop = threading.Event()
 
+        self._auth_warned = False
+        self._had_token = "Authorization" in self._headers
+
         self.sent_records = 0
         self.failed_batches = 0
         self.dropped_records = 0
@@ -219,7 +222,9 @@ class HTTPExporter(BaseExporter):
             self._trim_locked()
 
     def _ensure_timer(self) -> None:
-        if self._flush_interval is None or self._timer is not None:
+        # No new thread once the exit-time drain began: it cannot be joined,
+        # and the drain flushes what is buffered itself.
+        if self._flush_interval is None or self._timer is not None or exiting():
             return
         with self._buffer_lock:
             if self._timer is not None:
@@ -256,6 +261,24 @@ class HTTPExporter(BaseExporter):
                 pass  # HTTP-date form: fall back to the computed backoff
         return delay
 
+    def _warn_auth_rejected(self, status: int, count: int) -> None:
+        """One WARNING per exporter for a 401/403 (every later batch would
+        be rejected the same way; a line each would flood the log)."""
+        if self._auth_warned:
+            logger.debug("HTTPExporter: %s rejected %d record(s) with HTTP %d (dropped)",
+                         self._log_url, count, status)
+            return
+        self._auth_warned = True
+        sent = ("The request carried an Authorization header, so check that the token is valid "
+                "for this endpoint." if self._had_token else
+                "No bearer token was sent: set BRIEFCASE_EXPORTER_TOKEN (or pass token=...).")
+        logger.warning(
+            "HTTPExporter: %s answered HTTP %d (authentication failed), so decision records "
+            "are being dropped, not delivered; this warning is shown once. %s "
+            "BRIEFCASE_EXPORTER_TOKEN is the bearer token briefcase.observe() sends to an "
+            "http(s) destination.", self._log_url, status, sent,
+        )
+
     def _send_batch(self, batch: List[Any]) -> str:
         """Send one batch. Returns "sent", "retry" (transient failure after
         all attempts) or "rejected" (non-retryable status)."""
@@ -272,6 +295,9 @@ class HTTPExporter(BaseExporter):
                 if 200 <= status < 300:
                     return "sent"
                 problem = f"HTTP {status}"
+                if status in (401, 403):
+                    self._warn_auth_rejected(status, len(batch))
+                    return "rejected"
                 if status != 429 and status < 500:
                     logger.warning(
                         "HTTPExporter: %s rejected a batch of %d record(s) with %s; "
@@ -317,12 +343,12 @@ class HTTPExporter(BaseExporter):
         size = self._append(_to_jsonable(decision))
         self._ensure_timer()
         if size >= self._batch_size:
-            await asyncio.to_thread(self._flush_sync)
+            await run_blocking(self._flush_sync)
         return True
 
     async def flush(self) -> None:
         """Send buffered records now."""
-        await asyncio.to_thread(self._flush_sync)
+        await run_blocking(self._flush_sync)
 
     async def close(self) -> None:
         """Stop the flush timer and send what is still buffered. The exporter
@@ -330,10 +356,10 @@ class HTTPExporter(BaseExporter):
         self._stop.set()
         timer, self._timer = self._timer, None
         if timer is not None and timer is not threading.current_thread():
-            await asyncio.to_thread(timer.join, self._timeout + 1.0)
+            await run_blocking(timer.join, self._timeout + 1.0)
         # Backoff sleeps return immediately while _stop is set, so this final
         # flush makes one quick pass instead of waiting out retries.
-        await asyncio.to_thread(self._flush_sync)
+        await run_blocking(self._flush_sync)
         self._stop = threading.Event()
 
     @property

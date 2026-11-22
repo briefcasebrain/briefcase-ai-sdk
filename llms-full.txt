@@ -14,8 +14,10 @@ KEY RULES
 - Never log or persist raw PII. Use `briefcase.sanitize.Sanitizer` first.
 - Native/pure-Python features need no pip extra; section 8 lists the extras
   that install third-party packages.
-- In short-lived scripts call `briefcase.shutdown()` before exit so queued
-  records are delivered (an atexit hook also drains for up to 5 s).
+- Queued records are drained at a normal interpreter exit (an atexit hook, up
+  to 5 s), including `sys.exit()`. Call `briefcase.shutdown()` yourself only
+  when the process leaves through `os._exit` / a killed worker (Celery
+  prefork), or to drain earlier.
 
 ------------------------------------------------------------------------------
 ## 1. Minimal capture (3 lines)

@@ -50,8 +50,9 @@ also importable from the top level (`briefcase.JSONLFileExporter`, …).
 queue (10,000 records by default; `briefcase.configure_export(...)` tunes the
 bound, retries, and timeout). If the exporter cannot keep up, new records are
 dropped, counted in `briefcase.export_stats()`, and reported at WARNING. Queued
-records are drained at interpreter exit for up to 5 seconds; call
-`briefcase.shutdown(timeout=...)` (or `briefcase.flush()`) to drain explicitly.
+records are drained at interpreter exit for up to 5 seconds, with no explicit
+call; use `briefcase.shutdown(timeout=...)` (or `briefcase.flush()`) to drain
+earlier, or before `os._exit`.
 
 **What gets captured.** `@capture` works on functions, coroutines, generators,
 and async generators (a generator emits one record when it finishes, with the

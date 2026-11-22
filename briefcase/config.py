@@ -102,6 +102,12 @@ def setup(
         config = BriefcaseConfig.get()
         if exporter is not _UNSET:
             config.exporter = exporter
+            if exporter is not None:
+                # Register the exit-time drain now, not lazily at the first
+                # record (which may happen during interpreter shutdown).
+                from briefcase._export_mixin import ensure_atexit_registered
+
+                ensure_atexit_registered()
         if router is not _UNSET:
             config.router = router
         if webhook_url is not _UNSET:
