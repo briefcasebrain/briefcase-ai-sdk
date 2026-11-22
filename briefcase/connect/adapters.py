@@ -418,11 +418,13 @@ class CopilotCLI(Adapter):
             if ctx.headers:
                 env["OTEL_EXPORTER_OTLP_HEADERS"] = _headers_csv(ctx.headers)
             if ctx.capture_content:
-                env["COPILOT_OTEL_CAPTURE_CONTENT"] = "true"
+                # `copilot help environment`, Copilot CLI 1.0.114: SPAN_ONLY or SPAN_AND_EVENT enables content.
+                env["OTEL_INSTRUMENTATION_GENAI_CAPTURE_CONTENT"] = "SPAN_ONLY"
             items.append(Manual(
                 self.id, "Add to your shell profile (~/.zshrc, ~/.bashrc, ...)", self.env_exports(env),
                 "Copilot CLI reads these from the environment and briefcase does not edit shell "
-                "profiles. It sends protobuf: pip install 'briefcase-ai[receiver]'",
+                "profiles. " + ("It sends protobuf: pip install 'briefcase-ai[receiver]'" if self.needs_protobuf
+                                else "It sends OTLP as http/json by default, which the receiver reads as is"),
             ))
         if ctx.mcp:
             config = mcp_payloads.server_config(which)

@@ -1,0 +1,9 @@
+# TEMPLATE - add to each user's ~/.codex/config.toml.
+# Confirmed (https://developers.openai.com/codex/config-advanced, 2026-11-21): the [otel] table below.
+# Not confirmed: a system-wide location for it. Codex ignores [otel] in project config, so this has to
+#   reach the user-level file; `briefcase connect codex --endpoint <url>` writes the same block for one user.
+# Codex sends OTLP as protobuf: the receiver needs `pip install 'briefcase-ai[receiver]'`.
+[otel]
+environment = "dev"
+exporter = { otlp-http = { endpoint = "https://otel.example.com/v1/logs", protocol = "binary", headers = {} } }
+log_user_prompt = false

@@ -49,6 +49,18 @@ def register(sub) -> None:
     p.add_argument("--yes", "-y", action="store_true", help="Do not ask for confirmation.")
     p.add_argument("--force", action="store_true", help="Write even for an unrecognised tool version.")
     p.add_argument("--start", action="store_true", help="Start the receiver in the background afterwards.")
+    # Enforcement and fleet rollout live in briefcase.policy; these flags only route to it.
+    p.add_argument("--enforce", action="store_true",
+                   help="Also write a policy and install the enforcement hooks (same as `briefcase policy init`).")
+    p.add_argument("--preset", choices=("observe", "guarded", "strict"), default=None,
+                   help="With --enforce: the preset for a new policy file (default guarded).")
+    p.add_argument("--managed", action="store_true",
+                   help="Write an admin rollout pack to --out instead of configuring this machine.")
+    p.add_argument("--out", metavar="DIR", default=None, help="With --managed: the directory to write the pack to.")
+    p.add_argument("--policy", metavar="FILE", default=None,
+                   help="With --managed: a policy file to enforce on every machine.")
+    p.add_argument("--tools", nargs="+", metavar="TOOL", default=None, dest="managed_tools",
+                   help="With --managed: the tools to include (default: claude-code cursor codex cowork).")
     p.set_defaults(func=cmd_connect, telemetry=True)
 
 
@@ -248,6 +260,28 @@ def cmd_connect(args, store=None, engine_=None, stack=None) -> int:
     adapters = registry()
     if args.tools and args.tools[0] in ("list", "status") and len(args.tools) == 1:
         return cmd_list(adapters) if args.tools[0] == "list" else cmd_status(adapters)
+    if getattr(args, "managed", False):
+        from briefcase.policy import managed
+        return managed.cmd_managed(args)
     if args.undo:
         return run_undo(args)
-    return run_connect(args, adapters)
+    code = run_connect(args, adapters)
+    if code == 0 and getattr(args, "enforce", False):
+        code = _enforce_step(args)
+    return code
+
+
+def _enforce_step(args) -> int:
+    """``connect --enforce``: connect, then ``briefcase policy init`` for the same tools."""
+    from argparse import Namespace
+
+    from briefcase.cli import policy_commands
+    from briefcase.policy import install
+
+    named = [name for name in resolve_names(args.tools) if name in install.TOOLS]
+    print("\n== Policy ==")
+    return policy_commands.run_init(Namespace(
+        tools=named, preset=getattr(args, "preset", None), scope=args.scope, fail_closed=False, portable=False,
+        capture_content=args.capture_content, endpoint=args.endpoint, force=getattr(args, "force", False),
+        policy_dry_run=_dry_run(args), dry_run=False, yes=args.yes,
+    ))

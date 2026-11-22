@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "briefcase hook cursor --endpoint https://otel.example.com",
+        "timeout": 5
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "briefcase hook cursor --endpoint https://otel.example.com",
+        "timeout": 5
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "briefcase hook cursor --endpoint https://otel.example.com",
+        "timeout": 5
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "briefcase hook cursor --endpoint https://otel.example.com",
+        "timeout": 5
+      }
+    ],
+    "afterAgentResponse": [
+      {
+        "command": "briefcase hook cursor --endpoint https://otel.example.com",
+        "timeout": 5
+      }
+    ],
+    "stop": [
+      {
+        "command": "briefcase hook cursor --endpoint https://otel.example.com",
+        "timeout": 5
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "briefcase hook cursor --enforce --endpoint https://otel.example.com",
+        "timeout": 10
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "briefcase hook cursor --enforce --endpoint https://otel.example.com",
+        "timeout": 10
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "briefcase hook cursor --enforce --endpoint https://otel.example.com",
+        "timeout": 10
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "briefcase hook cursor --enforce --endpoint https://otel.example.com",
+        "timeout": 10,
+        "matcher": "Write|Delete"
+      }
+    ]
+  }
+}

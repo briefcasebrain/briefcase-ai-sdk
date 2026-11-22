@@ -1,0 +1,243 @@
+"""Each coding tool's hook payload and response format.
+
+Formats are taken from the tools' documentation; the URL and the date each was
+checked are recorded under ``enforce`` in ``briefcase/connect/adapters.json``.
+
+Claude Code (https://code.claude.com/docs/en/hooks, checked 2026-11-21)
+    ``PreToolUse`` gets ``tool_name`` and ``tool_input`` on stdin. Exit 0 with
+    ``hookSpecificOutput.permissionDecision`` of ``deny`` or ``ask`` and a
+    ``permissionDecisionReason``. ``allow`` would skip Claude Code's own
+    permission prompt, so an allowed call prints nothing and the normal
+    permission flow continues. A hook that crashes, times out or prints
+    invalid JSON does not block, unless the handler has ``onFailure: "block"``.
+
+Cursor (https://cursor.com/docs/hooks, checked 2026-11-21)
+    ``beforeShellExecution`` and ``beforeMCPExecution`` answer
+    ``{"permission": "allow"|"deny"|"ask"}``; ``beforeReadFile`` and
+    ``preToolUse`` only ``allow`` or ``deny``. A permission hook that exits 0
+    with invalid JSON *blocks*, so every path here prints valid JSON. Crashes
+    and timeouts fail open unless the hook entry has ``failClosed: true``.
+
+Codex CLI (https://developers.openai.com/codex/hooks, checked 2026-11-21)
+    ``PreToolUse`` can deny with the same ``hookSpecificOutput`` shape as
+    Claude Code. ``permissionDecision: "ask"`` is not supported: Codex marks
+    the hook as failed and runs the tool, so ``ask`` is never sent to it.
+
+Where a tool cannot ask, the policy's ``ask_fallback`` setting (default
+``deny``) decides.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+
+from briefcase.policy.engine import ToolCall
+
+TOOLS = ("claude-code", "cursor", "codex")
+NAMES = {"claude-code": "Claude Code", "cursor": "Cursor", "codex": "Codex CLI"}
+
+# Claude Code tool names (https://code.claude.com/docs/en/hooks#pretooluse-input). The Cursor
+# names are included because Cursor also runs Claude Code hooks it finds in ~/.claude/settings.json
+# (https://cursor.com/docs/reference/third-party-hooks) and sends its own tool names to them.
+_SHELL_TOOLS = ("Bash", "Shell")
+_READ_TOOLS = ("Read", "Glob", "Grep")
+_WRITE_TOOLS = ("Write", "Edit", "MultiEdit", "NotebookEdit", "Delete")
+_PATH_KEYS = ("file_path", "notebook_path", "path", "target_file")
+
+# Events that can show the user a question.
+_CAN_ASK = {
+    "claude-code": ("PreToolUse",),
+    "cursor": ("beforeShellExecution", "beforeMCPExecution"),
+    "codex": (),
+}
+CLAUDE_MATCHER = "^(Bash|PowerShell|Read|Write|Edit|MultiEdit|NotebookEdit|Glob|Grep|WebFetch|WebSearch)$|^mcp__"
+CODEX_MATCHER = "^(Bash|apply_patch)$|^mcp__"
+CURSOR_EVENTS = ("beforeShellExecution", "beforeMCPExecution", "beforeReadFile", "preToolUse")
+CURSOR_PRETOOL_MATCHER = "Write|Delete"
+
+
+def _text(value):
+    return value if isinstance(value, str) and value else None
+
+
+def _first_path(tool_input):
+    if isinstance(tool_input, dict):
+        for key in _PATH_KEYS:
+            value = _text(tool_input.get(key))
+            if value:
+                return value
+    return None
+
+
+def _command_text(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        import shlex
+        return " ".join(shlex.quote(item) for item in value)
+    return None
+
+
+def _mcp_name(tool_name):
+    """``mcp__server__tool`` -> ``(server, tool)``."""
+    rest = tool_name[len("mcp__"):]
+    server, sep, name = rest.partition("__")
+    return (server or None, name or None) if sep else (server or None, None)
+
+
+def _tool_call(tool, tool_name, tool_input, cwd, common):
+    """Shared by the three ``preToolUse``-style events, which all send ``tool_name`` and ``tool_input``."""
+    tool_input = tool_input if isinstance(tool_input, dict) else {}
+    if tool_name in _SHELL_TOOLS:
+        command = _command_text(tool_input.get("command"))
+        where = _text(tool_input.get("working_directory")) or cwd
+        if command is None:
+            return ToolCall("other", tool, tool_name, note="no command in the hook input", **common)
+        return ToolCall("shell", tool, tool_name, command=command, cwd=where, **common)
+    if tool_name == "PowerShell":
+        command = _command_text(tool_input.get("command")) or ""
+        return ToolCall("shell", tool, tool_name, command=command, cwd=cwd, dialect="powershell", **common)
+    if tool_name in _READ_TOOLS:
+        path = _first_path(tool_input) or (cwd if tool_name != "Read" else None)
+        return ToolCall("read", tool, tool_name, paths=[path] if path else [], cwd=cwd, **common)
+    if tool_name in _WRITE_TOOLS:
+        path = _first_path(tool_input)
+        note = None if path else "no file path in the hook input"
+        return ToolCall("write", tool, tool_name, paths=[path] if path else [], cwd=cwd, note=note, **common)
+    if tool_name == "WebFetch":
+        return ToolCall("web", tool, tool_name, url=_text(tool_input.get("url")), cwd=cwd, **common)
+    if tool_name == "WebSearch":
+        return ToolCall("web", tool, tool_name, url=None, cwd=cwd, **common)
+    if tool_name.startswith("mcp__"):
+        server, name = _mcp_name(tool_name)
+        return ToolCall("mcp", tool, tool_name, server=server, name=name, cwd=cwd, **common)
+    if tool_name.startswith("MCP:"):
+        return ToolCall("mcp", tool, tool_name, server=None, name=tool_name[4:] or None, cwd=cwd, **common)
+    return ToolCall("other", tool, tool_name, cwd=cwd, **common)
+
+
+def patch_paths(patch):
+    """File paths named in a Codex ``apply_patch`` body.
+
+    The patch grammar is not part of the hooks documentation; this reads the
+    ``*** Add File:``, ``*** Update File:``, ``*** Delete File:`` and
+    ``*** Move to:`` headers and returns nothing for any other shape."""
+    paths = []
+    for line in patch.splitlines():
+        for marker in ("*** Add File: ", "*** Update File: ", "*** Delete File: ", "*** Move to: "):
+            if line.startswith(marker):
+                path = line[len(marker):].strip()
+                if path and path not in paths:
+                    paths.append(path)
+    return paths
+
+
+def parse(tool, payload):
+    """The tool call a hook payload describes. Unknown shapes become kind ``other``, which is never judged."""
+    if not isinstance(payload, dict):
+        return ToolCall("other", tool, note="the hook input is not a JSON object")
+    event = _text(payload.get("hook_event_name")) or ""
+    cwd = _text(payload.get("cwd"))
+    if tool == "cursor":
+        roots = payload.get("workspace_roots")
+        root = roots[0] if isinstance(roots, list) and roots and isinstance(roots[0], str) else None
+        project = os.environ.get("CURSOR_PROJECT_DIR") or root or cwd
+        common = {"project_dir": project, "session_id": _text(payload.get("conversation_id")),
+                  "tool_use_id": _text(payload.get("tool_use_id"))}
+        if event == "beforeShellExecution":
+            command = _command_text(payload.get("command"))
+            if command is None:
+                return ToolCall("other", tool, event, note="no command in the hook input", **common)
+            return ToolCall("shell", tool, "Shell", command=command, cwd=cwd or project, **common)
+        if event == "beforeMCPExecution":
+            return ToolCall("mcp", tool, "MCP", server=_text(payload.get("mcp_server_name")),
+                            name=_text(payload.get("tool_name")), cwd=cwd or project, **common)
+        if event == "beforeReadFile":
+            path = _text(payload.get("file_path"))
+            return ToolCall("read", tool, "Read", paths=[path] if path else [], cwd=cwd or project, **common)
+        if event == "preToolUse":
+            return _tool_call(tool, _text(payload.get("tool_name")) or "", payload.get("tool_input"),
+                              cwd or project, common)
+        return ToolCall("other", tool, event, **common)
+    common = {"project_dir": os.environ.get("CLAUDE_PROJECT_DIR") or cwd if tool == "claude-code" else cwd,
+              "session_id": _text(payload.get("session_id")), "tool_use_id": _text(payload.get("tool_use_id"))}
+    if event and event not in ("PreToolUse", "preToolUse"):
+        return ToolCall("other", tool, event, **common)
+    tool_name = _text(payload.get("tool_name")) or ""
+    tool_input = payload.get("tool_input")
+    if tool == "codex" and tool_name == "apply_patch":
+        patch = _command_text(tool_input.get("command")) if isinstance(tool_input, dict) else None
+        paths = patch_paths(patch or "")
+        note = None if paths else "no file paths found in the patch"
+        return ToolCall("write", tool, tool_name, paths=paths, cwd=cwd, note=note, **common)
+    return _tool_call(tool, tool_name, tool_input, cwd, common)
+
+
+def event_of(tool, payload):
+    event = payload.get("hook_event_name") if isinstance(payload, dict) else None
+    if isinstance(event, str) and event:
+        return event
+    return "PreToolUse" if tool != "cursor" else ""
+
+
+def can_ask(tool, event):
+    return event in _CAN_ASK.get(tool, ())
+
+
+def message(decision, effect, downgraded=False):
+    """The text the person sees in the tool."""
+    rule = decision.rule_id or "?"
+    reason = decision.reason or "No reason was given for this rule."
+    head = "Blocked by briefcase policy" if effect == "deny" else "briefcase policy asks you to confirm"
+    text = f"{head} (rule {rule}): {reason}"
+    if downgraded:
+        text += " The rule says ask; this tool cannot ask from a hook, so the policy's ask_fallback applies."
+    return text + " Details: briefcase policy log -n 1"
+
+
+def respond(tool, event, effect, text="", warning=None):
+    """``stdout`` for one decision. The process always exits 0; the JSON carries the verdict."""
+    if tool == "cursor":
+        out = {"permission": effect if effect in ("allow", "deny", "ask") else "allow"}
+        if effect != "allow" and text:
+            out["user_message"] = text
+            if event != "beforeReadFile":
+                out["agent_message"] = text
+        return json.dumps(out)
+    # Claude Code and Codex share the PreToolUse shape.
+    if effect in ("deny", "ask"):
+        return json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse", "permissionDecision": effect, "permissionDecisionReason": text}})
+    if warning:
+        return json.dumps({"systemMessage": warning})
+    return ""
+
+
+def fail_open_output(tool):
+    """What to print when the hook itself failed and the policy is not fail-closed."""
+    return '{"permission": "allow"}' if tool == "cursor" else ""
+
+
+# Which hook event carries each kind of call, per tool. ``None``: the tool has
+# no documented hook for it, so a rule of that kind is not enforced there.
+COVERAGE = {
+    "claude-code": {"shell": "PreToolUse", "read": "PreToolUse", "write": "PreToolUse", "mcp": "PreToolUse",
+                    "web": "PreToolUse"},
+    "cursor": {"shell": "beforeShellExecution", "read": "beforeReadFile", "write": "preToolUse",
+               "mcp": "beforeMCPExecution", "web": None},
+    "codex": {"shell": "PreToolUse", "read": None, "write": "PreToolUse", "mcp": "PreToolUse", "web": None},
+}
+
+
+def effective(tool, kind, effect, ask_fallback):
+    """``(effect the tool applies, note)`` for a decision of ``effect`` on a ``kind`` call.
+    The effect is ``None`` where the tool has no hook for that kind of call."""
+    event = COVERAGE.get(tool, {}).get(kind)
+    if event is None:
+        if tool == "codex" and kind == "read":
+            return None, "no file-read hook; Codex reads files through shell commands, which are checked"
+        return None, "no hook for this kind of call; not enforced"
+    if effect == "ask" and not can_ask(tool, event):
+        return ask_fallback, f"cannot ask from {event}; ask_fallback = {ask_fallback}"
+    return effect, ""
