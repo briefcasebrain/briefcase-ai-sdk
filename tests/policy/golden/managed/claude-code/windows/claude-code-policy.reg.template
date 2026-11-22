@@ -1,0 +1,12 @@
+; TEMPLATE - check before use.
+; Confirmed (https://code.claude.com/docs/en/managed-settings, 2026-11-21): Claude Code reads its managed
+;   settings as JSON from a REG_SZ value named Settings under HKLM\SOFTWARE\Policies\ClaudeCode.
+; Not confirmed: this file's .reg syntax and escaping were not checked against Microsoft's
+;   documentation or imported on Windows. Import it on one test machine, run `claude doctor`, and
+;   confirm /status shows `Enterprise managed settings (HKLM)` before any wider rollout.
+; Alternative that needs no registry: copy managed-settings.d\10-briefcase.json to
+;   C:\Program Files\ClaudeCode\managed-settings.d\ (see README.md).
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\ClaudeCode]
+"Settings"="{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"https://otel.example.com\"},\"hooks\":{\"PreToolUse\":[{\"matcher\":\"^(Bash|PowerShell|Read|Write|Edit|MultiEdit|NotebookEdit|Glob|Grep|WebFetch|WebSearch)$|^mcp__\",\"hooks\":[{\"type\":\"command\",\"command\":\"briefcase hook claude-code --enforce --endpoint https://otel.example.com\",\"timeout\":10}]}]}}"

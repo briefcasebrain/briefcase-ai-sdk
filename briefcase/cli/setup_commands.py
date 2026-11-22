@@ -52,21 +52,26 @@ DEMO_PROGRAM = (
     "greet('world')\n"
 )
 
-# Team path. `commands` are the command names that, once a package providing one is
-# installed, replace the "coming" note; `today` is what already works.
+# Team path. `commands` are the command names that must be discovered for the step to be
+# real; otherwise the step says "coming". `action` names the function a real step calls
+# (None: the step only prints the command). `today` is what already works without it.
+# Managed rollout is `briefcase connect --managed`, shipped by the same package as `policy`,
+# so both steps are real exactly when `policy` is discovered.
 TEAM_STEPS: Tuple[Dict[str, Any], ...] = (
     {"title": "Roll out to every developer machine",
-     "commands": ("managed", "rollout"),
+     "commands": ("policy",), "action": "managed",
      "today": "briefcase connect --dry-run",
      "today_note": "prints the exact settings to distribute with your device management"},
     {"title": "Decide what coding tools may run",
-     "commands": ("policy",),
+     "commands": ("policy",), "action": "policy",
      "today": None, "today_note": None},
     {"title": "Cap spend",
-     "commands": ("budget",),
+     "commands": ("budget",), "action": None,
      "today": "briefcase features controls-gateway",
      "today_note": "the in-app spend and quota gate that ships today"},
 )
+
+ROLLOUT_DIR = "./briefcase-rollout"
 
 
 def register(sub) -> None:
@@ -210,6 +215,49 @@ def _team_command(step: Dict[str, Any], commands: Dict[str, Any], catalog: Any) 
     return None
 
 
+def _team_managed(out: Callable[[str], Any]) -> None:
+    """Offer `briefcase connect --managed`: a pack of files for the admin to deploy. It writes
+    only into the named directory, and only after a yes."""
+    from briefcase.policy import managed
+
+    out(f"  briefcase connect --managed --out {ROLLOUT_DIR} --endpoint https://<your-receiver-host>")
+    out("  Docs: docs/features/managed-rollout.md")
+    out("Writes the files your device management deploys (managed settings, hooks) into one")
+    out("directory. Nothing outside it is touched, and nothing is installed on this machine.")
+    if _ux.confirm(f"Write a rollout pack to {ROLLOUT_DIR} now?", default=False):
+        args = Namespace(managed_tools=None, tools=None, out=ROLLOUT_DIR, headers=[], policy=None,
+                         endpoint=None, capture_content=False, connect_dry_run=False,
+                         dry_run=False, force=False)
+        out("")
+        managed.cmd_managed(args, out)
+    else:
+        out(f"Run it when you are ready (add --dry-run to preview): briefcase connect --managed --out {ROLLOUT_DIR}")
+
+
+def _team_policy(out: Callable[[str], Any]) -> None:
+    """Offer `briefcase policy init`, which shows its plan and asks again before writing."""
+    from briefcase.cli import policy_commands
+
+    out("  briefcase policy init")
+    out("  Docs: docs/features/policy-hooks.md")
+    out("Writes ~/.briefcase/policy.toml and a hook in each coding tool. It lists every file and")
+    out("asks before writing; undo with `briefcase policy off`. This affects this machine only.")
+    if _ux.confirm("Set up policy on this machine now?", default=False):
+        out("")
+        args = Namespace(tools=[], scope="user", preset=None, fail_closed=False, portable=False,
+                         capture_content=False, endpoint=None, force=False, policy_dry_run=False,
+                         dry_run=False, yes=False)
+        policy_commands.run_init(args, out=out, ask=input)
+    else:
+        out("Run it when you are ready (add --dry-run to preview): briefcase policy init")
+
+
+TEAM_ACTIONS: Dict[str, Callable[[Callable[[str], Any]], None]] = {
+    "managed": _team_managed,
+    "policy": _team_policy,
+}
+
+
 def path_team(modules: Optional[List[_discovery.CommandModule]] = None,
               out: Callable[[str], Any] = print) -> None:
     from briefcase.features import load_catalog
@@ -217,7 +265,8 @@ def path_team(modules: Optional[List[_discovery.CommandModule]] = None,
     commands = _discovery.command_index(modules)
     catalog = load_catalog()
     out("")
-    out("Nothing is changed on this machine for a team setup; these are the steps to plan.")
+    out("Step 1 only prints commands. The steps after it offer to run the real command;")
+    out("each one shows what it would write and asks first.")
     total = len(TEAM_STEPS) + 1
     _step(1, total, "Collect records in one place", out)
     out("  On a shared host:   briefcase receive --host 0.0.0.0 --token <secret> --to <destination>")
@@ -228,6 +277,10 @@ def path_team(modules: Optional[List[_discovery.CommandModule]] = None,
         _step(index, total, step["title"], out)
         found = _team_command(step, commands, catalog)
         if found:
+            action = TEAM_ACTIONS.get(step.get("action") or "")
+            if action:
+                action(out)
+                continue
             out(f"  {found['command']}")
             if found["docs"]:
                 out(f"  Docs: {found['docs']}")

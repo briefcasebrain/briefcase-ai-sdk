@@ -1,0 +1,97 @@
+{
+  "generated_by": "briefcase connect --managed",
+  "endpoint": "https://otel.example.com",
+  "tools": [
+    "claude-code",
+    "cursor",
+    "codex",
+    "cowork"
+  ],
+  "policy": true,
+  "fail_closed": false,
+  "files": [
+    {
+      "file": "briefcase/policy.toml",
+      "kind": "ready",
+      "install_to": {
+        "macOS": "/Library/Application Support/Briefcase/policy.toml",
+        "Linux and WSL": "/etc/briefcase/policy.toml",
+        "Windows": "C:\\ProgramData\\Briefcase\\policy.toml"
+      },
+      "source": "briefcase",
+      "note": "The policy every machine enforces. A user or project policy can only add restrictions."
+    },
+    {
+      "file": "claude-code/managed-settings.d/10-briefcase.json",
+      "kind": "ready",
+      "install_to": {
+        "macOS": "/Library/Application Support/ClaudeCode/managed-settings.d/10-briefcase.json",
+        "Linux and WSL": "/etc/claude-code/managed-settings.d/10-briefcase.json",
+        "Windows": "C:\\Program Files\\ClaudeCode\\managed-settings.d\\10-briefcase.json"
+      },
+      "source": "https://code.claude.com/docs/en/managed-settings",
+      "note": "Drop-in merged with managed-settings.json; users cannot remove or disable managed hooks."
+    },
+    {
+      "file": "claude-code/macos/briefcase-claude-code.mobileconfig",
+      "kind": "ready",
+      "install_to": {
+        "macOS": "upload as a custom configuration profile in your MDM (device channel)"
+      },
+      "source": "https://code.claude.com/docs/en/managed-settings and https://developer.apple.com/documentation/devicemanagement/managedpreferences",
+      "note": "Use this OR the drop-in file on macOS, not both: an MDM profile outranks the file. Built from the two documented formats; not installed on a Mac by this project."
+    },
+    {
+      "file": "claude-code/windows/claude-code-policy.reg.template",
+      "kind": "template",
+      "install_to": {
+        "Windows": "HKLM\\SOFTWARE\\Policies\\ClaudeCode, value Settings (REG_SZ)"
+      },
+      "source": "https://code.claude.com/docs/en/managed-settings",
+      "note": "The registry location is documented; the .reg file itself is unverified."
+    },
+    {
+      "file": "cursor/hooks.json",
+      "kind": "ready",
+      "install_to": {
+        "macOS": "/Library/Application Support/Cursor/hooks.json",
+        "Linux and WSL": "/etc/cursor/hooks.json",
+        "Windows": "C:\\ProgramData\\Cursor\\hooks.json"
+      },
+      "source": "https://cursor.com/docs/hooks",
+      "note": "Enterprise hooks run first and cannot be removed by a user. Never run against Cursor by this project."
+    },
+    {
+      "file": "codex/hooks.json",
+      "kind": "ready",
+      "install_to": {
+        "macOS": "/etc/codex/hooks.json",
+        "Linux and WSL": "/etc/codex/hooks.json",
+        "Windows": "%ProgramData%\\OpenAI\\Codex\\hooks.json"
+      },
+      "source": "https://developers.openai.com/codex/hooks",
+      "note": "System hooks are trusted by policy. Never run against Codex by this project."
+    },
+    {
+      "file": "codex/requirements-hooks.toml.template",
+      "kind": "template",
+      "install_to": "your organization's requirements.toml",
+      "source": "https://developers.openai.com/codex/hooks",
+      "note": "Use instead of hooks.json when you already manage requirements.toml."
+    },
+    {
+      "file": "codex/config-otel.toml.template",
+      "kind": "template",
+      "install_to": "each user's ~/.codex/config.toml",
+      "source": "https://developers.openai.com/codex/config-advanced",
+      "note": "Telemetry only. No documented system-wide location."
+    },
+    {
+      "file": "cowork/CHECKLIST.md",
+      "kind": "template",
+      "install_to": "the organization admin console",
+      "source": "https://support.claude.com/",
+      "note": "Steps for a person, not a file to deploy."
+    }
+  ]
+}

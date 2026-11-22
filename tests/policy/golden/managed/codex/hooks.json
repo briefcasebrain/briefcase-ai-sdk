@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|apply_patch)$|^mcp__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "briefcase hook codex --enforce --endpoint https://otel.example.com",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

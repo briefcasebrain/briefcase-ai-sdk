@@ -9,6 +9,10 @@ description = "Governance infrastructure for AI decisions: enforce controls, rec
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.9"
+# tomli: the policy file is TOML, and tomllib only exists from Python 3.11.
+dependencies = [
+    "tomli>=1.1; python_version < \"3.11\"",
+]
 authors = [{ name = "Briefcase AI" }]
 keywords = ["ai", "observability", "decision-tracking", "replay", "drift"]
 # These drive PyPI's search filters and the "supported versions" sidebar, so

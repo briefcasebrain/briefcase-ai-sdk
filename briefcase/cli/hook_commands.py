@@ -77,8 +77,24 @@ def parse_args(argv: List[str]):
     return endpoint, capture_content, timeout
 
 
+def run_enforce(tool: str, argv: List[str], stdin: Any = None, stdout: Any = None) -> int:
+    """``briefcase hook <tool> --enforce``: decide one tool call under the policy.
+
+    Always returns 0; the verdict is the JSON on stdout. Fails open unless the
+    policy or the command line says ``fail_closed`` (see ``briefcase.policy.hook``)."""
+    try:
+        from briefcase.policy import hook
+        return hook.main([tool] + list(argv), stdin=stdin, stdout=stdout)
+    except BaseException:  # noqa: B036 - the policy code could not even be imported
+        if tool == "cursor":
+            print('{"permission": "allow"}')   # a Cursor permission hook that prints nothing blocks
+        return 0
+
+
 def run_cursor(argv: List[str], stdin: Any = None) -> int:
-    """Always returns 0 and writes nothing to stdout."""
+    """Always returns 0 and writes nothing to stdout (except with ``--enforce``)."""
+    if "--enforce" in argv:
+        return run_enforce("cursor", argv, stdin)
     try:
         endpoint, capture_content, timeout = parse_args(argv)
         stream = stdin if stdin is not None else sys.stdin
@@ -100,6 +116,10 @@ def cmd_hook_cursor(args, store=None, engine=None, stack=None) -> int:
     return run_cursor(getattr(args, "hook_args", []) or [])
 
 
+def cmd_hook_enforce(args, store=None, engine=None, stack=None) -> int:
+    return run_enforce(args.hook_tool, getattr(args, "hook_args", []) or [])
+
+
 def register(sub) -> None:
     hook = sub.add_parser("hook", help="Tool hook entry points (installed by `briefcase connect`).")
     hooks = hook.add_subparsers(dest="sub")
@@ -109,3 +129,13 @@ def register(sub) -> None:
     )
     cursor.add_argument("hook_args", nargs=argparse.REMAINDER)
     cursor.set_defaults(func=cmd_hook_cursor)
+    for tool in ("claude-code", "codex"):
+        # prefix_chars is a character no flag starts with, so every argument is taken as a
+        # positional. argparse can then never reject one and exit 2, which these tools read
+        # as "block this tool call".
+        enforce = hooks.add_parser(
+            tool, add_help=False, prefix_chars="\x00",
+            help=f"Decide a {tool} tool call under the briefcase policy (stdin JSON); always exits 0.",
+        )
+        enforce.add_argument("hook_args", nargs="*")
+        enforce.set_defaults(func=cmd_hook_enforce, hook_tool=tool)

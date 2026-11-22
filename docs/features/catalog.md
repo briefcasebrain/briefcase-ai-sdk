@@ -3,10 +3,10 @@
      `briefcase features --markdown > docs/features/catalog.md`. -->
 # Feature catalog
 
-32 features · 5 groups. The same list, with
+34 features · 5 groups. The same list, with
 whether each feature is on for you, is in your terminal: `briefcase features`.
 
-## Connect (7)
+## Connect (8)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
@@ -15,6 +15,7 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Cursor hooks](../../docs/integrations/README.md#cursor) | Record Cursor sessions, prompts and tool calls through its hook system. | `briefcase connect cursor` | experimental |
 | [Guided setup and status](../../docs/features/cli-shell.md) | One command to get started and one screen that shows what is on. | `briefcase setup` | experimental |
 | [Local receiver](../../docs/integrations/README.md#the-receiver) | Turn what your coding tools send into decision records on your own machine. | `briefcase receive --detach` | experimental |
+| [Managed rollout for a team](../../docs/features/managed-rollout.md) | Generate the files an admin deploys to set up briefcase on every machine. | `briefcase connect --managed --out ./briefcase-rollout` | experimental |
 | [MCP server install](../../docs/integrations/README.md#mcp-server-copy-paste-and-one-click-installs) | Register the briefcase MCP server with your coding tools, or print a link. | `briefcase mcp install` | experimental |
 | [Zero-code capture for Python apps](../../briefcase/cli/exec_commands.py) | Run any Python program with decision capture on, without editing it. | `briefcase exec -- python app.py` | experimental |
 
@@ -31,12 +32,13 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Record destinations](../../llms-full.txt) | Send records to the console, a JSON Lines file or memory with one line. | `briefcase exec --to runs.jsonl -- python app.py` | stable |
 | [Zero-code capture for Node (TypeScript)](../../docs/features/typescript-auto.md) | Record every OpenAI, Anthropic, Gemini and Bedrock call in Node apps. | `node --import @briefcase-ai/auto/register app.js` | experimental |
 
-## Enforce (2)
+## Enforce (3)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
 | [Budget and quota gateway](../../llms-full.txt) | Cap spend and request rates per tenant before a model call goes out. | `briefcase features controls-gateway` | experimental |
 | [Guardrail checks](../../briefcase/guardrails/__init__.py) | Decide allow or deny for an agent action, and fail closed on errors. | `briefcase features guardrails` | experimental |
+| [Policy for coding tools](../../docs/features/policy-hooks.md) | Allow, ask or deny what Claude Code, Cursor and Codex may run. | `briefcase policy init` | experimental |
 
 ## Verify (6)
 

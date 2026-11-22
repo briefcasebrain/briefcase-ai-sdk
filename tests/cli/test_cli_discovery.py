@@ -29,6 +29,13 @@ ALLOWED_ADDITIONS = {
     "dataset list": ({"--json"}, set(), {"func"}),
     # red-team hardening of exec.
     "exec": ({"--allow-uninstrumented", "--dedupe"}, set(), set()),
+    # policy package: `--enforce [--preset]` also installs the enforcement hooks, and
+    # `--managed --out DIR [--policy FILE] [--tools ...]` writes an admin rollout pack. All
+    # optional, all off by default, so a bare `briefcase connect` behaves as before.
+    # `briefcase hook claude-code|codex` are the enforcement hook entry points (stdin JSON,
+    # always exit 0); `hook cursor` is unchanged apart from honouring `--enforce`.
+    "hook": (set(), {"claude-code", "codex"}, set()),
+    "connect": ({"--enforce", "--preset", "--managed", "--out", "--policy", "--tools"}, set(), set()),
 }
 
 

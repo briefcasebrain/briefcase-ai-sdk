@@ -307,6 +307,7 @@ def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: st
             marker = op.get("owned_by")
             stale = None
             if marker:
+                entry["owned_by"] = marker
                 for index, item in enumerate(items):
                     if marker in json.dumps(item):
                         stale = index
@@ -652,9 +653,16 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
                 messages.append(f"{path}: {dotted} already removed")
                 continue
             if op["op"] == "append":
-                if isinstance(parent[key], list) and op["value"] in parent[key]:
-                    parent[key].remove(op["value"])
+                items = parent[key] if isinstance(parent[key], list) else []
+                edited = [item for item in items
+                          if op.get("owned_by") and op["owned_by"] in json.dumps(item) and item != op["value"]]
+                if op["value"] in items:
+                    items.remove(op["value"])
                     messages.append(f"{path}: removed our entry from {dotted}")
+                elif edited:
+                    # Ours by its marker (e.g. the hook command), edited after it was written.
+                    items.remove(edited[0])
+                    messages.append(f"{path}: removed our entry from {dotted} (it had been edited since)")
                 else:
                     messages.append(f"{path}: our entry in {dotted} already removed")
             elif parent[key] == op["value"]:
@@ -666,7 +674,15 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
                     messages.append(f"{path}: removed {dotted}")
             else:
                 messages.append(f"{path}: {dotted} was changed after connect; left as it is")
+        # Containers created for this owner may still hold another owner's entries; remember
+        # them so they are pruned when the last owner of the file is undone.
+        created.extend(entry.get("pending_prune", []))
         _prune(doc, created)
+        pending = []
+        for item in created:
+            parent = _descend(doc, item[:-1], create=False)
+            if parent is not None and item[-1] in parent and list(item) not in pending:
+                pending.append(list(item))
         new = _dump_json(doc, old) if doc else ""
     if not dry_run:
         if new == old:
@@ -681,4 +697,9 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
             shutil.copy2(str(target), str(backup))
             _atomic_write(target, new, target.stat().st_mode & 0o7777)
         entry["ops"] = rest
+        if entry["format"] == "json":
+            if pending and rest:
+                entry["pending_prune"] = pending
+            else:
+                entry.pop("pending_prune", None)
     return messages, not rest

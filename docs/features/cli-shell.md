@@ -115,11 +115,14 @@ Records print to stderr until you choose a destination:
 To record your own functions as well, see: briefcase features capture-decorator
 ```
 
-- **"I run a team or platform"** changes nothing on your machine. It lists the steps to
-  plan, and says "Coming" for any step whose command is not in the version you installed:
+- **"I run a team or platform"** prints the receiver commands, then offers the rollout pack
+  (`briefcase connect --managed`) and policy (`briefcase policy init`) as real steps. Each asks
+  first (default no) and `policy init` shows its plan and asks again before writing. A step whose
+  command is not in the version you installed says "Coming" instead:
 
 ```text
-Nothing is changed on this machine for a team setup; these are the steps to plan.
+Step 1 only prints commands. The steps after it offer to run the real command;
+each one shows what it would write and asks first.
 
 Step 1 of 4 · Collect records in one place
   On a shared host:   briefcase receive --host 0.0.0.0 --token <secret> --to <destination>
@@ -128,11 +131,18 @@ Step 1 of 4 · Collect records in one place
   Docs: docs/integrations/README.md (The receiver)
 
 Step 2 of 4 · Roll out to every developer machine
-  Coming: there is no command for this in the version installed here.
-  Today:  briefcase connect --dry-run   # prints the exact settings to distribute with your device management
+  briefcase connect --managed --out ./briefcase-rollout --endpoint https://<your-receiver-host>
+  Docs: docs/features/managed-rollout.md
+Writes the files your device management deploys (managed settings, hooks) into one
+directory. Nothing outside it is touched, and nothing is installed on this machine.
+Write a rollout pack to ./briefcase-rollout now? [y/N]
 
 Step 3 of 4 · Decide what coding tools may run
-  Coming: there is no command for this in the version installed here.
+  briefcase policy init
+  Docs: docs/features/policy-hooks.md
+Writes ~/.briefcase/policy.toml and a hook in each coding tool. It lists every file and
+asks before writing; undo with `briefcase policy off`. This affects this machine only.
+Set up policy on this machine now? [y/N]
 
 Step 4 of 4 · Cap spend
   Coming: there is no command for this in the version installed here.

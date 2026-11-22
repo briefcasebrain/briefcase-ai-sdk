@@ -485,24 +485,56 @@ def test_setup_app_dry_run_for_real(at_terminal, shell_home, monkeypatch, capfd)
     assert files_under(shell_home) == [".briefcase/setup.json"]
 
 
-def test_setup_team_path_marks_missing_commands_as_coming(at_terminal, shell_home, capsys):
-    at_terminal("3\n")
+def test_setup_team_path_offers_real_steps_when_policy_is_discovered(at_terminal, shell_home, capsys):
+    at_terminal("3\nn\nn\n")                      # team; decline the rollout pack and the policy
     assert main(["setup"]) == 0
     out = capsys.readouterr().out
     assert "Step 1 of 4 · Collect records in one place" in out
+    managed = out.split("Roll out to every developer machine", 1)[1].split("Step 3", 1)[0]
+    assert "briefcase connect --managed --out ./briefcase-rollout" in managed and "Coming" not in managed
+    policy = out.split("Decide what coding tools may run", 1)[1].split("Step 4", 1)[0]
+    assert "briefcase policy init" in policy and "Coming" not in policy
+    assert out.count("Coming: there is no command for this in the version installed here.") == 1  # budget
+    assert "Today:  briefcase features controls-gateway" in out
+    assert setup_record(shell_home)["persona"] == "team"
+    assert files_under(shell_home) == [".briefcase/setup.json"]          # declined: nothing written
+
+
+def test_setup_team_path_marks_missing_commands_as_coming(shell_home, capsys):
+    setup_commands.path_team([fake_module("other_commands", "enforce", commands=["other"])])
+    out = capsys.readouterr().out
     assert out.count("Coming: there is no command for this in the version installed here.") == 3
     assert "Today:  briefcase connect --dry-run" in out
-    assert setup_record(shell_home)["persona"] == "team"
-    assert files_under(shell_home) == [".briefcase/setup.json"]
+    assert files_under(shell_home) == []
 
 
-def test_setup_team_path_uses_a_discovered_command(shell_home, capsys):
+def test_setup_team_path_writes_the_rollout_pack_only_after_a_yes(
+        at_terminal, shell_home, tmp_path, monkeypatch, capsys):
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
     modules = [fake_module("policy_commands", "enforce", commands=["policy"])]
+    at_terminal("n\nn\n")
+    setup_commands.path_team(modules)
+    assert not (work / "briefcase-rollout").exists()
+    at_terminal("y\nn\n")
     setup_commands.path_team(modules)
     out = capsys.readouterr().out
-    section = out.split("Decide what coding tools may run", 1)[1].split("Step 4", 1)[0]
-    assert "briefcase policy --help" in section and "Coming" not in section
-    assert out.count("Coming:") == 2
+    assert "Wrote" in out and (work / "briefcase-rollout" / "manifest.json").is_file()
+    assert files_under(shell_home) == []
+
+
+def test_setup_team_path_policy_step_calls_policy_init_with_its_own_confirmation(
+        at_terminal, shell_home, monkeypatch, capsys):
+    modules = [fake_module("policy_commands", "enforce", commands=["policy"])]
+    at_terminal("n\ny\nn\n")              # skip rollout; yes to policy; no to its write prompt
+    setup_commands.path_team(modules)
+    out = capsys.readouterr().out
+    assert "Aborted; nothing was changed." in out
+    assert files_under(shell_home) == []
+    at_terminal("n\ny\ny\n")
+    setup_commands.path_team(modules)
+    assert (shell_home / ".briefcase" / "policy.toml").is_file()
 
 
 # --- completion -------------------------------------------------------------------

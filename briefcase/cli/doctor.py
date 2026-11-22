@@ -125,6 +125,11 @@ def connect_checks(adapters=None, probe=None):
     from briefcase.receiver import daemon
 
     results = connect_engine.doctor_checks(adapters, probe=probe or daemon.probe)
+    try:  # the enforcement hooks, when `briefcase policy` is in use
+        from briefcase.cli import policy_commands
+        results = list(results) + list(policy_commands.doctor_checks())
+    except Exception as exc:
+        results = list(results) + [(WARN, "policy", f"could not be checked: {exc}")]
     return results + conformance_checks(adapters)
 
 

@@ -1,0 +1,13 @@
+{
+  "id": "policy-hooks",
+  "title": "Policy for coding tools",
+  "verb": "enforce",
+  "one_line": "Allow, ask or deny what Claude Code, Cursor and Codex may run.",
+  "command": "briefcase policy init",
+  "docs_slug": "enforce/policy-hooks",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Claude Code 2.1.330 (real binary, driven with claude -p against a local stub model API: deny, ask, allow, fail-open, fail-closed and undo). Cursor and Codex CLI hooks built from their documentation (2026-11-21/22) and tested only with documented payloads; never run against those tools.",
+  "docs_path": "docs/features/policy-hooks.md",
+  "status_id": "policy-hooks"
+}

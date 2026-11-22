@@ -1,0 +1,9 @@
+version = 1
+preset = "guarded"
+
+[[rule]]
+id = "no-prod"
+tool = "shell"
+effect = "deny"
+command = "kubectl --context=prod*"
+reason = "Production goes through the runbook."

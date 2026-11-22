@@ -2,8 +2,8 @@
 
 Standard library only (``ThreadingHTTPServer``). It accepts ``POST /v1/logs``,
 ``/v1/metrics`` and ``/v1/traces`` as OTLP/JSON, or as OTLP/protobuf when
-``opentelemetry-proto`` is installed, plus ``POST /v1/hooks/cursor`` and
-``GET /healthz``. Decoded events become decision records and leave through an
+``opentelemetry-proto`` is installed, plus ``POST /v1/hooks/cursor``,
+``POST /v1/policy/decisions`` and ``GET /healthz``. Decoded events become decision records and leave through an
 ordinary briefcase exporter.
 
 It binds loopback by default. Any other host requires a bearer token, which is
@@ -34,6 +34,7 @@ DEFAULT_HOST = "127.0.0.1"
 MAX_BODY_BYTES = 8 * 1024 * 1024
 OTLP_PATHS = {"/v1/logs": "logs", "/v1/metrics": "metrics", "/v1/traces": "traces"}
 CURSOR_HOOK_PATH = "/v1/hooks/cursor"
+POLICY_PATH = "/v1/policy/decisions"   # decisions from `briefcase hook <tool> --enforce`
 JSON_TYPE = "application/json"
 PROTOBUF_TYPE = "application/x-protobuf"
 
@@ -170,6 +171,10 @@ class Receiver(ExportMixin):
                 payload = otlp.decode_json(body)
                 self._emit([normalize.normalize_cursor(payload)], 1)
                 return _json(200, {})
+            if path == POLICY_PATH:
+                if media != JSON_TYPE:
+                    return self._reject(415, "the policy endpoint takes application/json")
+                return self._policy_decision(otlp.decode_json(body))
             kind = OTLP_PATHS.get(path)
             if kind is None:
                 return self._reject(404, f"unknown path {path}")
@@ -191,6 +196,17 @@ class Receiver(ExportMixin):
                       "metrics": normalize.normalize_metric}[kind]
         self._emit([normaliser(signal) for signal in signals], len(signals))
         return reply
+
+    def _policy_decision(self, payload: Any) -> Response:
+        from briefcase.receiver import policy
+
+        record = policy.record_from_decision(payload, self.mapper.redactor)
+        with self._lock:
+            self.stats["signals"] += 1
+            self.stats["records" if record is not None else "unmapped"] += 1
+        if record is not None:
+            self._trigger_export(record)
+        return _json(200, {})
 
     def _reject(self, status: int, message: str) -> Response:
         with self._lock:
