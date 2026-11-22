@@ -26,6 +26,7 @@ import {
   type Instrumentor,
   type ProviderCall,
   type StreamState,
+  callStore,
   finishWhenCollected,
   isAbortError,
   observeAsyncIterator,
@@ -160,8 +161,9 @@ export function wrapStainlessMethod(
       if (!call) return original.apply(this, args);
       const callArgs = prepareArgs ? (safe(() => prepareArgs(args), "prepare args") ?? args) : args;
       let result: unknown;
+      call.owner = this;
       try {
-        result = original.apply(this, callArgs);
+        result = callStore.run(call, () => original.apply(this, callArgs));
       } catch (error) {
         call.finish({}, { error });
         throw error;

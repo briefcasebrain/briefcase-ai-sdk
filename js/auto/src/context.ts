@@ -16,7 +16,7 @@ import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
-import { debug } from "./util.js";
+import { debug, moduleUrl } from "./util.js";
 
 export interface WorkflowContext {
   readonly workflowId: string;
@@ -58,7 +58,7 @@ let otel: OtelApi | null | undefined;
 export function loadOtel(): OtelApi | null {
   if (otel !== undefined) return otel;
   otel = null;
-  for (const base of [join(process.cwd(), "noop.js"), import.meta.url]) {
+  for (const base of [join(process.cwd(), "noop.js"), moduleUrl(import.meta.url)]) {
     try {
       const mod = createRequire(base)("@opentelemetry/api") as Partial<OtelApi>;
       if (mod && mod.trace && mod.context) {

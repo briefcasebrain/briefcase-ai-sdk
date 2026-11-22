@@ -58,6 +58,15 @@ export class Pipeline {
       return;
     }
     this.warnedFull = false;
+    if (this.exporter.immediate && this.exporter.exportSync) {
+      try {
+        this.exporter.exportSync([record]);
+        this.exported++;
+        return;
+      } catch (error) {
+        debug(`immediate export failed, queued instead: ${describeError(error)}`);
+      }
+    }
     this.queue.push(record);
     this.schedule();
   }

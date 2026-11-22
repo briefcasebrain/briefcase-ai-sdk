@@ -46,7 +46,9 @@ import {
   type Instrumentor,
   type PatchTarget,
   type ProviderCall,
+  type SdkFile,
   StreamState,
+  callStore,
   finishWhenCollected,
   instrumentAsyncIterable,
 } from "./core.js";
@@ -55,6 +57,15 @@ export const PROVIDER = "bedrock";
 export const PACKAGE = "@aws-sdk/client-bedrock-runtime";
 export const VERIFIED_VERSION = "3.1175.0";
 export const SPECIFIERS = ["@aws-sdk/client-bedrock-runtime"];
+/**
+ * `dist-cjs/index.js` is what Node loads (`main`; there is no `exports`
+ * map). `dist-es/BedrockRuntimeClient.js` is the ES build bundlers pick
+ * through the `module` field.
+ */
+export const FILES: SdkFile[] = [
+  { specifier: SPECIFIERS[0]!, rel: "dist-cjs/index.js", format: "cjs", group: "main" },
+  { specifier: SPECIFIERS[0]!, rel: "dist-es/BedrockRuntimeClient.js", format: "esm", group: "es" },
+];
 export const MIDDLEWARE_NAME = "briefcaseAutoMiddleware";
 
 type Operation = { name: string; decisionType: string; functionName: string; stream: boolean };
@@ -210,7 +221,7 @@ function middleware(inst: Instrumentor) {
       if (!call) return next(args);
       let result: unknown;
       try {
-        result = await next(args);
+        result = await callStore.run(call, () => next(args));
       } catch (error) {
         call.finish({}, { error });
         throw error;

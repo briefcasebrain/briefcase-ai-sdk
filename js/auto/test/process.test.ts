@@ -53,6 +53,20 @@ const client = new OpenAI({ apiKey: "sk-test", fetch: fakeFetch, maxRetries: 0 }
 await client.chat.completions.create({ model: "gpt-4o-mini", messages: [] });
 process.exit(0);
 `,
+  "lazy-none.mjs": `import { createRequire } from "node:module";
+import { status } from "@briefcase-ai/auto";
+const require = createRequire(import.meta.url);
+const sdkFiles = Object.keys(require.cache).filter((k) => /node_modules[\\/](openai|@anthropic-ai|@google|@aws-sdk)[\\/]/.test(k));
+console.log(JSON.stringify({ states: status().providers.map((p) => p.state), sdkFiles }));
+`,
+  "lazy-esm.mjs": `import { createRequire } from "node:module";
+import OpenAI from "openai";
+import { status } from "@briefcase-ai/auto";
+const require = createRequire(import.meta.url);
+const cjsLoaded = Object.keys(require.cache).some((k) => k.endsWith("completions.js"));
+const openai = status().providers.find((p) => p.name === "openai");
+console.log(JSON.stringify({ state: openai.state, patched: openai.patched, cjsLoaded }));
+`,
   "explicit-api.mjs": `import { observe, auto, shutdown } from "@briefcase-ai/auto";
 import OpenAI from "openai";
 ${FAKE_FETCH}
@@ -165,6 +179,30 @@ describe("zero-code activation", () => {
     expect(r.code).toBe(0);
     expect(r.stdout).toContain("app done");
     expect(r.stderr).toContain("briefcase: auto-instrumentation is disabled for this process");
+  });
+});
+
+describe("lazy patching", () => {
+  it("an app that imports no SDK loads none of them", async () => {
+    const r = await run(["--import", REGISTER, "lazy-none.mjs"]);
+    expect(r.code, r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual({ states: ["waiting", "waiting", "waiting", "waiting"], sdkFiles: [] });
+  });
+
+  it("an ESM app gets the ESM copy patched and never loads the CommonJS copy", async () => {
+    const r = await run(["--import", REGISTER, "lazy-esm.mjs"]);
+    expect(r.code, r.stderr).toBe(0);
+    const out = JSON.parse(r.stdout) as { state: string; patched: string[]; cjsLoaded: boolean };
+    expect(out.state).toBe("patched");
+    expect(out.patched.every((t) => t.startsWith("esm "))).toBe(true);
+    expect(out.patched).toHaveLength(4);
+    expect(out.cjsLoaded).toBe(false);
+  });
+
+  it("BRIEFCASE_AUTO_EAGER=1 patches every installed copy at startup", async () => {
+    const r = await run(["--import", REGISTER, "lazy-none.mjs"], { BRIEFCASE_AUTO_EAGER: "1" });
+    expect(r.code, r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout).states).toEqual(["patched", "patched", "patched", "patched"]);
   });
 });
 

@@ -8,7 +8,7 @@
  * or, without editing the program: `node --import @briefcase-ai/auto/register app.js`.
  */
 
-export { auto, undo, status, PROVIDER_NAMES, type AutoOptions, type AutoStatus } from "./auto.js";
+export { auto, instrument, undo, status, PROVIDER_NAMES, type AutoOptions, type AutoStatus } from "./auto.js";
 export {
   observe,
   flush,

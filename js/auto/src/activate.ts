@@ -12,18 +12,22 @@
  *   test runners, editors), and those should not start exporting records.
  *   `briefcase exec` sets `BRIEFCASE_AUTO=1` itself.
  *
- * It runs on the main thread only. Activation calls `observe()`
+ * It runs on the main thread and in worker threads (a worker inherits the
+ * parent's `execArgv` and environment, so the same rule applies there; a
+ * worker's records go to the main thread when the main thread is
+ * observing, see observe.ts). Activation calls `observe()`
  * (destination from the environment) and `auto()` with
  * `BRIEFCASE_CAPTURE_CONTENT` (none | hash | full, default none) and
- * `BRIEFCASE_AUTO_SKIP` (comma-separated provider names). Nothing here
+ * `BRIEFCASE_AUTO_SKIP` (comma-separated provider names) and
+ * `BRIEFCASE_AUTO_EAGER=1` (patch every installed SDK copy up front instead
+ * of when the application loads it). Nothing here
  * throws into the program: a failure is reported in one stderr line and the
  * program runs uninstrumented.
  */
 
-import { isMainThread } from "node:worker_threads";
 import { resolve } from "node:path";
 
-import { auto, PROVIDER_NAMES, type AutoStatus } from "./auto.js";
+import { auto, markStartup, PROVIDER_NAMES, type AutoStatus } from "./auto.js";
 import { observe } from "./observe.js";
 
 const PRELOAD_FLAGS = new Set(["--import", "--require", "-r", "--loader", "--experimental-loader"]);
@@ -69,10 +73,9 @@ function report(message: string): void {
   }
 }
 
-export function activate(env: Record<string, string | undefined>, explicit: boolean, mainThread = isMainThread): Activation {
+export function activate(env: Record<string, string | undefined>, explicit: boolean): Activation {
   const flag = (env["BRIEFCASE_AUTO"] ?? "").trim().toLowerCase();
   if (flag === "0" || flag === "false") return { active: false, reason: "BRIEFCASE_AUTO=0" };
-  if (!mainThread) return { active: false, reason: "not the main thread" };
   if (flag !== "1" && flag !== "true" && !explicit) {
     return { active: false, reason: "loaded through NODE_OPTIONS without BRIEFCASE_AUTO=1" };
   }
@@ -89,9 +92,13 @@ export function activate(env: Record<string, string | undefined>, explicit: bool
     const unknown = skip.filter((s) => !PROVIDER_NAMES.includes(s));
     if (unknown.length) report(`ignoring unknown names in BRIEFCASE_AUTO_SKIP: ${unknown.join(", ")}`);
     observe();
+    const eager = ["1", "true"].includes((env["BRIEFCASE_AUTO_EAGER"] ?? "").trim().toLowerCase());
+    // The preload runs before any application module: from here the load hook sees every SDK load.
+    if (!eager) markStartup();
     const status = auto({
       captureContent: content as "none" | "hash" | "full",
       skip: skip.filter((s) => PROVIDER_NAMES.includes(s)),
+      eager,
     });
     return { active: true, reason: flag === "1" || flag === "true" ? "BRIEFCASE_AUTO=1" : "--import on the command line", status };
   } catch (error) {

@@ -4,7 +4,7 @@
  * Zero-code activation: `observe()` (destination from the environment) and
  * `auto()` before the application's own modules load. See `activate.ts`
  * for when it activates. No top-level await, so it also loads with
- * `--require` in CommonJS programs (require(esm), Node >= 20.19).
+ * `--require` in CommonJS programs (require(esm), Node >= 26).
  */
 
 import { fileURLToPath } from "node:url";

@@ -15,6 +15,7 @@
  *   them as separate module instances, with separate classes).
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -29,6 +30,7 @@ import {
   debug,
   describeError,
   isoTimestamp,
+  moduleUrl,
   jsonable,
   read,
   safe,
@@ -56,18 +58,40 @@ export function normalizeContentMode(value: unknown): ContentMode {
   throw new Error(`captureContent must be a boolean or one of "none", "hash", "full"; got ${JSON.stringify(value)}`);
 }
 
+/**
+ * The call being recorded in the current async context. Wrappers run the
+ * SDK's own method inside it, so nested SDK internals can tell they are
+ * already covered and the request detector (`detect.ts`) can tell a
+ * recorded request from one made through an uninstrumented SDK copy.
+ */
+export const callStore = new AsyncLocalStorage<ProviderCall>();
+
+/** Runs `fn` inside `call`'s context (no-op wrapper when `call` is null). */
+export function within<T>(call: ProviderCall | null, fn: () => T): T {
+  return call ? callStore.run(call, fn) : fn();
+}
+
 /** Marker on every wrapper we install; holds the wrapped original. */
 export const WRAPPED = Symbol.for("briefcase-ai.auto.wrapped");
 
 export interface ProviderReport {
   name: string;
-  state: "patched" | "skipped" | "not-installed" | "undone" | "not-checked";
+  /**
+   * patched: at least one SDK copy is instrumented. waiting: installed (or
+   * listening for a bundled copy) but no copy has been loaded yet; it is
+   * patched when the application loads it. skipped: the layout check
+   * failed. not-installed: not resolvable from here and nothing reported
+   * itself. undone: `undo()` ran. not-checked: `auto()` never looked.
+   */
+  state: "patched" | "waiting" | "skipped" | "not-installed" | "undone" | "not-checked";
   packageName: string;
   sdkVersion: string | null;
   verifiedVersion: string;
   patched: string[];
   skipped: { target: string; reason: string }[];
   refusedUndo: string[];
+  /** Provider requests seen on the wire that no instrumented copy recorded (see detect.ts). */
+  unrecordedRequests: number;
   instrumentor?: Instrumentor;
 }
 
@@ -100,6 +124,8 @@ export interface InstanceAssignTarget {
   key: string;
   label: string;
   wrap: (original: (...args: unknown[]) => unknown) => (...args: unknown[]) => unknown;
+  /** Called with the instance whenever the setter wraps a value for it. */
+  assigned?: (instance: object) => void;
 }
 
 export type PatchTarget = MethodTarget | InstanceAssignTarget;
@@ -113,6 +139,8 @@ function markWrapper(wrapper: (...args: unknown[]) => unknown, original: (...arg
 export class Instrumentor {
   active = true;
   private readonly applied: AppliedPatch[] = [];
+  /** Module copies (see `loader.ts`) this instrumentor has already handled. */
+  readonly handledCopies = new Set<string>();
   readonly report: ProviderReport;
 
   constructor(
@@ -130,6 +158,7 @@ export class Instrumentor {
       patched: [],
       skipped: [],
       refusedUndo: [],
+      unrecordedRequests: 0,
       instrumentor: this,
     };
   }
@@ -209,6 +238,7 @@ export class Instrumentor {
         : { value: wrapper, writable: true, configurable: true, enumerable: false };
     } else {
       const wrap = target.wrap;
+      const assigned = target.assigned;
       const inst = this;
       const key = target.key;
       const get = function (this: object): undefined {
@@ -221,6 +251,7 @@ export class Instrumentor {
           const wrapper = wrap(original);
           markWrapper(wrapper, original);
           stored = wrapper;
+          if (assigned) safe(() => assigned(this), "assigned hook");
         }
         Object.defineProperty(this, key, { value: stored, writable: true, enumerable: true, configurable: true });
       };
@@ -396,6 +427,8 @@ export interface StreamOutcome {
 
 export class ProviderCall implements PendingCall {
   done = false;
+  /** The SDK object whose method started this call (used to recognise nested internal calls). */
+  owner: unknown = undefined;
   private firstChunkMs: number | null = null;
   /** What the record says if the call is abandoned (process exit) before it finishes. */
   fallback: CallInfo = {};
@@ -411,6 +444,10 @@ export class ProviderCall implements PendingCall {
     private stream: boolean,
   ) {
     state().pending.add(this);
+  }
+
+  get provider(): string {
+    return this.inst.provider;
   }
 
   markStream(): void {
@@ -582,7 +619,11 @@ export function observeAsyncIterator<T>(inner: AsyncIterator<T>, hooks: Iterator
  * iterable gets an own `[Symbol.asyncIterator]` returning an observed
  * iterator. Returns false when `obj` is not async-iterable.
  */
-export function instrumentAsyncIterable(obj: unknown, hooks: IteratorHooks): boolean {
+export function instrumentAsyncIterable(
+  obj: unknown,
+  hooks: IteratorHooks,
+  runInside?: <R>(fn: () => R) => R,
+): boolean {
   if (!obj || typeof obj !== "object") return false;
   const target = obj as Record<PropertyKey, unknown>;
   const iterFn = target[Symbol.asyncIterator];
@@ -591,8 +632,9 @@ export function instrumentAsyncIterable(obj: unknown, hooks: IteratorHooks): boo
   if (typeof next === "function") {
     const ret = target["return"];
     const thr = target["throw"];
+    const run = runInside ?? (<R>(fn: () => R): R => fn());
     const inner: AsyncIterator<unknown> = {
-      next: (...args: [] | [unknown]) => (next as (...a: unknown[]) => Promise<IteratorResult<unknown>>).apply(obj, args),
+      next: (...args: [] | [unknown]) => run(() => (next as (...a: unknown[]) => Promise<IteratorResult<unknown>>).apply(obj, args)),
     };
     if (typeof ret === "function") inner.return = (value?: unknown) => (ret as (v?: unknown) => Promise<IteratorResult<unknown>>).call(obj, value);
     if (typeof thr === "function") inner.throw = (error?: unknown) => (thr as (e?: unknown) => Promise<IteratorResult<unknown>>).call(obj, error);
@@ -604,7 +646,15 @@ export function instrumentAsyncIterable(obj: unknown, hooks: IteratorHooks): boo
   }
   Object.defineProperty(obj, Symbol.asyncIterator, {
     value: function (this: unknown, ...args: unknown[]) {
-      return observeAsyncIterator((iterFn as (...a: unknown[]) => AsyncIterator<unknown>).apply(this, args), hooks);
+      const it = (iterFn as (...a: unknown[]) => AsyncIterator<unknown>).apply(this, args);
+      const inner: AsyncIterator<unknown> = runInside
+        ? {
+            next: (...a: [] | [unknown]) => runInside(() => it.next(...(a as []))),
+            ...(it.return ? { return: (v?: unknown) => it.return!(v) } : {}),
+            ...(it.throw ? { throw: (e?: unknown) => it.throw!(e) } : {}),
+          }
+        : it;
+      return observeAsyncIterator(inner, hooks);
     },
     writable: true,
     configurable: true,
@@ -630,13 +680,36 @@ export const DEFAULT_OPTIONS: CaptureOptions = {
 
 // -- module copies ------------------------------------------------------------
 
+/**
+ * One SDK file that holds patch targets, relative to the package root, as
+ * laid out in the verified version. `group` separates builds of the same
+ * format inside one package (e.g. @google/genai's `dist/node` and `dist`).
+ */
+export interface SdkFile {
+  specifier: string;
+  rel: string;
+  format: "esm" | "cjs";
+  group: string;
+}
+
+/** The `.mjs` / `.js` pair of a Stainless resource module (`openai/resources/x` -> `resources/x.mjs`, `resources/x.js`). */
+export function stainlessFiles(packageName: string, specifiers: readonly string[]): SdkFile[] {
+  return specifiers.flatMap((specifier) => {
+    const rel = specifier.slice(packageName.length + 1);
+    return [
+      { specifier, rel: `${rel}.mjs`, format: "esm" as const, group: "main" },
+      { specifier, rel: `${rel}.js`, format: "cjs" as const, group: "main" },
+    ];
+  });
+}
+
 export interface ModuleCopy {
   format: "esm" | "cjs";
   path: string;
   ns: Record<string, unknown>;
 }
 
-const localRequire = createRequire(import.meta.url);
+const localRequire = createRequire(moduleUrl(import.meta.url));
 
 const ESM_CONDITIONS = ["node", "import", "default"];
 
@@ -739,14 +812,12 @@ export function isNotFound(error: unknown): boolean {
 }
 
 /**
- * Loads every copy of `specifier` an application could get: the file
- * `import` resolves to and the file `require` resolves to. For dual
- * packages these differ and are separate module instances. The ESM copy is
- * loaded with `require()` (require(esm), on by default since Node 20.19 and
- * 22.12), which returns the same instance a later `import` gets.
- * Returns null when the package is not installed.
+ * The files an application could get for `specifier` from this package's
+ * location: what `import` resolves to and what `require` resolves to. For
+ * dual packages these differ and load as separate module instances.
+ * Resolution only; nothing is loaded. Null when not installed.
  */
-export function loadCopies(specifier: string): { copies: ModuleCopy[]; problems: string[] } | null {
+export function resolveCopies(specifier: string): { esm: string | null; cjs: string | null } | null {
   let cjsPath: string | null = null;
   try {
     cjsPath = localRequire.resolve(specifier);
@@ -755,17 +826,33 @@ export function loadCopies(specifier: string): { copies: ModuleCopy[]; problems:
   }
   const esmPath = resolveEsm(specifier, cjsPath);
   if (!cjsPath && !esmPath) return null;
+  return { esm: esmPath && esmPath !== cjsPath ? esmPath : null, cjs: cjsPath };
+}
+
+/** Loads one file with `require()` (an ES module through require(esm): the same instance `import` gets). */
+export function requireFile(path: string): Record<string, unknown> {
+  return localRequire(path) as Record<string, unknown>;
+}
+
+/**
+ * Loads every copy of `specifier` an application could get (see
+ * `resolveCopies`). Used by `auto({ eager: true })`. Returns null when the
+ * package is not installed.
+ */
+export function loadCopies(specifier: string): { copies: ModuleCopy[]; problems: string[] } | null {
+  const paths = resolveCopies(specifier);
+  if (!paths) return null;
   const copies: ModuleCopy[] = [];
   const problems: string[] = [];
   const load = (format: "esm" | "cjs", path: string): void => {
     try {
-      copies.push({ format, path, ns: localRequire(path) as Record<string, unknown> });
+      copies.push({ format, path, ns: requireFile(path) });
     } catch (error) {
       problems.push(`${format} copy could not be loaded (${describeError(error)})`);
     }
   };
-  if (esmPath && esmPath !== cjsPath) load("esm", esmPath);
-  if (cjsPath) load("cjs", cjsPath);
+  if (paths.esm) load("esm", paths.esm);
+  if (paths.cjs) load("cjs", paths.cjs);
   return { copies, problems };
 }
 

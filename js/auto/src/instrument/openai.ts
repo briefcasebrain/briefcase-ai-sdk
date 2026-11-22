@@ -53,7 +53,9 @@ import {
   type Instrumentor,
   type PatchTarget,
   type ProviderCall,
+  type SdkFile,
   StreamState,
+  stainlessFiles,
 } from "./core.js";
 import { type StainlessHooks, wrapStainlessMethod } from "./stainless.js";
 
@@ -311,3 +313,4 @@ export function targets(inst: Instrumentor, modules: Record<string, Record<strin
 }
 
 export const SPECIFIERS = SURFACES.map((s) => s.specifier);
+export const FILES: SdkFile[] = stainlessFiles(PACKAGE, SPECIFIERS);
