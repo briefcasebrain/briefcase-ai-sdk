@@ -2,6 +2,7 @@
 
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -96,11 +97,16 @@ def test_status_json_shape_on_a_fresh_machine(shell_home, capsys):
     assert captured.err == ""
     assert set(report) == {"schema_version", "version", "home", "items", "summary", "next", "problems"}
     assert report["schema_version"] == 1 and report["home"] == str(shell_home / ".briefcase")
-    assert [item["id"] for item in report["items"]] == ["connect", "receive", "mcp", "records"]
+    # Feature modules add their own rows (budgets, content guardrails, ...); the core rows
+    # come first and are all off on a fresh machine, and so is every feature row.
+    core = [item for item in report["items"] if item["source"] == "core"]
+    assert [item["id"] for item in core] == ["connect", "receive", "mcp", "records"]
+    assert report["items"][:4] == core
     for item in report["items"]:
-        assert set(item) == {"id", "title", "group", "state", "detail", "next", "source", "data"}
-        assert item["state"] == "off" and item["source"] == "core"
-    assert report["summary"] == {"on": 0, "off": 4, "attention": 0}
+        keys = {"id", "title", "group", "state", "detail", "next", "source"}
+        assert set(item) == keys | {"data"} if item in core else keys <= set(item)
+        assert item["state"] == "off"
+    assert report["summary"] == {"on": 0, "off": len(report["items"]), "attention": 0}
     assert report["next"] == {"command": "briefcase exec -- python your_app.py",
                               "reason": "no coding tool found here; capture a Python app instead"}
     assert report["items"][3]["data"]["sdk"] == {"kind": "console", "target": "stderr", "kept": False,
@@ -113,7 +119,7 @@ def test_status_screen_ends_with_exactly_one_next_line(shell_home, capsys):
     lines = out.rstrip("\n").splitlines()
     assert lines[0].startswith("briefcase status  (briefcase-ai ")
     assert "Connect" in lines and "Capture" in lines
-    assert lines[-2] == "0 on · 4 off · 0 need attention"
+    assert re.fullmatch(r"0 on · \d+ off · 0 need attention", lines[-2])
     assert lines[-1].startswith("Next: briefcase exec -- python your_app.py  # ")
     assert out.count("Next:") == 1 and "\033[" not in out
 
@@ -401,7 +407,7 @@ def test_setup_coding_tools_connects_then_starts_the_receiver(at_terminal, shell
                         "metrics": False, "token": None, "max_body_mb": 8.0}]
     assert setup_record(shell_home)["persona"] == "coding-tools"
     # The status screen at the end reflects what was just done.
-    assert "on        Coding tools  Claude Code connected" in out
+    assert re.search(r"\bon +Coding tools +Claude Code connected", out)
 
 
 def test_setup_coding_tools_writes_nothing_when_the_user_says_no(at_terminal, shell_home, fake_tool, monkeypatch,
@@ -475,7 +481,9 @@ def test_setup_team_path_marks_missing_commands_as_coming(at_terminal, shell_hom
     assert main(["setup"]) == 0
     out = capsys.readouterr().out
     assert "Step 1 of 4 · Collect records in one place" in out
-    assert out.count("Coming: there is no command for this in the version installed here.") == 3
+    # Rollout and policy are still to come; "Cap spend" now finds `briefcase budget`.
+    assert out.count("Coming: there is no command for this in the version installed here.") == 2
+    assert "briefcase budget set daily --usd 20" in out.split("Cap spend", 1)[1]
     assert "Today:  briefcase connect --dry-run" in out
     assert setup_record(shell_home)["persona"] == "team"
     assert files_under(shell_home) == [".briefcase/setup.json"]

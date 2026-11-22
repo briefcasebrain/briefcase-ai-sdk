@@ -64,6 +64,7 @@ Batches API, objects created before ``auto()`` that hold a bound method.
 from __future__ import annotations
 
 import functools
+import weakref
 from typing import Any, Callable, Dict, Optional
 
 from briefcase._logging import get_logger
@@ -82,6 +83,7 @@ from briefcase.integrations.providers._base import (
     text_accumulator,
     token_usage,
 )
+from briefcase.integrations.providers import _base, _requests
 from briefcase.integrations.providers._stainless import Surface, header
 
 logger = get_logger(__name__)
@@ -164,8 +166,8 @@ class _MessageStream(StreamState):
 
     def __init__(self, call: ProviderCall, inst: ProviderInstrumentor, request_id: Any) -> None:
         super().__init__(call)
-        self.want_content = inst.captures_content
-        self.add_text, self.get_text = text_accumulator(inst.max_content_chars)
+        self.want_content = call.want_content
+        self.add_text, self.get_text = text_accumulator(call.text_limit)
         self.data: Dict[str, Any] = {"request_id": request_id}
         self.input_tokens: Any = None
         self.output_tokens: Any = None
@@ -237,7 +239,7 @@ class _SnapshotStream(StreamState):
             snapshot = self.stream.current_message_snapshot
         except Exception:
             return {"request_id": header(self.stream, REQUEST_ID_HEADER)}
-        info = _message_info(snapshot, self.inst.captures_content)
+        info = _message_info(snapshot, self.call.want_content)
         info["request_id"] = info.get("request_id") or header(self.stream, REQUEST_ID_HEADER)
         if read(snapshot, "stop_reason") is None:
             # No message_delta was consumed: the output count is the
@@ -262,6 +264,7 @@ class _SnapshotStream(StreamState):
             stream={"chunk_count": None, "stream_completed": None},
             finished=self.finished,
         )
+        _base.raise_after_stream(self.call, False, error)
 
 
 def _begin(inst: ProviderInstrumentor, function_name: str, kwargs: dict,
@@ -293,8 +296,9 @@ def _call_factory(inst: ProviderInstrumentor, function_name: str,
 
     def factory(original: Any) -> Any:
         if is_async:
-            return async_method(original, begin, surface.end, surface.aend)
-        return sync_method(original, begin, surface.end)
+            return async_method(original, begin, surface.end, surface.aend,
+                                spec=_requests.ANTHROPIC_MESSAGES)
+        return sync_method(original, begin, surface.end, spec=_requests.ANTHROPIC_MESSAGES)
 
     return factory
 
@@ -338,8 +342,18 @@ def _enter_factory(inst: ProviderInstrumentor, is_async: bool) -> Callable[[Any]
         if pending is None:
             return None
         try:
-            function_name, kwargs = pending
-            return _begin(inst, function_name, kwargs, True)
+            function_name, kwargs, ctx = pending
+            call = _begin(inst, function_name, kwargs, True)
+            finalizer = ctx.state.pop("_never_entered", None) if ctx is not None else None
+            if finalizer is not None:
+                finalizer.detach()
+            if call is not None and ctx is not None:
+                call.attach(ctx)
+                call.request_changed(ctx)
+                ctx.sent = True
+            elif ctx is not None:
+                _never_entered(ctx)
+            return call
         except Exception:
             logger.debug("anthropic stream capture could not start", exc_info=True)
             return None
@@ -410,27 +424,62 @@ def _exit_factory(is_async: bool) -> Callable[[Any], Any]:
     return factory
 
 
+def _never_entered(ctx: Any) -> None:
+    """A ``stream()`` manager dropped without entering it: the request was
+    never sent, so the hooks release what they reserved."""
+    try:
+        ctx.complete({}, None, False, None, True)
+    except Exception:
+        logger.debug("anthropic stream hooks could not be released", exc_info=True)
+
+
+def _stream_hooks(inst: ProviderInstrumentor, function_name: str, kwargs: dict,
+                  is_async: bool) -> Optional[Any]:
+    """Run the call hooks' ``before`` when ``stream()`` is called: the SDK
+    binds the request then, and sends it at ``__enter__``."""
+    hooks = _base.call_hooks()
+    if not hooks or not inst.active:
+        return None
+    ctx = _base.CallContext(_requests.ANTHROPIC_STREAM, kwargs, is_async, hooks)
+    try:
+        ctx.run_before()
+    except _base.CallBlocked as exc:
+        call = _begin(inst, function_name, kwargs, True)
+        if call is not None:
+            call.attach(ctx)
+            _base._fail(call, exc)
+        else:
+            ctx.complete({}, exc, False, None, True)
+        raise
+    return ctx
+
+
 def _stream_factory(inst: ProviderInstrumentor, function_name: str,
                     is_async: bool) -> Callable[[Any], Any]:
     """Wrapper for ``stream``: sync in both clients, returning a manager."""
     enter, exit_ = ("__aenter__", "__aexit__") if is_async else ("__enter__", "__exit__")
 
-    def hook(manager: Any, kwargs: dict) -> None:
+    def hook(manager: Any, kwargs: dict, ctx: Any) -> None:
         cls = type(manager)
         label = f"{cls.__module__}.{cls.__qualname__}"
         if not (inst.patch_object(cls, enter, _enter_factory(inst, is_async), f"{label}.{enter}")
                 and inst.patch_object(cls, exit_, _exit_factory(is_async), f"{label}.{exit_}")):
             inst.report_skipped()
+            if ctx is not None:
+                _never_entered(ctx)
             return
-        setattr(manager, PENDING_ATTR, (function_name, kwargs))
+        setattr(manager, PENDING_ATTR, (function_name, kwargs, ctx))
+        if ctx is not None:
+            ctx.state["_never_entered"] = weakref.finalize(manager, _never_entered, ctx)
 
     def factory(original: Any) -> Any:
         @functools.wraps(original)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
+            ctx = _stream_hooks(inst, function_name, kwargs, is_async) if _base._hooks else None
             manager = original(*args, **kwargs)
             try:
-                if inst.active and inst._resolve_exporter() is not None:
-                    hook(manager, kwargs)
+                if inst.active and (ctx is not None or inst._resolve_exporter() is not None):
+                    hook(manager, kwargs, ctx)
             except Exception:
                 logger.debug("anthropic stream manager could not be hooked", exc_info=True)
             return manager

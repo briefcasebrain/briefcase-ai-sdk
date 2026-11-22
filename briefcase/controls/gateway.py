@@ -1,8 +1,9 @@
 """
 The controls gateway: one enforced path for AI invocations.
 
-Composition order: entitlements hard-cap, quota acquire, run the call, and on
-a throttled failure open a bucket cooldown. The wrapped call only runs after
+Composition order: entitlements hard-cap, quota acquire, budget reservation
+(when ``GatewayConfig.budgets`` and a ``budget=`` request are given), run the
+call, settle the budget, and on a throttled failure open a bucket cooldown. The wrapped call only runs after
 quota is acquired, so no path spends without a debit. Outcomes are typed;
 port errors follow an explicit policy instead of an implicit one. When an
 exporter is configured, each invocation emits a decision record carrying
@@ -15,9 +16,10 @@ import asyncio
 import inspect
 import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Mapping, Optional
+from typing import Any, Callable, Dict, Iterator, Mapping, Optional
 
 from briefcase._export_mixin import ExportMixin
 from briefcase._logging import get_logger
@@ -40,6 +42,7 @@ _DEFAULT_EVENT_NAMES: Dict[str, str] = {
     "quota_exhausted": "gateway_quota_exhausted",
     "throttled": "gateway_throttled",
     "internal": "gateway_internal_error",
+    "budget_exceeded": "gateway_budget_exceeded",
 }
 
 PORT_ERROR_POLICIES = ("propagate", "allow", "deny")
@@ -48,7 +51,9 @@ PORT_ERROR_POLICIES = ("propagate", "allow", "deny")
 @dataclass(frozen=True)
 class Outcome:
     """Result of a gated invocation. ``reason`` is None on success, else one
-    of "hard_capped", "quota_exhausted", "throttled", "internal"."""
+    of "hard_capped", "quota_exhausted", "budget_exceeded", "throttled",
+    "internal". ``budget`` holds the budget record fields (``cost_usd``,
+    ``cost_source``, ``budget_effect``, ...) when a budget request was made."""
 
     ok: bool
     value: Any = None
@@ -56,6 +61,7 @@ class Outcome:
     tokens_remaining: Optional[int] = None
     cooldown_until: Optional[datetime] = None
     cause: Optional[BaseException] = None
+    budget: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -76,6 +82,9 @@ class GatewayConfig:
     # loop itself (asyncio.create_task) or thread-affine state.
     run_sync_in_thread: bool = True
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)
+    # A briefcase.budgets.Budgets engine (or True for the one enabled with
+    # briefcase.budgets.enable()/budget()). Used for invoke(..., budget=...).
+    budgets: Any = None
 
     def __post_init__(self) -> None:
         if self.port_error_policy not in PORT_ERROR_POLICIES:
@@ -117,6 +126,7 @@ class Gateway:
         fn: Callable[[], Any],
         ctx: Any = None,
         deadline_s: Optional[float] = None,
+        budget: Any = None,
     ) -> Outcome:
         """Run ``fn`` behind hard-cap, quota, and cooldown enforcement.
 
@@ -133,6 +143,16 @@ class Gateway:
         (CancelledError, KeyboardInterrupt, SystemExit) always propagate.
         A port error under the "propagate" policy is exported as an
         "internal" outcome record before it re-raises.
+
+        ``budget`` (a :class:`briefcase.budgets.BudgetRequest`) reserves the
+        call's maximum cost against ``GatewayConfig.budgets`` after the quota
+        check, with ``tenant=<tenant_id>`` added to the budget scope. A refused
+        reservation returns reason "budget_exceeded" without running ``fn``.
+        Provider calls ``fn`` makes through instrumented SDKs are not reserved
+        a second time; their actual cost settles the reservation (otherwise
+        ``BudgetRequest.usage_of(value)``, otherwise the reservation stays
+        counted). Inside ``fn``, ``briefcase.budgets.gateway_model()`` names
+        the model to use (the cheaper one when a budget degraded the call).
         """
         cfg = self._cfg
         if bucket not in cfg.buckets:
@@ -171,6 +191,23 @@ class Gateway:
             )
             return self._finish(outcome, tenant_id, bucket, fn, started_at)
 
+        engine = self._budget_engine(budget)
+        reservation = None
+        if engine is not None:
+            from briefcase.budgets import BudgetExceeded, current_scope
+
+            scope = {**current_scope(), "tenant": tenant_id, **budget.scope}
+            try:
+                reservation = engine.reserve(budget.model, budget.input_tokens,
+                                             budget.max_tokens, scope=scope)
+            except BudgetExceeded as err:
+                fields = dict(err.details.get("fields") or {})
+                fields.update(budget_effect="block", cost_usd=0.0, cost_source="not_billed")
+                outcome = Outcome(ok=False, reason="budget_exceeded", tokens_remaining=None,
+                                  cause=err, budget=fields)
+                return self._finish(outcome, tenant_id, bucket, fn, started_at)
+
+        tally = None
         try:
             # One budget for the whole call: the thread hop and the await of
             # whatever the callable returns share deadline_s.
@@ -181,23 +218,26 @@ class Gateway:
                     return None
                 return max(0.0, deadline_at - time.monotonic())
 
-            if cfg.run_sync_in_thread and not inspect.iscoroutinefunction(fn):
-                # A plain callable may block (a synchronous SDK call); run it
-                # off the loop. Coroutine functions return at once, so they
-                # are called inline.
-                raw = await asyncio.wait_for(asyncio.to_thread(fn), timeout=_remaining())
-            else:
-                raw = fn()
-            if inspect.isawaitable(raw):
-                value = await asyncio.wait_for(raw, timeout=_remaining())
-            else:
-                value = raw
+            with self._budget_context(engine, reservation, tenant_id) as tally:
+                if cfg.run_sync_in_thread and not inspect.iscoroutinefunction(fn):
+                    # A plain callable may block (a synchronous SDK call); run it
+                    # off the loop. Coroutine functions return at once, so they
+                    # are called inline.
+                    raw = await asyncio.wait_for(asyncio.to_thread(fn), timeout=_remaining())
+                else:
+                    raw = fn()
+                if inspect.isawaitable(raw):
+                    value = await asyncio.wait_for(raw, timeout=_remaining())
+                else:
+                    value = raw
             outcome = Outcome(
-                ok=True, value=value, tokens_remaining=decision.tokens_remaining
+                ok=True, value=value, tokens_remaining=decision.tokens_remaining,
+                budget=self._settle(engine, reservation, tally, budget, value, None),
             )
         # Exception, not BaseException: CancelledError, KeyboardInterrupt,
         # and SystemExit must propagate, never convert into an Outcome.
         except Exception as err:
+            budget_fields = self._settle(engine, reservation, tally, budget, None, err)
             classification = classify_provider_error(
                 err, message_regex=cfg.message_regex_throttle
             )
@@ -231,10 +271,61 @@ class Gateway:
                         else None
                     ),
                     cause=err,
+                    budget=budget_fields,
                 )
             else:
-                outcome = Outcome(ok=False, reason="internal", cause=err)
+                outcome = Outcome(ok=False, reason="internal", cause=err, budget=budget_fields)
         return self._finish(outcome, tenant_id, bucket, fn, started_at)
+
+    #  Budgets
+
+    def _budget_engine(self, budget: Any) -> Any:
+        if budget is None:
+            return None
+        engine = self._cfg.budgets
+        if engine is True or engine is None:
+            from briefcase import budgets as _budgets
+
+            engine = _budgets.active()
+        if engine is None:
+            raise ValueError("invoke(budget=...) needs GatewayConfig(budgets=Budgets(...)) or "
+                             "briefcase.budgets.enable() / budget(...) first")
+        return engine
+
+    @contextmanager
+    def _budget_context(self, engine: Any, reservation: Any, tenant_id: str) -> Iterator[Any]:
+        if engine is None or reservation is None:
+            yield None
+            return
+        from briefcase.budgets import budget_scope, gateway_scope
+
+        with budget_scope(tenant=tenant_id), gateway_scope(engine, reservation.model) as tally:
+            yield tally
+
+    @staticmethod
+    def _settle(engine: Any, reservation: Any, tally: Any, budget: Any, value: Any,
+                error: Optional[BaseException]) -> Optional[Dict[str, Any]]:
+        if engine is None or reservation is None:
+            return None
+        try:
+            if tally is not None and tally.calls and not tally.unknown:
+                source = ("usage_upper_bound" if "usage_upper_bound" in tally.sources
+                          else "usage")
+                return engine.settle_amount(reservation, tally.nano / 1e9, tally.tokens, source)
+            usage = None
+            if error is None and budget.usage_of is not None:
+                try:
+                    usage = budget.usage_of(value)
+                except Exception:
+                    logger.warning("BudgetRequest.usage_of failed; settling at the reservation",
+                                   exc_info=True)
+            from briefcase.integrations.providers._base import http_status_of
+
+            return engine.settle(reservation, usage, sent=True,
+                                 http_status=http_status_of(error) if error is not None else None)
+        except Exception:
+            logger.warning("budget settle failed; the reservation stays counted", exc_info=True)
+            return reservation.fields()
 
     #  Port calls under the configured error policy
 
@@ -349,4 +440,6 @@ class Gateway:
         }
         if not outcome.ok and outcome.cause is not None:
             record["error"] = type(outcome.cause).__name__
+        if outcome.budget:
+            record.update(outcome.budget)
         self._exporter._trigger_export(record, exporter=exporter)

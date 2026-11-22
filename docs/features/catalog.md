@@ -3,13 +3,14 @@
      `briefcase features --markdown > docs/features/catalog.md`. -->
 # Feature catalog
 
-24 features · 5 groups. The same list, with
+34 features · 5 groups. The same list, with
 whether each feature is on for you, is in your terminal: `briefcase features`.
 
-## Connect (6)
+## Connect (7)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
+| [Adapter conformance checks](../../docs/features/adapter-conformance.md) | Know when a coding tool update breaks its briefcase connection. | `briefcase doctor --connect` | experimental |
 | [Connect coding tools](../../docs/integrations/README.md) | Point Claude Code, Codex, Cursor and Copilot at briefcase in one command. | `briefcase connect` | experimental |
 | [Cursor hooks](../../docs/integrations/README.md#cursor) | Record Cursor sessions, prompts and tool calls through its hook system. | `briefcase connect cursor` | experimental |
 | [Guided setup and status](../../docs/features/cli-shell.md) | One command to get started and one screen that shows what is on. | `briefcase setup` | experimental |
@@ -17,7 +18,7 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [MCP server install](../../docs/integrations/README.md#mcp-server-copy-paste-and-one-click-installs) | Register the briefcase MCP server with your coding tools, or print a link. | `briefcase mcp install` | experimental |
 | [Zero-code capture for Python apps](../../briefcase/cli/exec_commands.py) | Run any Python program with decision capture on, without editing it. | `briefcase exec -- python app.py` | experimental |
 
-## Capture (7)
+## Capture (8)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
@@ -28,15 +29,18 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [OpenTelemetry export](../../briefcase/exporters/otel.py) | Send records as spans to any OTLP collector you already run. | `briefcase exec --to otlp -- python app.py` | experimental |
 | [PII redaction](../../llms-full.txt) | Strip emails, phone numbers, card numbers and keys before anything is stored. | `briefcase features sanitizer` | stable |
 | [Record destinations](../../llms-full.txt) | Send records to the console, a JSON Lines file or memory with one line. | `briefcase exec --to runs.jsonl -- python app.py` | stable |
+| [Zero-code capture for Node (TypeScript)](../../docs/features/typescript-auto.md) | Record every OpenAI, Anthropic, Gemini and Bedrock call in Node apps. | `node --import @briefcase-ai/auto/register app.js` | experimental |
 
-## Enforce (2)
+## Enforce (4)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
 | [Budget and quota gateway](../../llms-full.txt) | Cap spend and request rates per tenant before a model call goes out. | `briefcase features controls-gateway` | experimental |
+| [Content guardrails on LLM calls](../../docs/features/content-guardrails.md) | Redact PII and secrets, flag prompt injection, block bad completions. | `briefcase guard test --text "call +44 20 7946 0958, password=hunter22"` | experimental |
 | [Guardrail checks](../../briefcase/guardrails/__init__.py) | Decide allow or deny for an agent action, and fail closed on errors. | `briefcase features guardrails` | experimental |
+| [Spending budgets for LLM calls](../../docs/features/budgets.md) | Hard and soft spend limits per app, model or tenant, checked before each call. | `briefcase budget set daily --usd 20` | experimental |
 
-## Verify (5)
+## Verify (6)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
@@ -44,13 +48,19 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Data versioning (lakeFS and others)](../../examples/lakefs_versioning) | Pin each decision to the exact data commit it read. | `briefcase features data-versioning` | experimental |
 | [Decision replay](../../briefcase/replay/__init__.py) | Re-run a recorded decision and see whether the output still matches. | `briefcase features replay` | experimental |
 | [Examiner bundle](../../briefcase/compliance/__init__.py) | Package a decision, its evidence and its policy version for an auditor. | `briefcase features compliance-bundle` | experimental |
+| [Replay recorded LLM calls](../../docs/features/replay-recorded.md) | Re-run captured LLM calls and see what changed in answers, tokens and cost. | `briefcase replay explain runs.jsonl` | experimental |
 | [Tamper-evident hash chain](../../llms-full.txt) | Prove that stored records were not altered, removed or reordered. | `briefcase features integrity-chain` | experimental |
 
-## Review (4)
+## Review (9)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
+| [Baseline drift checks](../../docs/features/drift-baseline.md) | Save what normal looked like and flag when latency, errors or outputs shift. | `briefcase drift baseline save prod --from runs.jsonl` | experimental |
 | [Cost estimates](../../llms-full.txt) | Estimate what a model call costs and check it against a budget. | `briefcase features cost` | experimental |
 | [Drift detection](../../llms-full.txt) | Measure how consistent a model's answers are across repeated runs. | `briefcase features drift` | experimental |
 | [Eval run logging](../../README.md#evaluations-and-rl) | Log eval cases as records, or import inspect-ai and lm-eval results. | `briefcase features evals-bridge` | experimental |
+| [Evaluation datasets from captured records](../../docs/features/datasets-from-records.md) | Turn real production calls into versioned test sets you can re-run. | `briefcase dataset from-records runs.jsonl --name NAME` | experimental |
+| [Local eval runs with a CI gate](../../docs/features/datasets-from-records.md) | Score a function against a dataset offline and fail CI on regressions. | `briefcase eval run --dataset NAME --target module:function --fail-under 0.9` | experimental |
 | [MCP server](../../README.md#using-with-ai-tools-cursor-claude-code-codex-) | Let your coding assistant redact text, price a call or check drift itself. | `briefcase mcp install` | experimental |
+| [Model pricing data](../../docs/features/pricing-data.md) | See which of your models have no price, and add verified ones. | `briefcase pricing check --records runs.jsonl` | experimental |
+| [Prompt versions on every record](../../docs/features/prompt-versions.md) | See which prompt version made each call, and whether a new one helped. | `briefcase prompt list` | experimental |

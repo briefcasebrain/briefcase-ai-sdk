@@ -41,6 +41,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Optional
 
 from briefcase._logging import get_logger
+from briefcase.integrations.providers import _requests
 from briefcase.integrations.providers._base import (
     PatchTarget,
     ProviderCall,
@@ -122,8 +123,8 @@ def _info(response: Any, want_content: bool) -> Dict[str, Any]:
 class _GenerateStream(StreamState):
     def __init__(self, call: ProviderCall, inst: ProviderInstrumentor) -> None:
         super().__init__(call)
-        self.want_content = inst.captures_content
-        self.add_text, self.get_text = text_accumulator(inst.max_content_chars)
+        self.want_content = call.want_content
+        self.add_text, self.get_text = text_accumulator(call.text_limit)
         self.data: Dict[str, Any] = {}
 
     def observe(self, chunk: Any) -> Any:
@@ -169,11 +170,13 @@ def _call_factory(inst: ProviderInstrumentor, function_name: str,
         return _begin(inst, function_name, kwargs, False)
 
     def end(call: ProviderCall, result: Any, args: tuple, kwargs: dict) -> Any:
-        call.finish(_info(result, inst.captures_content))
+        call.finish(_info(result, call.want_content))
         return result
 
     def factory(original: Any) -> Any:
-        return (async_method if is_async else sync_method)(original, begin, end)
+        if is_async:
+            return async_method(original, begin, end, spec=_requests.GOOGLE_GENERATE)
+        return sync_method(original, begin, end, spec=_requests.GOOGLE_GENERATE)
 
     return factory
 
@@ -192,8 +195,9 @@ def _stream_factory(inst: ProviderInstrumentor, function_name: str,
             # A coroutine function returning an async generator: the
             # request is sent when it is awaited, and so is the record
             # started.
-            return async_method(original, begin, end)
-        return sync_generator_method(original, begin, lambda call: _GenerateStream(call, inst))
+            return async_method(original, begin, end, spec=_requests.GOOGLE_GENERATE_STREAM)
+        return sync_generator_method(original, begin, lambda call: _GenerateStream(call, inst),
+                                     spec=_requests.GOOGLE_GENERATE_STREAM)
 
     return factory
 

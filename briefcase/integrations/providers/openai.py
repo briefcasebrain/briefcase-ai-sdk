@@ -98,6 +98,7 @@ from briefcase.integrations.providers._base import (
     text_accumulator,
     token_usage,
 )
+from briefcase.integrations.providers import _requests
 from briefcase.integrations.providers._stainless import Surface, raw_mode
 
 logger = get_logger(__name__)
@@ -281,8 +282,8 @@ def _embeddings_info(result: Any, want_content: bool) -> Dict[str, Any]:
 class _OpenAIStream(StreamState):
     def __init__(self, call: ProviderCall, inst: ProviderInstrumentor, request_id: Any) -> None:
         super().__init__(call)
-        self.want_content = inst.captures_content
-        self.add_text, self.get_text = text_accumulator(inst.max_content_chars)
+        self.want_content = call.want_content
+        self.add_text, self.get_text = text_accumulator(call.text_limit)
         self.data: Dict[str, Any] = {"request_id": request_id}
 
     def info(self) -> Dict[str, Any]:
@@ -397,6 +398,7 @@ def _factory(
     info_fn: Callable[[Any, bool], Dict[str, Any]],
     stream_cls: Optional[type],
     stream_usage_hosts: frozenset = frozenset(),
+    spec: Optional[_requests.RequestSpec] = None,
 ) -> Callable[[Any], Any]:
 
     def begin(args: tuple, kwargs: dict) -> Optional[ProviderCall]:
@@ -438,8 +440,8 @@ def _factory(
 
     def factory(original: Any) -> Any:
         if is_async:
-            return async_method(original, begin, end, aend)
-        return sync_method(original, begin, end)
+            return async_method(original, begin, end, aend, spec=spec)
+        return sync_method(original, begin, end, spec=spec)
 
     return factory
 
@@ -455,6 +457,7 @@ _SURFACES: Dict[str, Dict[str, Any]] = {
         "input_keys": ("messages", "tools"),
         "info_fn": _chat_info,
         "stream_cls": _ChatStream,
+        "spec": _requests.OPENAI_CHAT,
     },
     "responses": {
         "module": "openai.resources.responses",
@@ -466,6 +469,7 @@ _SURFACES: Dict[str, Dict[str, Any]] = {
         "input_keys": ("instructions", "input", "tools"),
         "info_fn": _responses_info,
         "stream_cls": _ResponsesStream,
+        "spec": _requests.OPENAI_RESPONSES,
     },
     "completions": {
         "module": "openai.resources.completions",
@@ -477,6 +481,7 @@ _SURFACES: Dict[str, Dict[str, Any]] = {
         "input_keys": ("prompt",),
         "info_fn": _completions_info,
         "stream_cls": _ChatStream,
+        "spec": _requests.OPENAI_COMPLETIONS,
     },
     "embeddings": {
         "module": "openai.resources.embeddings",
@@ -488,6 +493,7 @@ _SURFACES: Dict[str, Dict[str, Any]] = {
         "input_keys": ("input",),
         "info_fn": _embeddings_info,
         "stream_cls": None,
+        "spec": _requests.OPENAI_EMBEDDINGS,
     },
 }
 
@@ -567,6 +573,7 @@ def instrument(
                         stream_usage_hosts=(
                             hosts if streams and name in ("chat", "completions") else frozenset()
                         ),
+                        spec=surface["spec"],
                     ),
                     requires=("model", "stream") if streams else ("model",),
                 ))
