@@ -31,8 +31,17 @@ def default_binary(which=shutil.which) -> str:
 
 class OciJJEngine:
     def __init__(self, binary=None, server=None, repo=None, runner=None) -> None:
-        self.binary = binary or os.environ.get("BRIEFCASE_OCIJJ_BIN") or default_binary()
-        self.server = server or os.environ.get("OCI_JJ_SERVER", "http://127.0.0.1:50051")
+        from briefcase.engine import client_settings, current_install
+
+        installed_bin = (current_install() or {}).get("binary")
+        if installed_bin and not os.path.exists(installed_bin):
+            installed_bin = None
+        self.binary = binary or os.environ.get("BRIEFCASE_OCIJJ_BIN") or installed_bin or default_binary()
+        settings = client_settings(server=server)
+        self.server = settings["addr"]
+        # oci-bai reads OCI_JJ_AUTH_TOKEN / OCI_JJ_TLS_CA itself; a local install supplies them.
+        self._client_env = {k: v for k, v in (("OCI_JJ_AUTH_TOKEN", settings["token"]),
+                                              ("OCI_JJ_TLS_CA", settings["ca"])) if v}
         self.repo = repo or os.environ.get("OCI_JJ_REPO", "rl-gym-env")
         self.runner = runner or subprocess.run
 
@@ -46,6 +55,15 @@ class OciJJEngine:
         if baseline:
             argv += ["--baseline", baseline]
         argv += ["--dataset", dataset_uri, "--metric", metric]
+        return argv
+
+    def argv_attach_result(self, candidate: str, baseline, result_path: str, manifest_path=None) -> list[str]:
+        """``oci-bai attach-bench REF --result verdict.json``: record a verdict computed elsewhere."""
+        argv = self._base() + ["attach-bench", candidate, "--result", result_path]
+        if manifest_path:
+            argv += ["--manifest", manifest_path]
+        if baseline:
+            argv += ["--baseline", baseline]
         return argv
 
     def argv_hunt(self, candidate: str, dataset_uri: str, base_cols=None, tag_prefix=None) -> list[str]:
@@ -77,6 +95,9 @@ class OciJJEngine:
     def call_attach_bench(self, candidate: str, baseline, dataset_uri: str, metric: str = "f1") -> ArgvCall:
         return ArgvCall(self.argv_attach_bench(candidate, baseline, dataset_uri, metric))
 
+    def call_attach_result(self, candidate: str, baseline, result_path: str, manifest_path=None) -> ArgvCall:
+        return ArgvCall(self.argv_attach_result(candidate, baseline, result_path, manifest_path))
+
     def call_hunt(self, candidate: str, dataset_uri: str, base_cols=None, tag_prefix=None) -> ArgvCall:
         return ArgvCall(self.argv_hunt(candidate, dataset_uri, base_cols, tag_prefix))
 
@@ -94,5 +115,5 @@ class OciJJEngine:
         # Accept a Call (the new seam) or a bare argv list (back-compat: cmd_run_logs' docker argv,
         # and the existing exec tests). Either way the injected runner sees a plain argv.
         argv = call.argv if isinstance(call, ArgvCall) else call
-        merged = {**os.environ, **(env or {})}
+        merged = {**getattr(self, "_client_env", {}), **os.environ, **(env or {})}
         return self.runner(list(argv), env=merged)

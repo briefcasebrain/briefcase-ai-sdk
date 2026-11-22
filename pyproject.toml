@@ -111,6 +111,11 @@ mcp = ["mcp>=1.2,<3"]
 # server reflection (no generated stubs). grpcio-reflection is the PyPI wheel; the import is
 # grpc_reflection.v1alpha. The subprocess oci-jj fallback (BRIEFCASE_ENGINE=cli) needs none of these.
 run = ["grpcio>=1.60,<2", "grpcio-reflection>=1.60,<2", "protobuf>=4.25"]
+# `briefcase engine` / `graph` / `env`: the gRPC client for the Briefcase engine (oci-jj), built from
+# the vendored Apache-2.0 contract in briefcase/engine/_proto (no reflection needed). The engine
+# itself is proprietary and is NOT a dependency: `briefcase engine install` fetches it with an
+# account licence token. `engine install` itself needs no extra (stdlib + docker).
+engine = ["grpcio>=1.60,<2", "protobuf>=4.25"]
 # `briefcase receive` decodes OTLP/JSON with the stdlib. This extra adds OTLP/protobuf decoding,
 # which Codex and Copilot send; Claude Code is configured for http/json by `briefcase connect`
 # and needs nothing extra.
@@ -131,7 +136,7 @@ dev = [
     # moto backs the Glue and KMS tests; those suites skip cleanly without it.
     "moto[kms,glue,s3]>=5",
 ]
-all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,rag-chroma,rag-pinecone,rag-weaviate,correlation,external,events,kafka,webhook,gcp-logging,routing,opa,lakefs,vcs,vcs-dvc,vcs-pachyderm,vcs-ducklake,vcs-iceberg,gym,evals,bitemporal,bitemporal-iceberg,bitemporal-glue,compliance,compliance-kms,controls,integrity,langchain,crewai,llamaindex,autogen,ag2,pageindex,openai-agents,mcp,run,receiver,budgets-redis,budgets-postgres,budgets-mysql]"]
+all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,rag-chroma,rag-pinecone,rag-weaviate,correlation,external,events,kafka,webhook,gcp-logging,routing,opa,lakefs,vcs,vcs-dvc,vcs-pachyderm,vcs-ducklake,vcs-iceberg,gym,evals,bitemporal,bitemporal-iceberg,bitemporal-glue,compliance,compliance-kms,controls,integrity,langchain,crewai,llamaindex,autogen,ag2,pageindex,openai-agents,mcp,run,engine,receiver,budgets-redis,budgets-postgres,budgets-mysql]"]
 
 [project.scripts]
 briefcase-mcp = "briefcase.mcp.__main__:main"
@@ -232,6 +237,11 @@ include = [
     "NOTICE",
     "briefcase/cli/stack/docker-compose.yml",
     "briefcase/cli/stack/compat.json",
+    # The engine's public gRPC contract (Apache-2.0, vendored from oci-jj proto/) and the
+    # descriptor set briefcase.engine.client builds its messages from.
+    "briefcase/engine/_proto/oci_jj_v1.binpb",
+    "briefcase/engine/_proto/oci_jj/v1/*.proto",
+    "briefcase/engine/_proto/LICENSE",
     # Usage guide served by the MCP server's how_to tool. A copy of the
     # repo-root llms-full.txt (tests/test_mcp_guide.py keeps them identical),
     # because a file outside the package cannot ship inside it.

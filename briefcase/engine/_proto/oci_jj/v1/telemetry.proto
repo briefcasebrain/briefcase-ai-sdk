@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Briefcase AI, Inc. — the oci-jj API contract is Apache-2.0 (see proto/LICENSE);
+// the oci-jj engine that implements it is proprietary (see LICENSE and NOTICE at the repository root).
+// Vendored from oci-jj proto/oci_jj/v1/telemetry.proto (commit 54120d0); the engine is not part of this package.
+// Regenerate with scripts/engine/regen_proto.py; do not edit by hand.
+// Execution telemetry + explainability schema.
+// Traces to §11.2 (ExecutionSummary) and §19 (Rationale).
+// M1: schema only. No telemetry capture (§23). Interpreters registry is a stub (§11.2).
+syntax = "proto3";
+
+package oci_jj.v1;
+
+option go_package = "github.com/oci-jj/oci-jj/go/gen/oci_jj/v1;ocijjv1";
+
+// §11.2 ExecutionSummary. Append-only; never overwritten (§26.2).
+// payload is typed by (summary_kind, summary_version) and decoded by a registered interpreter.
+message ExecutionSummary {
+  string summary_id = 1;       // UUID
+  string commit_id = 2;
+  string summary_kind = 3;     // startup | imports | loaded_libs | syscalls | bench | ...
+  int32 summary_version = 4;   // monotonic per kind
+  int32 sampled_run_count = 5;
+  string payload_json = 6;     // jsonb, typed by (kind, version)
+  string created_at = 7;
+}
+
+// §19 Explainability schema. Every automated suggestion/rewrite emits a Rationale.
+message Rationale {
+  string action_id = 1;        // "reorder-layers" | "extract-modelpack" | "evict-dup-weights"
+  string summary = 2;          // one-line description
+  string evidence = 3;         // pointer: "execution_summary:abc12345#hot_segments"
+  ExpectedEffect effect = 4;
+  float confidence = 5;        // 0.0 - 1.0 (v1: uncalibrated; v2: verdict-backed, §19 / ADR-0018)
+  BlastRadius blast = 6;
+  repeated string risks = 7;
+  // §19 v2 (ADR-0018): when verdict-backed, the ExecutionSummary this was adjudicated against and the
+  // gate decision. confidence is then derived from the verdict CI, not an uncalibrated heuristic.
+  string verdict_summary_id = 8;   // "execution_summary:<uuid>" (also fills `evidence`)
+  string verdict_decision = 9;     // accept | reject | within_noise ("" = uncalibrated v1)
+}
+
+message ExpectedEffect {
+  string metric = 1;           // "cold_start_ms" | "image_size_bytes"
+  double baseline = 2;
+  double projected = 3;
+  string projection_basis = 4; // "5 runs of v17 sampled at 2026-05-26"
+}
+
+message BlastRadius {
+  int32 downstream_commits = 1;
+  int32 active_refs = 2;
+  repeated string sensitive_paths = 3;
+}

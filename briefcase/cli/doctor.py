@@ -22,8 +22,13 @@ _MARK = {OK: "[ok]  ", WARN: "[warn]", FAIL: "[fail]"}
 def _default_probe(server):
     """Reflected service names from a live server (the same path GrpcEngine uses)."""
     from briefcase.cli.grpc_engine import ReflectionTransport
+    from briefcase.engine import client_settings
 
-    return ReflectionTransport(server, timeout=3.0).list_services()
+    settings = client_settings(server=server)
+    env = dict(os.environ)
+    if settings["ca"]:
+        env.setdefault("OCI_JJ_TLS_CA", settings["ca"])
+    return ReflectionTransport(server, timeout=3.0, token=settings["token"], env=env).list_services()
 
 
 class Doctor:
@@ -80,7 +85,7 @@ class Doctor:
             if res is not None and getattr(res, "returncode", 1) == 0:
                 out.append((OK, "image", ref))
             elif private:
-                out.append((WARN, "image", f"{ref} private preview — run: docker login ghcr.io"))
+                out.append((WARN, "image", f"{ref} private — installed by: briefcase engine install"))
             else:
                 out.append((WARN, "image", f"{ref} not pullable yet"))
 
@@ -91,7 +96,7 @@ class Doctor:
             if res is not None and getattr(res, "returncode", 1) == 0:
                 out.append((OK, "scorer image", ref))
             else:
-                out.append((WARN, "scorer image", f"{ref} private preview (scoring) — docker login ghcr.io"))
+                out.append((WARN, "scorer image", f"{ref} private (scoring) — installed by: briefcase engine install"))
 
         floor = compat.get("oci_jj_api_min", "v1")
         try:
@@ -105,7 +110,7 @@ class Doctor:
                 # Reachable but secured (oci-jj OCI_JJ_AUTH_TOKENS): not a "stack down" problem.
                 out.append((FAIL, "server", f"{server} requires a bearer token; set OCI_JJ_AUTH_TOKEN"))
             else:
-                out.append((WARN, "server", f"unreachable at {server}; is the stack up? (briefcase stack up)"))
+                out.append((WARN, "server", f"unreachable at {server}; is the engine running? (briefcase engine up)"))
 
         return out
 
@@ -218,7 +223,7 @@ def cmd_doctor(args, store, engine, stack=None) -> int:
         for key in ("briefcase_ai", "oci_jj_api_min", "oci_jj_image_tag", "verdictml"):
             print(f"  {key}: {compat.get(key)}")
         if compat.get("private_preview"):
-            print("  engine images: private preview — docker login ghcr.io to pull the stack")
+            print("  engine images: private — `briefcase engine install` pulls them with your licence token")
     except Exception:
         pass
     # The plugins section appears only when a package declares a briefcase plugin, so the

@@ -1,4 +1,8 @@
-"""``briefcase stack`` — manage the bundled, pinned engine stack via ``docker compose``.
+"""``briefcase stack`` — DEPRECATED alias of ``briefcase engine up|down|status|logs`` (kept one release).
+
+Each subcommand prints one line pointing at ``briefcase engine`` and then behaves as before. With a
+``briefcase engine install`` present it drives that install's compose file (digest-pinned, generated
+secrets); otherwise the bundled compose below, as in earlier releases.
 
 The compose invocation goes through an injected ``runner`` (default ``subprocess.run``), mirroring
 ``OciJJEngine``'s runner seam, so the commands unit-test with the same ``RecordingRunner`` fake. The
@@ -24,11 +28,22 @@ class Stack:
 
     def _compose(self, *args, env=None):
         merged = {**os.environ, **(env or {})}
-        # Honor $BRIEFCASE_OCIJJ_COMPOSE as an override (existing checkout-based users); otherwise the
-        # bundled, pinned compose shipped in the wheel.
+        # Honor $BRIEFCASE_OCIJJ_COMPOSE as an override (existing checkout-based users); then a
+        # `briefcase engine install`; otherwise the bundled, pinned compose shipped in the wheel.
         override = os.environ.get("BRIEFCASE_OCIJJ_COMPOSE")
         if override:
             return self.runner(["docker", "compose", "-f", override, *args], env=merged)
+        from briefcase import engine as _engine
+
+        record = _engine.current_install() if self._compose_resolver is compose_path else None
+        if record is not None:
+            from pathlib import Path
+
+            from briefcase.engine import compose as engine_compose
+
+            args = tuple(a for a in args if a not in ("--profile", "scorer"))
+            return self.runner(engine_compose.compose_argv(Path(record["compose"]), Path(record["env_file"]), *args),
+                               env=merged)
         with self._compose_resolver() as compose_file:
             return self.runner(["docker", "compose", "-f", str(compose_file), *args], env=merged)
 
@@ -71,7 +86,16 @@ def _rc(result) -> int:
     return getattr(result, "returncode", 0)
 
 
+DEPRECATION = ("note: `briefcase stack` is deprecated; use `briefcase engine {sub}` "
+               "(same behaviour, digest-pinned install)")
+
+
+def _deprecated(sub: str) -> None:
+    print(DEPRECATION.format(sub=sub), file=sys.stderr)
+
+
 def cmd_stack_up(args, store, engine, stack=None) -> int:
+    _deprecated("up")
     stack = stack or Stack()
     want_scorer = not getattr(args, "no_scorer", False)
     rc = _rc(stack.up(scorer=want_scorer))
@@ -79,7 +103,7 @@ def cmd_stack_up(args, store, engine, stack=None) -> int:
         # Most likely the private verdict-worker image couldn't be pulled. Bring up everything else so
         # runs still enqueue (just unscored), and tell the user exactly how to enable scoring.
         print("could not start the verdict-worker scorer (private image).", file=sys.stderr)
-        print("  request beta access, then: docker login ghcr.io", file=sys.stderr)
+        print("  install the engine with your licence token: briefcase engine install", file=sys.stderr)
         print("  starting the rest of the stack without scoring (runs enqueue but are not scored)...",
               file=sys.stderr)
         rc = _rc(stack.up(scorer=False))
@@ -87,23 +111,26 @@ def cmd_stack_up(args, store, engine, stack=None) -> int:
 
 
 def cmd_stack_down(args, store, engine, stack=None) -> int:
+    _deprecated("down")
     stack = stack or Stack()
     return _rc(stack.down(volumes=getattr(args, "volumes", False)))
 
 
 def cmd_stack_status(args, store, engine, stack=None) -> int:
+    _deprecated("status")
     stack = stack or Stack()
     return _rc(stack.status())
 
 
 def cmd_stack_logs(args, store, engine, stack=None) -> int:
+    _deprecated("logs")
     stack = stack or Stack()
     return _rc(stack.logs(service=getattr(args, "service", None), follow=getattr(args, "follow", False)))
 
 
 def register(sub) -> None:
     # Bring up the bundled, pinned engine images (no oci-jj checkout, no Rust).
-    st = sub.add_parser("stack", help="Manage the bundled engine stack (docker compose).").add_subparsers(
+    st = sub.add_parser("stack", help="Deprecated: use `briefcase engine up|down|status|logs`.").add_subparsers(
         dest="sub"
     )
     st_up = st.add_parser("up", help="Pull and start the pinned engine images.")
