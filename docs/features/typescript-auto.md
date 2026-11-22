@@ -35,7 +35,7 @@ where `demo.mjs` makes one `chat.completions.create` call through a fake `fetch`
 
 ```text
 Covered.
-{"schema_version":"1.1","decision_id":"2d7d2671-f79f-4520-8694-31d0186175b7","decision_type":"llm.openai.chat","function_name":"openai.chat.completions.create","inputs":{},"outputs":{},"started_at":"2026-11-22T04:41:09.498515+00:00","ended_at":"2026-11-22T04:41:09.509142+00:00","execution_time_ms":10.62694399999998,"status":"ok","model_parameters":{"provider":"openai","model_name":"gpt-4o-mini-2024-07-18","requested_model":"gpt-4o-mini"},"token_usage":{"prompt_tokens":14,"completion_tokens":2,"total_tokens":16},"finish_reason":"stop","response_id":"chatcmpl-demo","request_id":"req_demo","stream":false}
+{"schema_version":"1.2","decision_id":"46e94fe6-d141-4568-a904-ea2681f38f73","decision_type":"llm.openai.chat","function_name":"openai.chat.completions.create","inputs":{},"outputs":{},"started_at":"2026-11-22T04:43:56.693949+00:00","ended_at":"2026-11-22T04:43:56.702331+00:00","execution_time_ms":8.382153000000017,"status":"ok","model_parameters":{"provider":"openai","model_name":"gpt-4o-mini-2024-07-18","requested_model":"gpt-4o-mini"},"token_usage":{"prompt_tokens":14,"completion_tokens":2,"total_tokens":16},"finish_reason":"stop","response_id":"chatcmpl-demo","request_id":"req_demo","stream":false}
 ```
 
 ## What it writes or sends, and where
@@ -49,7 +49,7 @@ One record per provider call:
 | `@google/genai` 3.6.1 | `models.generateContent`, `models.generateContentStream` (and `chats`) | `llm.google_genai.generate_content` |
 | `@aws-sdk/client-bedrock-runtime` 3.1175.0 | `Converse`, `ConverseStream`, `InvokeModel`, `InvokeModelWithResponseStream` | `llm.bedrock.converse`, `llm.bedrock.invoke_model` |
 
-Fields: `schema_version` (`"1.1"`), `decision_id`, `decision_type`, `function_name`, `inputs`,
+Fields: `schema_version` (`"1.2"`), `decision_id`, `decision_type`, `function_name`, `inputs`,
 `outputs`, `started_at`, `ended_at`, `execution_time_ms`, `status` (`ok` / `error` /
 `cancelled`), `model_parameters` (`provider`, `model_name`, `requested_model` when the response
 names a different model, scalar request parameters), `token_usage` (`prompt_tokens`,

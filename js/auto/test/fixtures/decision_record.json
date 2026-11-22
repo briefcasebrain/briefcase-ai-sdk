@@ -1,5 +1,5 @@
 {
-  "description": "Golden decision-record wire schema. Consumed by tests/test_record_schema.py and tests/receiver/test_records.py (Python) and js/controls/test/record.test.ts (TypeScript); all assert against this file so the implementations cannot drift apart. required_fields is the single list every recorder emits on every finished record; schema_version is the value each must emit.",
+  "description": "Golden decision-record wire schema. Consumed by tests/test_record_schema.py and tests/receiver/test_records.py (Python) and js/controls/test/record.test.ts (TypeScript); all assert against this file so the implementations cannot drift apart. required_fields is the single list every recorder emits on every finished record; schema_version is the value each must emit. (Test-local copy for js/auto: schema_version 1.2 as approved; replace with the shared file once merged.)",
   "schema_version": "1.2",
   "required_fields": [
     "schema_version",
@@ -21,9 +21,7 @@
     "parent_span_id",
     "trace_flags",
     "prompt_name",
-    "prompt_version",
-    "parent_run_id",
-    "parent_framework"
+    "prompt_version"
   ],
   "example": {
     "schema_version": "1.2",
