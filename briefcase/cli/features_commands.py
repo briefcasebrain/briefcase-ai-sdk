@@ -58,7 +58,9 @@ def render_catalog(catalog: Catalog, verb: Optional[str] = None, out: Callable[[
         out(_ux.style(f"{VERB_TITLES[key]} ({len(items)})", "bold"))
         for feature in items:
             badge = _ux.style(f"[{feature.status}]", "green" if feature.status == "stable" else "yellow")
-            out(f"  {feature.title}  {badge}  " + _ux.style(f"id: {feature.id}", "dim"))
+            plugin = feature.extra.get("plugin")
+            origin = _ux.style(f"  plugin: {plugin}", "dim") if plugin else ""
+            out(f"  {feature.title}  {badge}  " + _ux.style(f"id: {feature.id}", "dim") + origin)
             out(f"      {feature.one_line}")
             out(f"      $ {feature.command}")
     if not groups:
@@ -135,7 +137,8 @@ def render_feature(feature: Feature, active: Dict[str, Any], out: Callable[[str]
 
 
 def cmd_features(args, store=None, engine=None, stack=None) -> int:
-    catalog = load_catalog()
+    # Plugin manifests are listed in the terminal; the docs page lists only what ships here.
+    catalog = load_catalog(plugins=not getattr(args, "markdown", False))
     as_json = getattr(args, "json", False)
     verb = getattr(args, "verb", None)
     feature_id = getattr(args, "feature", None)

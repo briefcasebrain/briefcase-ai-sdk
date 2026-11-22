@@ -36,6 +36,8 @@ ALLOWED_ADDITIONS = {
     # always exit 0); `hook cursor` is unchanged apart from honouring `--enforce`.
     "hook": (set(), {"claude-code", "codex"}, set()),
     "connect": ({"--enforce", "--preset", "--managed", "--out", "--policy", "--tools"}, set(), set()),
+    # plugins-mcp package: `doctor --plugins` reports installed briefcase plugins only.
+    "doctor": ({"--plugins"}, set(), set()),
 }
 
 
@@ -226,7 +228,7 @@ def test_top_level_help_groups_commands_under_the_flow_verbs(capsys):
                 if line.startswith("  ") and not line.startswith("   ") and not line.startswith("  (")]
 
     assert listed("Start here:") == ["setup", "status", "features", "doctor", "completion"]
-    assert set(listed("Connect:")) == {"connect", "receive", "exec", "mcp", "hook"}
+    assert set(listed("Connect:")) == {"connect", "receive", "exec", "mcp", "hook", "plugins"}
     assert set(listed("Evaluate:")) == {"dataset", "secret", "run", "stack"}
     assert listed("Capture:") == [] and "briefcase features --verb capture" in section("Capture:")
     assert "Other" not in text

@@ -157,9 +157,52 @@ def cmd_doctor_connect(args) -> int:
     return rc
 
 
+def plugin_checks(report=None):
+    """One ``(severity, label, detail)`` per installed plugin entry point. Each is loaded, so a
+    plugin that fails to import, has the wrong type or declares an unsupported plugin API is a
+    warning naming its package. Empty when no package declares a plugin."""
+    from briefcase import plugins
+
+    rows = report if report is not None else [p.to_dict() for p in plugins.report(load_them=True)]
+    out = []
+    for row in rows:
+        label = f"plugin {row['group'][len('briefcase.'):]}:{row['name']}"
+        origin = f"{row['distribution'] or '?'} {row['version'] or ''}".rstrip()
+        if row["state"] in ("loaded", "available"):
+            out.append((OK, label, origin))
+        elif row["state"] in ("disabled", "shadowed"):
+            out.append((OK, label, f"{origin}; {row['state']}: {row['reason']}"))
+        else:
+            out.append((WARN, label, f"{origin}; {row['state']}: {row['reason']}"))
+    return out
+
+
+def _print_results(results) -> None:
+    for sev, label, detail in results:
+        print(f"{_MARK[sev]} {label}: {detail}" if detail else f"{_MARK[sev]} {label}")
+
+
+def cmd_doctor_plugins(args) -> int:
+    from briefcase import plugins
+
+    results = plugin_checks()
+    print(f"briefcase plugins (plugin API {plugins.PLUGIN_API_VERSION}):")
+    if not plugins.enabled():
+        print(f"  turned off by {plugins.ENV_SWITCH}=off")
+    if not results:
+        print("  no installed package declares a briefcase plugin")
+    _print_results(results)
+    rc = summarize(results, strict=getattr(args, "strict", False))
+    if rc != 0:
+        print("\ndoctor found problems above.", file=sys.stderr)
+    return rc
+
+
 def cmd_doctor(args, store, engine, stack=None) -> int:
     if getattr(args, "connect", False):
         return cmd_doctor_connect(args)
+    if getattr(args, "plugins", False):
+        return cmd_doctor_plugins(args)
     server = getattr(args, "server", None) or os.environ.get("OCI_JJ_SERVER", "http://127.0.0.1:50051")
     doctor = Doctor()
     results = doctor.checks(server=server)
@@ -174,6 +217,16 @@ def cmd_doctor(args, store, engine, stack=None) -> int:
             print("  engine images: private preview — docker login ghcr.io to pull the stack")
     except Exception:
         pass
+    # The plugins section appears only when a package declares a briefcase plugin, so the
+    # output above is unchanged on a machine without plugins.
+    try:
+        extra = plugin_checks()
+    except Exception as exc:  # noqa: BLE001 - doctor must finish
+        extra = [(WARN, "plugins", f"could not be listed: {exc}")]
+    if extra:
+        print("\nplugins:")
+        _print_results(extra)
+        results = list(results) + extra
     rc = summarize(results, strict=getattr(args, "strict", False))
     if rc != 0:
         print("\ndoctor found problems above.", file=sys.stderr)

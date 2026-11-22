@@ -87,8 +87,31 @@ class GuardrailRegistry:
       - Domain packs register bundles of guardrails in one call
     """
 
-    def __init__(self) -> None:
+    def __init__(self, plugins: bool = False) -> None:
         self._specs: Dict[str, EnvSpec] = {}
+        # With ``plugins``, guardrails that installed packages declare under the
+        # ``briefcase.guardrails`` entry point group are offered after the
+        # registered ones (a registered id always wins). They are listed from
+        # package metadata and imported only by make().
+        self._plugins = plugins
+
+    def _plugin_specs(self) -> Dict[str, EnvSpec]:
+        if not self._plugins:
+            return {}
+        from briefcase import plugins as _plugins
+
+        out: Dict[str, EnvSpec] = {}
+        for plugin in _plugins.entries(_PLUGIN_GROUP):
+            if plugin.name in self._specs or plugin.name in out:
+                continue
+            if plugin.state not in (_plugins.AVAILABLE, _plugins.LOADED):
+                continue
+            out[plugin.name] = EnvSpec(
+                id=plugin.name, entry_point=plugin.value,
+                description=f"plugin from {plugin.dist or 'an unknown distribution'}",
+                tags=["plugin"],
+            )
+        return out
 
     def register(
         self,
@@ -178,7 +201,7 @@ class GuardrailRegistry:
                     versioned.sort(key=lambda x: x[0], reverse=True)
                     return versioned[0][1]
 
-        return id  # will fail at caller with KeyError if not found
+        return id  # a plugin id, or a KeyError at the caller
 
     def make(self, id: str, **kwargs: Any) -> GuardrailEnv:
         """Instantiate a registered guardrail by id.
@@ -195,13 +218,24 @@ class GuardrailRegistry:
         """
         resolved = self._resolve_id(id)
         spec = self._specs.get(resolved)
-        if spec is None:
-            available = ", ".join(sorted(self._specs.keys())) or "(none)"
+        plugin_spec = self._plugin_specs().get(resolved) if spec is None else None
+        if spec is None and plugin_spec is None:
+            available = ", ".join(sorted(list(self._specs) + list(self._plugin_specs()))) or "(none)"
             raise KeyError(
                 f"Guardrail '{id}' not registered. Available: {available}"
             )
 
-        cls = self._resolve_entry_point(spec.entry_point)
+        if plugin_spec is not None:
+            from briefcase import plugins as _plugins
+
+            cls = _plugins.get(_PLUGIN_GROUP, resolved, self._specs)
+            if cls is None:
+                raise KeyError(f"Guardrail '{id}' cannot be used: "
+                               f"{_plugins.explain(_PLUGIN_GROUP, resolved)}")
+            spec = plugin_spec
+        else:
+            assert spec is not None
+            cls = self._resolve_entry_point(spec.entry_point)
         merged = {**spec.kwargs, **kwargs}
         env = cls(**merged)
 
@@ -215,9 +249,12 @@ class GuardrailRegistry:
     def spec(self, id: str) -> EnvSpec:
         """Get the spec for a registered guardrail."""
         resolved = self._resolve_id(id)
-        if resolved not in self._specs:
+        if resolved in self._specs:
+            return self._specs[resolved]
+        plugin_spec = self._plugin_specs().get(resolved)
+        if plugin_spec is None:
             raise KeyError(f"Guardrail '{id}' not registered")
-        return self._specs[resolved]
+        return plugin_spec
 
     def list(
         self,
@@ -230,7 +267,7 @@ class GuardrailRegistry:
             tags: If provided, only return specs matching ALL tags.
             namespace: If provided, only return specs in this namespace.
         """
-        specs = list(self._specs.values())
+        specs = list(self._specs.values()) + list(self._plugin_specs().values())
         if tags:
             tag_set = set(tags)
             specs = [s for s in specs if tag_set.issubset(set(s.tags))]
@@ -251,8 +288,21 @@ class GuardrailRegistry:
         return cls
 
 
-# Module-level singleton — like gymnasium.envs.registry
-_default_registry = GuardrailRegistry()
+# Module-level singleton — like gymnasium.envs.registry. It also offers the
+# guardrails installed packages declare under the ``briefcase.guardrails`` entry
+# point group (see briefcase.plugins).
+_PLUGIN_GROUP = "briefcase.guardrails"
+_default_registry = GuardrailRegistry(plugins=True)
+
+
+def builtin_ids() -> List[str]:
+    """Ids registered in code (the built-in envs and anything registered at import time);
+    a plugin with one of these ids is shadowed."""
+    try:
+        import briefcase.guardrails.envs  # noqa: F401  (registers the built-in envs)
+    except Exception:  # pragma: no cover - a broken optional env must not hide the list
+        pass
+    return list(_default_registry._specs)
 
 
 def register(id: str, entry_point: str, **kwargs: Any) -> None:

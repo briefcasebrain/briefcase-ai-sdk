@@ -37,6 +37,8 @@ Usage:
         nessie_client.create_version("Updated training data")
 """
 
+from typing import Any, Dict, List
+
 from briefcase.integrations.vcs.base import VcsClientBase
 
 # Each provider import degrades gracefully so a broken or partially
@@ -85,3 +87,43 @@ try:
     __all__.append("GitLFSClient")
 except ImportError:
     pass
+
+
+#: Built-in providers by name (module path of the client class). A plugin
+#: registered under the ``briefcase.vcs_providers`` entry point group cannot
+#: take one of these names.
+BUILTIN_PROVIDERS: Dict[str, str] = {
+    "dvc": "briefcase.integrations.vcs.dvc:DvcClient",
+    "nessie": "briefcase.integrations.vcs.nessie:NessieClient",
+    "pachyderm": "briefcase.integrations.vcs.pachyderm:PachydermClient",
+    "artivc": "briefcase.integrations.vcs.artivc:ArtiVCClient",
+    "ducklake": "briefcase.integrations.vcs.ducklake:DuckLakeClient",
+    "iceberg": "briefcase.integrations.vcs.iceberg:IcebergClient",
+    "gitlfs": "briefcase.integrations.vcs.gitlfs:GitLFSClient",
+}
+_GROUP = "briefcase.vcs_providers"
+
+
+def get_provider(name: str) -> Any:
+    """The client class for provider ``name``: a built-in, else a plugin.
+
+    Raises KeyError naming the available providers."""
+    import importlib
+
+    if name in BUILTIN_PROVIDERS:
+        module_name, _, attr = BUILTIN_PROVIDERS[name].partition(":")
+        return getattr(importlib.import_module(module_name), attr)
+    from briefcase import plugins
+
+    cls = plugins.get(_GROUP, name, BUILTIN_PROVIDERS)
+    if cls is None:
+        raise KeyError(f"no VCS provider {name!r} ({plugins.explain(_GROUP, name)}); available: "
+                       f"{', '.join(available_providers())}")
+    return cls
+
+
+def available_providers() -> List[str]:
+    """Built-in names first, then installed plugin names (not imported)."""
+    from briefcase import plugins
+
+    return list(BUILTIN_PROVIDERS) + [n for n in plugins.names(_GROUP) if n not in BUILTIN_PROVIDERS]

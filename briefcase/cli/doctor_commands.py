@@ -15,4 +15,8 @@ def register(sub) -> None:
         "--connect", action="store_true",
         help="Check the `briefcase connect` integrations instead of the evaluation stack.",
     )
+    doc.add_argument(
+        "--plugins", action="store_true",
+        help="Load every installed briefcase plugin and report which work (see `briefcase plugins`).",
+    )
     doc.set_defaults(func=doctor.cmd_doctor)

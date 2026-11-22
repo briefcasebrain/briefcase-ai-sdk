@@ -39,6 +39,13 @@ Adding a command needs no edit to ``__main__.py``. Drop a module named
 
 A module that fails to import or register is skipped: the rest of the CLI keeps working and
 ``briefcase --debug ...`` prints one line naming the module and the error.
+
+Installed packages add commands the same way through the ``briefcase.cli_commands`` entry
+point group (see :mod:`briefcase.plugins`): the entry point ``acme = "acme_cli.commands"``
+names a module with the same ``register(subparsers)`` protocol that adds the command
+``acme``. Plugin commands are listed under "Plugins" in ``briefcase --help`` without being
+imported; the module is imported only when ``briefcase acme ...`` runs. A built-in command
+name always wins over a plugin.
 """
 from __future__ import annotations
 
@@ -61,6 +68,7 @@ GROUPS = (
     ("verify", "Verify", "prove records are intact and reproducible"),
     ("review", "Review", "look at what happened"),
     ("evaluate", "Evaluate", "datasets, secrets and evaluation runs"),
+    ("plugins", "Plugins", "commands from installed packages (briefcase plugins list)"),
     ("other", "Other", ""),
 )
 GROUP_KEYS = tuple(key for key, _, _ in GROUPS)
@@ -77,6 +85,8 @@ class CommandModule:
     order: int = 100
     error: Optional[str] = None                 # import or register failure, one line
     commands: List[str] = field(default_factory=list)   # top-level commands it registered
+    plugin: Optional[str] = None                # entry point name, for a plugin command
+    dist: Optional[str] = None                  # its distribution
 
 
 def _one_line(exc: BaseException) -> str:
@@ -119,8 +129,13 @@ def discover(package: Any = None) -> List[CommandModule]:
     return found
 
 
-def register_all(subparsers: Any, modules: Optional[List[CommandModule]] = None) -> List[CommandModule]:
-    """Call ``register`` on each discovered module and record which commands it added."""
+def register_all(subparsers: Any, modules: Optional[List[CommandModule]] = None,
+                 plugins: Optional[bool] = None) -> List[CommandModule]:
+    """Call ``register`` on each discovered module and record which commands it added.
+    Then (by default, when ``modules`` is not given) add a placeholder command for each
+    ``briefcase.cli_commands`` plugin; the plugin is imported only when its command runs."""
+    if plugins is None:
+        plugins = modules is None
     modules = discover() if modules is None else modules
     for entry in modules:
         if entry.module is None or entry.error:
@@ -131,7 +146,88 @@ def register_all(subparsers: Any, modules: Optional[List[CommandModule]] = None)
         except Exception as exc:  # noqa: BLE001 - same isolation as the import
             entry.error = f"register failed: {_one_line(exc)}"
         entry.commands = [name for name in subparsers.choices if name not in before]
+    if plugins:
+        modules = modules + _plugin_stubs(subparsers)
     return modules
+
+
+PLUGIN_GROUP = "briefcase.cli_commands"
+_BUILTIN_NAMES: List[str] = []
+
+
+def builtin_command_names() -> List[str]:
+    """Top-level commands the SDK's own modules register (a plugin cannot take one)."""
+    if not _BUILTIN_NAMES:
+        parser = argparse.ArgumentParser(add_help=False)
+        sub = parser.add_subparsers()
+        register_all(sub, discover(), plugins=False)
+        _BUILTIN_NAMES.extend(sub.choices)
+    return list(_BUILTIN_NAMES)
+
+
+def _plugin_stubs(subparsers: Any) -> List[CommandModule]:
+    """One argparse placeholder per plugin command, from package metadata only."""
+    try:
+        from briefcase import plugins
+    except Exception:  # noqa: BLE001 - pragma: no cover
+        return []
+    taken = list(subparsers.choices)
+    if not _BUILTIN_NAMES:
+        _BUILTIN_NAMES.extend(taken)
+    try:
+        plugins.shadow(PLUGIN_GROUP, taken)
+        found = [p for p in plugins.entries(PLUGIN_GROUP) if p.state in (plugins.AVAILABLE, plugins.LOADED)]
+    except Exception:  # noqa: BLE001 - unreadable metadata must not break the CLI
+        return []
+    stubs = []
+    for plugin in found:
+        if plugin.name in subparsers.choices:
+            continue
+        origin = f"{plugin.dist} {plugin.version}" if plugin.dist else plugin.value
+        parser = subparsers.add_parser(
+            plugin.name, add_help=False, prefix_chars="\x00",
+            help=f"Plugin command from {origin}.",
+        )
+        parser.add_argument("plugin_argv", nargs=argparse.REMAINDER)
+        parser.set_defaults(func=run_plugin_command, plugin_command=plugin.name)
+        stubs.append(CommandModule(name=f"plugin:{plugin.name}", group="plugins", order=100,
+                                   commands=[plugin.name], plugin=plugin.name, dist=plugin.dist))
+    return stubs
+
+
+_GLOBALS = ("server", "repo", "dry_run", "debug", "no_input")
+
+
+def run_plugin_command(args: Any, store: Any, engine: Any, stack: Any) -> int:
+    """Import the plugin behind ``args.plugin_command``, let it register its parser, parse
+    the rest of the command line with it and run its handler."""
+    from briefcase import plugins
+    from briefcase.cli import _ux
+
+    name = args.plugin_command
+    module = plugins.get(PLUGIN_GROUP, name, builtin_command_names())
+    if module is None:
+        return _ux.fail(f"plugin command {name!r} cannot run: {plugins.explain(PLUGIN_GROUP, name)}",
+                        fix=f"briefcase plugins show {name}")
+    parser = argparse.ArgumentParser(prog="briefcase")
+    sub = parser.add_subparsers(dest="command", metavar="<command>")
+    try:
+        module.register(sub)
+    except Exception as exc:  # noqa: BLE001 - a broken plugin must not crash the CLI
+        return _ux.fail(f"plugin command {name!r} failed to register: {_one_line(exc)}",
+                        fix=f"briefcase plugins show {name}")
+    if name not in sub.choices:
+        return _ux.fail(f"plugin module for {name!r} did not add a {name!r} command",
+                        fix=f"briefcase plugins show {name}")
+    inner = parser.parse_args([name] + list(args.plugin_argv))
+    for key in _GLOBALS:
+        if not hasattr(inner, key) and hasattr(args, key):
+            setattr(inner, key, getattr(args, key))
+    func = getattr(inner, "func", None)
+    if func is None:
+        sub.choices[name].print_help()
+        return 2
+    return func(inner, store, engine, stack)
 
 
 def command_index(modules: Optional[List[CommandModule]] = None) -> Dict[str, CommandModule]:
@@ -155,7 +251,21 @@ def run_status_hooks(modules: List[CommandModule]):
     rows: List[Dict[str, Any]] = []
     problems: List[str] = []
     seen = set()
+    modules = list(modules)
+    if not any(entry.plugin for entry in modules):
+        modules += _plugin_status_modules()
     for entry in modules:
+        if entry.plugin and entry.module is None:
+            # A plugin command's status() hook: the plugin is imported now (status needs it).
+            try:
+                from briefcase import plugins
+
+                entry.module = plugins.get(PLUGIN_GROUP, entry.plugin, builtin_command_names())
+            except Exception:  # noqa: BLE001
+                entry.module = None
+            group = getattr(entry.module, "GROUP", None)
+            if isinstance(group, str) and group in GROUP_KEYS:
+                entry.group = group
         hook = getattr(entry.module, "status", None) if entry.module is not None else None
         if not callable(hook):
             continue
@@ -176,6 +286,16 @@ def run_status_hooks(modules: List[CommandModule]):
             row["source"] = entry.name
             rows.append(row)
     return rows, problems
+
+
+def _plugin_status_modules() -> List[CommandModule]:
+    try:
+        from briefcase import plugins
+
+        return [CommandModule(name=f"plugin:{p.name}", group="plugins", plugin=p.name, dist=p.dist)
+                for p in plugins.entries(PLUGIN_GROUP) if p.state in (plugins.AVAILABLE, plugins.LOADED)]
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _valid_row(item: Any) -> Optional[Dict[str, Any]]:

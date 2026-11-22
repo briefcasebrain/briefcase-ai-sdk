@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bc-plugin-beta"
+version = "0.2.0"
+description = "Misbehaving briefcase plugins: broken import, collisions, a future API."
+
+[tool.setuptools]
+packages = ["bc_beta"]
+
+[project.entry-points."briefcase.exporters"]
+broken = "bc_beta.broken:Exporter"
+console = "bc_beta.good:BetaExporter"
+alpha = "bc_beta.good:BetaExporter"
+
+[project.entry-points."briefcase.vcs_providers"]
+future = "bc_beta.future:FutureClient"
+
+[project.entry-points."briefcase.cli_commands"]
+status = "bc_beta.commands"
+beta-broken = "bc_beta.broken"
+
+[project.entry-points."briefcase.guardrails"]
+not-a-class = "bc_beta.good:NOT_A_CLASS"

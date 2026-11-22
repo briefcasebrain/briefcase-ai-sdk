@@ -3,7 +3,8 @@
 Standard library only (``ThreadingHTTPServer``). It accepts ``POST /v1/logs``,
 ``/v1/metrics`` and ``/v1/traces`` as OTLP/JSON, or as OTLP/protobuf when
 ``opentelemetry-proto`` is installed, plus ``POST /v1/hooks/cursor``,
-``POST /v1/policy/decisions`` and ``GET /healthz``. Decoded events become decision records and leave through an
+``POST /v1/policy/decisions``, ``POST /v1/sources/NAME`` (a source added by a
+``briefcase.receiver_sources`` plugin) and ``GET /healthz``. Decoded events become decision records and leave through an
 ordinary briefcase exporter.
 
 It binds loopback by default. Any other host requires a bearer token, which is
@@ -18,6 +19,7 @@ import json
 import sys
 import threading
 import zlib
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -35,6 +37,10 @@ MAX_BODY_BYTES = 8 * 1024 * 1024
 OTLP_PATHS = {"/v1/logs": "logs", "/v1/metrics": "metrics", "/v1/traces": "traces"}
 CURSOR_HOOK_PATH = "/v1/hooks/cursor"
 POLICY_PATH = "/v1/policy/decisions"   # decisions from `briefcase hook <tool> --enforce`
+SOURCES_PREFIX = "/v1/sources/"        # + NAME: a `briefcase.receiver_sources` plugin's normaliser
+#: Source names the receiver handles itself; a plugin cannot take one.
+BUILTIN_SOURCES = ("cursor", "otlp", "logs", "metrics", "traces", "policy", "claude_code", "codex",
+                   "copilot", "cowork", "gemini", "cline")
 JSON_TYPE = "application/json"
 PROTOBUF_TYPE = "application/x-protobuf"
 
@@ -175,6 +181,10 @@ class Receiver(ExportMixin):
                 if media != JSON_TYPE:
                     return self._reject(415, "the policy endpoint takes application/json")
                 return self._policy_decision(otlp.decode_json(body))
+            if path.startswith(SOURCES_PREFIX):
+                if media != JSON_TYPE:
+                    return self._reject(415, "plugin source endpoints take application/json")
+                return self._plugin_source(path[len(SOURCES_PREFIX):], otlp.decode_json(body))
             kind = OTLP_PATHS.get(path)
             if kind is None:
                 return self._reject(404, f"unknown path {path}")
@@ -196,6 +206,29 @@ class Receiver(ExportMixin):
                       "metrics": normalize.normalize_metric}[kind]
         self._emit([normaliser(signal) for signal in signals], len(signals))
         return reply
+
+    def _plugin_source(self, name: str, payload: Any) -> Response:
+        """``POST /v1/sources/NAME``: events from a ``briefcase.receiver_sources`` plugin.
+
+        The plugin's ``normalize(payload)`` returns one event, a list of them, or ``None``;
+        each event is ``{"type", "attrs"}`` (plus optional ``source``, ``time``,
+        ``trace_id``, ``span_id``) and is mapped exactly like a built-in source's."""
+        from briefcase import plugins
+
+        normalize_fn = plugins.get("briefcase.receiver_sources", name, BUILTIN_SOURCES) \
+            if name not in BUILTIN_SOURCES else None
+        if normalize_fn is None:
+            return self._reject(404, f"no receiver source {name!r} "
+                                     f"({plugins.explain('briefcase.receiver_sources', name)})")
+        try:
+            produced = normalize_fn(payload)
+        except Exception as exc:
+            logger.warning("receiver source plugin %r failed on a payload: %s", name, type(exc).__name__)
+            return self._reject(400, f"source {name!r} could not read the payload ({type(exc).__name__})")
+        items = produced if isinstance(produced, list) else [produced]
+        events: List[Optional[Dict[str, Any]]] = [_plugin_event(name, item) for item in items]
+        self._emit(events, len(events))
+        return _json(200, {})
 
     def _policy_decision(self, payload: Any) -> Response:
         from briefcase.receiver import policy
@@ -225,6 +258,22 @@ class Receiver(ExportMixin):
             flush(timeout=5.0)
         except Exception:
             logger.debug("flush on close failed", exc_info=True)
+
+
+def _plugin_event(source: str, item: Any) -> Optional[Dict[str, Any]]:
+    """A plugin's event, checked: a dict with a text ``type`` and a dict ``attrs``. The
+    source defaults to the plugin name and the time to now."""
+    if not isinstance(item, dict) or not isinstance(item.get("type"), str) or not item["type"]:
+        return None
+    attrs = item.get("attrs")
+    if not isinstance(attrs, dict):
+        return None
+    event = dict(item)
+    event["attrs"] = dict(attrs)
+    event["source"] = item["source"] if isinstance(item.get("source"), str) and item["source"] else source
+    if not isinstance(event.get("time"), datetime):
+        event["time"] = datetime.now(timezone.utc)
+    return event
 
 
 class _Handler(BaseHTTPRequestHandler):

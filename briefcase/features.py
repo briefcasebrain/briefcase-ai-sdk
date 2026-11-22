@@ -89,6 +89,8 @@ class Feature:
 
     @property
     def docs_url(self) -> str:
+        if self.docs_file.startswith(("https://", "http://")):
+            return self.docs_file  # a plugin's manifest may point at its own docs
         return REPO_URL + self.docs_file
 
     def to_dict(self) -> Dict[str, Any]:
@@ -97,6 +99,8 @@ class Feature:
         data["verified_against"] = self.verified_against
         if self.snippet:
             data["snippet"] = self.snippet
+        if self.extra.get("plugin"):
+            data["plugin"] = self.extra["plugin"]
         data["docs_file"] = self.docs_file
         data["docs_url"] = self.docs_url
         return data
@@ -182,9 +186,12 @@ def _entries(root: Any) -> Iterable[Any]:
         return []
 
 
-def load_catalog(root: Any = None) -> Catalog:
+def load_catalog(root: Any = None, *, plugins: bool = False) -> Catalog:
     """Read every manifest. ``root`` is a directory (``pathlib.Path`` or any
-    ``importlib.resources`` traversable); by default the packaged ``briefcase/_features``."""
+    ``importlib.resources`` traversable); by default the packaged ``briefcase/_features``.
+    With ``plugins``, manifests that installed packages ship under the ``briefcase.features``
+    entry point group are added (a built-in id always wins); each carries
+    ``extra["plugin"]`` naming its distribution."""
     catalog = Catalog()
     if root is None:
         from importlib import resources
@@ -213,10 +220,39 @@ def load_catalog(root: Any = None) -> Catalog:
             catalog.problems.append(f"{source}: file name does not match id {feature.id!r}")
         seen[feature.id] = source
         catalog.features.append(feature)
+    if plugins:
+        _add_plugin_features(catalog, seen)
     catalog.features.sort(key=lambda item: (VERBS.index(item.verb), item.title.lower()))
     for problem in catalog.problems:
         logger.warning("feature manifest: %s", problem)
     return catalog
+
+
+def _add_plugin_features(catalog: Catalog, seen: Dict[str, str]) -> None:
+    from briefcase import plugins as _plugins
+
+    group = "briefcase.features"
+    for name, obj in _plugins.get_all(group, list(seen)).items():
+        plugin = _plugins.find(group, name)
+        dist = plugin.dist if plugin is not None and plugin.dist else "unknown"
+        source = f"plugin {dist} ({name})"
+        try:
+            data = obj() if callable(obj) else obj
+            if isinstance(data, str):
+                data = json.loads(data)
+        except Exception as exc:  # noqa: BLE001 - a broken plugin manifest is skipped
+            catalog.problems.append(f"{source}: skipped, manifest could not be read ({exc})")
+            continue
+        feature, problems = parse_feature(data, source)
+        catalog.problems.extend(problems)
+        if feature is None:
+            continue
+        if feature.id in seen:
+            catalog.problems.append(f"{source}: skipped, id {feature.id!r} is already used by {seen[feature.id]}")
+            continue
+        seen[feature.id] = source
+        feature.extra["plugin"] = dist
+        catalog.features.append(feature)
 
 
 __all__ = ["Catalog", "Feature", "VERBS", "VERB_TITLES", "load_catalog", "parse_feature"]
