@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `auto(dedupe="none"|"provider"|"framework")` and `briefcase exec --dedupe`;
+  provider records carry `parent_run_id` / `parent_framework` linking them to
+  the framework run that made the call. `briefcase.auto.status()` reports what
+  is patched or skipped and why. Opt-in OpenAI stream usage
+  (`stream_usage=True`), aiobotocore support, and a one-time warning when a
+  framework handler records full content by default.
 - Zero-code Python instrumentation. `briefcase exec -- python app.py` runs an
   unmodified program with capture switched on. `briefcase.observe()` with no
   arguments resolves its destination from `BRIEFCASE_EXPORTER` (and
@@ -108,6 +114,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `schema_version` "1.1".
 
 ### Changed
+- **Breaking:** `briefcase exec` refuses `python -I/-E/-S` (override with
+  `--allow-uninstrumented`) and exits 2 on an unknown `BRIEFCASE_EXPORTER`, a
+  malformed OTLP endpoint or an unsupported OTLP protocol.
+- **Breaking:** the OTLP protocol defaults to `http/protobuf` and is no longer
+  guessed from the port number.
+- `briefcase receive` reads `BRIEFCASE_EXPORTER_TOKEN`; `BRIEFCASE_EXPORT_TOKEN`
+  still works with a deprecation warning.
+- Decision records carry `schema_version` "1.2" (adds optional
+  `prompt_name`, `prompt_version`, `parent_run_id`, `parent_framework`).
 - **Breaking:** VCS clients, `BranchManager`, `StagedArtifactClient.from_env`,
   `VersionedEmbeddingPipeline`, and `InstrumentedRetriever` no longer return
   placeholder data unless `mock=True`. They raise `ImportError` (missing
@@ -178,6 +193,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   says how to get the core when first used.
 
 ### Fixed
+- `briefcase receive` default redaction keeps only identifier-shaped values:
+  tool parameters, commands, file paths, URLs and error text are dropped
+  unless `--keep-content` (a command such as `cat ~/project/.env` used to be
+  kept).
+- Exported records are no longer lost, duplicated or deadlocked in forked
+  workers (gunicorn, multiprocessing fork, `os.fork`).
+- An explicit `auto(name, ...)` call with different options re-applies them
+  instead of being ignored.
+- Anthropic `.stream()` capture no longer depends on a private SDK attribute.
+- Provider patches never half-apply on SDK layout drift, `undo()` leaves later
+  patches by other libraries in place, and unknown token usage is `null`, not 0.
 - `@capture` records are self-consistent: `ended_at - started_at` equals
   `execution_time_ms` (both now come from the same two instants).
 - `FixedWindowQuotaStore` denies on an invalid policy (it used to allow

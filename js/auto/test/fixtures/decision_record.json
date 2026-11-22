@@ -21,7 +21,9 @@
     "parent_span_id",
     "trace_flags",
     "prompt_name",
-    "prompt_version"
+    "prompt_version",
+    "parent_run_id",
+    "parent_framework"
   ],
   "example": {
     "schema_version": "1.2",

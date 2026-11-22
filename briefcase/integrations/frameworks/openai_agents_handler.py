@@ -27,6 +27,7 @@ from briefcase.integrations.frameworks._capture_state import (
     DEFAULT_MAX_RECORDS,
     CaptureOptions,
     InflightStore,
+    LLMRunScopes,
     bounded_records,
 )
 from briefcase._logging import get_logger
@@ -151,6 +152,9 @@ class OpenAIAgentsTracer(ExportMixin, _TracingBase):  # type: ignore[valid-type,
         self._trace_starts = InflightStore(max_inflight, inflight_ttl_seconds)
         # Span start times: span_id to datetime
         self._span_starts = InflightStore(max_inflight, inflight_ttl_seconds)
+        # Publishes open model spans (generation / response) to provider
+        # auto-instrumentation.
+        self._llm_scopes = LLMRunScopes("openai-agents")
         self._capture_options = CaptureOptions(capture_content, redact)
         self.max_records = max_records
         # Completed records: a ring buffer that applies the capture options
@@ -212,6 +216,8 @@ class OpenAIAgentsTracer(ExportMixin, _TracingBase):  # type: ignore[valid-type,
         """Called when a span begins. Records its start time."""
         try:
             self._span_starts[span.span_id] = datetime.now(timezone.utc)
+            if _is_model_span(span):
+                self._llm_scopes.start(span.span_id)
         except Exception as e:
             logger.debug("OpenAIAgentsTracer: on_span_start error: %s", e)
 
@@ -222,6 +228,10 @@ class OpenAIAgentsTracer(ExportMixin, _TracingBase):  # type: ignore[valid-type,
             trace_id = span.trace_id
             started_at = self._span_starts.pop(span_id, None)
             ended_at = datetime.now(timezone.utc)
+            if _is_model_span(span) and self._llm_scopes.finish(span_id):
+                # auto(dedupe="framework"): a provider record stands for
+                # this model call; leave the span out of the trace record.
+                return
 
             span_record = self._build_span_record(span, started_at, ended_at)
 
@@ -317,3 +327,16 @@ class OpenAIAgentsTracer(ExportMixin, _TracingBase):  # type: ignore[valid-type,
             record["error"] = str(error)
 
         return record
+
+
+def _is_model_span(span: Any) -> bool:
+    """True for a span that wraps one model call: ``GenerationSpanData``
+    (chat completions) or ``ResponseSpanData`` (Responses API), told apart
+    by the ``type`` the SDK's span data declares."""
+    try:
+        span_data = getattr(span, "span_data", None)
+        if GenerationSpanData is not None and isinstance(span_data, GenerationSpanData):
+            return True
+        return getattr(span_data, "type", None) in ("generation", "response")
+    except Exception:
+        return False

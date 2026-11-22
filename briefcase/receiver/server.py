@@ -53,6 +53,28 @@ def is_loopback(host: str) -> bool:
         return False
 
 
+_warned_token_alias = False
+
+
+def exporter_token(env: Any) -> Optional[str]:
+    """Bearer token for an ``http(s)://`` sink: ``BRIEFCASE_EXPORTER_TOKEN``
+    (the name ``briefcase.observe()`` reads). ``BRIEFCASE_EXPORT_TOKEN`` is
+    a deprecated alias, honoured with one warning; the new name wins when
+    both are set. The token itself is never printed."""
+    global _warned_token_alias
+    token = (env.get("BRIEFCASE_EXPORTER_TOKEN") or "").strip()
+    if token:
+        return token
+    legacy = (env.get("BRIEFCASE_EXPORT_TOKEN") or "").strip()
+    if legacy:
+        if not _warned_token_alias:
+            _warned_token_alias = True
+            print("warning: BRIEFCASE_EXPORT_TOKEN is deprecated; set "
+                  "BRIEFCASE_EXPORTER_TOKEN instead (same value).", file=sys.stderr)
+        return legacy
+    return None
+
+
 def make_exporter(to: Optional[str]) -> Any:
     """``console`` | ``memory`` | ``PATH.jsonl`` | ``http(s)://...`` | ``otlp``."""
     import os
@@ -66,7 +88,7 @@ def make_exporter(to: Optional[str]) -> Any:
                             service_name=SERVICE)
     if to.lower().startswith(("http://", "https://")):
         from briefcase.exporters.http import HTTPExporter
-        return HTTPExporter(to, token=os.environ.get("BRIEFCASE_EXPORT_TOKEN") or None)
+        return HTTPExporter(to, token=exporter_token(os.environ))
     from briefcase._observe import _resolve_exporter
     return _resolve_exporter(to)
 

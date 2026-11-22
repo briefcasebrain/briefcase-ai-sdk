@@ -191,7 +191,8 @@ def test_stream_error_reaches_on_end_and_is_reraised():
 
 
 def test_unknown_provider_and_registry():
-    assert set(providers.PROVIDERS) == {"openai", "anthropic", "google-genai", "bedrock"}
+    assert set(providers.PROVIDERS) == {
+        "openai", "anthropic", "google-genai", "bedrock", "aiobotocore"}
     with pytest.raises(ValueError, match="Unknown provider"):
         providers.instrument("nope")
 

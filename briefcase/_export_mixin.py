@@ -21,6 +21,7 @@ import asyncio
 import atexit
 import os
 import queue
+import sys
 import threading
 import time
 import weakref
@@ -75,6 +76,11 @@ class _Stats:
         self.failed = 0
         self.dropped = 0
 
+    def after_fork(self) -> None:
+        """Fresh lock and zero counts (a forked child is a new process)."""
+        self._lock = threading.Lock()
+        self.exported = self.failed = self.dropped = 0
+
     def add(self, name: str) -> int:
         with self._lock:
             value = getattr(self, name) + 1
@@ -103,6 +109,11 @@ class _RateLimitedWarning:
             message += " (%d similar warnings suppressed)"
             args = args + (suppressed,)
         logger.warning(message, *args, exc_info=exc_info)
+
+    def after_fork(self) -> None:
+        self._lock = threading.Lock()
+        self._last = float("-inf")
+        self._suppressed = 0
 
     def reset(self) -> None:
         with self._lock:
@@ -362,6 +373,114 @@ def _run_with_deadline(fn: Callable[[], Any], timeout: float) -> bool:
     t.start()
     t.join(timeout=max(0.0, timeout))
     return bool(ok)
+
+
+# -- fork safety ----------------------------------------------------------------
+#
+# A forked child (gunicorn / Celery prefork workers, multiprocessing "fork",
+# os.fork) gets a copy of this module's state but none of its threads. Three
+# things go wrong without help:
+#
+# - a lock that some other thread held at the moment of the fork stays locked
+#   forever in the child, so the child's first record (or its exit-time
+#   drain) blocks the application;
+# - records the parent had queued but not yet exported would be exported a
+#   second time if the child reused the copied queue;
+# - multiprocessing children leave through os._exit, which skips atexit, so
+#   whatever the child queued last was never exported.
+#
+# So: just before a fork the worker is given a bounded moment to finish what
+# is queued (it then holds no exporter lock); in the child every lock is
+# recreated, the copied queue and dead worker are forgotten (the child starts
+# its own on its first record), counters restart, and multiprocessing's exit
+# path is asked to drain the child's queue.
+
+FORK_DRAIN_TIMEOUT_SECONDS = 0.5
+_fork_hooks_registered = False
+
+
+def _before_fork() -> None:
+    try:
+        worker = _export_worker
+        if (worker is not None and worker.is_alive()
+                and threading.current_thread() is not worker):
+            wait_for_pending_exports(FORK_DRAIN_TIMEOUT_SECONDS)
+    except Exception:  # pragma: no cover - never break a fork
+        pass
+
+
+def _shutdown_forked_child(_owner: Any = None) -> None:
+    """multiprocessing's exit path in a forked child: drain once."""
+    pid = os.getpid()
+    if _drained_at_exit.get("pid") == pid:
+        return
+    _drained_at_exit["pid"] = pid
+    _atexit_flush()
+
+
+_drained_at_exit: Dict[str, int] = {}
+
+
+def _register_multiprocessing_exit() -> None:
+    """In a forked child: have multiprocessing's own exit path drain the
+    queue. multiprocessing clears its finalizer registry right after the
+    fork and then runs its after-fork callbacks, so the finalizer is added
+    from one of those."""
+    util = sys.modules.get("multiprocessing.util")
+    if util is None:
+        return
+
+    def add_finalizer(_owner: Any) -> None:
+        try:
+            util.Finalize(None, _shutdown_forked_child, exitpriority=-10)
+        except Exception:
+            logger.debug("could not register the multiprocessing exit drain", exc_info=True)
+
+    try:
+        util.register_after_fork(_fork_owner, add_finalizer)
+    except Exception:
+        logger.debug("could not register with multiprocessing", exc_info=True)
+
+
+class _ForkOwner:
+    """Weak-referenceable owner for multiprocessing's after-fork registry."""
+
+
+_fork_owner = _ForkOwner()
+
+
+def _after_fork_in_child() -> None:
+    global _worker_state_lock, _export_queue, _export_worker
+    try:
+        _worker_state_lock = threading.Lock()
+        _export_queue = None
+        _export_worker = None
+        # Same objects (other modules hold references), fresh locks and counts.
+        _stats.after_fork()
+        _drop_warning.after_fork()
+        _failure_warning.after_fork()
+        _drained_at_exit.clear()
+        for exporter in list(_seen_exporters):
+            reset = getattr(exporter, "_after_fork_in_child", None)
+            if callable(reset):
+                try:
+                    reset()
+                except Exception:
+                    pass
+        _register_multiprocessing_exit()
+    except Exception:  # pragma: no cover - never break a fork
+        pass
+
+
+def _register_fork_hooks() -> None:
+    global _fork_hooks_registered
+    if _fork_hooks_registered or not hasattr(os, "register_at_fork"):
+        return
+    os.register_at_fork(before=_before_fork, after_in_child=_after_fork_in_child)
+    _fork_hooks_registered = True
+
+
+_register_fork_hooks()
 
 
 def _known_exporters() -> list:

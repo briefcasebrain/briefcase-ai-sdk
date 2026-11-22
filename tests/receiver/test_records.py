@@ -27,10 +27,10 @@ def run(kind, payload, **mapper_kwargs):
     return records
 
 
-def cursor_records(**mapper_kwargs):
+def cursor_records(hostile=False, **mapper_kwargs):
     mapper = RecordMapper(mapper_kwargs.pop("redactor", None) or Redactor(sanitize=None), **mapper_kwargs)
     records = []
-    for payload in p.cursor_hooks():
+    for payload in p.cursor_hooks(hostile=hostile):
         records.extend(mapper.ingest(normalize.normalize_cursor(payload)))
     return records + mapper.flush()
 
@@ -194,28 +194,60 @@ def test_redaction_is_on_by_default_for_every_source():
         assert "tool_parameters" not in blob and "host_paths" not in blob, source
 
 
-def test_sanitizer_is_applied_to_tool_parameters_and_errors_when_available():
-    seen = []
+def test_a_sanitizer_never_lets_commands_or_paths_through():
+    """The compiled Sanitizer rewrites PII patterns, not commands or paths:
+    with it present, redacted records used to keep ``tool_parameters``
+    (``cat /Users/.../.env``). Free text is dropped whatever it returns."""
+    def pii_only_sanitizer(text):  # what the real one does to a command line
+        return text.replace(p.EMAIL, "[EMAIL]")
 
-    def fake_sanitize(text):
-        seen.append(text)
-        return "SANITIZED(" + str(len(text)) + ")"
+    redactor = Redactor(sanitize=pii_only_sanitizer)
+    sources = {
+        "claude_code": run("logs", p.claude_code_logs(), redactor=redactor),
+        "cowork": run("logs", p.cowork_logs(), redactor=redactor),
+        "codex": run("logs", p.codex_logs(hostile=True), redactor=redactor),
+        "copilot": run("traces", p.copilot_traces(hostile=True), redactor=redactor),
+        "cursor": cursor_records(hostile=True, redactor=redactor),
+    }
+    assert any(r["function_name"] == "copilot.tool.runInTerminal" for r in sources["copilot"])
+    assert sum(r["function_name"] == "cursor.tool.Shell" for r in sources["cursor"]) == 2
+    assert sum(r["function_name"] == "codex.tool.shell" for r in sources["codex"]) == 2
+    for source, records in sources.items():
+        assert records, source
+        blob = json.dumps(records)
+        for sentinel in p.SENTINELS:
+            assert sentinel not in blob, (source, sentinel)
+        for record in records:
+            assert "tool_parameters" not in record["inputs"], source
+            assert "tool_input" not in record["inputs"] and "tool_output" not in record["outputs"], source
+    functions = by_function(sources["claude_code"])
+    assert functions["claude_code.tool.Read"]["error"] == REDACTED
+    assert functions["claude_code.tool.Read"]["outputs"]["error_type"] == "PermissionError"
+    assert functions["claude_code.api_error"]["error"] == REDACTED
 
-    records = run("logs", p.claude_code_logs(), redactor=Redactor(sanitize=fake_sanitize))
-    functions = by_function(records)
-    assert functions["claude_code.tool.Bash"]["inputs"]["tool_parameters"].startswith("SANITIZED(")
-    assert functions["claude_code.tool.Read"]["error"].startswith("SANITIZED(")
-    assert functions["claude_code.api_error"]["error"].startswith("SANITIZED(")
-    assert any(p.TOOL_INPUT in text for text in seen)
-    blob = json.dumps(records)
-    for sentinel in p.SENTINELS:  # only sanitised text, never the raw prompt, input or body
-        assert sentinel not in blob
+
+def test_free_text_is_dropped_by_default_with_or_without_the_sanitizer():
+    assert Redactor().text("anything at all") is None
+    assert Redactor(sanitize=lambda text: text).text("cat /etc/passwd") is None
+    assert Redactor(keep_content=True, sanitize=None).text("cat /etc/passwd") == "cat /etc/passwd"
 
 
-def test_without_the_native_sanitizer_free_text_is_dropped_not_passed_through():
-    redactor = Redactor()  # tests mock briefcase._native, so no real Sanitizer
-    assert redactor.sanitizer_available is False
-    assert redactor.text("anything at all") is None
+@pytest.mark.parametrize("value", [
+    p.TOOL_INPUT, p.COMMAND, p.HOST_PATH, p.WINDOWS_PATH, "~/secret/.env", "./run.sh",
+    "https://internal.corp.example/x", "dev.person@example.com", "a/b/c", "two words", "x" * 201,
+])
+def test_label_fields_reject_commands_paths_urls_and_emails(value):
+    from briefcase.receiver.records import _label
+    assert _label(value) is None
+
+
+@pytest.mark.parametrize("value", [
+    "claude-sonnet-4-5", "gpt-4o-2024-08-06", "openai/gpt-4o", "anthropic.claude-v2:0",
+    "mcp__github__create_issue", "toolu_01AbC", "5b1c2f9e-0000-4000-8000-000000000001", "user_reject",
+])
+def test_label_fields_keep_identifiers(value):
+    from briefcase.receiver.records import _label
+    assert _label(value) == value
 
 
 def test_email_hash_is_keyed_and_stable():
@@ -230,7 +262,9 @@ def test_keep_content_passes_content_through():
     assert functions["claude_code.user_prompt"]["inputs"]["prompt"] == p.PROMPT
     assert functions["claude_code.assistant_response"]["outputs"]["response"] == p.RESPONSE
     assert functions["claude_code.tool.Bash"]["inputs"]["tool_input"] == p.TOOL_INPUT
-    assert functions["claude_code.tool.Read"]["error"] == p.TOOL_ERROR
+    assert functions["claude_code.tool.Read"]["error"].startswith(p.TOOL_ERROR)
+    assert p.COMMAND in functions["claude_code.tool.Bash"]["inputs"]["tool_parameters"] or \
+        p.TOOL_INPUT in functions["claude_code.tool.Bash"]["inputs"]["tool_parameters"]
     assert functions["claude_code.api_request"]["inputs"]["user_email"] == p.EMAIL
     assert functions["claude_code.api_request"]["inputs"]["attributes"]["workspace.host_paths"] == [p.HOST_PATH]
 

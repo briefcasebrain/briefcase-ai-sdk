@@ -23,7 +23,63 @@ _FROM_ENV: Any = object()
 ENV_EXPORTER = "BRIEFCASE_EXPORTER"
 ENV_EXPORTER_TOKEN = "BRIEFCASE_EXPORTER_TOKEN"
 _OTLP_SHORTHANDS = ("otlp", "otel")
+_SHORTHANDS = ("console", "memory") + _OTLP_SHORTHANDS
+# The OpenTelemetry specification's default OTLP protocol is http/protobuf,
+# whose default endpoint is http://localhost:4318 (traces: /v1/traces).
+_DEFAULT_OTLP_PROTOCOL = "http"
 _DEFAULT_OTLP_ENDPOINT = {"grpc": "http://localhost:4317", "http": "http://localhost:4318"}
+_OTLP_VARIABLES = (
+    "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT",
+)
+
+
+class _DisabledExporter(BaseExporter):
+    """Accepts and discards records: ``OTEL_SDK_DISABLED=true`` with an OTLP
+    destination."""
+
+    async def export(self, decision: Any) -> bool:
+        return True
+
+    async def flush(self) -> None:
+        return None
+
+    async def close(self) -> None:
+        return None
+
+
+def _safe_url(value: Any) -> str:
+    """``value`` for a log or error message: credentials in the user-info
+    part and the whole query string are removed."""
+    text = str(value)
+    try:
+        parts = urlsplit(text)
+        if parts.scheme and parts.netloc:
+            host = parts.hostname or ""
+            if parts.port:
+                host += f":{parts.port}"
+            marker = "***@" if "@" in parts.netloc else ""
+            query = "?***" if parts.query else ""
+            return f"{parts.scheme}://{marker}{host}{parts.path}{query}"
+    except ValueError:
+        pass
+    if len(text) > 80:
+        text = text[:77] + "..."
+    return text
+
+
+def _check_url(value: str, what: str) -> None:
+    """Raise ValueError unless ``value`` is an absolute http(s) URL."""
+    try:
+        parts = urlsplit(value)
+        port_ok = parts.port is None or 0 < parts.port < 65536
+    except ValueError:
+        parts, port_ok = None, False
+    if (parts is None or not port_ok or parts.scheme.lower() not in ("http", "https")
+            or not parts.hostname):
+        raise ValueError(
+            f"{what} is not a valid http(s) URL: {_safe_url(value)!r}. Expected something "
+            "like http://localhost:4318 (the scheme is required)."
+        )
 
 
 def _resolve_exporter(
@@ -38,20 +94,31 @@ def _resolve_exporter(
     if exporter == "memory":
         return MemoryExporter()
     if isinstance(exporter, str) and exporter.lower().startswith(("http://", "https://")):
+        _check_url(exporter, "The exporter URL")
         return HTTPExporter(exporter, token=token) if token else HTTPExporter(exporter)
     if isinstance(exporter, str) and exporter.endswith(".jsonl"):
         return JSONLFileExporter(exporter)
     raise ValueError(
-        f"Unknown exporter shorthand: {exporter!r}. Pass a BaseExporter instance, "
+        f"Unknown exporter shorthand: {_safe_url(exporter)!r}. Pass a BaseExporter instance, "
         "'console', 'memory', a path ending in '.jsonl', or an http(s):// URL."
     )
 
 
-def _otlp_protocol(env: Mapping[str, str], endpoint: Optional[str]) -> str:
+def _otlp_protocol(env: Mapping[str, str], endpoint: Optional[str] = None) -> str:
     """Map the OTel protocol variables onto OTelExporter's ``"grpc"`` /
-    ``"http"``. With no protocol set, an endpoint on port 4318 or one ending
-    in ``/v1/traces`` is HTTP and anything else gRPC (OTelExporter's own
-    default)."""
+    ``"http"``.
+
+    ``OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`` wins over
+    ``OTEL_EXPORTER_OTLP_PROTOCOL``. With neither set the answer is the
+    OpenTelemetry specification's default, ``http/protobuf``. The protocol
+    is never guessed from the endpoint: a port number is a convention, not
+    a contract (collectors are routinely remapped or proxied), and a wrong
+    guess sends nothing while looking configured. An endpoint on the
+    conventional gRPC port with no protocol set is pointed out at WARNING.
+
+    Raises:
+        ValueError: a protocol OTelExporter cannot speak (``http/json``).
+    """
     raw = (
         env.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL")
         or env.get("OTEL_EXPORTER_OTLP_PROTOCOL")
@@ -62,38 +129,44 @@ def _otlp_protocol(env: Mapping[str, str], endpoint: Optional[str]) -> str:
     if raw in ("http/protobuf", "http"):
         return "http"
     if raw:
-        logger.warning(
-            "OTLP protocol %r is not supported by OTelExporter; using http/protobuf.", raw,
+        raise ValueError(
+            f"OTLP protocol {raw!r} is not supported; set OTEL_EXPORTER_OTLP_PROTOCOL to "
+            "'http/protobuf' or 'grpc'."
         )
-        return "http"
     if endpoint:
         try:
-            parts = urlsplit(endpoint)
-            if parts.port == 4318 or parts.path.rstrip("/").endswith("/v1/traces"):
-                return "http"
+            port = urlsplit(endpoint).port
         except ValueError:
-            pass
-    return "grpc"
+            port = None
+        if port == 4317:
+            logger.warning(
+                "briefcase.observe(): the OTLP endpoint uses port 4317, which is "
+                "conventionally gRPC, but no OTEL_EXPORTER_OTLP_PROTOCOL is set, so the "
+                "specification default http/protobuf is used. Set "
+                "OTEL_EXPORTER_OTLP_PROTOCOL=grpc if the collector expects gRPC."
+            )
+    return _DEFAULT_OTLP_PROTOCOL
 
 
-def _otel_from_env(env: Mapping[str, str]) -> BaseExporter:
-    """Build an OTelExporter from the standard OpenTelemetry variables.
+def _otlp_settings(env: Mapping[str, str]) -> "tuple[str, str, str]":
+    """``(endpoint, protocol, service_name)`` from the standard variables.
 
     ``OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`` is used as given;
     ``OTEL_EXPORTER_OTLP_ENDPOINT`` is a base URL, so for HTTP the
     ``/v1/traces`` signal path is appended (as the OTel SDK does).
-    ``OTEL_EXPORTER_OTLP_HEADERS`` (and the ``_TRACES_`` variant) are read
-    by the underlying OTLP span exporter itself.
 
-    Falls back to the console, with a warning naming the pip extra, when
-    the OpenTelemetry packages are not installed.
+    Raises:
+        ValueError: an endpoint that is not an absolute http(s) URL, or an
+            unsupported protocol.
     """
     traces_endpoint = (env.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") or "").strip()
     base_endpoint = (env.get("OTEL_EXPORTER_OTLP_ENDPOINT") or "").strip()
     protocol = _otlp_protocol(env, traces_endpoint or base_endpoint)
     if traces_endpoint:
+        _check_url(traces_endpoint, "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
         endpoint = traces_endpoint
     elif base_endpoint:
+        _check_url(base_endpoint, "OTEL_EXPORTER_OTLP_ENDPOINT")
         endpoint = base_endpoint
         if protocol == "http" and not endpoint.rstrip("/").endswith("/v1/traces"):
             endpoint = endpoint.rstrip("/") + "/v1/traces"
@@ -102,6 +175,37 @@ def _otel_from_env(env: Mapping[str, str]) -> BaseExporter:
         if protocol == "http":
             endpoint += "/v1/traces"
     service_name = (env.get("OTEL_SERVICE_NAME") or "").strip() or "briefcase-ai"
+    return endpoint, protocol, service_name
+
+
+def _sdk_disabled(env: Mapping[str, str]) -> bool:
+    return (env.get("OTEL_SDK_DISABLED") or "").strip().lower() == "true"
+
+
+def _otel_from_env(env: Mapping[str, str], strict: bool = False) -> BaseExporter:
+    """Build an OTelExporter from the standard OpenTelemetry variables.
+
+    ``OTEL_EXPORTER_OTLP_HEADERS`` (and the ``_TRACES_`` variant) are read
+    by the underlying OTLP span exporter itself; they are never read,
+    logged or put in an error message here.
+
+    ``OTEL_SDK_DISABLED=true`` yields an exporter that discards records
+    (with a WARNING): the variable asks for no OpenTelemetry export, and
+    falling back to another destination would send data somewhere it was
+    not asked to go.
+
+    When the OpenTelemetry packages are not installed: with ``strict`` an
+    ImportError; otherwise the console, with a warning naming the pip
+    extra.
+    """
+    endpoint, protocol, service_name = _otlp_settings(env)
+    if _sdk_disabled(env):
+        logger.warning(
+            "briefcase.observe(): OTEL_SDK_DISABLED=true, so decision records are NOT "
+            "exported (the OTLP destination is disabled). Unset it, or set "
+            "BRIEFCASE_EXPORTER to another destination."
+        )
+        return _DisabledExporter()
 
     try:
         from briefcase.exporters.otel import OTelExporter
@@ -110,39 +214,74 @@ def _otel_from_env(env: Mapping[str, str]) -> BaseExporter:
     except ImportError as exc:
         message = (
             "briefcase.observe(): an OTLP destination is configured in the "
-            "environment, but the OpenTelemetry packages are not installed "
-            f"({exc}). Falling back to the console exporter. Install with: "
-            "pip install 'briefcase-ai[otel]'"
+            "environment, but the OpenTelemetry packages for it are not installed "
+            f"({exc}). Install with: pip install 'briefcase-ai[otel]'"
         )
+        if strict:
+            raise ImportError(message) from exc
+        message += ". Falling back to the console exporter."
         logger.warning(message)
         warnings.warn(message, RuntimeWarning, stacklevel=3)
         return ConsoleExporter()
 
 
-def _exporter_from_env(env: Optional[Mapping[str, str]] = None) -> BaseExporter:
+def _exporter_from_env(env: Optional[Mapping[str, str]] = None,
+                       strict: bool = False) -> BaseExporter:
     """Resolve the destination from the environment, in order:
 
     1. ``BRIEFCASE_EXPORTER``: ``console``, ``memory``, a ``*.jsonl`` path,
        an ``http(s)://`` URL (sent with ``BRIEFCASE_EXPORTER_TOKEN`` as a
        bearer token when that is set), or ``otlp`` to use the OpenTelemetry
-       variables below.
-    2. ``OTEL_EXPORTER_OTLP_ENDPOINT`` / ``OTEL_EXPORTER_OTLP_TRACES_ENDPOINT``
-       (with ``OTEL_EXPORTER_OTLP_PROTOCOL``, ``OTEL_EXPORTER_OTLP_HEADERS``
-       and ``OTEL_SERVICE_NAME``): :class:`~briefcase.exporters.otel.OTelExporter`.
+       variables below. Anything else is a ValueError, never a silent
+       fallback.
+    2. ``OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`` / ``OTEL_EXPORTER_OTLP_ENDPOINT``
+       (with ``OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`` /
+       ``OTEL_EXPORTER_OTLP_PROTOCOL``, ``OTEL_EXPORTER_OTLP_HEADERS``,
+       ``OTEL_SERVICE_NAME`` and ``OTEL_SDK_DISABLED``):
+       :class:`~briefcase.exporters.otel.OTelExporter`.
     3. The console.
     """
     env = os.environ if env is None else env
     choice = (env.get(ENV_EXPORTER) or "").strip()
     if choice.lower() in _OTLP_SHORTHANDS:
-        return _otel_from_env(env)
+        return _otel_from_env(env, strict)
     if choice:
         token = (env.get(ENV_EXPORTER_TOKEN) or "").strip() or None
         return _resolve_exporter(choice, token=token)
-    if (env.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") or "").strip() or (
-        env.get("OTEL_EXPORTER_OTLP_ENDPOINT") or ""
-    ).strip():
-        return _otel_from_env(env)
+    if any((env.get(name) or "").strip() for name in _OTLP_VARIABLES):
+        return _otel_from_env(env, strict)
     return ConsoleExporter()
+
+
+def check_environment(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
+    """Why the destination configured in ``env`` cannot work, or None.
+
+    Checks only what can be checked without side effects (no file is
+    opened, no connection made, no exporter built): the
+    ``BRIEFCASE_EXPORTER`` value is a known shorthand, and the OTLP
+    endpoint and protocol are well formed. ``briefcase exec`` calls this
+    before starting the program so a typo fails at once instead of sending
+    records to the wrong place. Secrets are not echoed."""
+    env = os.environ if env is None else env
+    choice = (env.get(ENV_EXPORTER) or "").strip()
+    try:
+        if choice.lower() in _OTLP_SHORTHANDS or (
+            not choice and any((env.get(name) or "").strip() for name in _OTLP_VARIABLES)
+        ):
+            _otlp_settings(env)
+        elif choice.lower().startswith(("http://", "https://")):
+            _check_url(choice, f"{ENV_EXPORTER}")
+        elif choice and choice not in ("console", "memory") and not choice.endswith(".jsonl"):
+            hint = ""
+            if choice.lower() in _SHORTHANDS:
+                hint = f" (did you mean {choice.lower()!r}?)"
+            return (
+                f"{ENV_EXPORTER}={_safe_url(choice)!r} is not a destination{hint}. Use "
+                "console, memory, otlp, a path ending in .jsonl, or an http(s):// URL."
+            )
+    except ValueError as exc:
+        return str(exc)
+    return None
 
 
 def observe(
@@ -169,12 +308,18 @@ def observe(
             ``BRIEFCASE_EXPORTER`` (any shorthand above, or ``otlp``; an
             http(s) URL is sent with ``BRIEFCASE_EXPORTER_TOKEN`` as its
             bearer token when set), else the standard OpenTelemetry
-            variables (``OTEL_EXPORTER_OTLP_ENDPOINT``,
-            ``OTEL_EXPORTER_OTLP_PROTOCOL``, ``OTEL_EXPORTER_OTLP_HEADERS``,
-            ``OTEL_SERVICE_NAME``) →
+            variables (``OTEL_EXPORTER_OTLP_ENDPOINT`` or the
+            ``_TRACES_ENDPOINT`` override, ``OTEL_EXPORTER_OTLP_PROTOCOL``,
+            ``OTEL_EXPORTER_OTLP_HEADERS``, ``OTEL_SERVICE_NAME``) →
             :class:`~briefcase.exporters.otel.OTelExporter`, else the
-            console. If an OTLP endpoint is set but the ``otel`` extra is not
-            installed, records go to the console and a warning says so.
+            console. The protocol is the one the variables name, else the
+            OpenTelemetry default ``http/protobuf``; it is not guessed from
+            the port. A malformed endpoint, an unsupported protocol or an
+            unknown ``BRIEFCASE_EXPORTER`` value raises ValueError.
+            ``OTEL_SDK_DISABLED=true`` with an OTLP destination exports
+            nothing (a warning says so). If an OTLP endpoint is set but the
+            ``otel`` extra is not installed, records go to the console and a
+            warning says so.
         level: If given, also enable briefcase logging at this level
             (see :func:`briefcase.enable_logging`).
 
@@ -203,4 +348,4 @@ def observe(
     return resolved
 
 
-__all__ = ["observe"]
+__all__ = ["check_environment", "observe"]

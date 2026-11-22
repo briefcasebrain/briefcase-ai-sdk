@@ -317,3 +317,73 @@ class InflightStore:
     def clear(self) -> None:
         with self._lock:
             self._items.clear()
+
+
+class LLMRunScopes:
+    """Tells provider auto-instrumentation that a framework LLM run is active.
+
+    A handler calls :meth:`start` from its LLM-start callback and
+    :meth:`finish` from the matching end / error callback. In between, a
+    provider SDK call made in the same thread or asyncio task sees the run
+    (a :mod:`contextvars` variable, see
+    ``briefcase.integrations.providers._correlation``) and links its record
+    to it with ``parent_run_id`` / ``parent_framework``, so the two records
+    of one model call can be told apart and its tokens counted once.
+
+    :meth:`finish` returns True when the handler should drop its own
+    LLM-level record: ``briefcase.auto(dedupe="framework")`` is set and a
+    provider record was emitted for the run.
+
+    Bounded (a start whose end never arrives is forgotten after
+    ``max_size`` newer runs) and unable to raise.
+    """
+
+    def __init__(self, framework: str, max_size: int = DEFAULT_MAX_INFLIGHT) -> None:
+        self.framework = framework
+        self._max_size = max_size
+        self._lock = threading.Lock()
+        self._scopes: "OrderedDict[Any, Any]" = OrderedDict()
+
+    def start(self, key: Any) -> None:
+        try:
+            from briefcase.integrations.providers._correlation import (
+                llm_run_finished,
+                llm_run_started,
+            )
+
+            scope = llm_run_started(self.framework, key)
+            if scope is None:
+                return
+            stale = []
+            with self._lock:
+                previous = self._scopes.pop(key, None)
+                if previous is not None:
+                    stale.append(previous)
+                self._scopes[key] = scope
+                while len(self._scopes) > self._max_size:
+                    stale.append(self._scopes.popitem(last=False)[1])
+            for old in stale:
+                llm_run_finished(old)
+        except Exception:
+            logger.debug("could not publish the LLM run", exc_info=True)
+
+    def finish(self, key: Any) -> bool:
+        try:
+            from briefcase.integrations.providers._correlation import llm_run_finished
+
+            with self._lock:
+                scope = self._scopes.pop(key, None)
+            return llm_run_finished(scope)
+        except Exception:
+            return False
+
+    def clear(self) -> None:
+        try:
+            from briefcase.integrations.providers._correlation import llm_run_finished
+
+            with self._lock:
+                scopes, self._scopes = list(self._scopes.values()), OrderedDict()
+            for scope in scopes:
+                llm_run_finished(scope)
+        except Exception:
+            pass

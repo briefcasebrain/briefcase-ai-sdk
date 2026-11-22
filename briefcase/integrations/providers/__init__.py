@@ -18,7 +18,11 @@ name               import detected        module
 ``anthropic``      ``anthropic``          :mod:`.anthropic`
 ``google-genai``   ``google.genai``       :mod:`.google_genai`
 ``bedrock``        ``botocore``           :mod:`.bedrock`
+``aiobotocore``    ``aiobotocore``        :mod:`.aiobotocore`
 =================  =====================  ==================================
+
+The SDK versions each module was tested with are stated in its docstring
+and reported at run time by ``briefcase.auto.status()``.
 
 Records use the ``@briefcase.capture`` layout plus the provider fields
 documented in :mod:`._base`. Prompt and completion content is not recorded
@@ -53,6 +57,7 @@ PROVIDERS: Dict[str, ProviderSpec] = {
         ProviderSpec("anthropic", "anthropic", "anthropic", "anthropic"),
         ProviderSpec("google-genai", "google.genai", "google.genai", "google_genai"),
         ProviderSpec("bedrock", "botocore", "botocore.client", "bedrock"),
+        ProviderSpec("aiobotocore", "aiobotocore", "aiobotocore.client", "aiobotocore"),
     )
 }
 
@@ -73,12 +78,15 @@ def instrument(name: str, **options: Any) -> ProviderInstrumentor:
     inst: ProviderInstrumentor = module.instrument(**options)
     if not inst.patched:
         inst.uninstall()
-        raise RuntimeError(
-            f"briefcase.auto: none of the known {name} patch targets exist in "
-            f"the installed SDK (version {inst.sdk_version}; verified against "
+        error = RuntimeError(
+            f"briefcase.auto: none of the known {name} patch targets match the "
+            f"installed SDK (version {inst.sdk_version}; tested with "
             f"{getattr(module, 'VERIFIED_VERSION', 'unknown')}), so nothing was "
-            "instrumented."
+            f"instrumented: {inst.skipped}"
         )
+        error.skipped = dict(inst.skipped)  # type: ignore[attr-defined]
+        error.sdk_version = inst.sdk_version  # type: ignore[attr-defined]
+        raise error
     logger.debug(
         "briefcase.auto[%s]: patched %d targets (sdk %s)",
         name, len(inst.patched), inst.sdk_version,

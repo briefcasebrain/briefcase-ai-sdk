@@ -105,7 +105,7 @@ def test_handler_matches_the_cli_calling_convention(mocker):
                               skip=None, no_replace=True)
     assert exec_commands.cmd_exec(args, object(), object(), object()) == 3
     run.assert_called_once_with(["--", "prog"], to=None, capture_content="full", skip=None,
-                                replace_process=False)
+                                dedupe=None, replace_process=False, allow_uninstrumented=False)
 
 
 def test_no_command_is_a_usage_error(capsys):
@@ -311,3 +311,251 @@ def test_real_sdk_is_instrumented_on_import_without_content(tmp_path):
     result = _exec(tmp_path, "--to", str(out), "--capture-content", "full", script=script)
     assert result.returncode == 0, result.stderr
     assert "PROMPT-SECRET" in out.read_text() and "COMPLETION-SECRET" in out.read_text()
+
+
+# -- red team: preflight ------------------------------------------------------
+
+@pytest.mark.parametrize("argv,blocked", [
+    (["python", "app.py"], False),
+    (["python3.12", "-u", "-X", "dev", "-W", "error", "app.py", "-I"], False),  # -I is the app's
+    (["python", "-c", "print(1)", "-E"], False),
+    (["python", "-m", "http.server", "-S"], False),
+    (["python", "-Xdev", "-Werror", "-B", "app.py"], False),
+    (["python", "-I", "app.py"], True),
+    (["python", "-E", "-m", "app"], True),
+    (["python", "-S", "app.py"], True),
+    (["python", "-sIu", "app.py"], True),
+    (["python", "-uE", "-c", "pass"], True),
+    (["python", "-X", "dev", "-S", "app.py"], True),
+    (["pypy3", "-I", "app.py"], True),
+])
+def test_interpreter_flags_that_defeat_the_bootstrap_are_detected(argv, blocked):
+    assert bool(exec_commands.blocking_python_flags(argv)) is blocked
+
+
+def test_a_command_that_cannot_be_instrumented_is_refused_with_a_reason(tmp_path, capsys):
+    for flag, word in (("-I", "isolated"), ("-E", "PYTHONPATH"), ("-S", "sitecustomize")):
+        code = exec_commands.run([sys.executable, flag, "-c", "print(1)"], env=_child_env(),
+                                 replace_process=False)
+        err = capsys.readouterr().err
+        assert code == exec_commands.EXIT_USAGE
+        assert "cannot be instrumented" in err and word in err and "--allow-uninstrumented" in err
+
+
+def test_allow_uninstrumented_runs_it_with_a_warning(tmp_path):
+    out = tmp_path / "o.jsonl"
+    app = tmp_path / "app.py"
+    app.write_text("print('ran-anyway')\n")
+    done = subprocess.run(
+        [sys.executable, "-m", "briefcase.cli.exec_commands", "--to", str(out),
+         "--allow-uninstrumented", "--", sys.executable, "-I", str(app)],
+        cwd=str(tmp_path), env=_child_env(), capture_output=True, text=True, timeout=120)
+    assert done.returncode == 0 and "ran-anyway" in done.stdout
+    assert "WITHOUT records" in done.stderr and not out.exists()
+
+
+def test_a_script_whose_shebang_isolates_python_is_detected(tmp_path, capsys):
+    script = tmp_path / "tool"
+    script.write_text(f"#!{sys.executable} -sE\nprint('x')\n")
+    script.chmod(0o755)
+    assert exec_commands.uninstrumentable([str(script)])
+    env_script = tmp_path / "tool2"
+    env_script.write_text("#!/usr/bin/env -S python3 -I\nprint('x')\n")
+    env_script.chmod(0o755)
+    assert exec_commands.uninstrumentable([str(env_script)])
+    fine = tmp_path / "tool3"
+    fine.write_text(f"#!{sys.executable}\nprint('x')\n")
+    fine.chmod(0o755)
+    assert exec_commands.uninstrumentable([str(fine)]) == []
+    assert exec_commands.uninstrumentable(["/bin/sh", "-c", "python -I x.py"]) == []
+    assert exec_commands.uninstrumentable(["no-such-command-xyz"]) == []
+
+
+@pytest.mark.parametrize("args,env,message", [
+    (["--to", "consol"], {}, "is not a destination"),
+    ([], {"BRIEFCASE_EXPORTER": "Console"}, "did you mean 'console'"),
+    ([], {"OTEL_EXPORTER_OTLP_ENDPOINT": "collector:4317"}, "not a valid http"),
+    (["--to", "otlp"], {"OTEL_EXPORTER_OTLP_PROTOCOL": "http/json"}, "not supported"),
+    (["--skip", "langchian,openai"], {}, "unknown integration name(s)"),
+    ([], {"BRIEFCASE_CAPTURE_CONTENT": "all"}, "is not one of none, hash, full"),
+    ([], {"BRIEFCASE_AUTO_DEDUPE": "both"}, "is not one of none, provider, framework"),
+])
+def test_a_misconfiguration_stops_exec_before_the_program_runs(tmp_path, args, env, message):
+    marker = tmp_path / "ran"
+    result = _exec(tmp_path, *args, env=_child_env(**env),
+                   script=f"open({str(marker)!r}, 'w').close()")
+    assert result.returncode == exec_commands.EXIT_USAGE, result.stderr
+    assert message in result.stderr
+    assert not marker.exists()  # the program was not started
+    assert result.stdout == ""  # and nothing fell back to console output
+
+
+def test_to_wins_over_the_environment_and_the_environment_over_otel(tmp_path):
+    from_env, from_flag = tmp_path / "env.jsonl", tmp_path / "flag.jsonl"
+    env = _child_env(BRIEFCASE_EXPORTER=str(from_env),
+                     OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:9")
+    assert _exec(tmp_path, env=env).returncode == 0
+    assert len(_records(from_env)) == 1
+    assert _exec(tmp_path, "--to", str(from_flag), env=env).returncode == 0
+    assert len(_records(from_flag)) == 1 and len(_records(from_env)) == 1
+
+
+def test_dedupe_flag_reaches_the_child(tmp_path):
+    out = tmp_path / "o.jsonl"
+    result = _exec(tmp_path, "--to", str(out), "--dedupe", "provider",
+                   script="import briefcase; print(briefcase.auto.status()['dedupe'])")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "provider"
+
+
+# -- red team: the bootstrap ----------------------------------------------------
+
+def _bootstrap_env(tmp_path, **extra):
+    env = _child_env(BRIEFCASE_AUTO="1", **extra)
+    env["PYTHONPATH"] = os.pathsep.join([BOOTSTRAP_DIR, env["PYTHONPATH"]])
+    return env
+
+
+def _python(tmp_path, code, env, *flags):
+    return subprocess.run([sys.executable, *flags, "-c", textwrap.dedent(code)],
+                          cwd=str(tmp_path), env=env, capture_output=True, text=True, timeout=120)
+
+
+def test_a_bad_destination_in_the_child_disables_capture_and_says_so(tmp_path):
+    """Set after exec's own check (a child process with another environment):
+    never a silent fallback to console output."""
+    for extra, word in (({"BRIEFCASE_EXPORTER": "consol"}, "Unknown exporter shorthand"),
+                        ({"OTEL_EXPORTER_OTLP_ENDPOINT": "collector:4317"}, "not a valid http")):
+        result = _python(tmp_path, """
+            import briefcase
+            from briefcase.config import BriefcaseConfig
+            print(BriefcaseConfig.get().exporter, briefcase.auto.pending())
+        """, _bootstrap_env(tmp_path, **extra))
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.split() == ["None", "{}"]
+        assert "auto-instrumentation is disabled for this process" in result.stderr
+        assert word in result.stderr
+
+
+def test_unknown_skip_names_are_reported_by_the_child(tmp_path):
+    out = tmp_path / "o.jsonl"
+    result = _python(tmp_path, "print('ok')", _bootstrap_env(
+        tmp_path, BRIEFCASE_EXPORTER=str(out), BRIEFCASE_AUTO_SKIP="langchian, openai"))
+    assert result.returncode == 0 and result.stdout.strip() == "ok"
+    assert "ignoring unknown name 'langchian'" in result.stderr
+
+
+def test_an_interpreter_that_cannot_import_briefcase_is_left_alone(tmp_path):
+    """Another Python (or virtualenv) started by the program inherits the
+    bootstrap directory. It must run untouched: one line on stderr, nothing
+    added to its sys.path."""
+    installed = tmp_path / "site-packages" / "briefcase" / "_bootstrap"
+    installed.mkdir(parents=True)
+    (installed / "sitecustomize.py").write_text(
+        (Path(BOOTSTRAP_DIR) / "sitecustomize.py").read_text())
+    (tmp_path / "site-packages" / "foreign_pkg.py").write_text("X = 1\n")
+    env = _child_env(BRIEFCASE_AUTO="1")
+    env["PYTHONPATH"] = str(installed)  # briefcase itself is not importable
+    result = subprocess.run(
+        [sys.executable, "-c", "import sys\ntry:\n    import foreign_pkg\n    print('LEAKED')\n"
+                               "except ImportError:\n    print('clean')"],
+        cwd=str(tmp_path), env=env, capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "clean"
+    assert "auto-instrumentation is disabled for this process" in result.stderr
+
+
+def test_a_source_checkout_is_importable_without_staying_on_sys_path(tmp_path):
+    env = _child_env(BRIEFCASE_AUTO="1", BRIEFCASE_EXPORTER=str(tmp_path / "o.jsonl"))
+    env["PYTHONPATH"] = BOOTSTRAP_DIR  # the checkout root is NOT on the path
+    result = _python(tmp_path, f"""
+        import sys
+        print("briefcase" in sys.modules, {str(REPO)!r} in sys.path)
+        import briefcase.integrations.providers  # submodules still import
+    """, env)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.split() == ["True", "False"]
+
+
+def test_the_environments_own_sitecustomize_is_what_import_returns(tmp_path):
+    other = tmp_path / "site_dir"
+    other.mkdir()
+    (other / "sitecustomize.py").write_text("MARK = 'environment'\n")
+    env = _bootstrap_env(tmp_path, BRIEFCASE_EXPORTER=str(tmp_path / "o.jsonl"))
+    env["PYTHONPATH"] = os.pathsep.join([BOOTSTRAP_DIR, str(other), str(REPO)])
+    result = _python(tmp_path, "import sitecustomize; print(sitecustomize.MARK)", env)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "environment"
+
+
+def test_warnings_are_visible_under_exec_unless_logging_is_configured(tmp_path):
+    code = """
+        import logging
+        logging.getLogger("briefcase.test").warning("VISIBLE-WARNING")
+    """
+    env = _bootstrap_env(tmp_path, BRIEFCASE_EXPORTER=str(tmp_path / "o.jsonl"))
+    assert "VISIBLE-WARNING" in _python(tmp_path, code, env).stderr
+    assert "VISIBLE-WARNING" not in _python(
+        tmp_path, code, dict(env, BRIEFCASE_LOG_LEVEL="ERROR")).stderr
+
+
+CHILDREN = """
+    import multiprocessing, os, subprocess, sys
+    import briefcase
+
+    @briefcase.capture
+    def work(tag):
+        return tag
+
+    def child(tag):
+        work(tag)
+
+    if __name__ == "__main__":
+        work("parent")
+        for method in sys.argv[1:]:
+            if method == "os.fork":
+                pid = os.fork()
+                if pid == 0:
+                    work("os.fork")
+                    sys.exit(0)
+                os.waitpid(pid, 0)
+            elif method == "subprocess":
+                code = "import briefcase; briefcase.capture(lambda tag: tag)('subprocess')"
+                subprocess.run([sys.executable, "-c", code], check=True)
+            else:
+                process = multiprocessing.get_context(method).Process(target=child, args=(method,))
+                process.start()
+                process.join()
+                assert process.exitcode == 0
+"""
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="needs fork")
+@pytest.mark.parametrize("method", ["spawn", "fork", "forkserver", "os.fork", "subprocess"])
+def test_child_processes_are_instrumented_exactly_once(tmp_path, method):
+    """Every way a program starts a child Python: its records are exported,
+    once. multiprocessing *fork* children leave through os._exit (no atexit)
+    and used to lose everything still queued."""
+    out = tmp_path / "o.jsonl"
+    result = _exec(tmp_path, "--to", str(out), script=CHILDREN, script_args=[method],
+                   env=_child_env(PYTHONWARNINGS="ignore::DeprecationWarning"))
+    assert result.returncode == 0, result.stderr
+    tags = sorted(r["inputs"]["args"] for r in _records(out))
+    assert tags == sorted([f"('{method}',)", "('parent',)"])
+
+
+def test_startup_cost_of_the_bootstrap_is_bounded(tmp_path):
+    import time
+
+    def best(env):
+        timings = []
+        for _ in range(5):
+            started = time.perf_counter()
+            assert _python(tmp_path, "pass", env).returncode == 0
+            timings.append(time.perf_counter() - started)
+        return min(timings)
+
+    plain = best(_child_env())
+    bootstrapped = best(_bootstrap_env(tmp_path, BRIEFCASE_EXPORTER=str(tmp_path / "o.jsonl")))
+    # importing briefcase and installing the import hook; no SDK is imported
+    assert bootstrapped - plain < 1.0, (plain, bootstrapped)

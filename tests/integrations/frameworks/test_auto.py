@@ -624,3 +624,60 @@ class TestLlamaIndexCleanup:
             auto("llamaindex")
             # Must not raise even when everything in cleanup fails
             undo("llamaindex")
+
+
+# Red team: LangChain's own modules bind ensure_config at import time
+
+def _langchain_with_an_importer():
+    """The stub config module plus a module that did
+    ``from langchain_core.runnables.config import ensure_config`` already,
+    as langchain_core.runnables.base and chat_models do."""
+    modules, config, original = _mock_langchain_modules()
+    importer = types.ModuleType("langchain_core.language_models.chat_models")
+    importer.ensure_config = original
+    modules = dict(modules, **{"langchain_core.language_models.chat_models": importer})
+    return modules, config, importer, original
+
+
+def test_langchain_modules_imported_before_auto_are_instrumented_too():
+    modules, config, importer, original = _langchain_with_an_importer()
+    with patch.dict("sys.modules", modules):
+        handler = auto("langchain", exporter=_make_exporter(), capture_content="none")
+        # The call LangChain actually makes goes through the importer's own
+        # binding; patching only the config module left it uninstrumented.
+        assert importer.ensure_config is config.ensure_config is not original
+        assert handler in importer.ensure_config({})["callbacks"]
+        assert importer.ensure_config.__wrapped__ is original
+        undo("langchain")
+        assert importer.ensure_config is original and config.ensure_config is original
+
+
+def test_a_binding_taken_while_patched_goes_quiet_after_undo():
+    modules, config, importer, original = _langchain_with_an_importer()
+    with patch.dict("sys.modules", modules):
+        handler = auto("langchain", exporter=_make_exporter(), capture_content="none")
+        late_binding = config.ensure_config  # a module imported after auto()
+        undo("langchain")
+        assert handler not in (late_binding({}).get("callbacks") or [])
+
+
+def test_undo_does_not_remove_a_patch_another_library_applied_after_ours(caplog):
+    import logging
+
+    modules, config, importer, original = _langchain_with_an_importer()
+    with patch.dict("sys.modules", modules):
+        handler = auto("langchain", exporter=_make_exporter(), capture_content="none")
+        ours = config.ensure_config
+
+        def theirs(cfg=None, **kw):
+            result = ours(cfg, **kw)
+            result["theirs"] = True
+            return result
+
+        config.ensure_config = theirs
+        with caplog.at_level(logging.WARNING, logger="briefcase"):
+            undo("langchain")
+        assert config.ensure_config is theirs
+        assert "patched again by another library" in caplog.text
+        result = config.ensure_config({})
+        assert result["theirs"] is True and handler not in (result.get("callbacks") or [])

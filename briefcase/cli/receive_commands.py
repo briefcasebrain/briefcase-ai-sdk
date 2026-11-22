@@ -7,6 +7,8 @@ import signal
 import sys
 import threading
 
+GROUP = "connect"
+
 CONTENT_WARNING = (
     "warning: --keep-content is on. Prompts, responses, tool input, e-mail addresses and "
     "host paths that the tools send will be written to the exporter unredacted."
@@ -114,8 +116,9 @@ def cmd_receive(args, store=None, engine=None, stack=None) -> int:
         return 1
     host, port = str(server.server_address[0]), server.server_address[1]
     print(f"briefcase receiver listening on http://{host}:{port} -> {args.to or 'console'}", file=sys.stderr)
-    sanitizer = "on" if receiver.mapper.redactor.sanitizer_available else "unavailable (free text is dropped)"
-    print(f"  redaction: {'OFF (--keep-content)' if args.keep_content else 'on'}; sanitizer: {sanitizer}; "
+    redaction = ("OFF (--keep-content)" if args.keep_content
+                 else "on (tool parameters, commands, paths, URLs and error text are dropped)")
+    print(f"  redaction: {redaction}; "
           f"protobuf: {'yes' if otlp.protobuf_available() else 'no'}", file=sys.stderr)
     if not otlp.protobuf_available():
         print("  OTLP/JSON only. For tools that send protobuf (Codex, Copilot): "

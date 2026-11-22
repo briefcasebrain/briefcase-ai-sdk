@@ -31,12 +31,15 @@ def classify(text: str) -> str:
 classify("hello world")               # a decision record is emitted
 ```
 
-A record is a dict: schema_version ("1.1"), decision_id, decision_type,
+A record is a dict: schema_version ("1.2"), decision_id, decision_type,
 function_name, inputs, outputs, started_at, ended_at, execution_time_ms, and
 error (if one was raised). Optional: context_version, status ("cancelled" when
 an async call was cancelled or timed out), workflow_id (inside a
-`briefcase.correlation` workflow), and trace_id / parent_span_id / trace_flags
-(when an OpenTelemetry span is active at call time).
+`briefcase.correlation` workflow), trace_id / parent_span_id / trace_flags
+(when an OpenTelemetry span is active at call time), and prompt_name /
+prompt_version (under `briefcase.prompt`). Provider records may also carry
+parent_run_id / parent_framework (the framework LLM run they were made in).
+Readers should accept schema_version "1.1" and "1.2".
 
 ------------------------------------------------------------------------------
 ## 2. Choosing an exporter

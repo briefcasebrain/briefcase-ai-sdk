@@ -16,19 +16,44 @@ record. This module holds what they share:
   response so the record is emitted once, when the stream is exhausted,
   closed, fails, or is dropped.
 
+The contract every wrapper here keeps:
+
+- The wrapped call behaves as if it were not wrapped: same return object,
+  same exception object, same laziness. Our own failures are logged at
+  DEBUG and never reach the caller.
+- One record per call, emitted exactly once (``ProviderCall.finish`` is
+  guarded by a lock, so a stream closed from one thread while another
+  finishes reading it still produces one record).
+- A record never states something that was not observed. A token counter
+  the provider did not report is ``None``, not ``0``; a stream that was not
+  read to its end has ``status="incomplete"``; anything that could not be
+  captured is named in ``capture_limits``.
+
 Provider fields added to the ``@capture`` record layout:
 
 - ``model_parameters``: ``{"provider", "model_name", ...scalar request
-  parameters}`` (the layout the framework handlers and ``OTelExporter``
-  already read).
-- ``token_usage``: ``{"prompt_tokens", "completion_tokens",
-  "total_tokens"}`` plus provider-specific counters when reported.
-- ``status``: ``"ok"``, ``"error"`` or ``"cancelled"``; ``error`` and
-  ``error_type`` on failure, ``http_status`` when the SDK error carries one.
+  parameters}``; ``requested_model`` when the served model differs.
+- ``token_usage``: always present. ``None`` when the provider reported no
+  usage; otherwise ``{"prompt_tokens", "completion_tokens",
+  "total_tokens"}`` (each an int, or ``None`` when that counter was not
+  reported) plus provider-specific counters.
+- ``status``: ``"ok"``; ``"error"`` (with ``error``, ``error_type`` and
+  ``http_status`` when the SDK error carries one); ``"cancelled"``
+  (``asyncio.CancelledError``, ``KeyboardInterrupt``, ``SystemExit``);
+  ``"incomplete"`` (a stream that ended before its terminal event, with no
+  error seen: the consumer stopped reading or dropped it).
 - ``finish_reason``, ``response_id``, ``request_id`` when the SDK exposes
   them.
-- ``stream`` (bool); for streams ``outputs`` also carries ``chunk_count``
-  and ``stream_completed``, and the record ``time_to_first_chunk_ms``.
+- ``stream`` (bool). For streams ``outputs`` carries ``chunk_count`` and
+  ``stream_completed`` (the iterator was exhausted), and the record
+  ``time_to_first_chunk_ms`` (request start to the first chunk reaching the
+  consumer) and ``time_to_stream_ms`` (request start to the SDK call
+  returning the stream). ``execution_time_ms`` of a stream runs to the end
+  of the stream, so it includes the consumer's own time between chunks.
+- ``capture_limits``: list of short notes, present only when capture was
+  degraded.
+- ``parent_run_id`` / ``parent_framework`` when the call was made inside a
+  framework LLM run (see :mod:`._correlation`).
 
 Prompt and completion content is not recorded unless ``capture_content`` is
 turned on.
@@ -36,13 +61,21 @@ turned on.
 
 from __future__ import annotations
 
+import asyncio
+import atexit
 import functools
+import gc
 import importlib
 import inspect
+import os
+import queue
+import threading
 import time
 import weakref
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import (
+    Any, AsyncIterator, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union,
+)
 
 from briefcase._export_mixin import ExportMixin
 from briefcase._logging import get_logger
@@ -51,6 +84,7 @@ from briefcase.integrations.frameworks._capture_state import (
     CAPTURE_CONTENT_MODES,
     CaptureOptions,
 )
+from briefcase.integrations.providers import _correlation
 
 logger = get_logger(__name__)
 
@@ -59,12 +93,24 @@ logger = get_logger(__name__)
 WRAPPER_FLAG = "__briefcase_provider_wrapper__"
 
 DEFAULT_MAX_CONTENT_CHARS = 8000
+#: Bound on all captured strings of one ``inputs`` / ``outputs`` value
+#: together, as a multiple of the per-string bound.
+TOTAL_CONTENT_FACTOR = 16
 _MAX_DEPTH = 8
 _MAX_ITEMS = 200
+TRUNCATED = "<truncated>"
+
+STATUS_OK = "ok"
+STATUS_ERROR = "error"
+STATUS_CANCELLED = "cancelled"
+STATUS_INCOMPLETE = "incomplete"
 
 _MISSING = object()
+#: Returned by a stream ``on_item`` callback to keep an item from the
+#: consumer (see the openai ``stream_usage`` option).
+SKIP = object()
 
-OnItem = Callable[[Any], None]
+OnItem = Callable[[Any], Any]
 OnEnd = Callable[[bool, Optional[BaseException]], None]
 
 
@@ -84,35 +130,56 @@ def normalize_capture_content(value: Union[bool, str, None]) -> str:
     )
 
 
-def jsonable(value: Any, limit: int = DEFAULT_MAX_CONTENT_CHARS, _depth: int = 0) -> Any:
+def jsonable(value: Any, limit: int = DEFAULT_MAX_CONTENT_CHARS, _depth: int = 0,
+             _budget: Optional[List[int]] = None) -> Any:
     """Bounded, JSON-safe copy of request or response content.
 
-    Strings are cut at ``limit`` characters, bytes are replaced by their
-    length, pydantic models are dumped, and anything else is named by its
-    type rather than repr'd. Iterators are never consumed. Never raises.
+    Strings are cut at ``limit`` characters, and all strings together at
+    ``limit * TOTAL_CONTENT_FACTOR`` (what is past that becomes
+    ``"<truncated>"``). Bytes are replaced by their length, pydantic models
+    are dumped, and anything else (file handles, clients, arbitrary
+    objects) is named by its type rather than repr'd. Iterators are never
+    consumed. Never raises.
     """
+    if _budget is None:
+        _budget = [max(0, limit) * TOTAL_CONTENT_FACTOR]
     try:
         if value is None or isinstance(value, (bool, int, float)):
             return value
         if isinstance(value, str):
-            return value if len(value) <= limit else value[:limit] + "..."
+            if _budget[0] <= 0:
+                return TRUNCATED
+            text = value if len(value) <= limit else value[:limit] + "..."
+            if len(text) > _budget[0]:
+                text = text[:_budget[0]] + "..."
+            _budget[0] -= len(text)
+            return text
         if isinstance(value, (bytes, bytearray, memoryview)):
             return f"<{len(value)} bytes>"
         if _depth >= _MAX_DEPTH:
             return f"<{type(value).__name__}>"
         if isinstance(value, dict):
-            return {
-                str(k): jsonable(v, limit, _depth + 1)
-                for k, v in list(value.items())[:_MAX_ITEMS]
-            }
+            out: Dict[str, Any] = {}
+            for index, (key, item) in enumerate(value.items()):
+                if index >= _MAX_ITEMS or _budget[0] <= 0:
+                    out[TRUNCATED] = len(value) - index
+                    break
+                out[str(key)[:200]] = jsonable(item, limit, _depth + 1, _budget)
+            return out
         if isinstance(value, (list, tuple)):
-            return [jsonable(v, limit, _depth + 1) for v in value[:_MAX_ITEMS]]
+            items: List[Any] = []
+            for index, item in enumerate(value):
+                if index >= _MAX_ITEMS or _budget[0] <= 0:
+                    items.append(TRUNCATED)
+                    break
+                items.append(jsonable(item, limit, _depth + 1, _budget))
+            return items
         dump = getattr(value, "model_dump", None)
-        if callable(dump):
-            return jsonable(dump(mode="json", exclude_none=True), limit, _depth + 1)
+        if callable(dump) and not isinstance(value, type):
+            return jsonable(dump(mode="json", exclude_none=True), limit, _depth + 1, _budget)
         enum_value = getattr(value, "value", None)
-        if isinstance(enum_value, (str, int)):
-            return enum_value
+        if isinstance(enum_value, (str, int)) and not isinstance(enum_value, bool):
+            return jsonable(enum_value, limit, _depth + 1, _budget)
     except Exception:
         pass
     return f"<{type(value).__name__}>"
@@ -155,6 +222,8 @@ def read(obj: Any, *path: str) -> Any:
 def _int(value: Any) -> Optional[int]:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
+    if value != value or value in (float("inf"), float("-inf")):  # NaN / inf
+        return None
     return int(value)
 
 
@@ -163,26 +232,170 @@ def token_usage(
     completion: Any = None,
     total: Any = None,
     **extras: Any,
-) -> Optional[Dict[str, int]]:
+) -> Optional[Dict[str, Optional[int]]]:
     """Normalize provider token counters onto ``prompt_tokens`` /
-    ``completion_tokens`` / ``total_tokens`` (the keys the framework
-    handlers emit), keeping provider-specific counters in ``extras`` when
-    they are numbers. ``None`` when the provider reported nothing."""
+    ``completion_tokens`` / ``total_tokens``, keeping provider-specific
+    counters in ``extras`` when they are numbers.
+
+    ``None`` when the provider reported nothing at all. A counter that was
+    not reported stays ``None``: it is never replaced by ``0``, and
+    ``total_tokens`` is only computed when both sides are known."""
     prompt_i, completion_i, total_i = _int(prompt), _int(completion), _int(total)
     if prompt_i is None and completion_i is None and total_i is None:
         return None
-    usage = {
-        "prompt_tokens": prompt_i or 0,
-        "completion_tokens": completion_i or 0,
+    if total_i is None and prompt_i is not None and completion_i is not None:
+        total_i = prompt_i + completion_i
+    usage: Dict[str, Optional[int]] = {
+        "prompt_tokens": prompt_i,
+        "completion_tokens": completion_i,
+        "total_tokens": total_i,
     }
-    usage["total_tokens"] = (
-        total_i if total_i is not None else usage["prompt_tokens"] + usage["completion_tokens"]
-    )
     for key, value in extras.items():
         extra = _int(value)
         if extra is not None:
             usage[key] = extra
     return usage
+
+
+def http_status_of(error: BaseException) -> Optional[int]:
+    """HTTP status carried by an SDK error: ``status_code`` (openai,
+    anthropic), botocore's ``response["ResponseMetadata"]`` or
+    google-genai's ``code``."""
+    for candidate in (
+        getattr(error, "status_code", None),
+        read(error, "response", "ResponseMetadata", "HTTPStatusCode"),
+        getattr(error, "code", None),
+    ):
+        status = _int(candidate)
+        if status is not None and 100 <= status <= 599:
+            return status
+    return None
+
+
+# -- finishing a record from inside the garbage collector ---------------------
+#
+# An abandoned stream is usually part of a reference cycle (the SDK's stream
+# object and its generator refer to each other), so its record is produced
+# while the cyclic garbage collector runs, on whatever thread happened to
+# allocate, at an arbitrary point of that thread's code. Exporting from there
+# could re-enter a lock that thread already holds (the export queue's mutex,
+# a lock inside an exporter) and hang the program. So a record completed
+# during a collection is handed to a queue that is safe to use re-entrantly
+# (``queue.SimpleQueue``) and exported by a small daemon thread.
+
+_gc_state = threading.local()
+_gc_users = 0
+_deferred: "queue.SimpleQueue[Tuple[Any, Dict[str, Any], Any]]" = queue.SimpleQueue()
+_wake: "queue.SimpleQueue[Any]" = queue.SimpleQueue()
+_drain_lock = threading.Lock()
+_reaper_lock = threading.Lock()
+_reaper: Optional[threading.Thread] = None
+_reaper_pid = 0
+_atexit_registered = False
+
+
+def _gc_callback(phase: str, info: Dict[str, Any]) -> None:
+    depth = getattr(_gc_state, "depth", 0)
+    _gc_state.depth = depth + 1 if phase == "start" else max(0, depth - 1)
+
+
+def in_gc() -> bool:
+    """True while the calling thread is running a garbage collection."""
+    return getattr(_gc_state, "depth", 0) > 0
+
+
+def _watch_gc(enable: bool) -> None:
+    global _gc_users
+    with _reaper_lock:
+        if enable:
+            _gc_users += 1
+            if _gc_callback not in gc.callbacks:
+                gc.callbacks.append(_gc_callback)
+        else:
+            _gc_users = max(0, _gc_users - 1)
+            if _gc_users == 0:
+                try:
+                    gc.callbacks.remove(_gc_callback)
+                except ValueError:
+                    pass
+
+
+def _reaper_loop(wake: "queue.SimpleQueue[Any]") -> None:
+    while True:
+        wake.get()
+        try:
+            flush_abandoned()
+        except Exception:  # pragma: no cover - flush_abandoned does not raise
+            logger.debug("deferred provider export failed", exc_info=True)
+
+
+def _ensure_reaper() -> None:
+    """Start the thread that exports records completed during a garbage
+    collection. Restarted in a forked child, where threads do not survive."""
+    global _reaper, _reaper_pid, _atexit_registered
+    pid = os.getpid()
+    if _reaper is not None and _reaper_pid == pid and _reaper.is_alive():
+        return
+    with _reaper_lock:
+        if _reaper is not None and _reaper_pid == pid and _reaper.is_alive():
+            return
+        thread = threading.Thread(
+            target=_reaper_loop, args=(_wake,), name="briefcase-provider-finalizer", daemon=True,
+        )
+        thread.start()
+        _reaper, _reaper_pid = thread, pid
+        if not _atexit_registered:
+            # atexit runs last-registered first. The export pipeline
+            # registers its own drain when its worker starts; start it now
+            # so that ours is registered after it and therefore runs before
+            # it, while the pipeline is still accepting records.
+            try:
+                from briefcase import _export_mixin
+
+                _export_mixin._ensure_worker()
+            except Exception:
+                logger.debug("could not pre-start the export worker", exc_info=True)
+            atexit.register(flush_abandoned)
+            _atexit_registered = True
+
+
+def _after_fork_in_child() -> None:
+    """A forked child has none of the parent's threads: forget the
+    finalizer thread (the next stream starts one), recreate the locks it or
+    another thread may have held at the fork, and drop the copied queue of
+    records the parent will export itself."""
+    global _deferred, _wake, _drain_lock, _reaper_lock, _reaper, _reaper_pid
+    _deferred = queue.SimpleQueue()
+    _wake = queue.SimpleQueue()
+    _drain_lock = threading.Lock()
+    _reaper_lock = threading.Lock()
+    _reaper, _reaper_pid = None, 0
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_after_fork_in_child)
+
+
+def flush_abandoned() -> int:
+    """Export the records of streams that were finalized by the garbage
+    collector. Runs on the finalizer thread and at interpreter exit; call it
+    yourself (after ``gc.collect()``) to make that deterministic in a test.
+    Returns how many records were handed to the export pipeline."""
+    count = 0
+    if in_gc():  # never export from inside a collection
+        return count
+    with _drain_lock:
+        while True:
+            try:
+                inst, record, exporter = _deferred.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                inst._trigger_export(record, exporter=exporter)
+                count += 1
+            except Exception:
+                logger.debug("deferred provider export failed", exc_info=True)
+    return count
 
 
 class ProviderCall:
@@ -191,7 +404,8 @@ class ProviderCall:
 
     __slots__ = (
         "_inst", "_record", "_started_at", "_exporter", "_model", "_params",
-        "_stream", "_done", "_t0", "_first_chunk_ms", "__weakref__",
+        "_stream", "_once", "_t0", "_first_chunk_ms", "_stream_ms", "_scope",
+        "_abandon", "limits", "_pid", "__weakref__",
     )
 
     def __init__(
@@ -203,6 +417,7 @@ class ProviderCall:
         model: Optional[str],
         params: Dict[str, Any],
         stream: bool,
+        scope: Optional[_correlation.LLMRunScope] = None,
     ) -> None:
         self._inst = inst
         self._record = record
@@ -211,22 +426,50 @@ class ProviderCall:
         self._model = model
         self._params = params
         self._stream = stream
-        self._done = False
+        self._once = threading.Lock()
         self._t0 = time.perf_counter()
         self._first_chunk_ms: Optional[float] = None
+        self._stream_ms: Optional[float] = None
+        self._scope = scope
+        #: The process the call was made in. A forked child holds a copy of
+        #: every call in flight at the fork; those belong to the parent and
+        #: must not produce a second record from the child.
+        self._pid = os.getpid()
+        #: Called (once) when the call is dropped unfinished; set by whoever
+        #: knows more about the call than ``__del__`` does.
+        self._abandon: Optional[Callable[[], None]] = None
+        #: Notes for the record's ``capture_limits``.
+        self.limits: List[str] = []
 
     @property
     def done(self) -> bool:
-        return self._done
+        return self._once.locked()
+
+    @property
+    def is_stream(self) -> bool:
+        return self._stream
 
     def mark_stream(self) -> None:
         """Flag the call as streaming when that is only known from the
         result (not from the request)."""
         self._stream = True
 
+    def stream_opened(self) -> None:
+        """The SDK call returned its stream object."""
+        if self._stream_ms is None:
+            self._stream_ms = (time.perf_counter() - self._t0) * 1000
+
     def first_chunk(self) -> None:
         if self._first_chunk_ms is None:
             self._first_chunk_ms = (time.perf_counter() - self._t0) * 1000
+
+    def limit(self, note: str) -> None:
+        """Add a ``capture_limits`` note (once)."""
+        if note and note not in self.limits:
+            self.limits.append(note)
+
+    def on_abandon(self, callback: Optional[Callable[[], None]]) -> None:
+        self._abandon = callback
 
     def finish(
         self,
@@ -234,20 +477,25 @@ class ProviderCall:
         *,
         error: Optional[BaseException] = None,
         stream: Optional[Dict[str, Any]] = None,
+        finished: bool = True,
     ) -> None:
         """Complete and export the record.
 
         ``info`` is what the provider module extracted from the response:
         any of ``model``, ``response_id``, ``request_id``, ``finish_reason``,
         ``usage`` (a :func:`token_usage` dict), ``content`` (outputs, kept
-        only when content capture is on) and ``extra`` (top-level fields).
-        ``stream`` is ``{"chunk_count", "stream_completed"}`` for streams.
+        only when content capture is on), ``limits`` (``capture_limits``
+        notes) and ``extra`` (top-level fields). ``stream`` is
+        ``{"chunk_count", "stream_completed"}`` for streams; ``finished``
+        says whether the stream's terminal event was observed.
         """
-        if self._done:
+        if not self._once.acquire(False):
             return
-        self._done = True
+        self._abandon = None
+        if self._pid != os.getpid():
+            return  # a copy inherited through fork: the parent records it
         try:
-            self._finish(info or {}, error, stream)
+            self._finish(info or {}, error, stream, finished)
         except Exception:
             logger.debug("provider record could not be completed", exc_info=True)
 
@@ -256,6 +504,7 @@ class ProviderCall:
         info: Dict[str, Any],
         error: Optional[BaseException],
         stream: Optional[Dict[str, Any]],
+        finished: bool,
     ) -> None:
         inst = self._inst
         record = self._record
@@ -268,16 +517,17 @@ class ProviderCall:
                 max_output_chars=inst.max_content_chars,
                 capture_content=mode, redact=options.redact,
             )
-            record.setdefault("status", "error")
+            if isinstance(error, asyncio.CancelledError) or not isinstance(error, Exception):
+                # CancelledError, KeyboardInterrupt, SystemExit, GeneratorExit:
+                # the call was interrupted, the provider did not fail.
+                record["status"] = STATUS_CANCELLED
+            else:
+                record["status"] = STATUS_ERROR
             record["error_type"] = type(error).__name__
-            http_status = _int(getattr(error, "status_code", None))
-            if http_status is None:
-                http_status = _int(
-                    read(error, "response", "ResponseMetadata", "HTTPStatusCode")
-                )
+            http_status = http_status_of(error)
             if http_status is not None:
                 record["http_status"] = http_status
-            if "request_id" not in info:
+            if not info.get("request_id"):
                 request_id = getattr(error, "request_id", None) or read(
                     error, "response", "ResponseMetadata", "RequestId"
                 )
@@ -285,7 +535,8 @@ class ProviderCall:
                     info = dict(info, request_id=request_id)
         else:
             _finalize_record(record, self._started_at, capture_content="none")
-            record["status"] = "ok"
+            completed = stream is None or bool(stream.get("stream_completed")) or finished
+            record["status"] = STATUS_OK if completed else STATUS_INCOMPLETE
 
         outputs: Any = {}
         content = info.get("content")
@@ -300,38 +551,104 @@ class ProviderCall:
         model = info.get("model") or self._model
         parameters: Dict[str, Any] = {"provider": inst.provider}
         if model:
-            parameters["model_name"] = str(model)
+            parameters["model_name"] = str(model)[:200]
         if self._model and model and str(self._model) != str(model):
-            parameters["requested_model"] = str(self._model)
+            parameters["requested_model"] = str(self._model)[:200]
         parameters.update(self._params)
         record["model_parameters"] = parameters
 
         usage = info.get("usage")
-        if usage:
-            record["token_usage"] = usage
+        record["token_usage"] = usage if isinstance(usage, dict) and usage else None
         for key in ("finish_reason", "response_id", "request_id"):
             value = info.get(key)
             if value is not None:
-                record[key] = str(value)
+                record[key] = str(value)[:200]
         record["stream"] = bool(self._stream)
         if self._first_chunk_ms is not None:
             record["time_to_first_chunk_ms"] = self._first_chunk_ms
+        if self._stream and self._stream_ms is not None:
+            record["time_to_stream_ms"] = self._stream_ms
         extra = info.get("extra")
         if isinstance(extra, dict):
             for key, value in extra.items():
                 if value is not None:
                     record.setdefault(key, value)
 
-        inst._trigger_export(record, exporter=self._exporter)
+        limits = list(self.limits)
+        for note in info.get("limits") or ():
+            if note not in limits:
+                limits.append(note)
+        if limits:
+            record["capture_limits"] = limits
+
+        scope = self._scope
+        if scope is not None:
+            scope.provider_records += 1
+
+        if in_gc():
+            # Completed by the garbage collector: export from the finalizer
+            # thread, never from here (see the note above flush_abandoned).
+            _deferred.put((inst, record, self._exporter))
+            _wake.put(None)
+        else:
+            inst._trigger_export(record, exporter=self._exporter)
 
     def __del__(self) -> None:
-        # Backstop for a stream that was dropped without being read or
-        # closed: the record still goes out, marked incomplete.
+        # Backstop for a call whose stream was dropped without its
+        # generator ever being closed (an async generator after its event
+        # loop is gone, or a cycle the collector finalizes in another
+        # order): the record still goes out, marked incomplete.
         try:
-            if not self._done and self._stream:
-                self.finish(stream={"chunk_count": 0, "stream_completed": False})
+            if self._once.locked():
+                return
+            abandon = self._abandon
+            if abandon is not None:
+                abandon()
+            if not self._once.locked() and self._stream:
+                self.finish(
+                    stream={"chunk_count": 0, "stream_completed": False}, finished=False,
+                )
         except Exception:
             pass
+
+
+class PatchTarget:
+    """One attribute to replace: ``module.owner.attr`` with
+    ``factory(original)``. ``requires`` names parameters the original must
+    accept (by name or through ``**kwargs``) for the wrapper to read the
+    request; a target that lost one is treated as changed, and skipped."""
+
+    __slots__ = ("module", "owner", "attr", "factory", "requires")
+
+    def __init__(self, module: str, owner: Optional[str], attr: str,
+                 factory: Callable[[Any], Any], requires: Sequence[str] = ()) -> None:
+        self.module = module
+        self.owner = owner
+        self.attr = attr
+        self.factory = factory
+        self.requires = tuple(requires)
+
+    @property
+    def label(self) -> str:
+        return ".".join(p for p in (self.module, self.owner, self.attr) if p)
+
+
+def _accepts(fn: Any, names: Sequence[str]) -> Optional[str]:
+    """The first of ``names`` that ``fn`` does not accept, else None. A
+    callable whose signature cannot be read is given the benefit of the
+    doubt."""
+    if not names:
+        return None
+    try:
+        parameters = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return None
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()):
+        return None
+    for name in names:
+        if name not in parameters:
+            return name
+    return None
 
 
 class ProviderInstrumentor(ExportMixin):
@@ -352,7 +669,8 @@ class ProviderInstrumentor(ExportMixin):
             ``error`` field is the exception class name, never the message.
         redact: Optional ``str -> str`` hook applied to every captured string
             in ``"full"`` mode (fails closed, like the framework handlers).
-        max_content_chars: Bound on each captured string.
+        max_content_chars: Bound on each captured string (and, times
+            ``TOTAL_CONTENT_FACTOR``, on one whole ``inputs`` / ``outputs``).
     """
 
     def __init__(
@@ -375,9 +693,26 @@ class ProviderInstrumentor(ExportMixin):
         )
         self.max_content_chars = max_content_chars
         self.sdk_version: Optional[str] = None
-        self._undos: List[Tuple[Any, str, Any]] = []
+        #: Versions this module's patches were exercised against.
+        self.tested_versions: Tuple[str, ...] = ()
+        #: Versions reported working elsewhere, not re-run by the test-suite.
+        self.reported_versions: Tuple[str, ...] = ()
+        #: False once uninstalled: every wrapper then passes straight
+        #: through, including wrappers that could not be removed (another
+        #: library patched over them) or that an SDK object captured before
+        #: the undo (``client.chat.completions.with_raw_response``).
+        self.active = True
+        self._undos: List[Tuple[Any, str, Any, Any]] = []
         self.patched: List[str] = []
-        self.skipped: List[str] = []
+        #: label -> reason, for every target (or group of targets) left alone.
+        self.skipped: Dict[str, str] = {}
+        #: Known gaps of this provider's capture, for ``auto.status()``.
+        self.limits: List[str] = []
+        #: Provider-specific options in effect, for ``auto.status()``.
+        self.options: Dict[str, Any] = {}
+        self._lock = threading.Lock()
+        self._warned = False
+        _watch_gc(True)
 
     @property
     def captures_content(self) -> bool:
@@ -385,75 +720,156 @@ class ProviderInstrumentor(ExportMixin):
 
     # -- patching ---------------------------------------------------------
 
+    def _resolve(self, target: PatchTarget) -> Tuple[Any, Any]:
+        """``(owner, original)`` of a target, or raise with the reason."""
+        owner: Any = importlib.import_module(target.module)
+        if target.owner:
+            owner = getattr(owner, target.owner)
+        original = inspect.getattr_static(owner, target.attr)
+        if getattr(original, WRAPPER_FLAG, False):
+            raise RuntimeError("already instrumented by briefcase")
+        if not callable(original):
+            raise TypeError("not callable")
+        missing = _accepts(original, target.requires)
+        if missing is not None:
+            raise TypeError(f"signature changed: no {missing!r} parameter")
+        return owner, original
+
+    def patch_group(self, name: str, targets: Sequence[PatchTarget]) -> bool:
+        """Apply a group of targets all-or-nothing.
+
+        Every target is resolved and checked first; if one is missing, not
+        callable, already wrapped, or lost a parameter the wrapper reads,
+        *none* of the group is patched and the group is listed in
+        ``skipped`` with the reason. So a surface (say, the sync and async
+        ``create`` and ``parse`` of one resource) is either fully recorded
+        or untouched, never half. Never raises."""
+        resolved: List[Tuple[PatchTarget, Any, Any]] = []
+        for target in targets:
+            try:
+                owner, original = self._resolve(target)
+            except Exception as exc:
+                reason = str(exc) or type(exc).__name__
+                if isinstance(exc, (ImportError, AttributeError)):
+                    reason = f"not found ({type(exc).__name__})"
+                self.skipped[name] = f"{target.label}: {reason}"
+                return False
+            resolved.append((target, owner, original))
+
+        applied: List[Tuple[Any, str, Any, Any]] = []
+        try:
+            for target, owner, original in resolved:
+                wrapper = target.factory(original)
+                setattr(wrapper, WRAPPER_FLAG, True)
+                own = vars(owner).get(target.attr, _MISSING)
+                setattr(owner, target.attr, wrapper)
+                applied.append((owner, target.attr, own, wrapper))
+        except Exception as exc:
+            for owner, attr, own, _wrapper in reversed(applied):
+                try:
+                    if own is _MISSING:
+                        delattr(owner, attr)
+                    else:
+                        setattr(owner, attr, own)
+                except Exception:  # pragma: no cover - restoring what we just set
+                    pass
+            self.skipped[name] = f"could not patch ({type(exc).__name__}: {exc})"
+            return False
+        with self._lock:
+            self._undos.extend(applied)
+            self.patched.extend(target.label for target, _, _ in resolved)
+        return True
+
     def patch(
         self,
         module_name: str,
         owner_name: Optional[str],
         attr: str,
         factory: Callable[[Any], Any],
+        requires: Sequence[str] = (),
     ) -> bool:
-        """Replace ``module.owner.attr`` with ``factory(original)``.
+        """Patch a single target (a group of one). Returns False when it
+        was skipped; the reason is in ``skipped``."""
+        target = PatchTarget(module_name, owner_name, attr, factory, requires)
+        return self.patch_group(target.label, [target])
 
-        Returns False, after a WARNING, when the target does not exist in
-        the installed SDK (its layout differs from the verified version) or
-        when it is already wrapped. Never raises.
-        """
-        label = ".".join(p for p in (module_name, owner_name, attr) if p)
+    def patch_object(self, owner: Any, attr: str, factory: Callable[[Any], Any],
+                     label: str) -> bool:
+        """Patch an attribute of a class found at run time (not by import
+        path). Idempotent per class; undone by :meth:`uninstall`."""
+        with self._lock:
+            try:
+                original = inspect.getattr_static(owner, attr)
+                if getattr(original, WRAPPER_FLAG, False):
+                    return True
+                if not callable(original):
+                    raise TypeError("not callable")
+                wrapper = factory(original)
+                setattr(wrapper, WRAPPER_FLAG, True)
+                own = vars(owner).get(attr, _MISSING)
+                setattr(owner, attr, wrapper)
+            except Exception as exc:
+                self.skipped.setdefault(label, f"could not patch ({type(exc).__name__}: {exc})")
+                return False
+            self._undos.append((owner, attr, own, wrapper))
+            self.patched.append(label)
+            return True
+
+    def report_skipped(self, verified: Optional[str] = None) -> None:
+        """Log ONE warning naming everything that was skipped."""
+        if not self.skipped or self._warned:
+            return
+        self._warned = True
+        details = "; ".join(f"{name} [{reason}]" for name, reason in self.skipped.items())
+        message = (
+            f"briefcase.auto[{self.provider}]: the installed SDK (version "
+            f"{self.sdk_version}; tested with "
+            f"{verified or ', '.join(self.tested_versions) or 'unknown'}) does not match "
+            "the expected layout, so these call paths are NOT recorded and were left "
+            f"untouched: {details}. See briefcase.auto.status()."
+        )
+        logger.warning(message)
         try:
-            owner: Any = importlib.import_module(module_name)
-            if owner_name:
-                owner = getattr(owner, owner_name)
-            original = inspect.getattr_static(owner, attr)
-        except Exception as exc:
-            logger.warning(
-                "briefcase.auto[%s]: patch target %s not found in the installed "
-                "SDK (%s); skipping it. Calls through it are not recorded.",
-                self.provider, label, type(exc).__name__,
-            )
-            self.skipped.append(label)
-            return False
-        if getattr(original, WRAPPER_FLAG, False):
-            logger.warning(
-                "briefcase.auto[%s]: %s is already instrumented; not wrapping it again.",
-                self.provider, label,
-            )
-            self.skipped.append(label)
-            return False
-        if not callable(original):
-            logger.warning(
-                "briefcase.auto[%s]: patch target %s is not callable; skipping it.",
-                self.provider, label,
-            )
-            self.skipped.append(label)
-            return False
-        try:
-            wrapper = factory(original)
-            setattr(wrapper, WRAPPER_FLAG, True)
-            own = vars(owner).get(attr, _MISSING)
-            setattr(owner, attr, wrapper)
-        except Exception as exc:
-            logger.warning(
-                "briefcase.auto[%s]: could not patch %s (%s); skipping it.",
-                self.provider, label, exc,
-            )
-            self.skipped.append(label)
-            return False
-        self._undos.append((owner, attr, own))
-        self.patched.append(label)
-        return True
+            # The library's logger is silent unless the application set up
+            # logging; a capture gap must be visible regardless.
+            import warnings
+
+            warnings.warn(message, RuntimeWarning, stacklevel=4)
+        except Exception:
+            pass
 
     def uninstall(self) -> None:
-        """Restore every patched attribute to the object it held before."""
-        while self._undos:
-            owner, attr, original = self._undos.pop()
+        """Restore every patched attribute to the object it held before.
+
+        An attribute that no longer holds our wrapper (another library
+        patched the same method after us) is left alone, with a WARNING:
+        restoring it would silently remove that library's patch. Our
+        wrapper stays underneath theirs but is switched off."""
+        self.active = False
+        kept: List[str] = []
+        with self._lock:
+            undos, self._undos = self._undos, []
+            self.patched.clear()
+        for owner, attr, original, wrapper in reversed(undos):
             try:
+                current = vars(owner).get(attr, _MISSING)
+                if current is not wrapper:
+                    kept.append(f"{getattr(owner, '__qualname__', owner)}.{attr}")
+                    continue
                 if original is _MISSING:
                     delattr(owner, attr)
                 else:
                     setattr(owner, attr, original)
             except Exception as exc:
                 logger.debug("provider undo: ignored error: %s", exc)
-        self.patched.clear()
+        if kept:
+            logger.warning(
+                "briefcase.auto[%s]: %s was patched again by another library after "
+                "briefcase; undo left that patch in place. The briefcase wrapper "
+                "beneath it is disabled and records nothing.",
+                self.provider, ", ".join(kept),
+            )
+        _watch_gc(False)
 
     # -- capture ----------------------------------------------------------
 
@@ -471,8 +887,15 @@ class ProviderInstrumentor(ExportMixin):
         exporting (the call then runs untouched). ``inputs`` is only called
         when content capture is on. Never raises."""
         try:
+            if not self.active:
+                return None
             exporter = self._resolve_exporter()
             if exporter is None:
+                return None
+            scope = _correlation.current_llm_run()
+            if scope is not None and _correlation.get_dedupe() == "provider":
+                # The framework handler records this call; the provider
+                # record would count its tokens a second time.
                 return None
             record = _build_record(
                 decision_type, self.context_version, (), {}, 0, function_name, "none",
@@ -480,16 +903,21 @@ class ProviderInstrumentor(ExportMixin):
             started_at = datetime.fromisoformat(record["started_at"])
             if started_at.tzinfo is None:  # pragma: no cover - always aware
                 started_at = started_at.replace(tzinfo=timezone.utc)
+            if scope is not None:
+                record["parent_run_id"] = scope.run_id
+                record["parent_framework"] = scope.framework
             if inputs is not None and self.captures_content:
                 try:
                     content = jsonable(inputs(), self.max_content_chars)
                     record["inputs"] = self.capture_options.content(content)
                 except Exception:
                     logger.debug("provider inputs could not be captured", exc_info=True)
+            if stream:
+                _ensure_reaper()
             return ProviderCall(
                 self, record, started_at, exporter,
                 str(model) if isinstance(model, str) and model else None,
-                dict(params or {}), stream,
+                dict(params or {}), stream, scope,
             )
         except Exception:
             logger.debug("provider capture could not start", exc_info=True)
@@ -498,26 +926,30 @@ class ProviderInstrumentor(ExportMixin):
 
 # -- stream wrapping --------------------------------------------------------
 
-def _guard(fn: Callable[..., None]) -> Callable[..., None]:
+def _guard(fn: Callable[..., Any]) -> Callable[..., Any]:
     """Make a capture callback unable to raise into the user's iteration."""
-    def guarded(*args: Any) -> None:
+    def guarded(*args: Any) -> Any:
         try:
-            fn(*args)
+            return fn(*args)
         except Exception:
             logger.debug("provider stream callback failed", exc_info=True)
+            return None
     return guarded
 
 
 def tee(inner: Iterator[Any], on_item: OnItem, on_end: OnEnd) -> Iterator[Any]:
     """Yield from ``inner``, reporting each item, then report the end once:
     ``on_end(True, None)`` on exhaustion, ``on_end(False, exc)`` on error,
-    ``on_end(False, None)`` when the consumer stops early."""
+    ``on_end(False, None)`` when the consumer stops early. An item for which
+    ``on_item`` returns :data:`SKIP` is not passed on. One item is pulled
+    per item requested: nothing is buffered."""
     on_item, on_end = _guard(on_item), _guard(on_end)
     completed = False
     error: Optional[BaseException] = None
     try:
         for item in inner:
-            on_item(item)
+            if on_item(item) is SKIP:
+                continue
             yield item
         completed = True
     except GeneratorExit:
@@ -527,6 +959,9 @@ def tee(inner: Iterator[Any], on_item: OnItem, on_end: OnEnd) -> Iterator[Any]:
         raise
     finally:
         on_end(completed, error)
+        # Do not keep the exception (and through its traceback, this frame
+        # and the stream) alive in a reference cycle.
+        error = None
 
 
 async def atee(inner: AsyncIterator[Any], on_item: OnItem, on_end: OnEnd) -> AsyncIterator[Any]:
@@ -536,7 +971,8 @@ async def atee(inner: AsyncIterator[Any], on_item: OnItem, on_end: OnEnd) -> Asy
     error: Optional[BaseException] = None
     try:
         async for item in inner:
-            on_item(item)
+            if on_item(item) is SKIP:
+                continue
             yield item
         completed = True
     except GeneratorExit:
@@ -546,31 +982,49 @@ async def atee(inner: AsyncIterator[Any], on_item: OnItem, on_end: OnEnd) -> Asy
         raise
     finally:
         on_end(completed, error)
+        error = None
 
 
 class StreamProxy:
-    """Iterator wrapper used when a stream object cannot be instrumented in
-    place. Everything except iteration and closing is delegated."""
+    """Iterator wrapper for a stream object that cannot be instrumented in
+    place (botocore's ``EventStream``). Everything except iteration and
+    closing is delegated, and ``isinstance`` checks against the wrapped
+    object's class still pass (``__class__`` reports it)."""
 
     def __init__(self, inner: Any, on_item: OnItem, on_end: OnEnd) -> None:
         self._bc_inner = inner
         self._bc_on_end = _guard(on_end)
-        self._bc_iter = tee(iter(inner), on_item, on_end)
+        self._bc_iter: Optional[Iterator[Any]] = None
+        self._bc_on_item = on_item
 
-    def __iter__(self) -> "StreamProxy":
+    @property  # type: ignore[misc]
+    def __class__(self) -> type:  # noqa: D105 - isinstance() transparency
+        return type(self._bc_inner)
+
+    def _bc_start(self) -> Iterator[Any]:
+        if self._bc_iter is None:
+            self._bc_iter = tee(iter(self._bc_inner), self._bc_on_item, self._bc_on_end)
+        return self._bc_iter
+
+    def __iter__(self) -> Any:
+        self._bc_start()
         return self
 
     def __next__(self) -> Any:
-        return next(self._bc_iter)
+        return next(self._bc_start())
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._bc_inner, name)
 
-    def __enter__(self) -> "StreamProxy":
+    def __enter__(self) -> Any:
+        enter = getattr(self._bc_inner, "__enter__", None)
+        if callable(enter):
+            enter()
         return self
 
-    def __exit__(self, *exc_info: Any) -> None:
+    def __exit__(self, *exc_info: Any) -> Any:
         self.close()
+        return None
 
     def close(self) -> None:
         try:
@@ -587,22 +1041,34 @@ class AsyncStreamProxy:
     def __init__(self, inner: Any, on_item: OnItem, on_end: OnEnd) -> None:
         self._bc_inner = inner
         self._bc_on_end = _guard(on_end)
-        self._bc_iter = atee(inner.__aiter__(), on_item, on_end)
+        self._bc_iter: Optional[AsyncIterator[Any]] = None
+        self._bc_on_item = on_item
 
-    def __aiter__(self) -> "AsyncStreamProxy":
+    @property  # type: ignore[misc]
+    def __class__(self) -> type:  # noqa: D105 - isinstance() transparency
+        return type(self._bc_inner)
+
+    def _bc_start(self) -> AsyncIterator[Any]:
+        if self._bc_iter is None:
+            self._bc_iter = atee(self._bc_inner.__aiter__(), self._bc_on_item, self._bc_on_end)
+        return self._bc_iter
+
+    def __aiter__(self) -> Any:
+        self._bc_start()
         return self
 
     async def __anext__(self) -> Any:
-        return await self._bc_iter.__anext__()
+        return await self._bc_start().__anext__()
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._bc_inner, name)
 
-    async def __aenter__(self) -> "AsyncStreamProxy":
+    async def __aenter__(self) -> Any:
         return self
 
-    async def __aexit__(self, *exc_info: Any) -> None:
+    async def __aexit__(self, *exc_info: Any) -> Any:
         await self.close()
+        return None
 
     async def close(self) -> None:
         try:
@@ -620,7 +1086,8 @@ class AsyncStreamProxy:
         await self.close()
 
 
-def instrument_stream(stream: Any, on_item: OnItem, on_end: OnEnd, *, is_async: bool) -> Any:
+def instrument_stream(stream: Any, on_item: OnItem, on_end: OnEnd, *, is_async: bool,
+                      proxy: bool = True) -> Any:
     """Make ``stream`` report its items and its end.
 
     The Stainless-generated SDKs (openai, anthropic) return a ``Stream`` /
@@ -628,25 +1095,35 @@ def instrument_stream(stream: Any, on_item: OnItem, on_end: OnEnd, *, is_async: 
     When that attribute is present the generator is swapped for a reporting
     one and ``close`` is wrapped on the instance, so the caller gets back
     the *same* object (``isinstance`` checks, ``.response`` and context
-    manager use keep working). Otherwise the stream is wrapped in a proxy.
+    manager use keep working).
+
+    Otherwise: with ``proxy=True`` the stream is wrapped in a proxy; with
+    ``proxy=False`` ``None`` is returned and the caller hands the stream
+    back untouched (recording that it could not be observed), because for
+    those SDKs a proxy would change the type the application receives.
 
     ``on_end`` may be called more than once (exhaustion, then ``close``);
     callers pass an idempotent function.
     """
     try:
         inner = stream._iterator
+        if inner is None or not (hasattr(inner, "__anext__") if is_async
+                                 else hasattr(inner, "__next__")):
+            raise AttributeError("_iterator is not an iterator")
         wrapped = (atee if is_async else tee)(inner, on_item, on_end)
         stream._iterator = wrapped
         if stream._iterator is not wrapped:
             raise AttributeError("_iterator is not assignable")
     except Exception:
+        if not proxy:
+            return None
         proxy_cls = AsyncStreamProxy if is_async else StreamProxy
         return proxy_cls(stream, on_item, on_end)
 
     # A stream closed before it was exhausted never resumes the generator,
     # so close() reports the end itself. The closure holds the stream weakly:
-    # a strong reference would form a cycle and delay the SDK's own cleanup
-    # of a dropped stream until the garbage collector runs.
+    # a strong reference would form another cycle and delay the SDK's own
+    # cleanup of a dropped stream until the garbage collector runs.
     guarded_end = _guard(on_end)
     ref = weakref.ref(stream)
     try:
@@ -677,23 +1154,40 @@ def instrument_stream(stream: Any, on_item: OnItem, on_end: OnEnd, *, is_async: 
 
 class StreamState:
     """Counts chunks and finishes a call when its stream ends. Provider
-    modules subclass it and override :meth:`observe` and :meth:`info`."""
+    modules subclass it and override :meth:`observe` and :meth:`info`.
+
+    ``finished`` is set by ``observe`` when the provider's terminal event
+    was seen (a finish reason, ``message_stop``): a consumer that stops
+    reading right after it has the whole response, so the record is
+    ``status="ok"`` even though the iterator was not exhausted."""
 
     def __init__(self, call: ProviderCall) -> None:
         self.call = call
         self.count = 0
+        self.finished = False
+        call.mark_stream()
+        call.stream_opened()
+        # The call's __del__ backstop reports through this state, so an
+        # abandoned stream keeps the chunk count and whatever was observed.
+        call.on_abandon(self._abandoned)
 
-    def observe(self, chunk: Any) -> None:  # pragma: no cover - overridden
+    def observe(self, chunk: Any) -> Any:  # pragma: no cover - overridden
         """Read usage / finish reason / content out of one chunk."""
 
     def info(self) -> Dict[str, Any]:  # pragma: no cover - overridden
         return {}
 
-    def on_item(self, chunk: Any) -> None:
+    def on_item(self, chunk: Any) -> Any:
         self.count += 1
         if self.count == 1:
             self.call.first_chunk()
-        self.observe(chunk)
+        result = self.observe(chunk)
+        if result is SKIP:
+            self.count -= 1
+        return result
+
+    def _abandoned(self) -> None:
+        self.on_end(False, None)
 
     def on_end(self, completed: bool, error: Optional[BaseException]) -> None:
         if self.call.done:
@@ -706,10 +1200,8 @@ class StreamState:
         self.call.finish(
             info, error=error,
             stream={"chunk_count": self.count, "stream_completed": completed},
+            finished=self.finished,
         )
-
-
-RAW_RESPONSE_HEADER = "X-Stainless-Raw-Response"
 
 
 def given(value: Any) -> bool:
@@ -718,39 +1210,6 @@ def given(value: Any) -> bool:
     if value is None:
         return False
     return type(value).__name__ not in ("Omit", "NotGiven")
-
-
-def unwrap_raw(result: Any, kwargs: dict) -> Tuple[Optional[str], Any]:
-    """Handle the Stainless SDKs' raw-response wrappers (openai, anthropic).
-
-    ``with_raw_response.<method>`` and ``with_streaming_response.<method>``
-    call the patched method with an ``X-Stainless-Raw-Response`` header and
-    get a response wrapper back instead of the parsed model. Returns
-    ``(mode, parsed)``:
-
-    - ``(None, result)`` for a plain call.
-    - ``("stream", None)`` for ``with_streaming_response``: the body is
-      unread and belongs to the caller, so it is not touched.
-    - ``(mode, parsed)`` for ``with_raw_response``: ``parse()`` is cached by
-      the wrapper, so the caller later receives this same object.
-      ``parsed`` is None when it cannot be parsed synchronously.
-    """
-    headers = kwargs.get("extra_headers")
-    mode = headers.get(RAW_RESPONSE_HEADER) if isinstance(headers, dict) else None
-    if not isinstance(mode, str):
-        return None, result
-    if mode == "stream":
-        return mode, None
-    try:
-        parsed = result.parse()
-    except Exception:
-        return mode, None
-    if inspect.isawaitable(parsed):
-        close = getattr(parsed, "close", None)
-        if callable(close):
-            close()
-        return mode, None
-    return mode, parsed
 
 
 def text_accumulator(limit: int) -> Tuple[Callable[[Any], None], Callable[[], str]]:
@@ -769,14 +1228,26 @@ def text_accumulator(limit: int) -> Tuple[Callable[[Any], None], Callable[[], st
     return add, get
 
 
-def sync_method(
-    original: Callable[..., Any],
-    begin: Callable[[tuple, dict], Optional[ProviderCall]],
-    end: Callable[[ProviderCall, Any, tuple, dict], Any],
-) -> Callable[..., Any]:
+Begin = Callable[[tuple, dict], Optional[ProviderCall]]
+End = Callable[[ProviderCall, Any, tuple, dict], Any]
+
+
+def _fail(call: ProviderCall, exc: BaseException) -> None:
+    """Record the SDK's exception; whatever happens here, the caller
+    re-raises the original."""
+    try:
+        call.finish(error=exc)
+    except BaseException:  # noqa: B902 - the SDK's exception must win
+        pass
+
+
+def sync_method(original: Callable[..., Any], begin: Begin, end: End) -> Callable[..., Any]:
     """Wrap a synchronous SDK method. ``begin(args, kwargs)`` returns the
     call (or None to pass through); ``end(call, result, args, kwargs)``
-    finishes it, or instruments a returned stream, and returns the result."""
+    finishes it, or instruments a returned stream, and returns the result.
+
+    The SDK's exception propagates as the same object (a bare ``raise``):
+    only this wrapper's frame is added to its traceback."""
 
     @functools.wraps(original)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -786,37 +1257,90 @@ def sync_method(
         try:
             result = original(*args, **kwargs)
         except BaseException as exc:
-            call.finish(error=exc)
+            _fail(call, exc)
             raise
         return _safe_end(end, call, result, args, kwargs)
 
     return wrapper
 
 
-def async_method(
-    original: Callable[..., Any],
-    begin: Callable[[tuple, dict], Optional[ProviderCall]],
-    end: Callable[[ProviderCall, Any, tuple, dict], Any],
-) -> Callable[..., Any]:
-    """Async counterpart of :func:`sync_method`."""
+def async_method(original: Callable[..., Any], begin: Begin, end: End,
+                 aend: Optional[Callable[..., Any]] = None) -> Callable[..., Any]:
+    """Async counterpart of :func:`sync_method`. ``aend`` is an optional
+    coroutine function used instead of ``end`` when finishing the record
+    needs an ``await`` (parsing an async raw response)."""
 
+    async def complete(call: ProviderCall, awaitable: Any, args: tuple, kwargs: dict) -> Any:
+        try:
+            result = await awaitable
+        except BaseException as exc:
+            _fail(call, exc)
+            raise
+        if aend is None:
+            return _safe_end(end, call, result, args, kwargs)
+        try:
+            return await aend(call, result, args, kwargs)
+        except Exception:
+            logger.debug("provider capture could not finish", exc_info=True)
+            call.finish(info={"limits": ["capture failed while reading the response"]})
+            return result
+
+    if inspect.iscoroutinefunction(original):
+        @functools.wraps(original)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            call = _safe_begin(begin, args, kwargs)
+            if call is None:
+                return await original(*args, **kwargs)
+            return await complete(call, original(*args, **kwargs), args, kwargs)
+
+        return wrapper
+
+    # The SDK's "async" method is a plain function returning an awaitable
+    # (openai and anthropic decorate theirs). Stay one: introspection sees
+    # the same kind of callable, and whatever the original raises when it
+    # is *called* (argument validation) is still raised at the call, not at
+    # the await.
     @functools.wraps(original)
-    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def plain_wrapper(*args: Any, **kwargs: Any) -> Any:
         call = _safe_begin(begin, args, kwargs)
         if call is None:
-            return await original(*args, **kwargs)
+            return original(*args, **kwargs)
         try:
-            result = await original(*args, **kwargs)
+            awaitable = original(*args, **kwargs)
         except BaseException as exc:
-            call.finish(error=exc)
+            _fail(call, exc)
             raise
-        return _safe_end(end, call, result, args, kwargs)
+        return complete(call, awaitable, args, kwargs)
+
+    return plain_wrapper
+
+
+def sync_generator_method(original: Callable[..., Any], begin: Begin,
+                          make_state: Callable[[ProviderCall], StreamState]) -> Callable[..., Any]:
+    """Wrap a method that is a *generator function* (google-genai's
+    ``generate_content_stream``). The wrapper is a generator function too,
+    so ``inspect.isgeneratorfunction`` still holds and, exactly like the
+    original, nothing runs (no request, no record) until the first
+    ``next()``."""
+
+    @functools.wraps(original)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        call = _safe_begin(begin, args, kwargs)
+        if call is None:
+            return (yield from original(*args, **kwargs))
+        try:
+            state = make_state(call)
+            on_item, on_end = state.on_item, state.on_end
+        except Exception:
+            logger.debug("provider stream capture could not start", exc_info=True)
+            call.finish(info={"limits": ["stream capture could not start"]})
+            return (yield from original(*args, **kwargs))
+        return (yield from tee(original(*args, **kwargs), on_item, on_end))
 
     return wrapper
 
 
-def _safe_begin(begin: Callable[[tuple, dict], Optional[ProviderCall]],
-                args: tuple, kwargs: dict) -> Optional[ProviderCall]:
+def _safe_begin(begin: Begin, args: tuple, kwargs: dict) -> Optional[ProviderCall]:
     try:
         return begin(args, kwargs)
     except Exception:
@@ -824,33 +1348,41 @@ def _safe_begin(begin: Callable[[tuple, dict], Optional[ProviderCall]],
         return None
 
 
-def _safe_end(end: Callable[[ProviderCall, Any, tuple, dict], Any],
-              call: ProviderCall, result: Any, args: tuple, kwargs: dict) -> Any:
+def _safe_end(end: End, call: ProviderCall, result: Any, args: tuple, kwargs: dict) -> Any:
     try:
         return end(call, result, args, kwargs)
     except Exception:
         logger.debug("provider capture could not finish", exc_info=True)
-        call.finish()
+        call.finish(info={"limits": ["capture failed while reading the response"]})
         return result
 
 
 __all__ = [
     "AsyncStreamProxy",
+    "PatchTarget",
     "ProviderCall",
     "ProviderInstrumentor",
+    "SKIP",
+    "STATUS_CANCELLED",
+    "STATUS_ERROR",
+    "STATUS_INCOMPLETE",
+    "STATUS_OK",
     "StreamProxy",
     "StreamState",
     "async_method",
     "atee",
+    "flush_abandoned",
     "given",
+    "http_status_of",
+    "in_gc",
     "instrument_stream",
     "jsonable",
     "normalize_capture_content",
     "read",
     "scalar_params",
+    "sync_generator_method",
     "sync_method",
     "tee",
     "text_accumulator",
     "token_usage",
-    "unwrap_raw",
 ]

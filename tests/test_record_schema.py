@@ -81,7 +81,7 @@ def test_schema_version_is_emitted_and_documented():
     from briefcase.decorators import SCHEMA_VERSION
 
     record = _capture_record()
-    assert record["schema_version"] == SCHEMA_VERSION == FIXTURE["schema_version"] == "1.1"
+    assert record["schema_version"] == SCHEMA_VERSION == FIXTURE["schema_version"] == "1.2"
 
 
 def test_all_capture_content_modes_keep_the_field_set():

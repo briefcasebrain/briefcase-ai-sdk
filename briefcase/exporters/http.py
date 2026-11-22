@@ -176,6 +176,17 @@ class HTTPExporter(BaseExporter):
         self.failed_batches = 0
         self.dropped_records = 0
 
+    def _after_fork_in_child(self) -> None:
+        """Called by the export pipeline in a forked child. The buffer copy
+        holds the parent's unsent records (the parent sends those), the
+        locks may have been held by a thread that does not exist here, and
+        the periodic-flush thread did not survive the fork."""
+        self._buffer = []
+        self._buffer_lock = threading.Lock()
+        self._send_lock = threading.Lock()
+        self._timer = None
+        self._stop = threading.Event()
+
     # ------------------------------------------------------------------
     # Buffering
     # ------------------------------------------------------------------

@@ -50,7 +50,12 @@ _R = TypeVar("_R")
 #   "1.1": adds schema_version itself, the optional correlation fields
 #          (workflow_id, trace_id, parent_span_id, trace_flags), the optional
 #          status field ("cancelled"), and stream outputs for generators.
-SCHEMA_VERSION = "1.1"
+#   "1.2": adds the optional prompt_name / prompt_version fields (records
+#          made under briefcase.prompt), and on provider records
+#          (briefcase.integrations.providers) parent_run_id / parent_framework
+#          linking a provider record to the framework LLM run it was made in.
+#          Readers accept both "1.1" and "1.2": every 1.2 field is optional.
+SCHEMA_VERSION = "1.2"
 
 # How much of the call's content a record may carry:
 #   "full"  bounded reprs (optionally rewritten by a redact hook)
@@ -147,7 +152,7 @@ def capture(
     chunks (bounded) and its duration covers the whole iteration.
 
     Captured fields:
-        - schema_version (layout version of the record, currently "1.1")
+        - schema_version (layout version of the record, currently "1.2")
         - decision_id (uuid)
         - decision_type (function qualname or custom value)
         - function_name

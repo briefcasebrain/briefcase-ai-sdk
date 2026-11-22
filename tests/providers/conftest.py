@@ -34,3 +34,12 @@ def _clean_auto_registry():
     yield
     undo()
     _PATCHES.clear()
+
+
+def pytest_collection_modifyitems(items):
+    # The capture-gap warning is also raised through ``warnings`` so it is
+    # visible in applications that have not configured logging; the tests
+    # that provoke it on purpose assert on the log record instead.
+    for item in items:
+        if "tests/providers/" in str(item.fspath).replace("\\", "/"):
+            item.add_marker(pytest.mark.filterwarnings("ignore:briefcase.auto"))

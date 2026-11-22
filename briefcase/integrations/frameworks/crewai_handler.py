@@ -28,6 +28,7 @@ from briefcase.integrations.frameworks._capture_state import (
     DEFAULT_MAX_RECORDS,
     CaptureOptions,
     InflightStore,
+    LLMRunScopes,
     bounded_records,
 )
 
@@ -176,6 +177,10 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
         self._records = bounded_records(max_records, self._capture_options)
         # Inflight pairing: (category, key) to (start_record, start_time).
         # Capped and expiring, so a start event with no completion cannot leak.
+        # Publishes open LLM calls to provider auto-instrumentation. Only
+        # effective when the event bus runs this listener in the thread or
+        # task that makes the model call.
+        self._llm_scopes = LLMRunScopes("crewai")
         self._inflight = InflightStore(
             max_size=max_inflight,
             ttl_seconds=inflight_ttl_seconds,
@@ -407,12 +412,17 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
             key = _extract_event_key(event, "call_id", "model", "model_name")
             record = self._build_start_record("llm_call", key, event)
             self._inflight[("llm", key)] = (record, datetime.now(timezone.utc))
+            self._llm_scopes.start(key)
         except Exception as exc:
             _warn_lost("start", "llm_call", exc)
 
     def _on_llm_completed(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "call_id", "model", "model_name")
+            if self._llm_scopes.finish(key):
+                # auto(dedupe="framework"): a provider record stands for this call.
+                self._inflight.pop(("llm", key), None)
+                return
             self._complete("llm", key, event, "llm_call")
         except Exception as exc:
             _warn_lost("completion", "llm_call", exc)
@@ -420,6 +430,9 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
     def _on_llm_failed(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "call_id", "model", "model_name")
+            if self._llm_scopes.finish(key):
+                self._inflight.pop(("llm", key), None)
+                return
             self._fail("llm", key, event, "llm_call")
         except Exception as exc:
             _warn_lost("failure", "llm_call", exc)

@@ -13,7 +13,7 @@ ENV_VARS = (
     "BRIEFCASE_EXPORTER", "BRIEFCASE_EXPORTER_TOKEN",
     "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
     "OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
-    "OTEL_EXPORTER_OTLP_HEADERS", "OTEL_SERVICE_NAME",
+    "OTEL_EXPORTER_OTLP_HEADERS", "OTEL_SERVICE_NAME", "OTEL_SDK_DISABLED",
 )
 
 
@@ -116,11 +116,13 @@ def test_explicit_arguments_ignore_the_environment(monkeypatch, fake_otel):
 
 # -- OpenTelemetry environment ----------------------------------------------
 
-def test_otel_endpoint_defaults_to_grpc(monkeypatch, fake_otel):
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317")
+def test_otel_endpoint_defaults_to_the_specification_protocol(monkeypatch, fake_otel):
+    # http/protobuf is the OpenTelemetry default; the base endpoint gets the
+    # traces path appended, as the OTel SDK does.
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318")
     exporter = briefcase.observe()
     assert isinstance(exporter, fake_otel)
-    assert (exporter.endpoint, exporter.protocol) == ("http://collector:4317", "grpc")
+    assert (exporter.endpoint, exporter.protocol) == ("http://collector:4318/v1/traces", "http")
     assert exporter.service_name == "briefcase-ai"
     assert BriefcaseConfig.get().exporter is exporter
 
@@ -166,7 +168,7 @@ def test_briefcase_exporter_otlp_uses_the_otel_defaults(monkeypatch, fake_otel):
     monkeypatch.setenv("BRIEFCASE_EXPORTER", "otlp")
     exporter = briefcase.observe()
     assert isinstance(exporter, fake_otel)
-    assert (exporter.endpoint, exporter.protocol) == ("http://localhost:4317", "grpc")
+    assert (exporter.endpoint, exporter.protocol) == ("http://localhost:4318/v1/traces", "http")
 
 
 def test_missing_otel_extra_falls_back_to_console_with_a_warning(monkeypatch, mocker):
@@ -177,7 +179,7 @@ def test_missing_otel_extra_falls_back_to_console_with_a_warning(monkeypatch, mo
             raise ImportError("opentelemetry-api and opentelemetry-sdk are required.")
 
     monkeypatch.setattr(otel_module, "OTelExporter", Unavailable)
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318")
     log_warning = mocker.patch.object(_observe.logger, "warning")
 
     with pytest.warns(RuntimeWarning, match=r"briefcase-ai\[otel\]"):
@@ -230,3 +232,119 @@ def test_level_still_enables_logging(monkeypatch):
         assert logging.getLogger("briefcase").level == logging.WARNING
     finally:
         briefcase.disable_logging()
+
+
+# -- red team ---------------------------------------------------------------
+
+def test_the_protocol_is_never_guessed_from_the_port(monkeypatch, fake_otel, caplog):
+    """Port 4317 used to select gRPC. A port is a convention; with no
+    protocol variable the OpenTelemetry default applies, and the mismatch
+    is pointed out instead of acted on."""
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317")
+    with caplog.at_level(logging.WARNING, logger="briefcase"):
+        exporter = briefcase.observe()
+    assert (exporter.endpoint, exporter.protocol) == ("http://collector:4317/v1/traces", "http")
+    assert "OTEL_EXPORTER_OTLP_PROTOCOL=grpc" in caplog.text
+
+
+def test_the_traces_protocol_overrides_the_general_one(monkeypatch, fake_otel):
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc")
+    exporter = briefcase.observe()
+    assert (exporter.endpoint, exporter.protocol) == ("http://collector:4317", "grpc")
+
+
+@pytest.mark.parametrize("name,value", [
+    ("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4318"),          # no scheme
+    ("OTEL_EXPORTER_OTLP_ENDPOINT", "collector"),
+    ("OTEL_EXPORTER_OTLP_ENDPOINT", "ftp://collector:4318"),
+    ("OTEL_EXPORTER_OTLP_ENDPOINT", "http://"),
+    ("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:notaport"),
+    ("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "//collector/v1/traces"),
+])
+def test_a_malformed_otlp_endpoint_fails_loudly(monkeypatch, fake_otel, name, value):
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError, match="not a valid http"):
+        briefcase.observe()
+    assert BriefcaseConfig.get().exporter is None  # nothing half-configured
+    assert name in _observe.check_environment()
+
+
+def test_an_unsupported_otlp_protocol_fails_loudly(monkeypatch, fake_otel):
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/json")
+    with pytest.raises(ValueError, match="http/json"):
+        briefcase.observe()
+    assert "http/json" in _observe.check_environment()
+
+
+def test_otel_sdk_disabled_exports_nothing_and_says_so(monkeypatch, fake_otel, caplog):
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318")
+    monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
+    with caplog.at_level(logging.WARNING, logger="briefcase"):
+        exporter = briefcase.observe()
+    assert not isinstance(exporter, (fake_otel, briefcase.ConsoleExporter))
+    assert "OTEL_SDK_DISABLED=true" in caplog.text
+
+    import asyncio
+
+    assert asyncio.run(exporter.export({"decision_id": "x"})) is True
+    # an explicit non-OTLP destination is not OpenTelemetry's to disable
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "memory")
+    assert isinstance(briefcase.observe(), briefcase.MemoryExporter)
+    monkeypatch.setenv("OTEL_SDK_DISABLED", "false")
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "otlp")
+    assert isinstance(briefcase.observe(), fake_otel)
+
+
+def test_secrets_never_reach_a_log_or_an_error_message(monkeypatch, fake_otel, caplog):
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_HEADERS", "authorization=Bearer HEADER-SECRET")
+    monkeypatch.setenv("BRIEFCASE_EXPORTER_TOKEN", "TOKEN-SECRET")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://user:URL-SECRET@collector:4317")
+    with caplog.at_level(logging.DEBUG, logger="briefcase"):
+        briefcase.observe()
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "user:URL-SECRET@collector")
+        with pytest.raises(ValueError) as otlp_error:
+            briefcase.observe()
+        monkeypatch.setenv("BRIEFCASE_EXPORTER", "htps://user:URL-SECRET@host/x?key=QUERY-SECRET")
+        with pytest.raises(ValueError) as typo_error:
+            briefcase.observe()
+    text = caplog.text + str(otlp_error.value) + str(typo_error.value) + str(
+        _observe.check_environment())
+    for secret in ("HEADER-SECRET", "TOKEN-SECRET", "QUERY-SECRET"):
+        assert secret not in text
+    assert "URL-SECRET" not in caplog.text and "URL-SECRET" not in str(typo_error.value)
+    assert _observe._safe_url("https://u:p@h:1/x?k=v") == "https://***@h:1/x?***"
+
+
+@pytest.mark.parametrize("value", ["consol", "Console", "jsonl", "otlp-http", "s3://bucket/x"])
+def test_a_typo_in_briefcase_exporter_is_an_error_not_the_console(monkeypatch, value):
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", value)
+    with pytest.raises(ValueError, match="Unknown exporter shorthand"):
+        briefcase.observe()
+    assert BriefcaseConfig.get().exporter is None
+    assert "BRIEFCASE_EXPORTER" in _observe.check_environment()
+
+
+def test_check_environment_accepts_every_valid_destination(monkeypatch, tmp_path):
+    for value in ("", "console", "memory", "otlp", "OTEL", str(tmp_path / "r.jsonl"),
+                  "https://collector.example.com/v1/decisions"):
+        assert _observe.check_environment({"BRIEFCASE_EXPORTER": value}) is None, value
+    assert not (tmp_path / "r.jsonl").exists()  # nothing was opened
+    assert _observe.check_environment(
+        {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://c:4318",
+         "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc"}) is None
+
+
+def test_strict_mode_raises_instead_of_falling_back_to_the_console(monkeypatch):
+    import briefcase.exporters.otel as otel_module
+
+    class Unavailable:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("opentelemetry-sdk is required.")
+
+    monkeypatch.setattr(otel_module, "OTelExporter", Unavailable)
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "otlp")
+    with pytest.raises(ImportError, match=r"briefcase-ai\[otel\]"):
+        _observe._exporter_from_env(strict=True)

@@ -2,11 +2,15 @@
 
 Redaction is on by default and works as an allow-list: only attributes named
 here (ids, model, token counts, cost, durations, tool names, outcomes) reach a
-record. Prompt text, response text, tool input, raw API bodies and host paths
-are never copied; tool parameters and error strings are kept only after the
-SDK's ``Sanitizer`` has rewritten them, and dropped when the native extension
-is not available. ``user.email`` becomes a keyed hash. ``keep_content=True``
-turns all of that off.
+record, and only when the value looks like an identifier (see ``_label``).
+Prompt text, response text, tool input, tool parameters, commands, file
+paths, URLs, error messages and raw API bodies are never copied; an error is
+recorded as ``[redacted]`` plus its type. ``user.email`` becomes a keyed
+hash. ``keep_content=True`` turns all of that off.
+
+Free text is *not* passed through the SDK ``Sanitizer`` and kept: a PII
+sanitiser rewrites e-mail addresses and similar patterns but leaves shell
+commands and paths intact, so it cannot make tool parameters safe to keep.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import time
 import uuid
@@ -24,7 +29,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from briefcase.semantic_conventions import cowork as cw
 
-SCHEMA_VERSION = "1.1"  # kept equal to briefcase.decorators.SCHEMA_VERSION (tested)
+SCHEMA_VERSION = "1.2"  # kept equal to briefcase.decorators.SCHEMA_VERSION (tested)
 REDACTED = "[redacted]"
 PENDING_TTL_SECONDS = 600.0
 MAX_PENDING = 10_000
@@ -90,12 +95,23 @@ def boolean(value: Any) -> Optional[bool]:
     return None
 
 
+# What an identifier may be made of: model ids ("openai/gpt-4o",
+# "anthropic.claude-v2:0"), tool names ("mcp__server__tool"), uuids, enum
+# words. No whitespace, so a command line or a sentence never qualifies.
+_LABEL = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.:@+\-/]*$")
+
+
 def _label(value: Any, limit: int = 200) -> Optional[str]:
-    """A short identifier-like string (model, tool name, id); never free text."""
+    """A short identifier-like string (model, tool name, id); never free
+    text, a command, a file path or a URL. ``None`` means "not a label"."""
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return str(value)
-    if not isinstance(value, str) or not value or len(value) > limit or "\n" in value:
+    if not isinstance(value, str) or not value or len(value) > limit:
         return None
+    if not _LABEL.match(value):
+        return None  # whitespace, a leading "/", "~" or ".", quotes, backslashes ...
+    if "://" in value or value.count("/") > 1 or "@" in value and "." in value.split("@")[-1]:
+        return None  # URL, path-like, or e-mail-like
     return value
 
 
@@ -155,20 +171,19 @@ class Redactor:
         return hmac.new(self._salt, email.strip().lower().encode("utf-8"), hashlib.sha256).hexdigest()
 
     def text(self, value: Any, limit: int = 4000) -> Optional[str]:
-        """Free text that may be kept once sanitised (tool parameters, errors).
-        ``None`` means "drop it"."""
-        if value is None:
+        """Free text (tool parameters, error messages): kept only with
+        ``keep_content``. ``None`` means "drop it".
+
+        The sanitiser is deliberately not a way to keep free text by
+        default: it rewrites PII patterns but not commands or paths."""
+        if value is None or not self.keep_content:
             return None
         if not isinstance(value, str):
             try:
                 value = json.dumps(value, default=str)
             except (TypeError, ValueError):
                 return None
-        if self.keep_content:
-            return value[:limit]
-        if self._sanitize is None:
-            return None
-        return (self._sanitize(value[:limit]) or None)
+        return value[:limit]
 
     def identity(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
         out: Dict[str, Any] = {}

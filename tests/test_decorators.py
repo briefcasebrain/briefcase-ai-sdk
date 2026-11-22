@@ -793,7 +793,7 @@ class TestCaptureCorrelation:
             return 1
 
         fn()
-        assert exp.export.call_args[0][0]["schema_version"] == "1.1"
+        assert exp.export.call_args[0][0]["schema_version"] == "1.2"
 
     def test_workflow_id_is_picked_up_from_the_correlation_context(self):
         from briefcase.correlation import briefcase_workflow

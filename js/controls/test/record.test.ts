@@ -75,7 +75,10 @@ describe("decision record wire schema (fixture parity)", () => {
 
   it("optional fields in the fixture stay optional", () => {
     expect([...fixture.optional_fields].sort()).toEqual(
-      ["context_version", "error", "parent_span_id", "status", "trace_flags", "trace_id", "workflow_id"].sort(),
+      [
+        "context_version", "error", "parent_span_id", "status", "trace_flags", "trace_id", "workflow_id",
+        "prompt_name", "prompt_version", "parent_run_id", "parent_framework",
+      ].sort(),
     );
     for (const field of fixture.optional_fields) expect(fixture.required_fields).not.toContain(field);
   });

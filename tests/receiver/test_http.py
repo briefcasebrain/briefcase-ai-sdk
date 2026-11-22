@@ -379,3 +379,19 @@ def test_detach_status_stop_round_trip(tmp_path, monkeypatch):
     assert [line["decision_type"] for line in lines][:2] == ["user_prompt", "model_call"]
     assert p.EMAIL not in sink.read_text()
     assert "token" not in (tmp_path / "bc" / "receiver" / "receiver.log").read_text().lower()
+
+
+def test_exporter_token_env_names(monkeypatch, capsys):
+    from briefcase.receiver import server
+
+    monkeypatch.setattr(server, "_warned_token_alias", False)
+    assert server.exporter_token({}) is None
+    assert server.exporter_token({"BRIEFCASE_EXPORTER_TOKEN": "new"}) == "new"
+    assert capsys.readouterr().err == ""
+    # the deprecated alias still works, warns once, and never prints the value
+    assert server.exporter_token({"BRIEFCASE_EXPORT_TOKEN": "old-secret"}) == "old-secret"
+    assert server.exporter_token({"BRIEFCASE_EXPORT_TOKEN": "old-secret"}) == "old-secret"
+    err = capsys.readouterr().err
+    assert err.count("BRIEFCASE_EXPORT_TOKEN is deprecated") == 1 and "old-secret" not in err
+    assert server.exporter_token(
+        {"BRIEFCASE_EXPORT_TOKEN": "old", "BRIEFCASE_EXPORTER_TOKEN": "new"}) == "new"

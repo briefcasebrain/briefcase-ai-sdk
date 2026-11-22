@@ -12,8 +12,13 @@ EMAIL = "dev.person@example.com"
 HOST_PATH = "/Users/dev.person/secret-project"
 TOOL_INPUT = "cat /Users/dev.person/secret-project/.env"
 TOOL_ERROR = "permission denied for dev.person@example.com"
+# What real tool calls carry: a command line with a URL and a credential, a
+# Windows path, and a path in a field that normally holds a short label.
+COMMAND = "curl -H 'Authorization: Bearer sk-live-TOKEN123' https://internal.corp.example/api/v1/keys"
+WINDOWS_PATH = "C:\\Users\\dev.person\\secret-project\\notes.txt"
 SENTINELS = (PROMPT, "SECRET-PROMPT-TEXT", RESPONSE, "SECRET-RESPONSE-TEXT", EMAIL, "dev.person",
-             HOST_PATH, "secret-project", "RAW-API-BODY")
+             HOST_PATH, "secret-project", "RAW-API-BODY", ".env", "cat ", "curl", "sk-live-TOKEN123",
+             "internal.corp.example", "https://", "Authorization")
 
 SESSION = "sess-0001"
 PROMPT_ID = "5b1c2f9e-0000-4000-8000-000000000001"
@@ -84,11 +89,14 @@ def claude_code_logs(prefixed=True):
             "tool_name": "Bash", "tool_use_id": "toolu_1", "success": "true", "duration_ms": 250,
             "tool_result_size_bytes": 2048, "tool_parameters": '{"bash_command": "' + TOOL_INPUT + '"}',
             "tool_input": TOOL_INPUT, "decision_type": "accept", "decision_source": "config",
+            "full_command": COMMAND, "file_path": WINDOWS_PATH, "url": "https://internal.corp.example/x",
+            "mcp_server_scope": HOST_PATH,
         }, 3),
         event("tool_decision", {"tool_name": "Write", "tool_use_id": "toolu_2", "decision": "reject",
                                 "source": "user_reject"}, 4),
         event("tool_result", {"tool_name": "Read", "tool_use_id": "toolu_3", "success": "false",
-                              "duration_ms": 12, "error": TOOL_ERROR, "error_type": "PermissionError"}, 5),
+                              "duration_ms": 12, "error": TOOL_ERROR + " while running " + COMMAND,
+                              "error_type": "PermissionError"}, 5),
         event("assistant_response", {"response": RESPONSE, "response_length": len(RESPONSE),
                                      "model": "claude-sonnet-4-5"}, 6),
         event("api_error", {"model": "claude-sonnet-4-5", "error": "overloaded: " + EMAIL, "status_code": 529,
@@ -101,7 +109,7 @@ def cowork_logs():
     return claude_code_logs(prefixed=False)
 
 
-def codex_logs():
+def codex_logs(hostile=False):
     """Codex: token counts arrive on a later sse_event; no prompt.id."""
     common = {"conversation.id": "conv-77", "model": "gpt-5-codex", "user.email": EMAIL, "app.version": "0.50.0"}
 
@@ -121,10 +129,15 @@ def codex_logs():
         event("tool_result", {"tool_name": "shell", "call_id": "call_1", "arguments": TOOL_INPUT,
                               "duration_ms": 40, "success": "true", "output": HOST_PATH}, 6),
         event("agent_response", {"response": RESPONSE}, 7),
-    ])
+    ] + ([
+        event("tool_result", {"tool_name": "shell", "call_id": "call_2", "duration_ms": 5, "success": "false",
+                              "arguments": '{"command": ["bash", "-lc", "' + COMMAND + '"], "workdir": "'
+                                           + HOST_PATH + '"}',
+                              "error.message": "exit 1: " + COMMAND, "cwd": HOST_PATH}, 8),
+    ] if hostile else []))
 
 
-def copilot_traces():
+def copilot_traces(hostile=False):
     trace = "0af7651916cd43dd8448eb211c80319c"
     common = {"gen_ai.conversation.id": "conv-copilot-1"}
 
@@ -156,7 +169,14 @@ def copilot_traces():
                 "gen_ai.tool.call.result": HOST_PATH,
                 "github.copilot.tool.parameters.file_path": HOST_PATH}, 1400, 1450),
             span("00f067aa0ba902ba", "", "GET /unrelated", {"http.request.method": "GET"}, 0, 5),
-        ]}],
+        ] + ([
+            span("00f067aa0ba902bb", "00f067aa0ba902b7", "execute_tool runInTerminal", {
+                "gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": "runInTerminal",
+                "gen_ai.tool.call.id": "call_cmd", "gen_ai.tool.type": HOST_PATH,
+                "gen_ai.tool.call.arguments": '{"command": "' + COMMAND + '"}',
+                "url.full": "https://internal.corp.example/api", "error.type": "ExitCode1",
+                "error.message": "failed: " + COMMAND}, 1500, 1600, {"code": 2, "message": COMMAND}),
+        ] if hostile else [])}],
     }]}
 
 
@@ -178,7 +198,7 @@ def claude_code_metrics():
     }]}
 
 
-def cursor_hooks():
+def cursor_hooks(hostile=False):
     common = {"conversation_id": "cur-conv-1", "generation_id": "cur-gen-1", "model": "claude-4.5-sonnet",
               "cursor_version": "2.4.0", "workspace_roots": [HOST_PATH], "user_email": EMAIL,
               "transcript_path": HOST_PATH + "/transcript.jsonl"}
@@ -189,4 +209,9 @@ def cursor_hooks():
              tool_input={"command": TOOL_INPUT}, tool_output=HOST_PATH, cwd=HOST_PATH, duration=73),
         dict(common, hook_event_name="afterAgentResponse", text=RESPONSE),
         dict(common, hook_event_name="stop", status="completed", loop_count=0),
-    ]
+    ] + ([
+        dict(common, hook_event_name="postToolUseFailure", tool_name="Shell", tool_use_id="tu_2",
+             tool_input={"command": COMMAND, "working_directory": WINDOWS_PATH}, cwd=HOST_PATH,
+             error_message="command failed: " + COMMAND, failure_type="error", duration=5),
+        dict(common, hook_event_name="stop", status="completed", loop_count=1, reason=HOST_PATH + "/x.py"),
+    ] if hostile else [])

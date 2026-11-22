@@ -292,7 +292,9 @@ def test_stream_closed_early_emits_one_incomplete_record(instrument, mem):
 
     assert len(mem.records) == 1
     assert mem.records[0]["outputs"] == {"chunk_count": 1, "stream_completed": False}
-    assert mem.records[0]["status"] == "ok"
+    # Not "ok": the stream was closed before its finish reason arrived.
+    assert mem.records[0]["status"] == "incomplete"
+    assert mem.records[0]["token_usage"] is None
 
 
 def test_stream_dropped_unread_still_emits_one_record(instrument, mem):
@@ -301,9 +303,15 @@ def test_stream_dropped_unread_still_emits_one_record(instrument, mem):
     del stream
     import gc
 
+    from briefcase.integrations.providers._base import flush_abandoned
+
     gc.collect()
+    # A record completed inside the garbage collector is exported by the
+    # finalizer thread, not from the collection itself.
+    flush_abandoned()
     assert len(mem.records) == 1
     assert mem.records[0]["outputs"] == {"chunk_count": 0, "stream_completed": False}
+    assert mem.records[0]["status"] == "incomplete"
 
 
 def test_async_stream(instrument, mem):
@@ -383,8 +391,10 @@ def test_with_streaming_response_leaves_the_body_to_the_caller(instrument, mem):
             model=MODEL, messages=MESSAGES) as response:
         assert response.parse().choices[0].message.content == COMPLETION
     assert len(mem.records) == 1
-    assert "token_usage" not in mem.records[0]
+    # The caller parsed the body, so the record has what the caller got.
+    assert mem.records[0]["token_usage"]["total_tokens"] == 18
     assert mem.records[0]["request_id"] == "req_chat"
+    assert mem.records[0]["response_wrapper"] == "with_streaming_response"
 
 
 def test_responses_create(instrument, mem):
@@ -502,7 +512,11 @@ def test_missing_patch_target_is_skipped_with_a_warning(mem, mocker):
                           lambda original: original) is False
         assert inst.patched == []
         assert len(inst.skipped) == 2
-        assert warning.call_count == 2
-        assert "not found in the installed SDK" in warning.call_args[0][0]
+        assert all("not found" in reason for reason in inst.skipped.values())
+        assert warning.call_count == 0  # nothing is logged per target ...
+        inst.report_skipped()
+        inst.report_skipped()
+        assert warning.call_count == 1  # ... one warning names them all
+        assert "NOT recorded" in warning.call_args[0][0]
     finally:
         inst.uninstall()

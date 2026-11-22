@@ -34,6 +34,7 @@ from briefcase.integrations.frameworks._capture_state import (
     DEFAULT_MAX_RECORDS,
     CaptureOptions,
     InflightStore,
+    LLMRunScopes,
     bounded_records,
 )
 
@@ -197,11 +198,20 @@ class BriefcaseLangChainHandler(ExportMixin):
         self._children: Dict[str, Deque[CapturedDecision]] = {}
         # run_id -> streamed tokens seen so far
         self._stream_buffers: Dict[str, List[str]] = {}
+        # Publishes open LLM runs to provider auto-instrumentation, so a
+        # provider record made under one carries its run id.
+        self._llm_scopes = LLMRunScopes("langchain")
 
         # LangChain BaseCallbackHandler compatibility flags
         self.raise_error = False
         self.run_inline = True
         self.ignore_llm = not capture_llm
+        # langchain-core reads these too (callback manager, 1.x); without
+        # them every chat-model, retry and custom event raised
+        # AttributeError inside LangChain and the run was not captured.
+        self.ignore_chat_model = not capture_llm
+        self.ignore_retry = True
+        self.ignore_custom_event = True
         self.ignore_chain = not capture_chains
         self.ignore_agent = False
         self.ignore_retriever = not capture_retrievers
@@ -265,6 +275,8 @@ class BriefcaseLangChainHandler(ExportMixin):
             else:
                 self._root_of[run_key] = run_key
             self._inflight[run_key] = decision
+        if decision_type == "llm":
+            self._llm_scopes.start(run_key)
 
     def _finish_run(
         self,
@@ -277,9 +289,17 @@ class BriefcaseLangChainHandler(ExportMixin):
         run_key = str(run_id) if run_id else None
         if run_key is None:
             return
+        # True when auto(dedupe="framework") is set and a provider record
+        # was emitted for this LLM run: that record stands for the call.
+        drop = self._llm_scopes.finish(run_key)
         with self._lock:
             decision = self._inflight.pop(run_key, None)
             if decision is None:
+                return
+            if drop:
+                self._stream_buffers.pop(run_key, None)
+                self._root_of.pop(run_key, None)
+                self._children.pop(run_key, None)
                 return
             if outputs is not None:
                 decision.outputs = outputs
@@ -328,6 +348,7 @@ class BriefcaseLangChainHandler(ExportMixin):
 
     def _on_inflight_evicted(self, run_key: Any, decision: Any, reason: str) -> None:
         """Record a run whose end callback never arrived as abandoned."""
+        self._llm_scopes.finish(str(run_key))
         with self._lock:
             decision.error = f"abandoned: no end callback ({reason})"
             record = self._complete(str(run_key), decision)

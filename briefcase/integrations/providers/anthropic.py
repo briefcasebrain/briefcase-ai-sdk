@@ -1,39 +1,64 @@
 """Auto-instrumentation for the ``anthropic`` Python SDK.
 
-Verified against ``anthropic==2.12.0`` by inspecting the installed package.
-Patch targets (each is checked at install time; a missing one is skipped
-with a WARNING), all recorded as ``decision_type="llm.anthropic.messages"``:
+Tested with ``anthropic==2.12.0`` (the version this module's test-suite
+runs against). Nothing is pinned to a version: every patch target is
+resolved and its signature checked at install time, and a surface whose
+layout differs is left untouched and reported (``briefcase.auto.status()``).
 
-- ``anthropic.resources.messages.Messages.create`` / ``.parse`` / ``.stream``
-- ``anthropic.resources.messages.AsyncMessages.create`` / ``.parse`` / ``.stream``
-- ``anthropic.resources.beta.messages.Messages.create`` / ``.parse`` / ``.stream``
-- ``anthropic.resources.beta.messages.AsyncMessages.create`` / ``.parse`` / ``.stream``
+Surfaces, each patched all-or-nothing (sync and async together), all
+recorded as ``decision_type="llm.anthropic.messages"``:
 
-Layout facts this module relies on, as found in 2.12.0:
+- ``messages``: ``anthropic.resources.messages.(Async)Messages.create`` /
+  ``.parse`` / ``.stream``
+- ``beta.messages``: the same methods of
+  ``anthropic.resources.beta.messages.(Async)Messages``
+
+How ``messages.stream()`` is captured
+-------------------------------------
+
+``stream()`` returns a manager; the request is sent when the manager is
+entered, and ``__enter__`` / ``__aenter__`` return the event stream. That
+is the documented contract (``with client.messages.stream(...) as stream``)
+and the only thing this module depends on:
+
+1. The ``stream`` wrapper notes the request on the returned manager and
+   patches ``__enter__``/``__exit__`` (``__aenter__``/``__aexit__``) on *the
+   manager's class, whatever it is called* (looked up with ``type()`` at
+   run time, so a renamed or moved manager class is still covered).
+2. Entering starts the record (and records the SDK's error if the request
+   fails); the stream it returns is observed through its ``_iterator``
+   generator, like every Stainless stream, so ``text_stream``,
+   ``get_final_message()`` and ``until_done()`` all feed the record.
+3. Fallback, if a future stream object has no ``_iterator``: nothing is
+   touched, and the record is built at ``__exit__`` from the public
+   ``current_message_snapshot`` property, without chunk timing
+   (``capture_limits`` says so).
+
+No private attribute of the manager is read (earlier versions wrapped its
+name-mangled ``__api_request``).
+
+Other layout facts, as found in 2.12.0:
 
 - ``create(stream=True)`` returns ``anthropic.Stream`` / ``AsyncStream`` of
-  raw events, iterating a ``_iterator`` generator (a cached property). The
-  record is emitted when it is exhausted, closed, or dropped.
-- ``stream()`` does not go through ``create``: it returns a
-  ``MessageStreamManager`` (``AsyncMessageStreamManager``, and the ``Beta``
-  variants) holding the pending request in a private ``__api_request``
-  attribute: a callable for the sync manager, an awaitable for the async
-  one. That request is wrapped so the raw stream it produces is
-  instrumented. If a future SDK renames the attribute, ``stream()`` calls
-  are passed through unrecorded and a WARNING is logged once.
+  raw events, iterating an ``_iterator`` generator. The record is emitted
+  when it is exhausted, closed, or dropped.
 - ``parse()`` posts directly and is patched itself.
 - Usage fields: ``Message.usage`` (``input_tokens``, ``output_tokens``,
   ``cache_read_input_tokens``, ``cache_creation_input_tokens``). In a
-  stream, ``message_start`` carries the input side and each
-  ``message_delta`` the cumulative ``output_tokens`` and the
-  ``stop_reason``. ``input_tokens`` excludes cached tokens, so
-  ``total_tokens`` here is ``input_tokens + output_tokens`` and the cache
-  counters are reported next to it.
+  stream, ``message_start`` carries the input side and a *placeholder*
+  ``output_tokens``; each ``message_delta`` carries the cumulative
+  ``output_tokens`` and the ``stop_reason``. A stream that ended before its
+  first ``message_delta`` therefore has ``completion_tokens: None``.
+  ``input_tokens`` excludes cached tokens, so ``total_tokens`` here is
+  ``input_tokens + output_tokens`` and the cache counters are reported next
+  to it.
 - The request id is ``Message._request_id`` (``request-id`` response header
   for streams).
+- ``with_raw_response`` / ``with_streaming_response``: see :mod:`._stainless`.
 
 ``AnthropicBedrock`` / ``AnthropicVertex`` clients use the same resource
-classes and are covered.
+classes and are covered. Not covered: ``messages.count_tokens``, the
+Batches API, objects created before ``auto()`` that hold a bound method.
 """
 
 from __future__ import annotations
@@ -43,9 +68,11 @@ from typing import Any, Callable, Dict, Optional
 
 from briefcase._logging import get_logger
 from briefcase.integrations.providers._base import (
+    PatchTarget,
     ProviderCall,
     ProviderInstrumentor,
     StreamState,
+    _fail,
     async_method,
     given,
     instrument_stream,
@@ -54,14 +81,25 @@ from briefcase.integrations.providers._base import (
     sync_method,
     text_accumulator,
     token_usage,
-    unwrap_raw,
 )
+from briefcase.integrations.providers._stainless import Surface, header
 
 logger = get_logger(__name__)
 
 PROVIDER = "anthropic"
-VERIFIED_VERSION = "2.12.0"
+TESTED_VERSIONS = ("2.12.0",)
+VERIFIED_VERSION = TESTED_VERSIONS[-1]
 DECISION_TYPE = "llm.anthropic.messages"
+REQUEST_ID_HEADER = "request-id"
+#: Attribute set on a manager returned by ``stream()``: the request to record.
+PENDING_ATTR = "_briefcase_pending_request"
+#: Attribute set on an entered manager: the stream state to end at exit.
+STATE_ATTR = "_briefcase_stream_state"
+
+LIMIT_NO_ITERATOR = (
+    "message stream has no assignable '_iterator' in this SDK version; record built from "
+    "current_message_snapshot at exit, without chunk count or timing"
+)
 
 # 2.12.0's create() takes max_tokens / service_tier / speed / inference_geo;
 # the sampling parameters are kept for older SDK releases that accept them.
@@ -71,10 +109,8 @@ _PARAMS = (
 )
 _INPUT_KEYS = ("system", "messages", "tools")
 
-_warned_manager_layout = False
 
-
-def _usage(usage: Any) -> Optional[Dict[str, int]]:
+def _usage(usage: Any) -> Optional[Dict[str, Optional[int]]]:
     return token_usage(
         read(usage, "input_tokens"),
         read(usage, "output_tokens"),
@@ -103,20 +139,28 @@ def _content_blocks(blocks: Any) -> Dict[str, Any]:
 
 
 def _message_info(message: Any, want_content: bool) -> Dict[str, Any]:
+    blocks = read(message, "content")
+    tool_calls = sum(
+        1 for block in (blocks if isinstance(blocks, (list, tuple)) else ())
+        if read(block, "type") == "tool_use"
+    )
     info: Dict[str, Any] = {
         "model": read(message, "model"),
         "response_id": read(message, "id"),
         "request_id": read(message, "_request_id"),
         "finish_reason": read(message, "stop_reason"),
         "usage": _usage(read(message, "usage")),
+        "extra": {"tool_call_count": tool_calls or None},
     }
     if want_content:
-        info["content"] = _content_blocks(read(message, "content"))
+        info["content"] = _content_blocks(blocks)
     return info
 
 
 class _MessageStream(StreamState):
-    """Reads raw message stream events."""
+    """Reads message stream events (raw ones, or the parsed events of the
+    ``stream()`` helper, which pass the raw ``message_start`` /
+    ``message_delta`` / ``content_block_delta`` through)."""
 
     def __init__(self, call: ProviderCall, inst: ProviderInstrumentor, request_id: Any) -> None:
         super().__init__(call)
@@ -127,33 +171,42 @@ class _MessageStream(StreamState):
         self.output_tokens: Any = None
         self.cache_read: Any = None
         self.cache_creation: Any = None
+        #: message_start carries a placeholder output_tokens; only a
+        #: message_delta makes the output count real.
+        self.saw_delta = False
 
-    def _read_usage(self, usage: Any) -> None:
+    def _read_usage(self, usage: Any, final: bool) -> None:
         for attr, key in (
             ("input_tokens", "input_tokens"),
             ("output_tokens", "output_tokens"),
             ("cache_read", "cache_read_input_tokens"),
             ("cache_creation", "cache_creation_input_tokens"),
         ):
+            if attr == "output_tokens" and not final:
+                continue
             value = read(usage, key)
             if isinstance(value, int) and not isinstance(value, bool):
                 setattr(self, attr, value)
 
-    def observe(self, event: Any) -> None:
+    def observe(self, event: Any) -> Any:
         kind = read(event, "type")
         if kind == "message_start":
             message = read(event, "message")
             self.data["model"] = read(message, "model")
             self.data["response_id"] = read(message, "id")
-            self._read_usage(read(message, "usage"))
+            self._read_usage(read(message, "usage"), final=False)
         elif kind == "message_delta":
-            self._read_usage(read(event, "usage"))
+            self.saw_delta = True
+            self._read_usage(read(event, "usage"), final=True)
             stop_reason = read(event, "delta", "stop_reason")
             if stop_reason:
                 self.data["finish_reason"] = stop_reason
+        elif kind == "message_stop":
+            self.finished = True
         elif kind == "content_block_delta" and self.want_content:
             if read(event, "delta", "type") == "text_delta":
                 self.add_text(read(event, "delta", "text"))
+        return None
 
     def info(self) -> Dict[str, Any]:
         info = dict(self.data)
@@ -165,6 +218,50 @@ class _MessageStream(StreamState):
         if self.want_content:
             info["content"] = {"content": self.get_text()}
         return info
+
+
+class _SnapshotStream(StreamState):
+    """Fallback for a ``stream()`` result that cannot be observed chunk by
+    chunk: reads the public ``current_message_snapshot`` when the manager
+    exits."""
+
+    def __init__(self, call: ProviderCall, inst: ProviderInstrumentor, stream: Any) -> None:
+        super().__init__(call)
+        self.inst = inst
+        self.stream = stream
+        self.count = None  # type: ignore[assignment]
+        call.limit(LIMIT_NO_ITERATOR)
+
+    def info(self) -> Dict[str, Any]:
+        try:
+            snapshot = self.stream.current_message_snapshot
+        except Exception:
+            return {"request_id": header(self.stream, REQUEST_ID_HEADER)}
+        info = _message_info(snapshot, self.inst.captures_content)
+        info["request_id"] = info.get("request_id") or header(self.stream, REQUEST_ID_HEADER)
+        if read(snapshot, "stop_reason") is None:
+            # No message_delta was consumed: the output count is the
+            # message_start placeholder.
+            usage = info.get("usage")
+            if isinstance(usage, dict):
+                usage["completion_tokens"] = None
+                usage["total_tokens"] = None
+        else:
+            self.finished = True
+        return info
+
+    def on_end(self, completed: bool, error: Optional[BaseException]) -> None:
+        if self.call.done:
+            return
+        try:
+            info = self.info()
+        except Exception:
+            info = {}
+        self.call.finish(
+            info, error=error,
+            stream={"chunk_count": None, "stream_completed": None},
+            finished=self.finished,
+        )
 
 
 def _begin(inst: ProviderInstrumentor, function_name: str, kwargs: dict,
@@ -182,114 +279,158 @@ def _begin(inst: ProviderInstrumentor, function_name: str, kwargs: dict,
     )
 
 
-def _attach(inst: ProviderInstrumentor, call: ProviderCall, stream: Any, is_async: bool) -> Any:
-    headers = read(stream, "response", "headers")
-    request_id = headers.get("request-id") if headers is not None else None
-    state = _MessageStream(call, inst, request_id)
-    return instrument_stream(stream, state.on_item, state.on_end, is_async=is_async)
-
-
 def _call_factory(inst: ProviderInstrumentor, function_name: str,
                   is_async: bool) -> Callable[[Any], Any]:
     """Wrapper for ``create`` and ``parse``."""
+    surface = Surface(
+        inst, is_async=is_async, info_fn=_message_info,
+        state_fn=lambda call, request_id: _MessageStream(call, inst, request_id),
+        request_id_header=REQUEST_ID_HEADER,
+    )
 
     def begin(args: tuple, kwargs: dict) -> Optional[ProviderCall]:
         return _begin(inst, function_name, kwargs, kwargs.get("stream") is True)
 
-    def end(call: ProviderCall, result: Any, args: tuple, kwargs: dict) -> Any:
-        raw, parsed = unwrap_raw(result, kwargs)
-        if parsed is None:
-            headers = read(result, "headers")
-            call.finish({"request_id": headers.get("request-id") if headers is not None else None})
-            return result
-        if kwargs.get("stream") is True:
-            instrumented = _attach(inst, call, parsed, is_async)
-            if raw is not None:
-                if instrumented is not parsed:
-                    call.finish()
-                return result
-            return instrumented
-        call.finish(_message_info(parsed, inst.captures_content))
-        return result
-
     def factory(original: Any) -> Any:
-        return (async_method if is_async else sync_method)(original, begin, end)
+        if is_async:
+            return async_method(original, begin, surface.end, surface.aend)
+        return sync_method(original, begin, surface.end)
 
     return factory
 
 
-class _LazyRequest:
-    """Awaitable standing in for the async manager's pending request. The
-    wrapped coroutine is only created when the manager is entered, so a
-    manager that is never entered leaves nothing un-awaited behind."""
+# -- messages.stream() ------------------------------------------------------
 
-    def __init__(self, run: Callable[[], Any]) -> None:
-        self._run = run
+def _attach(inst: ProviderInstrumentor, call: ProviderCall, manager: Any, stream: Any,
+            is_async: bool) -> None:
+    """Observe the event stream an entered manager returned."""
+    state: StreamState = _MessageStream(call, inst, header(stream, REQUEST_ID_HEADER))
+    if instrument_stream(stream, state.on_item, state.on_end,
+                         is_async=is_async, proxy=False) is None:
+        state = _SnapshotStream(call, inst, stream)
+    try:
+        setattr(manager, STATE_ATTR, state)
+    except Exception:
+        logger.debug("could not keep the stream state on the manager", exc_info=True)
 
-    def __await__(self) -> Any:
-        return self._run().__await__()
+
+def _take(manager: Any, name: str) -> Any:
+    try:
+        return vars(manager).pop(name, None)
+    except Exception:
+        return None
 
 
-def _hook_manager(inst: ProviderInstrumentor, function_name: str, manager: Any,
-                  kwargs: dict, is_async: bool) -> None:
-    """Wrap the pending request of a ``*MessageStreamManager``."""
-    global _warned_manager_layout
-    attr = next(
-        (name for name in getattr(manager, "__dict__", {}) if name.endswith("__api_request")),
-        None,
-    )
-    if attr is None:
-        if not _warned_manager_layout:
-            _warned_manager_layout = True
-            logger.warning(
-                "briefcase.auto[anthropic]: %s has no '__api_request' attribute "
-                "in the installed SDK (verified against %s); messages.stream() "
-                "calls are not recorded.",
-                type(manager).__name__, VERIFIED_VERSION,
-            )
-        return
-    pending = getattr(manager, attr)
-
-    if is_async:
-        async def run() -> Any:
-            call = _begin(inst, function_name, kwargs, True)
-            if call is None:
-                return await pending
-            try:
-                raw_stream = await pending
-            except BaseException as exc:
-                call.finish(error=exc)
-                raise
-            return _attach(inst, call, raw_stream, True)
-
-        setattr(manager, attr, _LazyRequest(run))
-        return
-
-    def request() -> Any:
-        call = _begin(inst, function_name, kwargs, True)
-        if call is None:
-            return pending()
+def _exited(manager: Any) -> None:
+    """The manager's ``with`` block ended: a stream not read to its end is
+    finished here (as incomplete), never raising."""
+    state = _take(manager, STATE_ATTR)
+    if state is not None:
         try:
-            raw_stream = pending()
-        except BaseException as exc:
-            call.finish(error=exc)
-            raise
-        return _attach(inst, call, raw_stream, False)
+            state.on_end(False, None)
+        except Exception:
+            logger.debug("anthropic stream could not be finished at exit", exc_info=True)
 
-    setattr(manager, attr, request)
+
+def _enter_factory(inst: ProviderInstrumentor, is_async: bool) -> Callable[[Any], Any]:
+    def start(manager: Any) -> Optional[ProviderCall]:
+        pending = _take(manager, PENDING_ATTR)
+        if pending is None:
+            return None
+        try:
+            function_name, kwargs = pending
+            return _begin(inst, function_name, kwargs, True)
+        except Exception:
+            logger.debug("anthropic stream capture could not start", exc_info=True)
+            return None
+
+    def attach(call: ProviderCall, manager: Any, stream: Any) -> None:
+        try:
+            _attach(inst, call, manager, stream, is_async)
+        except Exception:
+            logger.debug("anthropic stream could not be observed", exc_info=True)
+            call.finish({"limits": ["stream capture failed"]})
+
+    def factory(original: Any) -> Any:
+        if is_async:
+            @functools.wraps(original)
+            async def aenter(self: Any, *args: Any, **kwargs: Any) -> Any:
+                call = start(self)
+                if call is None:
+                    return await original(self, *args, **kwargs)
+                try:
+                    stream = await original(self, *args, **kwargs)
+                except BaseException as exc:
+                    _fail(call, exc)
+                    raise
+                attach(call, self, stream)
+                return stream
+
+            return aenter
+
+        @functools.wraps(original)
+        def enter(self: Any, *args: Any, **kwargs: Any) -> Any:
+            call = start(self)
+            if call is None:
+                return original(self, *args, **kwargs)
+            try:
+                stream = original(self, *args, **kwargs)
+            except BaseException as exc:
+                _fail(call, exc)
+                raise
+            attach(call, self, stream)
+            return stream
+
+        return enter
+
+    return factory
+
+
+def _exit_factory(is_async: bool) -> Callable[[Any], Any]:
+    def factory(original: Any) -> Any:
+        if is_async:
+            @functools.wraps(original)
+            async def aexit(self: Any, *args: Any, **kwargs: Any) -> Any:
+                try:
+                    return await original(self, *args, **kwargs)
+                finally:
+                    _exited(self)
+
+            return aexit
+
+        @functools.wraps(original)
+        def exit_(self: Any, *args: Any, **kwargs: Any) -> Any:
+            try:
+                return original(self, *args, **kwargs)
+            finally:
+                _exited(self)
+
+        return exit_
+
+    return factory
 
 
 def _stream_factory(inst: ProviderInstrumentor, function_name: str,
                     is_async: bool) -> Callable[[Any], Any]:
     """Wrapper for ``stream``: sync in both clients, returning a manager."""
+    enter, exit_ = ("__aenter__", "__aexit__") if is_async else ("__enter__", "__exit__")
+
+    def hook(manager: Any, kwargs: dict) -> None:
+        cls = type(manager)
+        label = f"{cls.__module__}.{cls.__qualname__}"
+        if not (inst.patch_object(cls, enter, _enter_factory(inst, is_async), f"{label}.{enter}")
+                and inst.patch_object(cls, exit_, _exit_factory(is_async), f"{label}.{exit_}")):
+            inst.report_skipped()
+            return
+        setattr(manager, PENDING_ATTR, (function_name, kwargs))
 
     def factory(original: Any) -> Any:
         @functools.wraps(original)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             manager = original(*args, **kwargs)
             try:
-                if inst._resolve_exporter() is not None:
-                    _hook_manager(inst, function_name, manager, kwargs, is_async)
+                if inst.active and inst._resolve_exporter() is not None:
+                    hook(manager, kwargs)
             except Exception:
                 logger.debug("anthropic stream manager could not be hooked", exc_info=True)
             return manager
@@ -300,8 +441,8 @@ def _stream_factory(inst: ProviderInstrumentor, function_name: str,
 
 
 _TARGETS = (
-    ("anthropic.resources.messages", "anthropic.messages"),
-    ("anthropic.resources.beta.messages", "anthropic.beta.messages"),
+    ("messages", "anthropic.resources.messages", "anthropic.messages"),
+    ("beta.messages", "anthropic.resources.beta.messages", "anthropic.beta.messages"),
 )
 
 
@@ -325,15 +466,28 @@ def instrument(**options: Any) -> ProviderInstrumentor:
 
     inst = ProviderInstrumentor(PROVIDER, **options)
     inst.sdk_version = getattr(sdk, "__version__", None)
-    for module, prefix in _TARGETS:
+    inst.tested_versions = TESTED_VERSIONS
+    inst.limits = [
+        "with_streaming_response: usage only when the caller uses .parse()",
+        "a stream abandoned before its first message_delta has completion_tokens None",
+        "messages.count_tokens and the Batches API are not recorded",
+    ]
+    for name, module, prefix in _TARGETS:
+        targets = []
         for class_name in ("Messages", "AsyncMessages"):
             is_async = class_name.startswith("Async")
-            for method in ("create", "parse"):
-                inst.patch(module, class_name, method,
-                           _call_factory(inst, f"{prefix}.{method}", is_async))
-            inst.patch(module, class_name, "stream",
-                       _stream_factory(inst, f"{prefix}.stream", is_async))
+            targets.append(PatchTarget(
+                module, class_name, "create",
+                _call_factory(inst, f"{prefix}.create", is_async), ("model", "stream")))
+            targets.append(PatchTarget(
+                module, class_name, "parse",
+                _call_factory(inst, f"{prefix}.parse", is_async), ("model",)))
+            targets.append(PatchTarget(
+                module, class_name, "stream",
+                _stream_factory(inst, f"{prefix}.stream", is_async), ("model",)))
+        inst.patch_group(name, targets)
+    inst.report_skipped()
     return inst
 
 
-__all__ = ["DECISION_TYPE", "PROVIDER", "VERIFIED_VERSION", "instrument"]
+__all__ = ["DECISION_TYPE", "PROVIDER", "TESTED_VERSIONS", "VERIFIED_VERSION", "instrument"]

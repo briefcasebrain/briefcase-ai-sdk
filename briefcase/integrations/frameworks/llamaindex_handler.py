@@ -39,6 +39,7 @@ from briefcase.integrations.frameworks._capture_state import (
     DEFAULT_MAX_RECORDS,
     CaptureOptions,
     InflightStore,
+    LLMRunScopes,
     bounded_records,
 )
 from briefcase.integrations.frameworks.langchain_handler import CapturedDecision
@@ -150,6 +151,8 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
         self._decisions: Deque[CapturedDecision] = bounded_records(max_records)
 
         # In-flight tracking (event_id to partial decision)
+        # Publishes open LLM events to provider auto-instrumentation.
+        self._llm_scopes = LLMRunScopes("llamaindex")
         self._inflight = InflightStore(
             max_size=max_inflight,
             ttl_seconds=inflight_ttl_seconds,
@@ -262,6 +265,7 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
 
     def _on_inflight_evicted(self, event_id: Any, decision: Any, reason: str) -> None:
         """Record an event whose end never arrived as abandoned."""
+        self._llm_scopes.finish(event_id)
         with self._lock:
             decision.error = f"abandoned: no end event ({reason})"
             record = self._complete(str(event_id), decision)
@@ -383,6 +387,7 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
                 if source.get(key) is not None:
                     model_params[key] = source[key]
 
+        self._llm_scopes.start(event_id)
         self._begin(event_id, parent_id, CapturedDecision(
             decision_id=event_id,
             decision_type="llm",
@@ -395,6 +400,13 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
         ))
 
     def _on_llm_end(self, event_id: str, payload: Dict[str, Any]) -> None:
+        if self._llm_scopes.finish(event_id):
+            # auto(dedupe="framework"): a provider record stands for this call.
+            with self._lock:
+                self._inflight.pop(event_id, None)
+                self._root_of.pop(event_id, None)
+                self._children.pop(event_id, None)
+            return
         self._finish(event_id, payload, self._fill_llm)
 
     def _fill_llm(self, decision: CapturedDecision, payload: Dict[str, Any]) -> None:
@@ -565,6 +577,7 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
         """Attach a separate exception event to the matching in-flight decision."""
         error = payload.get("exception", payload.get("error", "unknown error"))
 
+        self._llm_scopes.finish(event_id)
         with self._lock:
             key = event_id
             decision = self._inflight.pop(event_id, None)
