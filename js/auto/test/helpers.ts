@@ -15,6 +15,18 @@ import { state } from "../src/state.js";
 
 export const SECRET_KEY = "sk-test-secret-0123456789";
 
+/** Undo every patch, drop all state, then `observe("memory")` without `auto()`. */
+export async function bare(): Promise<MemoryExporter> {
+  undo();
+  await shutdown();
+  const s = state();
+  s.providers.clear();
+  s.pending.clear();
+  s.copies.clear();
+  s.pipeline = null;
+  return observe(new MemoryExporter());
+}
+
 /** Undo every patch, drop all state, then `observe("memory")` + `auto(options)`. */
 export async function fresh(options: AutoOptions = {}): Promise<MemoryExporter> {
   undo();
@@ -22,6 +34,7 @@ export async function fresh(options: AutoOptions = {}): Promise<MemoryExporter> 
   const s = state();
   s.providers.clear();
   s.pending.clear();
+  s.copies.clear(); // loaded copies report again (ESM through require(esm), CJS through require.cache)
   s.pipeline = null;
   const mem = observe(new MemoryExporter());
   auto(options);

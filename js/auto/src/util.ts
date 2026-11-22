@@ -4,6 +4,17 @@
  */
 
 import { createHash } from "node:crypto";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+
+/**
+ * This module's URL, or (when this package is bundled into a CommonJS
+ * bundle, where esbuild leaves `import.meta.url` undefined) a file in the
+ * working directory, so `createRequire` still works.
+ */
+export function moduleUrl(url: string | undefined): string {
+  return typeof url === "string" && url ? url : pathToFileURL(join(process.cwd(), "noop.js")).href;
+}
 
 type Level = "debug" | "warning" | "error";
 const LEVELS: Record<string, number> = { debug: 10, info: 20, warning: 30, warn: 30, error: 40, critical: 50, off: 100 };

@@ -15,6 +15,7 @@
 import { randomBytes } from "node:crypto";
 import { closeSync, fchmodSync, mkdirSync, openSync, writeSync } from "node:fs";
 import { dirname } from "node:path";
+import { BroadcastChannel, isMainThread } from "node:worker_threads";
 
 import type { DecisionRecord } from "./record.js";
 import { read, warn } from "./util.js";
@@ -32,6 +33,12 @@ export interface Exporter {
   exportBatch(records: DecisionRecord[], final: boolean): ExportResult | Promise<ExportResult>;
   /** Synchronous export, used from the process `exit` handler when available. */
   exportSync?(records: DecisionRecord[]): void;
+  /**
+   * Export each record synchronously (`exportSync`) the moment it is
+   * queued. Set for destinations where that is cheap and where waiting
+   * would risk losing it (a worker thread can be terminated at any time).
+   */
+  readonly immediate?: boolean;
   close?(): void | Promise<void>;
   /** Destination without credentials, for `status()`. */
   describe(): string;
@@ -45,10 +52,12 @@ export class ConsoleExporter implements Exporter {
   readonly kind = "console";
   readonly batchSize = 1;
   readonly flushIntervalMs = 0;
+  /** In a worker thread, records are written straight to fd 2 (a worker's process.stderr is asynchronous, and lost on terminate()). */
+  readonly immediate = !isMainThread;
   private readonly stream: WritableLike;
 
   constructor(stream?: WritableLike) {
-    this.stream = stream ?? process.stderr;
+    this.stream = stream ?? (isMainThread ? process.stderr : { write: (chunk: string) => writeSync(2, chunk) });
   }
 
   exportBatch(records: DecisionRecord[]): ExportResult {
@@ -69,6 +78,8 @@ export class JsonlFileExporter implements Exporter {
   readonly kind = "jsonl";
   readonly batchSize = 1;
   readonly flushIntervalMs = 0;
+  /** Each record is appended synchronously when it is queued in a worker thread. */
+  readonly immediate = !isMainThread;
   private fd: number | null = null;
 
   constructor(readonly path: string) {
@@ -200,7 +211,7 @@ abstract class HttpTransport {
     this.backoffMaxMs = Math.max(0, options.backoffMaxMs ?? 30_000);
     const globalFetch = globalThis.fetch as unknown as FetchLike | undefined;
     const chosen = options.fetch ?? globalFetch;
-    if (!chosen) throw new Error(`${label} needs fetch (Node >= 20.19 provides it)`);
+    if (!chosen) throw new Error(`${label} needs fetch (Node >= 26 provides it)`);
     this.fetchImpl = chosen;
   }
 
@@ -453,5 +464,41 @@ export class OtlpHttpExporter extends HttpTransport implements Exporter {
 
   describe(): string {
     return `otlp ${this.logUrl}`;
+  }
+}
+
+/**
+ * Used in a worker thread when the main thread is observing: each record is
+ * posted to the main thread (a `BroadcastChannel`) the moment it is
+ * finished, and exported there by the main thread's destination. A posted
+ * message survives the worker being terminated.
+ */
+export class WorkerForwardExporter implements Exporter {
+  readonly kind = "main-thread";
+  readonly batchSize = 1;
+  readonly flushIntervalMs = 0;
+  readonly immediate = true;
+  private readonly channel: BroadcastChannel;
+
+  constructor(readonly channelName: string) {
+    this.channel = new BroadcastChannel(channelName);
+    this.channel.unref();
+  }
+
+  exportBatch(records: DecisionRecord[]): ExportResult {
+    this.exportSync(records);
+    return "sent";
+  }
+
+  exportSync(records: DecisionRecord[]): void {
+    for (const record of records) this.channel.postMessage(record);
+  }
+
+  close(): void {
+    this.channel.close();
+  }
+
+  describe(): string {
+    return "the main thread's destination";
   }
 }

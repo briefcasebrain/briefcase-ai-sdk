@@ -17,6 +17,8 @@
  * same URL, with a warning.
  */
 
+import { BroadcastChannel, getEnvironmentData, isMainThread, setEnvironmentData } from "node:worker_threads";
+
 import {
   ConsoleExporter,
   type Exporter,
@@ -24,7 +26,9 @@ import {
   JsonlFileExporter,
   MemoryExporter,
   OtlpHttpExporter,
+  WorkerForwardExporter,
 } from "./exporters.js";
+import type { DecisionRecord } from "./record.js";
 import { Pipeline, type PipelineStats } from "./pipeline.js";
 import { state } from "./state.js";
 import { debug, describeError, safe, warn } from "./util.js";
@@ -116,13 +120,51 @@ export interface ObserveOptions {
  * records already queued for the old one are flushed to it.
  */
 export function observe<E extends Exporter = Exporter>(exporter?: string | E, options: ObserveOptions = {}): E {
-  const resolved = (exporter === undefined ? exporterFromEnv() : resolveExporter(exporter)) as E;
+  let resolved: E;
+  if (exporter === undefined) {
+    const channel = isMainThread ? undefined : safe(() => getEnvironmentData(WORKER_CHANNEL_KEY), "environment data");
+    resolved = (typeof channel === "string" ? new WorkerForwardExporter(channel) : exporterFromEnv()) as E;
+  } else {
+    resolved = resolveExporter(exporter) as E;
+  }
   const s = state();
   const previous = s.pipeline;
   s.pipeline = new Pipeline(resolved, options.maxQueue ?? 10_000);
   if (previous && previous !== s.pipeline) void previous.close();
   installExitHooks();
+  if (isMainThread) listenForWorkers();
   return resolved;
+}
+
+// -- worker threads ------------------------------------------------------------
+
+/**
+ * Worker threads have their own module graph and their own copy of this
+ * package. When the main thread is observing, a worker's `observe()` (no
+ * argument, as the preload calls it) forwards each finished record to the
+ * main thread on this channel; the main thread exports it. The channel name
+ * reaches workers through `setEnvironmentData`, which only workers created
+ * after `observe()` inherit (child processes do not).
+ */
+export const WORKER_CHANNEL = "briefcase-ai.auto.records.v1";
+const WORKER_CHANNEL_KEY = "briefcase-ai.auto.channel";
+function listenForWorkers(): void {
+  const s = state();
+  if (s.workerChannel) return; // one listener per thread, even with two copies of this package loaded
+  safe(() => {
+    const channel = new BroadcastChannel(WORKER_CHANNEL);
+    channel.unref(); // never keeps the process alive
+    channel.onmessage = (event: unknown) => {
+      safe(() => {
+        const record = (event as { data?: unknown }).data;
+        if (!record || typeof record !== "object") return;
+        const pipeline = state().pipeline;
+        if (pipeline) pipeline.enqueue(record as DecisionRecord); // closed: counted as dropped
+      }, "worker record");
+    };
+    s.workerChannel = channel;
+    setEnvironmentData(WORKER_CHANNEL_KEY, WORKER_CHANNEL);
+  }, "worker channel");
 }
 
 /** Sends every queued record now. */
@@ -136,6 +178,8 @@ export async function flush(): Promise<void> {
  * provider calls pass through unrecorded until `observe()` is called again.
  */
 export async function shutdown(): Promise<void> {
+  // Workers created from now on export on their own; it never waits for running workers.
+  if (isMainThread && state().workerChannel) safe(() => setEnvironmentData(WORKER_CHANNEL_KEY, undefined), "environment data");
   abandonPending();
   const pipeline = state().pipeline;
   if (pipeline) await pipeline.close();
@@ -207,7 +251,8 @@ function installExitHooks(): void {
   try {
     process.on("beforeExit", onBeforeExit);
     process.on("exit", onExit);
-    for (const signal of ["SIGTERM", "SIGINT"] as const) process.on(signal, makeSignalHandler(signal));
+    // Signals are delivered to the main thread only.
+    if (isMainThread) for (const signal of ["SIGTERM", "SIGINT"] as const) process.on(signal, makeSignalHandler(signal));
   } catch (error) {
     debug(`exit hooks not installed: ${describeError(error)}`);
   }

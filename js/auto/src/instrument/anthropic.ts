@@ -33,7 +33,15 @@
 
 import { tokenUsage } from "../record.js";
 import { TextAccumulator, read, scalarParams } from "../util.js";
-import { type CallInfo, type Instrumentor, type PatchTarget, type ProviderCall, StreamState } from "./core.js";
+import {
+  type CallInfo,
+  type Instrumentor,
+  type PatchTarget,
+  type ProviderCall,
+  type SdkFile,
+  StreamState,
+  stainlessFiles,
+} from "./core.js";
 import { type StainlessHooks, wrapStainlessMethod } from "./stainless.js";
 
 export const PROVIDER = "anthropic";
@@ -137,6 +145,7 @@ const SURFACES = [
 ] as const;
 
 export const SPECIFIERS = SURFACES.map((s) => s.specifier);
+export const FILES: SdkFile[] = stainlessFiles(PACKAGE, SPECIFIERS);
 
 export function targets(inst: Instrumentor, modules: Record<string, Record<string, unknown> | undefined>): PatchTarget[] {
   return SURFACES.map((surface) => {

@@ -27,15 +27,20 @@ afterAll(async () => {
 });
 
 describe("patching", () => {
-  it("patches both the ESM and the CommonJS copy of a dual package", async () => {
+  it("patches both the ESM and the CommonJS copy of a dual package, each when it is loaded", async () => {
     const mem = await fresh({ only: ["openai"] });
-    const report = status().providers.find((p) => p.name === "openai")!;
-    expect(report.state).toBe("patched");
-    expect(report.sdkVersion).toBe("7.62.0");
-    expect(report.patched.filter((t) => t.startsWith("esm "))).toHaveLength(4);
-    expect(report.patched.filter((t) => t.startsWith("cjs "))).toHaveLength(4);
+    const report = () => status().providers.find((p) => p.name === "openai")!;
+    expect(report().state).toBe("patched");
+    expect(report().sdkVersion).toBe("7.62.0");
+    // The ESM copy is loaded (this file imports it); the CommonJS copy is not yet.
+    expect(report().patched.filter((t) => t.startsWith("esm "))).toHaveLength(4);
+    const loadedCjs = Object.keys(require.cache).some((k) => k.endsWith("openai/resources/chat/completions/completions.js"));
+    if (!loadedCjs) expect(report().patched.filter((t) => t.startsWith("cjs "))).toHaveLength(0);
 
     const CjsOpenAI = require("openai") as typeof OpenAI;
+    // Loading it patched it, through the load hook (or require.cache when another test loaded it first).
+    if (loadedCjs) auto({ only: ["openai"] });
+    expect(report().patched.filter((t) => t.startsWith("cjs "))).toHaveLength(4);
     expect(CjsOpenAI).not.toBe(OpenAI); // separate module instances
     const fetchImpl = fakeFetch(() => json(completion));
     for (const Ctor of [OpenAI, CjsOpenAI]) {
@@ -161,6 +166,27 @@ describe("patching", () => {
     });
     expect(result.id).toBe("chatcmpl-1");
     expect(status().observing).toBe(false);
+  });
+
+  it("lazy: a copy loaded after auto() is patched as it loads; after undo() a newly loaded copy is left alone", async () => {
+    await fresh({ only: ["bedrock", "anthropic"] });
+    expect(Object.keys(require.cache).some((k) => k.includes("client-bedrock-runtime"))).toBe(false);
+    expect(status().providers.find((p) => p.name === "bedrock")!.state).toBe("waiting");
+    const bedrock = require("@aws-sdk/client-bedrock-runtime") as { BedrockRuntimeClient: { prototype: object } };
+    const send = Object.getOwnPropertyDescriptor(bedrock.BedrockRuntimeClient.prototype, "send")?.value as Record<symbol, unknown>;
+    expect(send?.[WRAPPED]).toBeTypeOf("function");
+    expect(status().providers.find((p) => p.name === "bedrock")!.state).toBe("patched");
+
+    undo("anthropic");
+    const cjs = require("@anthropic-ai/sdk/resources/messages/messages") as { Messages: { prototype: Record<string, unknown> } };
+    expect((cjs.Messages.prototype["create"] as Record<symbol, unknown>)[WRAPPED]).toBeUndefined();
+  });
+
+  it("eager: every installed copy is loaded and patched by auto() itself", async () => {
+    await fresh({ only: ["anthropic"], eager: true });
+    const report = status().providers.find((p) => p.name === "anthropic")!;
+    expect(report.patched.filter((t) => t.startsWith("esm "))).toHaveLength(2);
+    expect(report.patched.filter((t) => t.startsWith("cjs "))).toHaveLength(2);
   });
 
   it("rejects unknown provider names", () => {
