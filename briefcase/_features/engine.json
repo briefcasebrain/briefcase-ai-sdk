@@ -1,0 +1,11 @@
+{
+  "id": "engine",
+  "title": "Briefcase engine (oci-jj) install",
+  "verb": "connect",
+  "one_line": "Install the licensed environment engine with your licence token.",
+  "command": "briefcase engine install",
+  "docs_slug": "connect/engine",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Offline: fake platform, fake docker, fake GitHub redirects. Real in a sandbox: briefcase-ai platform on MySQL 8.4 + registry:2 token auth + Docker; install, upgrade, up, status, doctor, --tls against images built from oci-jj be043d9. Not run: real GHCR, GitHub App, signing, verdict worker."
+}

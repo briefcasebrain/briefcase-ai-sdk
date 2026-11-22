@@ -2,7 +2,7 @@
 
 Skipped unless ``BRIEFCASE_OCIJJ_ADDR`` names a running server, so the default
 ``pytest tests/`` run never needs Docker or a network. Re-run it in CI or by hand
-against any oci-jj stack (``briefcase stack up``, oci-jj's own compose, or a
+against any oci-jj stack (``briefcase engine up``, oci-jj's own compose, or a
 natively built ``oci-jj-server``):
 
     BRIEFCASE_OCIJJ_ADDR=http://127.0.0.1:50051 \\
@@ -16,7 +16,7 @@ Prerequisites:
   protobuf);
 * two refs in ``BRIEFCASE_OCIJJ_REPO``, a candidate and its baseline (defaults
   ``cand`` and ``base``), pushed through oci-jj's gateway, for example with
-  ``crane append`` (see ``docs/features/oci-jj-engine.md``);
+  ``crane append`` (see ``docs/features/engine.md``);
 * for a secured server, the same settings oci-jj's own clients read:
   ``OCI_JJ_AUTH_TOKEN``, ``OCI_JJ_TLS_CA``, ``OCI_JJ_TLS_CLIENT_CERT`` and
   ``OCI_JJ_TLS_CLIENT_KEY``. With a token set, the suite also checks that a call

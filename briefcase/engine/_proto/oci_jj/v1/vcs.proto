@@ -1,0 +1,596 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Briefcase AI, Inc. — the oci-jj API contract is Apache-2.0 (see proto/LICENSE);
+// the oci-jj engine that implements it is proprietary (see LICENSE and NOTICE at the repository root).
+// Vendored from oci-jj proto/oci_jj/v1/vcs.proto (commit 54120d0); the engine is not part of this package.
+// Regenerate with scripts/engine/regen_proto.py; do not edit by hand.
+// VcsService — the version-control plane RPC surface.
+// Verbatim anchor: §9.2. M1 implements {Push, Log, OpLog, Diff, Search, Undo,
+// Resolve, Provenance, WhoDepends}; {Compose, Optimize} are stubbed (§ M1 scope).
+syntax = "proto3";
+
+package oci_jj.v1;
+
+import "oci_jj/v1/common.proto";
+import "oci_jj/v1/telemetry.proto";
+
+option go_package = "github.com/oci-jj/oci-jj/go/gen/oci_jj/v1;ocijjv1";
+
+service VcsService {
+  rpc Push(PushRequest) returns (PushResponse);
+  rpc CohortPush(CohortPushRequest) returns (CohortPushResponse); // §22 transactional N-image push
+  rpc Log(LogRequest) returns (stream Commit);
+  rpc OpLog(OpLogRequest) returns (stream Op);
+  rpc Diff(DiffRequest) returns (DiffResponse);
+  rpc Search(SearchRequest) returns (stream SearchHit);
+  rpc Undo(UndoRequest) returns (UndoResponse);
+  rpc Compose(ComposeRequest) returns (PushResponse);          // M1 polish — minimal happy-path (§13, ADR-0009)
+  rpc Resolve(ResolveRequest) returns (ResolveResponse);
+  rpc Provenance(ProvReq) returns (ProvResponse);
+  rpc WhoDepends(WhoDependsReq) returns (stream Commit);
+  rpc Optimize(OptimizeRequest) returns (stream Rationale);    // M1: stub — see §19
+  // M1-polish surface additions (ADR-0009): back the §14 CLI commands branch/bookmark set/fsck.
+  rpc Fsck(FsckRequest) returns (FsckResponse);                // §26.1 logical≠physical integrity
+  rpc ListRefs(ListRefsRequest) returns (ListRefsResponse);    // §14 `branch` — refs + divergent heads
+  rpc SetRef(SetRefRequest) returns (SetRefResponse);          // §14 `bookmark set` — ref move + tag_move op (§26.2)
+  // M2 verdictml integration (ADR-0015/0016): a benchmark verdict is a `bench` ExecutionSummary
+  // (§11.2) + a benchmarked_against edge (§8.1). attach-bench (§11.3) records or enqueues a verdict;
+  // RunHunt hosts a verdictml HuntEnv episode against an environment commit (framing B).
+  rpc AttachBench(AttachBenchRequest) returns (AttachBenchResponse);  // §11.3
+  rpc RunHunt(RunHuntRequest) returns (RunHuntResponse);
+  // M2 Tier-2 / OCI v1.1 Referrers (§6/§9.1 #3): the gateway serves oci-jj-owned referrers
+  // (SBOM/verdict/RAFS/zTOC) of an image and their artifact blobs from these.
+  rpc ListReferrers(ListReferrersRequest) returns (ListReferrersResponse);
+  rpc GetReferrerArtifact(GetReferrerArtifactRequest) returns (GetReferrerArtifactResponse);
+  // ADR-0081: a tenant's OWN referrers of a subject — including the private verdicts the public
+  // ListReferrers hides (read-side completion of ADR-0076). Scoped to the bearer token's tenant;
+  // the request carries no tenant, so it cannot be widened to another tenant's referrers.
+  rpc ListOwnReferrers(ListOwnReferrersRequest) returns (ListOwnReferrersResponse);
+  // M2 cost-amplification read surface (§18). Per-tenant aggregate over a window for ops/SLO dashboards;
+  // M2 reports the instruments, the §18 SLO TARGETS are end-of-M3 (ADR-0022).
+  rpc CostAmplification(CostAmplificationRequest) returns (CostAmplificationResponse);
+  // M2 lazy-snapshotter scaffold (§9.3/§15.4, ADR-0023). Resolve a ref's mount graph (the
+  // org.oci-jj.graph root) into the segment fetch plan a lazy mount would serve — a dry-run that
+  // needs no FUSE/containerd, so it is verifiable on any host. The real RAFS v6 mount is deferred.
+  rpc MountPlan(MountPlanRequest) returns (MountPlanResponse);
+  // M4 sparse checkout (§14). Resolve a ref's effective tree restricted to a set of path prefixes into
+  // the selected files + their per-file segment extents + the deduped fetch plan — the path-filtered
+  // analog of MountPlan. A pure read; actual disk/FUSE materialization at a --dest is snapshotter-gated.
+  rpc CheckoutPlan(CheckoutPlanRequest) returns (CheckoutPlanResponse);
+  // ADR-0058 §6: read-only parked (dead-lettered) jobs across the four durable queues. Empty `queue`
+  // aggregates all; else filters to one. Streamed (a bounded list), mirroring OpLog.
+  rpc DeadLetters(DeadLettersRequest) returns (stream DeadLetter);
+  // ADR-0068/0069 (§15.3): walk a ref's effective mount-graph tree into an ordered layer PLAN — the
+  // per-node filesystem entries the Tier-3 reconstructor feeds to synth.WriteLayer. The server is the
+  // sole graph reader (ADR-0006); file bytes are fetched separately via ChunkService.
+  rpc GetLayerPlan(GetLayerPlanRequest) returns (GetLayerPlanResponse);
+
+  // ADR-0097 (ADR-0096 Inc 2): resolve an OCI blob digest (the sha256 a remote backend GETs) to the oci-jj
+  // content-id the lazy range-read (ADR-0095) reassembles — TENANT-SCOPED: the digest is resolved only
+  // within the authenticated tenant's repo (via blob_content, never the unscoped manifest path). `found`
+  // is false UNIFORMLY for "absent" and "not yours" (no cross-tenant existence oracle), so the gateway can
+  // serve 404 without leaking.
+  rpc ResolveBlob(ResolveBlobRequest) returns (ResolveBlobResponse);
+
+  // ADR-0102 (ADR-0096 Inc 5): build the calling tenant's ref into a complete nydus OCI image and STORE
+  // every layer (config + bootstrap tar.gz + data blobs) into oci-jj's CAS with tenant-scoped digest→content
+  // associations, returning the manifest (pinned to the served digests). The production caller for
+  // store_ref_nydus_image_scoped — so a nydusd backend pointed at the gateway can pull the whole image FROM
+  // oci-jj. Tenant-scoped (auth_tenant); needs a Linux server with nydus-image (else Unimplemented).
+  // Optional `tag` stores a human-readable name so the gateway can resolve pull-by-tag (ADR-0104).
+  rpc BuildNydusImage(BuildNydusImageRequest) returns (BuildNydusImageResponse);
+
+  // ADR-0104 (tag-based manifest serving): resolve a human tag (e.g. "busybox:v1") in a repo to the
+  // sha256 manifest digest stored by BuildNydusImage — TENANT-SCOPED, false-uniform for absent/not-yours.
+  // The gateway calls this when the OCI pull reference is not a digest.
+  rpc ResolveNydusTag(ResolveNydusTagRequest) returns (ResolveNydusTagResponse);
+
+  // ADR-0039/0023: materialize a sparse checkout (the path-filtered file set of CheckoutPlan) to a
+  // SERVER-LOCAL directory, confined under the server's OCI_JJ_CHECKOUT_DIR base (fail-closed when unset).
+  // `dest` is a path RELATIVE to that base (traversal-guarded). Tenant-scoped. The client-streamed
+  // local-disk checkout is the documented follow-on.
+  rpc MaterializeCheckout(MaterializeCheckoutRequest) returns (MaterializeCheckoutResponse);
+
+  // ADR-0090/0092 (2a, live fanotify emitter): the FIRST production trigger of the measured §18 cold start.
+  // The server nydus-mounts the tenant's ref over the real CAS, arms fanotify, chroot-execs the caller's
+  // `entrypoint` (a self-contained executable IN the image) as the workload, and records the REAL measured
+  // touch set + amplification through the §18 chain (startup_metrics + per-segment access → the planner).
+  // Linux + CAP_SYS_ADMIN + nydusd on PATH, and opt-in via OCI_JJ_ALLOW_COLD_START_MEASURE (runs tenant
+  // content as the server uid). Tenant-scoped. Deferred: containerd-lifecycle auto-trigger, wall-clock
+  // to-ready, planner-recommended prefetch (this uses the full mount-plan prefetch).
+  rpc MeasureColdStart(MeasureColdStartRequest) returns (MeasureColdStartResponse);
+
+  // Identity of the CALLER's bearer token: the tenant it maps to, its role, and the registry namespace
+  // its OCI repositories must live under. The gateway calls this with the caller's own credential to
+  // authorize /v2/ registry pass-through (which never reaches the server) — it holds no credential of
+  // its own. Read-only; any valid token may call it.
+  rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse);
+}
+
+message WhoAmIRequest {}
+message WhoAmIResponse {
+  string tenant = 1;              // tenant name the token maps to ("" only in OCI_JJ_INSECURE_DEV auth-off mode)
+  string role = 2;                // "reader" | "tenant" | "admin"; "" in insecure-dev auth-off mode
+  // Repository-name prefix (without the trailing '/') every OCI repository of this tenant must use in the
+  // shared backing registry, e.g. "acme" ⇒ "acme/<image>". Empty ⇒ no namespace is enforced (insecure dev).
+  string registry_namespace = 3;
+}
+
+message GetLayerPlanRequest {
+  string repo = 1;
+  string ref = 2;
+}
+// One filesystem node of a layer plan (§5.3/§15.3). `kind` matches the reconstructor's synth.EntryType
+// codes: 0=regular 1=dir 2=symlink 3=hardlink 4=whiteout 5=opaque. synth.WriteLayer synthesizes the
+// overlay whiteout/opaque tar markers from the logical kinds, so the plan stays logical.
+message LayerEntry {
+  string path = 1;            // logical path, no leading slash
+  int32 kind = 2;             // synth.EntryType code (see above)
+  uint32 mode = 3;
+  uint32 uid = 4;
+  uint32 gid = 5;
+  map<string, bytes> xattrs = 6;
+  string link = 7;            // symlink/hardlink target
+  bytes file_id = 8;          // 32-byte Blake3 content id (regular files only)
+}
+message GetLayerPlanResponse {
+  string graph_root = 1;            // blake3:<root tree id>
+  repeated LayerEntry entries = 2;  // ordered dir-before-children (§5.3)
+}
+
+message ResolveBlobRequest {
+  string repo = 1;
+  bytes blob_digest = 2;   // OCI sha256 of the blob a remote backend is fetching
+}
+message ResolveBlobResponse {
+  bool found = 1;          // false uniformly for absent OR not-owned-by-this-tenant
+  bytes content_id = 2;    // 32-byte Blake3 FileId (when found)
+  int64 byte_size = 3;
+}
+
+message BuildNydusImageRequest {
+  string repo = 1;
+  string ref = 2;
+  optional string tag = 3;  // human tag to store (e.g. "busybox:v1"); absent = store by digest only
+}
+message BuildNydusImageResponse {
+  bytes manifest_digest = 1;          // sha256 of manifest_json
+  string manifest_json = 2;           // the nydus OCI manifest, pinned to the served layer digests
+  repeated bytes layer_digests = 3;   // every served digest: config + each data blob + the bootstrap
+}
+
+message ResolveNydusTagRequest {
+  string repo = 1;
+  string tag = 2;
+}
+message ResolveNydusTagResponse {
+  bool found = 1;             // false uniformly for absent OR not-owned-by-this-tenant
+  bytes manifest_digest = 2;  // sha256 of the nydus OCI manifest (when found)
+}
+
+message MountPlanRequest {
+  string repo = 1;
+  string ref = 2;
+  repeated bytes prefetch = 3;   // optional PlacementPlanner prefetch list (segment Blake3 refs)
+}
+message MountPlanSegment {
+  bytes segment = 1;             // Blake3
+  uint64 bytes = 2;              // bytes referenced by the filesystem in this segment
+  bytes backing_layer = 3;       // sha256 of the M1 backing layer (empty if unresolved)
+  bool resolved = 4;             // false → segment referenced by an extent but absent (fsck signal)
+}
+message MountPlanResponse {
+  string graph_root = 1;         // blake3:<root> — the org.oci-jj.graph annotation value (§9.3)
+  uint64 segment_count = 2;
+  uint64 total_bytes = 3;
+  uint64 file_count = 4;
+  repeated MountPlanSegment segments = 5;
+  repeated bytes fetch_order = 6; // segment refs, prefetch-first (§15.4 step 3)
+  repeated bytes unresolved = 7;  // dangling segment refs (§26.1 integrity signal)
+}
+
+message CheckoutPlanRequest {
+  string repo = 1;
+  string ref = 2;
+  repeated string paths = 3;     // path prefixes to select (component-wise); empty → whole tree (§14)
+}
+message SegmentExtent {
+  bytes segment = 1;             // Blake3 — the segment to pull via ChunkService.GetExtents
+  uint64 offset = 2;             // decompressed byte offset within the segment
+  uint64 length = 3;             // decompressed bytes
+}
+message SparseFile {
+  string path = 1;               // absolute path in the effective tree (leading '/')
+  uint32 mode = 2;
+  uint64 size = 3;               // logical file size (bytes)
+  repeated SegmentExtent extents = 4; // the byte ranges to fetch to materialize this file
+}
+message CheckoutPlanResponse {
+  string graph_root = 1;         // blake3:<root> — the org.oci-jj.graph annotation value (§9.3)
+  repeated SparseFile files = 2; // the selected files, path-sorted
+  repeated MountPlanSegment segments = 3; // deduped fetch plan over the selected files
+  uint64 total_bytes = 4;        // Σ referenced bytes across the deduped segments
+  uint64 file_count = 5;         // number of selected files
+  uint64 skipped_count = 6;      // files in the tree that matched no prefix
+  repeated string unmatched_paths = 7; // requested prefixes that selected nothing (likely a typo)
+}
+
+message MaterializeCheckoutRequest {
+  string repo = 1;
+  string ref = 2;
+  repeated string paths = 3;     // path prefixes to materialize; empty → whole tree
+  string dest = 4;               // path RELATIVE to the server's OCI_JJ_CHECKOUT_DIR base (traversal-guarded)
+}
+message MaterializeCheckoutResponse {
+  uint64 files_written = 1;
+  uint64 bytes_written = 2;
+}
+
+// ADR-0090/0092 (2a follow-on): which segments MeasureColdStart prefetches at mount time.
+enum PrefetchMode {
+  PREFETCH_PLANNER = 0;  // the live planner's hot-segment recommendation (default — measures recommendation quality, closing the 2a↔2b loop)
+  PREFETCH_FULL = 1;     // every segment in the mount plan (baseline / over-prefetch)
+}
+message MeasureColdStartRequest {
+  string repo = 1;
+  string ref = 2;
+  string entrypoint = 3;          // absolute path IN the image of a self-contained executable to chroot-exec
+  PrefetchMode prefetch_mode = 4; // default PREFETCH_PLANNER
+}
+message MeasureColdStartResponse {
+  repeated string touched_files = 1;   // fanotify-measured real touch set (proves capture, not a stub)
+  uint64 segments_fetched = 2;
+  uint64 bytes_fetched = 3;            // decompressed bytes of fetched segments (prefetched ∪ faulted)
+  uint64 bytes_touched = 4;            // bytes the workload actually touched
+  double fetch_amplification = 5;      // bytes_fetched / bytes_touched (§18)
+  double prefetch_accuracy = 6;        // touched-of-prefetched, bytes-weighted (§18)
+  double cache_hit_ratio_segments = 7;
+  uint64 cold_start_to_ready_ms = 8;   // wall-clock of the workload against the lazy mount (§18, ADR-0033)
+}
+
+message CostAmplificationRequest {
+  string tenant_id = 1;     // uuid
+  int32 since_hours = 2;    // window; <=0 → server default (24h)
+}
+message CostAmplificationResponse {
+  int64  samples = 1;
+  double fetch_amplification = 2;   // Σ bytes_fetched / Σ bytes_touched
+  double s3_gets_p50 = 3;
+  double s3_gets_p99 = 4;
+  double cold_start_p50_ms = 5;
+  double cold_start_p99_ms = 6;
+  double cache_hit_ratio_segments_avg = 7;
+  double prefetch_accuracy_avg = 8;
+  // §18 SLO verdict (end-of-M3): each target evaluated over the window above.
+  bool slo_sufficient_data = 9;        // false when samples == 0 (verdict is on no data)
+  bool slo_fetch_amplification_ok = 10; // ≤ 1.5×
+  bool slo_prefetch_accuracy_ok = 11;   // ≥ 0.7
+  bool slo_s3_gets_p99_ok = 12;         // ≤ 100
+  bool slo_all_met = 13;
+}
+
+// One OCI v1.1 referrer descriptor of a subject image manifest (§9.1 #3).
+message ReferrerDescriptor {
+  bytes artifact_digest = 1;   // the referrer's own OCI descriptor digest (sha256 of content)
+  bytes subject_digest = 2;
+  string artifact_type = 3;    // application/vnd.oci-jj.{sbom,verdict,nydus-rafs,soci-ztoc}.v1+json
+  string media_type = 4;
+  int64 size = 5;
+  string annotations_json = 6;
+  bool is_public = 7;          // ADR-0081: false ⇒ a private verdict (only the owner sees it; ListOwnReferrers)
+}
+
+message ListReferrersRequest {
+  bytes subject_digest = 1;
+  string artifact_type = 2;    // optional artifactType filter (OCI ?artifactType=)
+}
+message ListReferrersResponse {
+  repeated ReferrerDescriptor descriptors = 1;
+  bool artifact_type_filtered = 2;  // true when the filter was applied → OCI-Filters-Applied header
+}
+
+// ADR-0081: owner-scoped referrer read. No tenant field — the server scopes by the bearer token.
+message ListOwnReferrersRequest {
+  bytes subject_digest = 1;
+  string artifact_type = 2;    // optional artifactType filter
+}
+message ListOwnReferrersResponse {
+  repeated ReferrerDescriptor descriptors = 1;
+  bool artifact_type_filtered = 2;
+}
+
+message GetReferrerArtifactRequest {
+  bytes artifact_digest = 1;
+}
+message GetReferrerArtifactResponse {
+  bool found = 1;
+  string media_type = 2;
+  bytes content = 3;
+}
+
+// §15.2: gateway/CLI submits an OCI manifest + mount-graph root; server builds the
+// graph (M1: server fetches layers from the backing registry, ojj-oci import) and commits.
+message PushRequest {
+  string repo = 1;
+  bytes manifest_digest = 2;
+  string manifest_json = 3;
+  repeated string parents = 4;
+  string builder = 5;
+  string message = 6;
+  string artifact_class = 7;
+  repeated DerivationEdge derivation_edges = 8;
+  string tag = 9;                  // optional ref to set
+  bool allow_divergent = 10;       // §16: create anonymous head instead of rejecting
+}
+
+message PushResponse {
+  string commit_id = 1;
+  int64 op_id = 2;
+  // Compose (§13.1) surfaces validation warnings + the OciExportability annotation here; Push leaves
+  // them empty (ADR-0009). Keeps Compose's §9.2-verbatim `returns (PushResponse)`.
+  repeated string warnings = 3;
+  string exportability = 4;        // "yes" | "lossy" | "no" (compose only; empty for push)
+}
+
+// §22 transactional N-image push. One member per sibling image; all share `parents` (the common base)
+// and a `cohort_label`. The server creates all N commits + tags + ONE cohort_push op atomically.
+message CohortMember {
+  bytes manifest_digest = 1;
+  string manifest_json = 2;
+  string builder = 3;
+  string message = 4;
+  string artifact_class = 5;
+  string tag = 6;                  // the ref to set for this member
+}
+// ADR-0042 (recipes-on-the-wire): one segment span of a client-computed CDC recipe.
+message RecipeSegment {
+  bytes segment_ref = 1;   // 32-byte Blake3 segment id
+  uint64 dec_offset = 2;   // decompressed byte offset within the file
+  uint64 dec_length = 3;   // decompressed byte length of this segment's contribution
+}
+// ADR-0042: a file's complete CDC recipe, keyed by Blake3 FileId. Sent by the cohort client so the
+// server can record the FileId→segment map WITHOUT re-running chunk_file() on the server side.
+// An empty `segments` list signals an empty file (the server records the empty-content marker).
+message FileRecipe {
+  bytes file_id = 1;                  // 32-byte Blake3 FileId
+  repeated RecipeSegment segments = 2;
+}
+message CohortPushRequest {
+  string repo = 1;
+  string cohort_label = 2;
+  repeated string parents = 3;     // common parent(s) shared by every member (§22 #6)
+  repeated CohortMember members = 4;
+  // ADR-0042: client-computed CDC recipes for every file in this cohort. When present, the server
+  // skips re-chunking those files; it validates that all referenced segment IDs are already in the
+  // CAS (the cohort client pre-uploads them) and errors out if any are missing. Absent = fallback:
+  // the server re-chunks each file as before. Old clients that omit this field continue to work.
+  repeated FileRecipe recipes = 5;
+}
+message CohortPushResponse {
+  int64 op_id = 1;                 // the single cohort_push op pointing at all commits (§22 #7)
+  repeated string commit_ids = 2;
+  string cohort_label = 3;
+}
+
+message LogRequest {
+  string repo = 1;
+  string ref = 2;       // family / ref to walk
+  int32 limit = 3;
+}
+
+message OpLogRequest {
+  int64 after_op_id = 1;   // tail via op_id > $last (§16)
+  int32 limit = 2;
+}
+
+// §9.2 DiffRequest with the canonical Depth enum.
+message DiffRequest {
+  string repo = 1;
+  string from_ref = 2;
+  string to_ref = 3;
+  enum Depth {
+    BYTES = 0;
+    FILE = 1;
+    PACKAGE = 2;
+    SEMANTIC = 3;
+    IMPORTS = 4;       // M1: graceful "not available — telemetry class disabled" (§11.2)
+    LOADED_LIBS = 5;   // M1: graceful
+    SYSCALLS = 6;      // M1: graceful
+    BENCH = 7;         // M1: graceful
+  }
+  Depth depth = 4;
+}
+
+message DiffResponse {
+  string repo = 1;
+  string from_ref = 2;
+  string to_ref = 3;
+  DiffRequest.Depth depth = 4;
+  bool available = 5;            // false → telemetry depth disabled
+  string unavailable_reason = 6; // "not available — telemetry class disabled"
+  string rendered = 7;           // human-readable body
+  string structured_json = 8;    // machine-readable body
+}
+
+message SearchRequest {
+  string query = 1;        // e.g. "cuda==12.4 torch>=2.3"
+  bool semantic = 2;       // M1: --semantic stubbed (§15.7)
+  int32 limit = 3;
+}
+
+message SearchHit {
+  string repo = 1;
+  string commit_id = 2;
+  bytes manifest_digest = 3;
+  double rank = 4;
+  string snippet = 5;
+}
+
+message UndoRequest {
+  string op_ref = 1;       // op id/label to invert (e.g. "cohort_push@abc123")
+}
+
+message UndoResponse {
+  int64 inverse_op_id = 1; // §15/§26.2: inverting entry, never mutates history
+}
+
+message ComposeRequest {
+  string repo = 1;
+  repeated string runtime = 1000;
+  repeated string toolchain = 1001;
+  repeated string model = 1002;
+  repeated string dataset = 1003;
+  repeated string benchmark = 1004;
+  string app = 1005;
+  string tag = 1006;
+  // §13.1 manual validation hints (no solver — hints only). Surfaced as warnings (ADR-0009).
+  repeated string requires = 1007;
+  repeated string provides = 1008;
+  repeated string incompatible_with = 1009;
+}
+
+// §26.1 fsck: recompute Tree/Inode/MountGraph Blake3 from the GraphStore and confirm == recorded ids;
+// confirm extents reference known segments (ADR-0009).
+message FsckRequest {
+  string repo = 1;
+  string ref = 2;
+}
+
+message FsckResponse {
+  bool ok = 1;
+  int64 trees_checked = 2;
+  int64 inodes_checked = 3;
+  int64 segments_checked = 4;
+  repeated string problems = 5;    // empty when ok
+  string rendered = 6;             // human-readable integrity report
+}
+
+// §14 `branch`: list refs/heads for a repo and flag divergent (anonymous) heads.
+message ListRefsRequest {
+  string repo = 1;
+}
+
+message RefInfo {
+  string name = 1;
+  string kind = 2;                 // "tag" | "bookmark"
+  string commit_id = 3;
+  string message = 4;
+  bool is_head = 5;                // true if no commit in the repo lists commit_id as a parent
+}
+
+message ListRefsResponse {
+  repeated RefInfo refs = 1;
+  int32 head_count = 2;            // number of divergent heads (§14)
+}
+
+// §14/§26.2 `bookmark set <name> <target>`: move a ref and append a tag_move op_log entry.
+message SetRefRequest {
+  string repo = 1;
+  string name = 2;                 // ref name to create/move
+  string target = 3;               // a ref name or a commit id to point at
+  string kind = 4;                 // "tag" | "bookmark" (default bookmark)
+  string actor = 5;
+}
+
+message SetRefResponse {
+  string commit_id = 1;            // resolved target commit
+  int64 op_id = 2;                 // the appended tag_move op_log entry (§26.2)
+  bool protected_warning = 3;      // §17 tag-protection (prod, v*) — flagged, not enforced in M1 (M6)
+  string message = 4;
+}
+
+// §14.1 path provenance with overlay-precedence shadowing.
+message ResolveRequest {
+  string repo = 1;
+  string ref = 2;
+  string path = 3;
+}
+
+message ResolveResponse {
+  string provided_by = 1;          // "--runtime python:3.11 (commit f0a1b2c3)"
+  string tree_path = 2;            // "/opt/python/bin/python3.11"
+  bytes segment = 3;               // blake3 of the resolved segment
+  repeated Shadowed shadowed = 4;  // masked entries (overlay precedence)
+}
+
+message Shadowed {
+  string path = 1;
+  string source = 2;               // "cuda:12.4, masked by overlay precedence"
+}
+
+message ProvReq {
+  string repo = 1;
+  string ref = 2;
+}
+
+message ProvResponse {
+  string rendered = 1;             // full derivation tree
+  string structured_json = 2;
+}
+
+message WhoDependsReq {
+  string repo = 1;
+  string ref = 2;                  // reverse derived_from walk via derivation_edges(dst_ref) (§8.1, §15.6)
+}
+
+message OptimizeRequest {
+  string repo = 1;
+  string ref = 2;
+  // M2 framing C (ADR-0018): when dataset_uri is set, the suggestion's confidence/ExpectedEffect is
+  // verdict-backed. `apply` gates a new commit on an `accept` verdict; the rewrite itself stays
+  // M3-gated (PLAN M2.7) — M1/M2 ship the gate decision, not the layer rewrite.
+  bool apply = 3;
+  string apply_tag = 4;
+  string dataset_uri = 5;
+  string metric = 6;
+}
+
+// §11.3 `oci-jj attach-bench <ref> --result verdict.json` (ADR-0015/0016). Two modes:
+//   (a) inline: the caller already ran verdictml and passes verdict_json (+ manifest_json) → record now.
+//   (b) enqueue: run=true + dataset_uri → server enqueues a verdict_gate job for the Python worker.
+message AttachBenchRequest {
+  string repo = 1;
+  string ref = 2;                  // candidate commit/ref
+  string baseline_ref = 3;         // optional; default = first parent of ref
+  string verdict_json = 4;         // mode (a): verdict.ci.audit_record(v)
+  string manifest_json = 5;        // mode (a): repro fold-contract manifest.json (framing D)
+  bool run = 6;                    // mode (b): enqueue a verdict_gate job instead of inline record
+  string dataset_uri = 7;          // mode (b): content-addressed dataset (e.g. s3://…/<sha256>.parquet)
+  string metric = 8;               // mode (b): "f1" | ...
+  string params_json = 9;          // mode (b): seeds, n_boot, split, …
+}
+
+message AttachBenchResponse {
+  bool recorded = 1;               // mode (a)
+  string summary_id = 2;           // ExecutionSummary UUID (mode a)
+  string edge_id = 3;              // benchmarked_against edge UUID (mode a)
+  int64 op_id = 4;
+  int64 job_id = 5;                // mode (b): enqueued verdict_queue job id
+  string decision = 6;             // accept | reject | within_noise (mode a convenience)
+}
+
+// Framing B — host/version a verdictml HuntEnv run against an environment commit.
+message RunHuntRequest {
+  string repo = 1;
+  string env_ref = 2;              // the oci-jj environment commit the episode binds to
+  string dataset_uri = 3;
+  string params_json = 4;          // base_cols, pool, seeds, max_evals, metric
+  string tag_prefix = 5;           // optional: compose the accepted-feature lineage under this prefix
+}
+
+message RunHuntResponse {
+  int64 job_id = 1;                // enqueued hunt_episode verdict_queue job id
+}
+
+// ADR-0058 §6 — read-only dead-letter (parked-job) view across the durable queues.
+message DeadLettersRequest {
+  string queue = 1;   // optional queue-table filter; empty → all four
+                      // (ingest_queue | cas_ingest_queue | verdict_queue | raw_telemetry_traces)
+}
+message DeadLetter {
+  string queue = 1;       // which durable queue this parked job is from
+  int64 id = 2;
+  string repo = 3;        // empty for raw_telemetry_traces (no repo column)
+  int32 attempts = 4;
+  string last_error = 5;
+  string updated_at = 6;  // text timestamp, passed through verbatim
+}

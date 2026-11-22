@@ -3,14 +3,15 @@
      `briefcase features --markdown > docs/features/catalog.md`. -->
 # Feature catalog
 
-41 features · 5 groups. The same list, with
+44 features · 5 groups. The same list, with
 whether each feature is on for you, is in your terminal: `briefcase features`.
 
-## Connect (9)
+## Connect (10)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
 | [Adapter conformance checks](../../docs/features/adapter-conformance.md) | Know when a coding tool update breaks its briefcase connection. | `briefcase doctor --connect` | experimental |
+| [Briefcase engine (oci-jj) install](../../docs/features/engine.md) | Install the licensed environment engine with your licence token. | `briefcase engine install` | experimental |
 | [Connect coding tools](../../docs/integrations/README.md) | Point Claude Code, Codex, Cursor and Copilot at briefcase in one command. | `briefcase connect` | experimental |
 | [Cursor hooks](../../docs/integrations/README.md#cursor) | Record Cursor sessions, prompts and tool calls through its hook system. | `briefcase connect cursor` | experimental |
 | [Guided setup and status](../../docs/features/cli-shell.md) | One command to get started and one screen that shows what is on. | `briefcase setup` | experimental |
@@ -20,11 +21,12 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Plugins from other packages](../../docs/features/plugins.md) | Add exporters, backends, commands and checks from other packages. | `briefcase plugins list` | experimental |
 | [Zero-code capture for Python apps](../../briefcase/cli/exec_commands.py) | Run any Python program with decision capture on, without editing it. | `briefcase exec -- python app.py` | experimental |
 
-## Capture (8)
+## Capture (9)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
 | [@capture decorator](../../README.md#quick-example) | Record a function's inputs, outputs, timing and errors with one decorator. | `briefcase features capture-decorator` | stable |
+| [Environments in the engine](../../docs/features/env-artifacts.md) | Push, compose and check out environments (needs the engine). | `briefcase env push my-env:latest` | experimental |
 | [Framework auto-instrumentation](../../briefcase/auto.py) | Record LangChain, LlamaIndex, CrewAI and AutoGen runs with no handler code. | `briefcase exec -- python app.py` | experimental |
 | [HTTPS export](../../llms-full.txt) | POST records as JSON batches to your own endpoint, with retries and a token. | `briefcase exec --to https://collector.example.com/v1/decisions -- python app.py` | experimental |
 | [Model provider capture](../../briefcase/auto.py) | One record per OpenAI, Anthropic, Gemini or Bedrock call: tokens and latency. | `briefcase exec -- python app.py` | experimental |
@@ -57,7 +59,7 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Tamper-evident decision store](../../docs/features/chained-store.md) | Records that cannot be edited, reordered or deleted without detection. | `briefcase verify evidence.db` | experimental |
 | [Tamper-evident hash chain](../../llms-full.txt) | Prove that stored records were not altered, removed or reordered. | `briefcase features integrity-chain` | experimental |
 
-## Review (10)
+## Review (11)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
@@ -65,6 +67,7 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Baseline drift checks](../../docs/features/drift-baseline.md) | Save what normal looked like and flag when latency, errors or outputs shift. | `briefcase drift baseline save prod --from runs.jsonl` | experimental |
 | [Cost estimates](../../llms-full.txt) | Estimate what a model call costs and check it against a budget. | `briefcase features cost` | experimental |
 | [Drift detection](../../llms-full.txt) | Measure how consistent a model's answers are across repeated runs. | `briefcase features drift` | experimental |
+| [Environment graph history and provenance](../../docs/features/graph.md) | See environment history, diffs and provenance (needs the engine). | `briefcase graph log rl-gym-env` | experimental |
 | [Eval run logging](../../README.md#evaluations-and-rl) | Log eval cases as records, or import inspect-ai and lm-eval results. | `briefcase features evals-bridge` | experimental |
 | [Evaluation datasets from captured records](../../docs/features/datasets-from-records.md) | Turn real production calls into versioned test sets you can re-run. | `briefcase dataset from-records runs.jsonl --name NAME` | experimental |
 | [Local eval runs with a CI gate](../../docs/features/datasets-from-records.md) | Score a function against a dataset offline and fail CI on regressions. | `briefcase eval run --dataset NAME --target module:function --fail-under 0.9` | experimental |

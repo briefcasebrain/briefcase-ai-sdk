@@ -35,9 +35,10 @@ docs all use the same five steps:
 | Review | look at what happened | drift, cost, eval runs, the MCP server |
 
 `briefcase --help` adds two groups around them: "Start here" (`setup`, `status`,
-`features`, `doctor`, `completion`) and "Evaluate" (`dataset`, `secret`, `run`, `stack`).
-How the Evaluate commands map onto the oci-jj engine, and how to test them against a live
-server: [oci-jj-engine.md](oci-jj-engine.md).
+`features`, `doctor`, `engine`, `completion`) and "Evaluate" (`dataset`, `secret`, `run`, `stack`).
+The engine (installed with `briefcase engine install`, licensed separately) and how the
+Evaluate commands use it: [engine.md](engine.md); its commands: [graph.md](graph.md) (Review)
+and [env-artifacts.md](env-artifacts.md) (Capture).
 
 ## For contributors: how a feature shows up
 

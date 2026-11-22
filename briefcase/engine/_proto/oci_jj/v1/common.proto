@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Briefcase AI, Inc. — the oci-jj API contract is Apache-2.0 (see proto/LICENSE);
+// the oci-jj engine that implements it is proprietary (see LICENSE and NOTICE at the repository root).
+// Vendored from oci-jj proto/oci_jj/v1/common.proto (commit 54120d0); the engine is not part of this package.
+// Regenerate with scripts/engine/regen_proto.py; do not edit by hand.
+// oci-jj common wire types. Shared across VcsService, ChunkService, IngestService.
+// Traces to docs/system-design.md §4 (data model), §10 (catalog), §9.2 (RPC).
+syntax = "proto3";
+
+package oci_jj.v1;
+
+option go_package = "github.com/oci-jj/oci-jj/go/gen/oci_jj/v1;ocijjv1";
+
+// A Blake3 digest (32 bytes) used to address trees, inodes, segments, mount graphs (§5.3).
+message Blake3 {
+  bytes hash = 1;
+}
+
+// An OCI/SHA-256 digest (original digest captured at push, §5.3).
+message Sha256 {
+  bytes hash = 1;
+}
+
+// Commit node (§8.1, §10 commits table). Immutable once written (§26.2).
+message Commit {
+  string commit_id = 1;       // UUID
+  string repo_id = 2;         // UUID
+  bytes manifest_digest = 3;  // sha256
+  bytes mount_graph_id = 4;   // Blake3 pointer into GraphStore
+  repeated string parents = 5;
+  string builder = 6;
+  string message = 7;
+  string artifact_class = 8;  // §5.4 named class
+  string created_at = 9;      // RFC3339
+}
+
+// Operation-log entry (§10 op_log). Append-only; undo writes an inverting entry (§15, §26.2).
+message Op {
+  int64 op_id = 1;            // monotonic bigserial (§16)
+  string tenant_id = 2;
+  string actor = 3;
+  string op_kind = 4;         // push | tag_move | merge | undo | gc | compose | cohort_push
+  string payload_json = 5;    // jsonb payload
+  int64 parent_op = 6;
+  string created_at = 7;
+}
+
+// A derivation edge (§8.1 edge set, §10 derivation_edges).
+message DerivationEdge {
+  string edge_kind = 1;       // derived_from | built_by | executed_with | benchmarked_against | replaces
+  string dst_kind = 2;        // commit | external_artifact | builder | dataset | benchmark
+  string dst_ref = 3;
+  string metadata_json = 4;
+}

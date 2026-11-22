@@ -42,7 +42,12 @@ def register(sub) -> None:
         epilog="example:\n  briefcase verify evidence.db",
         formatter_class=_RAW,
     )
-    p.add_argument("path", metavar="PATH", help="Chained SQLite store, chain JSONL, or bundle .zip.")
+    p.add_argument("path", metavar="PATH", nargs="?",
+                   help="Chained SQLite store, chain JSONL, or bundle .zip.")
+    p.add_argument("--graph", metavar="REF",
+                   help="Instead of a file: have the engine re-hash REF's environment graph and check every "
+                        "segment it references (VcsService.Fsck; needs `briefcase engine install`).")
+    p.add_argument("--repo", dest="engine_repo", metavar="REPO", help="Engine repository for --graph.")
     p.add_argument("--against", metavar="CHECKPOINT.json",
                    help="A checkpoint kept outside the store (from --save-checkpoint). The only way to "
                         "detect removal of the newest entries.")
@@ -257,8 +262,16 @@ def cmd_verify(args, store=None, engine=None, stack=None) -> int:
     from briefcase.integrity.evidence import EvidenceFormatError, load_checkpoint_file
     from briefcase.integrity.keys import KeyFileError
 
-    path = Path(args.path)
     as_json = bool(getattr(args, "json", False))
+    if getattr(args, "graph", None):
+        if getattr(args, "path", None):
+            return _usage_error("pass a PATH or --graph REF, not both", "briefcase verify --graph <ref>", as_json)
+        from briefcase.cli.commands import cmd_verify_graph
+
+        return cmd_verify_graph(args, store, engine, stack)
+    if not getattr(args, "path", None):
+        return _usage_error("nothing to verify", "briefcase verify ./evidence.db   # or --graph <ref>", as_json)
+    path = Path(args.path)
     if not path.exists():
         return _usage_error("%s does not exist" % path, "check the path, e.g. briefcase verify ./evidence.db", as_json)
     if path.is_dir():

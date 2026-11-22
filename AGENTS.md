@@ -48,7 +48,7 @@ Rules to follow when generating briefcase code:
   `vcs-ducklake`, `vcs-iceberg`, `gym`, `evals`, `bitemporal-iceberg`,
   `bitemporal-glue`, `kdb`, `compliance-kms`, `integrity`, `langchain`,
   `crewai`, `llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`,
-  `mcp`, `run`, `receiver`, `budgets-redis`, `budgets-postgres`, and `budgets-mysql` (`all` is every one of them except `kdb`; `dev` is the test
+  `mcp`, `run`, `engine`, `receiver`, `budgets-redis`, `budgets-postgres`, and `budgets-mysql` (`all` is every one of them except `kdb`; `dev` is the test
   tooling). See `llms-full.txt` for the extras map and recipes.
 
 ### Plug-and-play integrations

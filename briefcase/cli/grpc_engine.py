@@ -42,10 +42,14 @@ class EngineSelectionError(RuntimeError):
 
 
 def grpc_available() -> bool:
-    """Whether the optional gRPC dependencies are importable (decides ``auto`` engine selection)."""
+    """Whether the optional gRPC dependencies are importable (decides ``auto`` engine selection).
+
+    ``grpcio`` and ``protobuf`` are enough: the default transport builds its messages from the
+    vendored contract (``briefcase.engine.client.DescriptorTransport``); ``grpcio-reflection``
+    is only needed for the reflection fallback."""
     try:
         import grpc  # noqa: F401
-        from grpc_reflection.v1alpha import reflection_pb2_grpc  # noqa: F401
+        from google.protobuf import descriptor_pool  # noqa: F401
 
         return True
     except ImportError:
@@ -171,8 +175,19 @@ def _build_request(req_cls, request: dict):
             continue
         if field.enum_type is not None and isinstance(value, str):
             value = field.enum_type.values_by_name[value].number
+        if _is_repeated(field):
+            # Repeated scalars (e.g. Compose runtime=[...], CheckoutPlan paths=[...]) cannot be assigned.
+            getattr(msg, key).extend(value if isinstance(value, (list, tuple)) else [value])
+            continue
         setattr(msg, key, value)
     return msg
+
+
+def _is_repeated(field) -> bool:
+    flag = getattr(field, "is_repeated", None)  # protobuf >= 5.28; `label` is deprecated there
+    if isinstance(flag, bool):
+        return flag
+    return getattr(field, "label", 1) == 3
 
 
 def _normalize_endpoint(endpoint: str) -> str:
@@ -272,12 +287,19 @@ class ReflectionTransport(Transport):
                  token: str | None = None, env=None) -> None:
         try:
             import grpc
-            from grpc_reflection.v1alpha import reflection_pb2, reflection_pb2_grpc
-        except ImportError as e:  # optional [run] deps not installed
+        except ImportError as e:  # optional [engine]/[run] deps not installed
             raise TransportUnavailable(
-                "the gRPC engine needs the optional dependencies "
-                "(pip install 'briefcase-ai[run]'): " + str(e)
+                "the gRPC client needs the optional dependencies "
+                "(pip install 'briefcase-ai[engine]'): " + str(e)
             ) from e
+        try:
+            from grpc_reflection.v1alpha import reflection_pb2, reflection_pb2_grpc
+        except ImportError:  # only the reflection fallback needs it ([run] extra)
+            reflection_pb2 = reflection_pb2_grpc = None
+            if type(self) is ReflectionTransport:
+                raise TransportUnavailable(
+                    "server reflection needs grpcio-reflection (pip install 'briefcase-ai[run]')"
+                )
         self._grpc = grpc
         self._reflection_pb2 = reflection_pb2
         self._reflection_pb2_grpc = reflection_pb2_grpc
@@ -350,7 +372,7 @@ class ReflectionTransport(Transport):
                 ) from e
             raise TransportUnavailable(
                 f"oci-jj-server reflection unreachable at {self.endpoint} ({e}); "
-                f"is the stack up? try 'briefcase stack up', or set BRIEFCASE_ENGINE=cli."
+                f"is the engine running? try 'briefcase engine up', or set BRIEFCASE_ENGINE=cli."
             ) from e
 
     def _info(self, **kw):
@@ -438,16 +460,31 @@ class GrpcEngine:
     API_FLOOR = "oci_jj.v1"
 
     def __init__(self, server=None, repo=None, transport=None) -> None:
-        self.server = server or os.environ.get("OCI_JJ_SERVER", "http://127.0.0.1:50051")
+        # --server, then BRIEFCASE_ENGINE_ADDR / OCI_JJ_SERVER, then a local `briefcase engine
+        # install`, then the default; see briefcase.engine.client_settings.
+        from briefcase.engine import client_settings
+
+        settings = client_settings(server=server)
+        self.server = settings["addr"]
         self.repo = repo or os.environ.get("OCI_JJ_REPO", "rl-gym-env")
-        # Constructing the default transport does no I/O; reflection happens on first exec.
-        self._transport = transport if transport is not None else ReflectionTransport(self.server)
+        if transport is None:
+            # The vendored contract (no reflection round-trip); BRIEFCASE_GRPC_REFLECTION=1
+            # selects reflection instead. Construction does no I/O either way.
+            from briefcase.engine.client import make_transport
+
+            transport = make_transport(self.server, settings["token"], settings["ca"], timeout=5.0)
+        self._transport = transport
         self._ready = False
 
     def _ensure_ready(self):
         """Lazily verify the server meets the API floor on first real RPC (not at construction, so
         offline ``--dry-run`` never reflects)."""
         if self._ready:
+            return
+        if type(self._transport).__name__ == "DescriptorTransport":
+            # The vendored contract is the floor; an RPC an older server lacks fails with
+            # UNIMPLEMENTED on the call itself.
+            self._ready = True
             return
         services = self._transport.list_services()
         if not any(s.startswith(self.API_FLOOR + ".") for s in services):
@@ -463,6 +500,20 @@ class GrpcEngine:
         # repo = the oci-jj repository (--repo); ref = the candidate; baseline_ref = the checkpoint.
         req = {"repo": self.repo, "ref": candidate, "run": True,
                "dataset_uri": dataset_uri, "metric": metric}
+        if baseline:
+            req["baseline_ref"] = baseline
+        return RpcCall(self.SERVICE, "AttachBench", req)
+
+    def call_attach_result(self, candidate, baseline, result_path, manifest_path=None) -> RpcCall:
+        """AttachBench mode (a): record a verdict.json computed elsewhere (``run=false``)."""
+        with open(result_path, encoding="utf-8") as f:
+            verdict_json = f.read()
+        manifest_json = ""
+        if manifest_path:
+            with open(manifest_path, encoding="utf-8") as f:
+                manifest_json = f.read()
+        req = {"repo": self.repo, "ref": candidate, "run": False, "verdict_json": verdict_json,
+               "manifest_json": manifest_json}
         if baseline:
             req["baseline_ref"] = baseline
         return RpcCall(self.SERVICE, "AttachBench", req)

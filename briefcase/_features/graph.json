@@ -1,0 +1,11 @@
+{
+  "id": "graph",
+  "title": "Environment graph history and provenance",
+  "verb": "review",
+  "one_line": "See environment history, diffs and provenance (needs the engine).",
+  "command": "briefcase graph log rl-gym-env",
+  "docs_slug": "review/graph",
+  "status": "experimental",
+  "requires_extra": "engine",
+  "verified_against": "Real: log, diff, show, explain, provenance, whodepends, resolve, search, verify --graph against an oci-jj server built from be043d9. Offline: every command against an in-process gRPC server from the vendored proto. Not run live: referrers, optimize."
+}

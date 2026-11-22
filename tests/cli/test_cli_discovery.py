@@ -22,7 +22,7 @@ SHELL_COMMANDS = {"setup", "status", "features", "completion"}
 #   path -> (new flags/dests allowed, new subcommands allowed, defaults that may change)
 ALLOWED_ADDITIONS = {
     # datasets package: versioned datasets (`dataset_versions.extend_dataset_parser`).
-    "dataset": (set(), {"from-records", "show", "diff", "export", "import"}, set()),
+    "dataset": (set(), {"from-records", "show", "diff", "export", "import", "publish"}, set()),
     # `dataset list` gained --json and a handler (dataset_versions.cmd_list) that prints
     # the registered datasets exactly as before, then local versions
     # (see test_old_dataset_list_output_unchanged in test_cli_dataset.py).
@@ -38,6 +38,10 @@ ALLOWED_ADDITIONS = {
     "connect": ({"--enforce", "--preset", "--managed", "--out", "--policy", "--tools"}, set(), set()),
     # plugins-mcp package: `doctor --plugins` reports installed briefcase plugins only.
     "doctor": ({"--plugins"}, set(), set()),
+    # engine package: `run attach --result verdict.json` (AttachBench inline record) and
+    # `secret list --json` (marks the one key the engine uses).
+    "run": (set(), {"attach"}, set()),
+    "secret list": ({"--json"}, set(), set()),
 }
 
 
@@ -227,10 +231,10 @@ def test_top_level_help_groups_commands_under_the_flow_verbs(capsys):
         return [line.split()[0] for line in section(heading).splitlines()[1:]
                 if line.startswith("  ") and not line.startswith("   ") and not line.startswith("  (")]
 
-    assert listed("Start here:") == ["setup", "status", "features", "doctor", "completion"]
+    assert listed("Start here:") == ["setup", "status", "features", "doctor", "engine", "completion"]
     assert set(listed("Connect:")) == {"connect", "receive", "exec", "mcp", "hook", "plugins"}
     assert set(listed("Evaluate:")) == {"dataset", "secret", "run", "stack"}
-    assert listed("Capture:") == [] and "briefcase features --verb capture" in section("Capture:")
+    assert listed("Capture:") == ["env"] and "briefcase features --verb capture" in section("Capture:")
     assert "Other" not in text
     assert "Global options:" in text and "--no-input" in text and "--debug" in text
 
