@@ -145,6 +145,7 @@ dependencies = [
  "rayon",
  "regex",
  "reqwest",
+ "ring",
  "rusqlite",
  "serde",
  "serde_json",
@@ -176,6 +177,7 @@ dependencies = [
  "briefcase-core",
  "once_cell",
  "pyo3",
+ "serde",
  "serde_json",
  "tokio",
 ]

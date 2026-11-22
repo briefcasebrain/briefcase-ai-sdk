@@ -121,9 +121,14 @@ def _resolve_exporter(
         return HTTPExporter(exporter, token=token or _env_token(env), headers=headers)
     if isinstance(exporter, str) and exporter.endswith(".jsonl"):
         return JSONLFileExporter(exporter)
+    if isinstance(exporter, str) and exporter.startswith("chain:") and exporter[6:].strip():
+        # Tamper-evident hash-chained SQLite store (needs the compiled core).
+        from briefcase.exporters.chained import ChainedSqliteExporter
+
+        return ChainedSqliteExporter(exporter[6:].strip())
     raise ValueError(
         f"Unknown exporter shorthand: {_safe_url(exporter)!r}. Pass a BaseExporter instance, "
-        "'console', 'memory', a path ending in '.jsonl', or an http(s):// URL."
+        "'console', 'memory', a path ending in '.jsonl', 'chain:PATH.db', or an http(s):// URL."
     )
 
 
@@ -326,6 +331,9 @@ def observe(
               - ``"console"`` → :class:`ConsoleExporter`
               - ``"memory"`` → :class:`MemoryExporter`
               - a path ending in ``.jsonl`` → :class:`JSONLFileExporter`
+              - ``"chain:PATH.db"`` → :class:`~briefcase.exporters.chained.ChainedSqliteExporter`
+                (tamper-evident hash chain; checkpoints signed with the key file
+                in ``BRIEFCASE_SIGNING_KEY`` when set)
               - an ``https://`` URL (or ``http://`` to localhost) →
                 :class:`~briefcase.exporters.http.HTTPExporter`, which POSTs
                 JSON batches. Its bearer token is ``token``, else

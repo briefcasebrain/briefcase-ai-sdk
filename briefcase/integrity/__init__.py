@@ -4,7 +4,18 @@ Imports on a bare install; only the signing helpers need the
 ``integrity`` extra (PyNaCl).
 """
 
-from briefcase.integrity.canonical import canonical_json, canonical_json_compat, sha256_hex
+from briefcase.integrity.canonical import (
+    HASH_SCHEME_V1,
+    HASH_SCHEME_V2,
+    HASH_SCHEMES,
+    canonical_bytes,
+    canonical_json,
+    canonical_json_compat,
+    canonical_json_v2,
+    es_number_to_string,
+    parse_canonical_text,
+    sha256_hex,
+)
 from briefcase.integrity.chain import (
     GENESIS_PRIOR_HASH,
     ChainConflictError,
@@ -33,6 +44,9 @@ from briefcase.integrity.stores import (
 __all__ = [
     "ChainConflictError",
     "GENESIS_PRIOR_HASH",
+    "HASH_SCHEMES",
+    "HASH_SCHEME_V1",
+    "HASH_SCHEME_V2",
     "HASH_SPEC_VERSION",
     "HashChainAppender",
     "HashChainEntry",
@@ -40,11 +54,15 @@ __all__ = [
     "InMemoryHashChainStore",
     "JsonlHashChainStore",
     "TruncatedChainFileError",
+    "canonical_bytes",
     "canonical_json",
     "canonical_json_compat",
+    "canonical_json_v2",
     "compute_entry_hash",
     "compute_payload_hash",
+    "es_number_to_string",
     "jwk_thumbprint",
+    "parse_canonical_text",
     "public_key_jwk",
     "sha256_hex",
     "sign_digest",

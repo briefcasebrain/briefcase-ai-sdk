@@ -44,6 +44,8 @@
 //! - `async` - Enable async/await runtime support (enabled by default)
 //! - `storage` - Enable persistent storage APIs (enabled by default)
 //! - `sqlite-storage` - SQLite storage backend (implied by `storage`)
+//! - `chain` - Hash-chained, append-only SQLite store with signed Merkle
+//!   checkpoints (implies `sqlite-storage`)
 //! - `vcs-storage` - Version-control storage abstractions (implies `async`)
 //! - `replay` - Deterministic replay engine
 //! - `drift` - Drift monitoring utilities
@@ -62,6 +64,9 @@ pub mod drift;
 
 /// Core data models and structures
 pub mod models;
+
+/// RFC 8785 canonical JSON, Merkle proofs and Ed25519 signing (`chain`)
+pub mod integrity;
 
 /// Token counting and estimation
 #[cfg(feature = "tokens")]

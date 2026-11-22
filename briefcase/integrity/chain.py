@@ -21,6 +21,22 @@ Spec version 1. Each entry's hash is::
         prior_hash:   <hex hash of the previous entry, or 32 zero bytes for genesis>,
     }))
 
+Hash schemes. The entry above is hash scheme ``"json-sorted-1"`` (the
+default, unchanged since spec version 1, so every existing chain verifies
+forever). ``HashChainAppender(..., hash_scheme="jcs-1")`` writes entries
+whose payload and entry hashes use RFC 8785 canonical JSON
+(:func:`~briefcase.integrity.canonical.canonical_json_v2`), which agrees
+byte for byte with the TypeScript and Rust implementations, floats
+included. A ``jcs-1`` entry's hash input also carries
+``"hash_scheme": "jcs-1"``, so an entry cannot be relabelled from one
+scheme to the other. Each :class:`HashChainEntry` records its
+``hash_scheme`` and :func:`verify_chain_segment` dispatches on it, so one
+segment may mix schemes (for example when a writer opts in mid-stream).
+
+The default stays ``json-sorted-1`` because these entries land in stores
+that older SDK releases also read; their verifiers do not know
+``hash_scheme`` and would reject ``jcs-1`` entries.
+
 ``table`` and ``entity`` name a stream and an optional partition within
 it; the wire keys are frozen so hashes stay stable across releases.
 Canonical JSON is sorted-keys, tight separators, UTF-8 (see
@@ -43,7 +59,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable
 
-from briefcase.integrity.canonical import canonical_json
+from briefcase.integrity.canonical import HASH_SCHEME_V1, HASH_SCHEME_V2, canonical_bytes
 
 HASH_SPEC_VERSION = 1
 GENESIS_PRIOR_HASH = "00" * 32  # 64 hex chars == 32 bytes of zero
@@ -69,6 +85,7 @@ class HashChainEntry:
     prior_hash: str
     hash: str
     signature: Optional[str] = None
+    hash_scheme: str = HASH_SCHEME_V1
 
 
 def _rfc3339_nanos(dt: datetime) -> str:
@@ -89,9 +106,12 @@ def _rfc3339_nanos(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S.") + nanos + "Z"
 
 
-def compute_payload_hash(row_payload: Dict[str, Any]) -> str:
-    """Hex sha256 of the canonical JSON encoding of ``row_payload``."""
-    return hashlib.sha256(canonical_json(row_payload, fallback=str)).hexdigest()
+def compute_payload_hash(row_payload: Dict[str, Any], hash_scheme: str = HASH_SCHEME_V1) -> str:
+    """Hex sha256 of the canonical JSON encoding of ``row_payload``.
+
+    Non-JSON values are stringified with ``str()`` in both schemes.
+    """
+    return hashlib.sha256(canonical_bytes(row_payload, hash_scheme, fallback=str)).hexdigest()
 
 
 def _entry_input(
@@ -103,8 +123,9 @@ def _entry_input(
     payload_hash: str,
     supersedes: Optional[str],
     prior_hash: str,
+    hash_scheme: str = HASH_SCHEME_V1,
 ) -> Dict[str, Any]:
-    return {
+    entry: Dict[str, Any] = {
         "v": HASH_SPEC_VERSION,
         "id": row_id,
         "table": table,
@@ -115,6 +136,9 @@ def _entry_input(
         "supersedes": supersedes,
         "prior_hash": prior_hash,
     }
+    if hash_scheme != HASH_SCHEME_V1:
+        entry["hash_scheme"] = hash_scheme
+    return entry
 
 
 def compute_entry_hash(
@@ -126,9 +150,14 @@ def compute_entry_hash(
     payload_hash: str,
     supersedes: Optional[str],
     prior_hash: str,
+    hash_scheme: str = HASH_SCHEME_V1,
 ) -> str:
-    """Compute the hex sha256 of an entry's canonical input."""
-    blob = canonical_json(
+    """Compute the hex sha256 of an entry's canonical input.
+
+    ``hash_scheme`` selects the canonical encoding (``"json-sorted-1"`` or
+    ``"jcs-1"``); an unknown scheme raises ``ValueError``.
+    """
+    blob = canonical_bytes(
         _entry_input(
             row_id=row_id,
             table=table,
@@ -138,7 +167,9 @@ def compute_entry_hash(
             payload_hash=payload_hash,
             supersedes=supersedes,
             prior_hash=prior_hash,
+            hash_scheme=hash_scheme,
         ),
+        hash_scheme,
         fallback=str,
     )
     return hashlib.sha256(blob).hexdigest()
@@ -207,9 +238,17 @@ class HashChainAppender:
     or the chain forks.
     """
 
-    def __init__(self, store: HashChainStore, signing_key: Optional[bytes] = None):
+    def __init__(
+        self,
+        store: HashChainStore,
+        signing_key: Optional[bytes] = None,
+        hash_scheme: str = HASH_SCHEME_V1,
+    ):
+        if hash_scheme not in (HASH_SCHEME_V1, HASH_SCHEME_V2):
+            raise ValueError("unknown hash scheme %r" % (hash_scheme,))
         self._store = store
         self._signing_key = signing_key
+        self._hash_scheme = hash_scheme
 
     def append_row(
         self,
@@ -222,7 +261,7 @@ class HashChainAppender:
         supersedes: Optional[str] = None,
         max_attempts: int = 32,
     ) -> HashChainEntry:
-        payload_hash = compute_payload_hash(payload)
+        payload_hash = compute_payload_hash(payload, self._hash_scheme)
         last_conflict: Optional[ChainConflictError] = None
         for attempt in range(max_attempts):
             prior_hash = self._store.last_entry_hash(table=table, entity_id=entity_id)
@@ -235,6 +274,7 @@ class HashChainAppender:
                 payload_hash=payload_hash,
                 supersedes=supersedes,
                 prior_hash=prior_hash,
+                hash_scheme=self._hash_scheme,
             )
             signature = _sign_hash(self._signing_key, hash_hex) if self._signing_key else None
             entry = HashChainEntry(
@@ -248,6 +288,7 @@ class HashChainAppender:
                 prior_hash=prior_hash,
                 hash=hash_hex,
                 signature=signature,
+                hash_scheme=self._hash_scheme,
             )
             try:
                 self._store.append(entry)
@@ -275,6 +316,9 @@ def verify_chain_segment(
     genesis sentinel; pass the hash preceding a mid-chain window to verify
     a slice that does not start at genesis.
 
+    Each entry is recomputed with the hash scheme it records
+    (``entry.hash_scheme``); an entry naming an unknown scheme fails.
+
     Returns ``(True, None)`` if every entry in the slice is consistent;
     otherwise ``(False, row_id)`` for the first failing entry.
 
@@ -285,16 +329,20 @@ def verify_chain_segment(
     for entry in entries:
         if entry.prior_hash != expected_prior:
             return False, entry.row_id
-        recomputed = compute_entry_hash(
-            row_id=entry.row_id,
-            table=entry.table,
-            entity_id=entry.entity_id,
-            observed_at=entry.observed_at,
-            recorded_at=entry.recorded_at,
-            payload_hash=entry.payload_hash,
-            supersedes=entry.supersedes,
-            prior_hash=entry.prior_hash,
-        )
+        try:
+            recomputed = compute_entry_hash(
+                row_id=entry.row_id,
+                table=entry.table,
+                entity_id=entry.entity_id,
+                observed_at=entry.observed_at,
+                recorded_at=entry.recorded_at,
+                payload_hash=entry.payload_hash,
+                supersedes=entry.supersedes,
+                prior_hash=entry.prior_hash,
+                hash_scheme=entry.hash_scheme,
+            )
+        except ValueError:
+            return False, entry.row_id
         if recomputed != entry.hash:
             return False, entry.row_id
         expected_prior = entry.hash

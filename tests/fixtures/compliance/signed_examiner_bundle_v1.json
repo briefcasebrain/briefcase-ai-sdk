@@ -1,0 +1,66 @@
+{
+  "as_of_transaction_time": "2026-04-18T00:00:00+00:00",
+  "content_hash": "sha256:452b9636ddeea0e68ba9538e88f490ef9e9b98edff223776a6fa0d42cbd24c50",
+  "decision": {
+    "candidates": [
+      "USDC"
+    ],
+    "context": {
+      "jurisdiction": "US",
+      "sanctioned": false
+    },
+    "decided_at": "2026-04-18T00:00:00+00:00",
+    "decision_id": "4932cc33-17a6-4fe3-a84a-721455c3a7ab",
+    "evidence_refs": [
+      "4d61e655-1eef-417e-af79-40224df91eb7"
+    ],
+    "matched_rule_id": "r1",
+    "policy_id": "payout_router",
+    "policy_version": "1.0.0",
+    "rationale": "US clean: route USDC",
+    "selected": "USDC",
+    "use_case": "cross_border_payout"
+  },
+  "evidence": [
+    {
+      "decision": null,
+      "key": "ofac:counterparty:cp-42",
+      "metadata": {},
+      "parent_record_id": null,
+      "record_id": "4d61e655-1eef-417e-af79-40224df91eb7",
+      "source": "ofac",
+      "source_trust_level": null,
+      "transaction_time": "2026-04-17T00:00:00+00:00",
+      "valid_time": "2026-04-17T00:00:00+00:00",
+      "value": {
+        "sanctioned": false,
+        "score": 0.25
+      }
+    }
+  ],
+  "kms_key_id": "arn:aws:kms:us-east-1:111122223333:key/00000000-0000-4000-8000-000000000001",
+  "metadata": {
+    "case": "fixture"
+  },
+  "policy": {
+    "default_choice": "human_review",
+    "description": null,
+    "policy_id": "payout_router",
+    "rules": [
+      {
+        "choice": "USDC",
+        "condition": {
+          "jurisdiction": "US",
+          "sanctioned": false
+        },
+        "rationale": "US clean: route USDC",
+        "rule_id": "r1"
+      }
+    ],
+    "version": "1.0.0"
+  },
+  "schema_version": "1",
+  "signature": "x0oUqdpG/vvC47fPl4ukn6nLS60F5YzmDv11Rz2S01/Uez2xX9MAARuVkiiNZtSpF0DqPmirkeB7+pEguLGqWqkq0psuh71B86Rj75hA0Aa+jRKfCSv8FEWLRTMtan7mDeI7JIcDNeSaD+qt7Ba+pxd2rTTUC0TP//oql3jolmCqX83ynOHu0woq5HNmOYAiNXNSfIqVNsUzvInbiKh3HsaanrGoXcUVid9mdhO0D0dO8WrdwYgFnW3/4ggu19k0IRsBgaaUwhkeZ1SSS1mkuf1fQiu7wO9/G6W43Y365Ei+mnP9XNHZIbhVzKgNHtEtHn15JQwf13EAoVO4XrG/qA==",
+  "signed_at": "2026-11-22T05:31:45.061260+00:00",
+  "signing_algorithm": "RSASSA_PSS_SHA_256"
+}

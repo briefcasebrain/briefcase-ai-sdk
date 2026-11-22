@@ -8,12 +8,16 @@ use thiserror::Error;
 
 #[cfg(feature = "async")]
 pub mod buffered;
+#[cfg(feature = "chain")]
+pub mod chain;
 #[cfg(feature = "sqlite-storage")]
 pub mod sqlite;
 pub mod sync;
 #[cfg(feature = "vcs-storage")]
 pub mod vcs;
 
+#[cfg(feature = "chain")]
+pub use chain::{ChainConfig, ChainEntry, Checkpoint, InclusionProof, Problem, VerifyReport};
 #[cfg(feature = "sqlite-storage")]
 pub use sqlite::SqliteBackend;
 #[cfg(feature = "sqlite-storage")]

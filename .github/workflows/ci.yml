@@ -104,9 +104,10 @@ jobs:
 
   # The Python and TypeScript canonical-JSON implementations must produce the
   # same bytes, or a hash written by one cannot be verified by the other.
-  # Both are checked against tests/vectors/canonical_json.json.
+  # Both are checked against tests/vectors/canonical_json.json; the RFC 8785
+  # profile (jcs-1) is also checked in Rust against canonical_json_v2.json.
   canonical-vectors:
-    name: Canonical JSON golden vectors (Python + TypeScript)
+    name: Canonical JSON golden vectors (Python + TypeScript + Rust)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -124,13 +125,20 @@ jobs:
       # No wheel needed: the script loads the pure-Python canonical module
       # and fails if the committed vectors differ from what it produces.
       - name: Python implementation matches the vectors
-        run: python tests/vectors/canonical_json_vectors.py
+        run: |
+          python tests/vectors/canonical_json_vectors.py
+          python tests/vectors/canonical_json_v2_vectors.py
 
       - name: TypeScript implementation matches the vectors
         working-directory: js/runtime
         run: |
           npm ci
-          npx vitest run test/canonical-vectors.test.ts
+          npx vitest run test/canonical-vectors.test.ts test/canonical-vectors-v2.test.ts
+
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+
+      - name: Rust implementation matches the RFC 8785 vectors
+        run: cargo test -p briefcase-core --locked --test canonical_v2_vectors
 
   node:
     name: Node ${{ matrix.node-version }} (TypeScript packages)

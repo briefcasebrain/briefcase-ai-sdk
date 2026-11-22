@@ -39,6 +39,7 @@ use pyo3::prelude::*;
 mod client;
 mod cost;
 mod drift;
+mod integrity;
 mod models;
 mod replay;
 mod runtime;
@@ -134,6 +135,13 @@ fn _native(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init_with_config, m)?)?;
     m.add_function(wrap_pyfunction!(is_initialized, m)?)?;
     m.add_function(wrap_pyfunction!(_shutdown_runtime, m)?)?;
+
+    // Evidence: RFC 8785 canonical JSON and Ed25519 (briefcase.integrity keys)
+    m.add_function(wrap_pyfunction!(integrity::jcs_canonicalize, m)?)?;
+    m.add_function(wrap_pyfunction!(integrity::ed25519_sign_digest, m)?)?;
+    m.add_function(wrap_pyfunction!(integrity::ed25519_verify_digest, m)?)?;
+    m.add_function(wrap_pyfunction!(integrity::ed25519_public_jwk, m)?)?;
+    m.add_function(wrap_pyfunction!(integrity::ed25519_key_id, m)?)?;
 
     // Token estimation
     m.add_function(wrap_pyfunction!(cost::normalize_model_id, m)?)?;

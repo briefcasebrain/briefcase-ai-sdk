@@ -3,7 +3,7 @@
      `briefcase features --markdown > docs/features/catalog.md`. -->
 # Feature catalog
 
-34 features · 5 groups. The same list, with
+37 features · 5 groups. The same list, with
 whether each feature is on for you, is in your terminal: `briefcase features`.
 
 ## Connect (8)
@@ -40,15 +40,18 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Guardrail checks](../../briefcase/guardrails/__init__.py) | Decide allow or deny for an agent action, and fail closed on errors. | `briefcase features guardrails` | experimental |
 | [Policy for coding tools](../../docs/features/policy-hooks.md) | Allow, ask or deny what Claude Code, Cursor and Codex may run. | `briefcase policy init` | experimental |
 
-## Verify (6)
+## Verify (9)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
 | [Bitemporal evidence store](../../briefcase/bitemporal/__init__.py) | Reconstruct what your system knew on the day a decision was made. | `briefcase features bitemporal-store` | experimental |
+| [Cross-language hashing (RFC 8785)](../../docs/features/hashing-v2.md) | Hashes Python, TypeScript and Rust compute identically, floats included. | `briefcase verify ./evidence.db` | experimental |
 | [Data versioning (lakeFS and others)](../../examples/lakefs_versioning) | Pin each decision to the exact data commit it read. | `briefcase features data-versioning` | experimental |
 | [Decision replay](../../briefcase/replay/__init__.py) | Re-run a recorded decision and see whether the output still matches. | `briefcase features replay` | experimental |
+| [Evidence bundles and briefcase verify](../../docs/features/audit-bundle.md) | Hand an auditor one file that proves which decisions were recorded, unaltered. | `briefcase bundle create --from evidence.db --out evidence-bundle.zip` | experimental |
 | [Examiner bundle](../../briefcase/compliance/__init__.py) | Package a decision, its evidence and its policy version for an auditor. | `briefcase features compliance-bundle` | experimental |
 | [Replay recorded LLM calls](../../docs/features/replay-recorded.md) | Re-run captured LLM calls and see what changed in answers, tokens and cost. | `briefcase replay explain runs.jsonl` | experimental |
+| [Tamper-evident decision store](../../docs/features/chained-store.md) | Records that cannot be edited, reordered or deleted without detection. | `briefcase verify evidence.db` | experimental |
 | [Tamper-evident hash chain](../../llms-full.txt) | Prove that stored records were not altered, removed or reordered. | `briefcase features integrity-chain` | experimental |
 
 ## Review (9)
