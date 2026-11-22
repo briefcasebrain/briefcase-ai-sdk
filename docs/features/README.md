@@ -36,6 +36,8 @@ docs all use the same five steps:
 
 `briefcase --help` adds two groups around them: "Start here" (`setup`, `status`,
 `features`, `doctor`, `completion`) and "Evaluate" (`dataset`, `secret`, `run`, `stack`).
+How the Evaluate commands map onto the oci-jj engine, and how to test them against a live
+server: [oci-jj-engine.md](oci-jj-engine.md).
 
 ## For contributors: how a feature shows up
 
