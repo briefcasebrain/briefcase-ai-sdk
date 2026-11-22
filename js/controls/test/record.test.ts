@@ -78,6 +78,8 @@ describe("decision record wire schema (fixture parity)", () => {
       [
         "context_version", "error", "parent_span_id", "status", "trace_flags", "trace_id", "workflow_id",
         "prompt_name", "prompt_version", "parent_run_id", "parent_framework",
+        "budget_effect", "budget_scope", "budget_checks", "budget_degraded_from", "budget_error",
+        "cost_usd", "cost_source", "cost_reserved_usd", "guard_effect", "guard_findings", "guard_limits",
       ].sort(),
     );
     for (const field of fixture.optional_fields) expect(fixture.required_fields).not.toContain(field);

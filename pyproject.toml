@@ -115,6 +115,10 @@ run = ["grpcio>=1.60,<2", "grpcio-reflection>=1.60,<2", "protobuf>=4.25"]
 # which Codex and Copilot send; Claude Code is configured for http/json by `briefcase connect`
 # and needs nothing extra.
 receiver = ["opentelemetry-proto>=1.20"]
+# Shared budget stores for `briefcase.budgets`; the in-memory and SQLite stores need no extra.
+budgets-redis = ["redis>=5"]
+budgets-postgres = ["psycopg[binary]>=3.1"]
+budgets-mysql = ["pymysql>=1.1"]
 # No black: the codebase is not black-formatted and CONTRIBUTING says not to
 # run it, so shipping it as a dev dependency only invites a 95-file diff.
 dev = [
@@ -127,7 +131,7 @@ dev = [
     # moto backs the Glue and KMS tests; those suites skip cleanly without it.
     "moto[kms,glue,s3]>=5",
 ]
-all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,rag-chroma,rag-pinecone,rag-weaviate,correlation,external,events,kafka,webhook,gcp-logging,routing,opa,lakefs,vcs,vcs-dvc,vcs-pachyderm,vcs-ducklake,vcs-iceberg,gym,evals,bitemporal,bitemporal-iceberg,bitemporal-glue,compliance,compliance-kms,controls,integrity,langchain,crewai,llamaindex,autogen,ag2,pageindex,openai-agents,mcp,run,receiver]"]
+all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,rag-chroma,rag-pinecone,rag-weaviate,correlation,external,events,kafka,webhook,gcp-logging,routing,opa,lakefs,vcs,vcs-dvc,vcs-pachyderm,vcs-ducklake,vcs-iceberg,gym,evals,bitemporal,bitemporal-iceberg,bitemporal-glue,compliance,compliance-kms,controls,integrity,langchain,crewai,llamaindex,autogen,ag2,pageindex,openai-agents,mcp,run,receiver,budgets-redis,budgets-postgres,budgets-mysql]"]
 
 [project.scripts]
 briefcase-mcp = "briefcase.mcp.__main__:main"

@@ -95,6 +95,7 @@ import json
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from briefcase._logging import get_logger
+from briefcase.integrations.providers import _base, _requests
 from briefcase.integrations.providers._base import (
     AsyncStreamProxy,
     ProviderCall,
@@ -381,8 +382,8 @@ class _InvokeBody:
 class _ConverseStream(StreamState):
     def __init__(self, call: ProviderCall, inst: ProviderInstrumentor, request_id: Any) -> None:
         super().__init__(call)
-        self.want_content = inst.captures_content
-        self.add_text, self.get_text = text_accumulator(inst.max_content_chars)
+        self.want_content = call.want_content
+        self.add_text, self.get_text = text_accumulator(call.text_limit)
         self.data: Dict[str, Any] = {"request_id": request_id}
 
     def observe(self, event: Any) -> Any:
@@ -412,8 +413,8 @@ class _ConverseStream(StreamState):
 class _InvokeStream(StreamState):
     def __init__(self, call: ProviderCall, inst: ProviderInstrumentor, request_id: Any) -> None:
         super().__init__(call)
-        self.want_content = inst.captures_content
-        self.add_text, self.get_text = text_accumulator(inst.max_content_chars)
+        self.want_content = call.want_content
+        self.add_text, self.get_text = text_accumulator(call.text_limit)
         self.data: Dict[str, Any] = {"request_id": request_id}
         self.prompt: Any = None
         self.completion: Any = None
@@ -515,7 +516,7 @@ def _begin(inst: ProviderInstrumentor, operation: str,
 def _end(inst: ProviderInstrumentor, call: ProviderCall, operation: str, response: Any,
          is_async: bool = False) -> Any:
     if operation == "Converse":
-        call.finish(_converse_info(response, inst.captures_content))
+        call.finish(_converse_info(response, call.want_content))
         return response
     if operation == "InvokeModel":
         prompt, completion = _header_usage(response)
@@ -574,12 +575,17 @@ def _factory(inst: ProviderInstrumentor) -> Callable[[Any], Any]:
             call = _start(inst, self, operation_name, api_params)
             if call is None:
                 return original(self, operation_name, api_params, *args, **kwargs)
+            ctx = None
+            if _base._hooks and isinstance(api_params, dict):
+                api_params = dict(api_params)  # hooks may replace values; never the caller's dict
+                ctx = _base._hooked(call, _requests.BEDROCK.get(operation_name), api_params, False)
             try:
                 response = original(self, operation_name, api_params, *args, **kwargs)
             except BaseException as exc:
                 _fail(call, exc)
                 raise
-            return _finish(inst, call, operation_name, response, False)
+            response = _finish(inst, call, operation_name, response, False)
+            return ctx.after_result(response) if ctx is not None else response
 
         return wrapper
 
@@ -596,12 +602,17 @@ def _async_factory(inst: ProviderInstrumentor) -> Callable[[Any], Any]:
             call = _start(inst, self, operation_name, api_params)
             if call is None:
                 return await original(self, operation_name, api_params, *args, **kwargs)
+            ctx = None
+            if _base._hooks and isinstance(api_params, dict):
+                api_params = dict(api_params)
+                ctx = _base._hooked(call, _requests.BEDROCK.get(operation_name), api_params, True)
             try:
                 response = await original(self, operation_name, api_params, *args, **kwargs)
             except BaseException as exc:
                 _fail(call, exc)
                 raise
-            return _finish(inst, call, operation_name, response, True)
+            response = _finish(inst, call, operation_name, response, True)
+            return ctx.after_result(response) if ctx is not None else response
 
         return wrapper
 

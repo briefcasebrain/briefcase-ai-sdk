@@ -57,6 +57,29 @@ Provider fields added to the ``@capture`` record layout:
 
 Prompt and completion content is not recorded unless ``capture_content`` is
 turned on.
+
+Call hooks
+----------
+
+Budgets (:mod:`briefcase.budgets`) and content guardrails
+(:mod:`briefcase.guardrails.content`) act on every instrumented call through
+one small interface: :func:`add_call_hook`. A hook has two methods:
+
+- ``before(ctx)``: runs after the record is started and before the request
+  is sent. It may change the request through ``ctx`` (``ctx.set_model``,
+  ``ctx.rewrite_request``), add record fields (``ctx.fields``) or stop the
+  call by raising a :class:`CallBlocked` subclass, which reaches the
+  application unchanged (the record is emitted with ``status="error"``).
+- ``after(ctx, outcome)``: runs once, when the record is completed (response
+  read, stream ended or abandoned, error). ``outcome`` is a
+  :class:`CallOutcome`. Raising :class:`CallBlocked` here stops the result
+  from reaching the application: a non-streaming call raises from the SDK
+  method, a stream raises from its final ``next()``.
+
+With no hook registered the wrappers read one module global and do nothing
+else (the ``_hooks`` tuple is empty). With a hook registered, a call is
+followed even when no exporter is configured; its record is then built but
+not exported.
 """
 
 from __future__ import annotations
@@ -285,7 +308,8 @@ def http_status_of(error: BaseException) -> Optional[int]:
 
 _gc_state = threading.local()
 _gc_users = 0
-_deferred: "queue.SimpleQueue[Tuple[Any, Dict[str, Any], Any]]" = queue.SimpleQueue()
+#: ``(instrumentor, record, exporter)`` to export, or ``(None, fn, None)`` to run.
+_deferred: "queue.SimpleQueue[Tuple[Any, Any, Any]]" = queue.SimpleQueue()
 _wake: "queue.SimpleQueue[Any]" = queue.SimpleQueue()
 _drain_lock = threading.Lock()
 _reaper_lock = threading.Lock()
@@ -391,11 +415,241 @@ def flush_abandoned() -> int:
             except queue.Empty:
                 break
             try:
-                inst._trigger_export(record, exporter=exporter)
+                if inst is None:
+                    record()  # a call finished by the collector: hooks, then export
+                else:
+                    inst._trigger_export(record, exporter=exporter)
                 count += 1
             except Exception:
                 logger.debug("deferred provider export failed", exc_info=True)
     return count
+
+
+# -- call hooks ---------------------------------------------------------------
+
+
+class CallBlocked(Exception):
+    """Raised by a call hook to stop a provider call. Unlike a capture
+    failure, it reaches the application. ``record_effect`` names the
+    decision for the record."""
+
+
+#: Registered hooks, in registration order. Replaced (never mutated) so the
+#: wrappers can read it without a lock.
+_hooks: Tuple[Any, ...] = ()
+_hooks_lock = threading.Lock()
+
+
+def add_call_hook(hook: Any) -> None:
+    """Register a hook (an object with ``before(ctx)`` and
+    ``after(ctx, outcome)``). Registering the same object twice is a no-op."""
+    global _hooks
+    with _hooks_lock:
+        if any(h is hook for h in _hooks):
+            return
+        _hooks = _hooks + (hook,)
+
+
+def remove_call_hook(hook: Any) -> None:
+    """Unregister a hook; unknown hooks are ignored."""
+    global _hooks
+    with _hooks_lock:
+        _hooks = tuple(h for h in _hooks if h is not hook)
+
+
+def call_hooks() -> Tuple[Any, ...]:
+    """The registered hooks."""
+    return _hooks
+
+
+_instrumentors: "weakref.WeakSet[Any]" = weakref.WeakSet()
+
+
+def active_providers() -> List[str]:
+    """Providers with at least one patched call path right now (what the
+    call hooks can see)."""
+    return sorted({i.provider for i in list(_instrumentors) if i.active and i.patched})
+
+
+class CallOutcome:
+    """What ``after`` hooks see about a finished call.
+
+    ``sent``: the request was handed to the SDK (False when a ``before``
+    hook stopped it). ``completed``: the whole response was received (a
+    stream read to its terminal event). ``usage``: the record's
+    ``token_usage`` (None when the provider reported none). ``info``: the
+    provider module's response summary; an ``after`` hook may change
+    ``info["content"]`` (its ``"content"`` text) to redact what the record
+    keeps. ``text``: the completion text, only when a hook set
+    ``ctx.wants_text``."""
+
+    __slots__ = ("sent", "completed", "usage", "model", "error", "info", "stream", "http_status")
+
+    def __init__(self, *, sent: bool, completed: bool, usage: Any, model: Optional[str],
+                 error: Optional[BaseException], info: Dict[str, Any], stream: bool) -> None:
+        self.sent = sent
+        self.completed = completed
+        self.usage = usage
+        self.model = model
+        self.error = error
+        self.info = info
+        self.stream = stream
+        self.http_status = http_status_of(error) if error is not None else None
+
+    @property
+    def text(self) -> Optional[str]:
+        content = self.info.get("content")
+        if isinstance(content, dict):
+            content = content.get("content")
+        return content if isinstance(content, str) else None
+
+    def set_text(self, text: str) -> None:
+        content = self.info.get("content")
+        if isinstance(content, dict):
+            self.info["content"] = dict(content, content=text)
+        elif isinstance(content, str):
+            self.info["content"] = text
+
+
+class CallContext:
+    """One provider call as the hooks see it.
+
+    ``kwargs`` is the wrapper's own copy of the request keyword arguments
+    (the caller's dict is never changed); hooks change it only through
+    :meth:`set_model` and :meth:`rewrite_request`, which copy what they
+    change instead of mutating the caller's objects."""
+
+    def __init__(self, spec: Any, kwargs: Dict[str, Any], is_async: bool,
+                 hooks: Tuple[Any, ...]) -> None:
+        self.spec = spec
+        self.provider: str = spec.provider
+        self.operation: str = spec.operation
+        self.kwargs = kwargs
+        self.is_async = is_async
+        self.hooks = hooks
+        self.stream: bool = bool(spec.is_stream(kwargs))
+        #: Added to the record (``record.update``) when it is completed.
+        self.fields: Dict[str, Any] = {}
+        #: Per-hook private state, keyed by the hook's own name.
+        self.state: Dict[str, Any] = {}
+        #: Set by a hook that reads the completion text (``outcome.text``).
+        self.wants_text = False
+        self.text_limit = 1_000_000
+        #: Called with the text received so far on each stream chunk; may
+        #: raise CallBlocked to stop the stream early.
+        self.chunk_check: Optional[Callable[[str], None]] = None
+        #: ``str -> str`` applied to the text of the returned (non-stream)
+        #: SDK object in place, after the record is complete.
+        self.output_rewrite: Optional[Callable[[str], str]] = None
+        self.pending: Optional[BaseException] = None
+        self.sent = False
+        self.request_rewritten = False
+        self._done = False
+        self._lock = threading.Lock()
+
+    # -- request ------------------------------------------------------------
+
+    @property
+    def model(self) -> Optional[str]:
+        return self.spec.get_model(self.kwargs)
+
+    def set_model(self, model: str) -> None:
+        self.spec.set_model(self.kwargs, model)
+
+    def max_output_tokens(self) -> Optional[int]:
+        return self.spec.max_output_tokens(self.kwargs)
+
+    def request_texts(self) -> List[Tuple[str, str]]:
+        """``[(source, text)]`` for every text in the request; source is one
+        of ``system``, ``user``, ``assistant``, ``tool``, ``retrieved``."""
+        return self.spec.request_texts(self.kwargs)
+
+    def rewrite_request(self, edit: Callable[[str, str], Optional[str]]) -> bool:
+        """Replace request texts: ``edit(text, source)`` returns the new text
+        or None to keep it. False (and nothing changed) when some content
+        could not be rewritten without changing its type."""
+        ok = self.spec.rewrite_request(self.kwargs, edit)
+        if ok:
+            self.request_rewritten = True
+        return ok
+
+    def response_redactable(self) -> bool:
+        """Whether the returned object's text can be replaced in place."""
+        return (not self.stream) and bool(self.spec.response_redactable(self.kwargs))
+
+    # -- dispatch -------------------------------------------------------------
+
+    def run_before(self) -> None:
+        for hook in self.hooks:
+            try:
+                hook.before(self)
+            except CallBlocked:
+                raise
+            except Exception:
+                logger.warning("briefcase call hook %r failed before the call; continuing",
+                               type(hook).__name__, exc_info=True)
+
+    def complete(self, info: Dict[str, Any], error: Optional[BaseException], completed: bool,
+                 model: Optional[str], stream: bool) -> None:
+        """Run every ``after`` hook, once."""
+        with self._lock:
+            if self._done:
+                return
+            self._done = True
+        usage = info.get("usage")
+        outcome = CallOutcome(
+            sent=self.sent, completed=completed and error is None and self.sent,
+            usage=usage if isinstance(usage, dict) and usage else None,
+            model=model, error=error, info=info, stream=stream,
+        )
+        for hook in self.hooks:
+            try:
+                hook.after(self, outcome)
+            except CallBlocked as exc:
+                if self.pending is None:
+                    self.pending = exc
+            except Exception:
+                logger.warning("briefcase call hook %r failed after the call",
+                               type(hook).__name__, exc_info=True)
+
+    def after_result(self, result: Any) -> Any:
+        """For a non-stream result: apply ``output_rewrite`` to the returned
+        object in place, then raise a pending :class:`CallBlocked`."""
+        if self.output_rewrite is not None and not self.stream:
+            try:
+                self.spec.redact_response(result, self.output_rewrite)
+            except Exception:
+                logger.warning("briefcase could not redact the response", exc_info=True)
+        self.raise_pending()
+        return result
+
+    def raise_pending(self) -> None:
+        pending, self.pending = self.pending, None
+        if pending is not None:
+            raise pending
+
+
+def _hooked(call: Optional["ProviderCall"], spec: Any, kwargs: Dict[str, Any],
+            is_async: bool) -> Optional[CallContext]:
+    """Start the hooks for a call that is about to be sent. Raises the
+    hook's :class:`CallBlocked` after the call's record is finished."""
+    hooks = _hooks
+    if not hooks or spec is None or call is None:
+        return None
+    try:
+        ctx = CallContext(spec, kwargs, is_async, hooks)
+    except Exception:
+        logger.debug("call hooks could not start", exc_info=True)
+        return None
+    call.attach(ctx)
+    try:
+        ctx.run_before()
+    except CallBlocked as exc:
+        _fail(call, exc)
+        raise
+    call.request_changed(ctx)
+    ctx.sent = True
+    return ctx
 
 
 class ProviderCall:
@@ -405,7 +659,7 @@ class ProviderCall:
     __slots__ = (
         "_inst", "_record", "_started_at", "_exporter", "_model", "_params",
         "_stream", "_once", "_t0", "_first_chunk_ms", "_stream_ms", "_scope",
-        "_abandon", "limits", "_pid", "__weakref__",
+        "_abandon", "limits", "_pid", "_inputs", "ctx", "__weakref__",
     )
 
     def __init__(
@@ -418,8 +672,12 @@ class ProviderCall:
         params: Dict[str, Any],
         stream: bool,
         scope: Optional[_correlation.LLMRunScope] = None,
+        inputs: Optional[Callable[[], Any]] = None,
     ) -> None:
         self._inst = inst
+        self._inputs = inputs
+        #: The call hooks' context, when hooks are registered.
+        self.ctx: Optional[CallContext] = None
         self._record = record
         self._started_at = started_at
         self._exporter = exporter
@@ -448,6 +706,36 @@ class ProviderCall:
     @property
     def is_stream(self) -> bool:
         return self._stream
+
+    @property
+    def want_content(self) -> bool:
+        """Whether the provider module should read response text: content
+        capture is on, or a call hook reads the completion."""
+        ctx = self.ctx
+        return self._inst.captures_content or (ctx is not None and ctx.wants_text)
+
+    @property
+    def text_limit(self) -> int:
+        ctx = self.ctx
+        if ctx is not None and ctx.wants_text:
+            return max(self._inst.max_content_chars, ctx.text_limit)
+        return self._inst.max_content_chars
+
+    def attach(self, ctx: CallContext) -> None:
+        self.ctx = ctx
+
+    def request_changed(self, ctx: CallContext) -> None:
+        """A hook changed the request: record the model actually requested
+        and, with content capture on, the request actually sent."""
+        try:
+            model = ctx.model
+            if isinstance(model, str) and model and model != self._model:
+                self._model = model
+            if ctx.request_rewritten and self._inputs is not None and self._inst.captures_content:
+                content = jsonable(self._inputs(), self._inst.max_content_chars)
+                self._record["inputs"] = self._inst.capture_options.content(content)
+        except Exception:
+            logger.debug("provider record could not follow the changed request", exc_info=True)
 
     def mark_stream(self) -> None:
         """Flag the call as streaming when that is only known from the
@@ -494,8 +782,21 @@ class ProviderCall:
         self._abandon = None
         if self._pid != os.getpid():
             return  # a copy inherited through fork: the parent records it
+        if self.ctx is not None and in_gc():
+            # The call hooks touch stores and locks (a budget settles); like
+            # the export, run them from the finalizer thread, never from
+            # inside a collection.
+            _ensure_reaper()
+            _deferred.put((None, functools.partial(
+                self._finish_quietly, info or {}, error, stream, finished), None))
+            _wake.put(None)
+            return
+        self._finish_quietly(info or {}, error, stream, finished)
+
+    def _finish_quietly(self, info: Dict[str, Any], error: Optional[BaseException],
+                        stream: Optional[Dict[str, Any]], finished: bool) -> None:
         try:
-            self._finish(info or {}, error, stream, finished)
+            self._finish(info, error, stream, finished)
         except Exception:
             logger.debug("provider record could not be completed", exc_info=True)
 
@@ -510,6 +811,12 @@ class ProviderCall:
         record = self._record
         options = inst.capture_options
         mode = options.capture_content
+
+        ctx = self.ctx
+        if ctx is not None:
+            done = error is None and (
+                stream is None or bool(stream.get("stream_completed")) or finished)
+            ctx.complete(info, error, done, info.get("model") or self._model, self._stream)
 
         if error is not None:
             _finalize_record(
@@ -580,7 +887,11 @@ class ProviderCall:
                 limits.append(note)
         if limits:
             record["capture_limits"] = limits
+        if ctx is not None and ctx.fields:
+            record.update(ctx.fields)
 
+        if self._exporter is None:
+            return  # followed for the call hooks only: nothing is exporting
         scope = self._scope
         if scope is not None:
             scope.provider_records += 1
@@ -713,6 +1024,7 @@ class ProviderInstrumentor(ExportMixin):
         self._lock = threading.Lock()
         self._warned = False
         _watch_gc(True)
+        _instrumentors.add(self)
 
     @property
     def captures_content(self) -> bool:
@@ -890,13 +1202,15 @@ class ProviderInstrumentor(ExportMixin):
             if not self.active:
                 return None
             exporter = self._resolve_exporter()
-            if exporter is None:
+            if exporter is None and not _hooks:
                 return None
             scope = _correlation.current_llm_run()
             if scope is not None and _correlation.get_dedupe() == "provider":
                 # The framework handler records this call; the provider
                 # record would count its tokens a second time.
-                return None
+                if not _hooks:
+                    return None
+                exporter = None  # followed for the call hooks only
             record = _build_record(
                 decision_type, self.context_version, (), {}, 0, function_name, "none",
             )
@@ -917,7 +1231,7 @@ class ProviderInstrumentor(ExportMixin):
             return ProviderCall(
                 self, record, started_at, exporter,
                 str(model) if isinstance(model, str) and model else None,
-                dict(params or {}), stream, scope,
+                dict(params or {}), stream, scope, inputs,
             )
         except Exception:
             logger.debug("provider capture could not start", exc_info=True)
@@ -927,10 +1241,13 @@ class ProviderInstrumentor(ExportMixin):
 # -- stream wrapping --------------------------------------------------------
 
 def _guard(fn: Callable[..., Any]) -> Callable[..., Any]:
-    """Make a capture callback unable to raise into the user's iteration."""
+    """Make a capture callback unable to raise into the user's iteration,
+    except for a call hook's :class:`CallBlocked`, which is meant to."""
     def guarded(*args: Any) -> Any:
         try:
             return fn(*args)
+        except CallBlocked:
+            raise
         except Exception:
             logger.debug("provider stream callback failed", exc_info=True)
             return None
@@ -956,6 +1273,8 @@ def tee(inner: Iterator[Any], on_item: OnItem, on_end: OnEnd) -> Iterator[Any]:
         raise
     except BaseException as exc:
         error = exc
+        if isinstance(exc, CallBlocked):
+            _close_quietly(inner)
         raise
     finally:
         on_end(completed, error)
@@ -979,10 +1298,28 @@ async def atee(inner: AsyncIterator[Any], on_item: OnItem, on_end: OnEnd) -> Asy
         raise
     except BaseException as exc:
         error = exc
+        if isinstance(exc, CallBlocked):
+            aclose = getattr(inner, "aclose", None)
+            if callable(aclose):
+                try:
+                    await aclose()
+                except Exception:
+                    logger.debug("stream could not be closed after a block", exc_info=True)
         raise
     finally:
         on_end(completed, error)
         error = None
+
+
+def _close_quietly(inner: Any) -> None:
+    """Close the SDK's iterator after a hook stopped the stream, so the
+    connection is released."""
+    close = getattr(inner, "close", None)
+    if callable(close):
+        try:
+            close()
+        except Exception:
+            logger.debug("stream could not be closed after a block", exc_info=True)
 
 
 class StreamProxy:
@@ -1184,7 +1521,16 @@ class StreamState:
         result = self.observe(chunk)
         if result is SKIP:
             self.count -= 1
+        ctx = self.call.ctx
+        if ctx is not None and ctx.chunk_check is not None:
+            ctx.chunk_check(self.text_so_far())  # may raise CallBlocked
         return result
+
+    def text_so_far(self) -> str:
+        """The completion text read so far (subclasses that accumulate
+        text expose it as ``get_text``)."""
+        get = getattr(self, "get_text", None)
+        return get() if callable(get) else ""
 
     def _abandoned(self) -> None:
         self.on_end(False, None)
@@ -1202,6 +1548,19 @@ class StreamState:
             stream={"chunk_count": self.count, "stream_completed": completed},
             finished=self.finished,
         )
+        raise_after_stream(self.call, completed, error)
+
+
+def raise_after_stream(call: ProviderCall, completed: bool,
+                       error: Optional[BaseException]) -> None:
+    """At the end of a stream read to exhaustion, raise what an ``after``
+    hook decided (a blocked completion), from the consumer's last
+    ``next()``. Never for a stream that was closed, abandoned or failed."""
+    ctx = call.ctx
+    if ctx is not None and ctx.pending is not None:
+        if completed and error is None and not in_gc():
+            ctx.raise_pending()
+        ctx.pending = None
 
 
 def given(value: Any) -> bool:
@@ -1241,31 +1600,39 @@ def _fail(call: ProviderCall, exc: BaseException) -> None:
         pass
 
 
-def sync_method(original: Callable[..., Any], begin: Begin, end: End) -> Callable[..., Any]:
+def sync_method(original: Callable[..., Any], begin: Begin, end: End,
+                spec: Any = None) -> Callable[..., Any]:
     """Wrap a synchronous SDK method. ``begin(args, kwargs)`` returns the
     call (or None to pass through); ``end(call, result, args, kwargs)``
     finishes it, or instruments a returned stream, and returns the result.
 
     The SDK's exception propagates as the same object (a bare ``raise``):
-    only this wrapper's frame is added to its traceback."""
+    only this wrapper's frame is added to its traceback.
+
+    ``spec`` (a :class:`~._requests.RequestSpec`) lets the call hooks read
+    and change the request; without it no hook runs for this method."""
 
     @functools.wraps(original)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         call = _safe_begin(begin, args, kwargs)
         if call is None:
             return original(*args, **kwargs)
+        ctx = _hooked(call, spec, kwargs, False) if _hooks else None
         try:
             result = original(*args, **kwargs)
         except BaseException as exc:
             _fail(call, exc)
             raise
-        return _safe_end(end, call, result, args, kwargs)
+        result = _safe_end(end, call, result, args, kwargs)
+        if ctx is not None:
+            return ctx.after_result(result)
+        return result
 
     return wrapper
 
 
 def async_method(original: Callable[..., Any], begin: Begin, end: End,
-                 aend: Optional[Callable[..., Any]] = None) -> Callable[..., Any]:
+                 aend: Optional[Callable[..., Any]] = None, spec: Any = None) -> Callable[..., Any]:
     """Async counterpart of :func:`sync_method`. ``aend`` is an optional
     coroutine function used instead of ``end`` when finishing the record
     needs an ``await`` (parsing an async raw response)."""
@@ -1277,13 +1644,17 @@ def async_method(original: Callable[..., Any], begin: Begin, end: End,
             _fail(call, exc)
             raise
         if aend is None:
-            return _safe_end(end, call, result, args, kwargs)
-        try:
-            return await aend(call, result, args, kwargs)
-        except Exception:
-            logger.debug("provider capture could not finish", exc_info=True)
-            call.finish(info={"limits": ["capture failed while reading the response"]})
-            return result
+            result = _safe_end(end, call, result, args, kwargs)
+        else:
+            try:
+                result = await aend(call, result, args, kwargs)
+            except Exception:
+                logger.debug("provider capture could not finish", exc_info=True)
+                call.finish(info={"limits": ["capture failed while reading the response"]})
+        ctx = call.ctx
+        if ctx is not None:
+            return ctx.after_result(result)
+        return result
 
     if inspect.iscoroutinefunction(original):
         @functools.wraps(original)
@@ -1291,6 +1662,8 @@ def async_method(original: Callable[..., Any], begin: Begin, end: End,
             call = _safe_begin(begin, args, kwargs)
             if call is None:
                 return await original(*args, **kwargs)
+            if _hooks:
+                _hooked(call, spec, kwargs, True)
             return await complete(call, original(*args, **kwargs), args, kwargs)
 
         return wrapper
@@ -1305,6 +1678,8 @@ def async_method(original: Callable[..., Any], begin: Begin, end: End,
         call = _safe_begin(begin, args, kwargs)
         if call is None:
             return original(*args, **kwargs)
+        if _hooks:
+            _hooked(call, spec, kwargs, True)
         try:
             awaitable = original(*args, **kwargs)
         except BaseException as exc:
@@ -1316,7 +1691,8 @@ def async_method(original: Callable[..., Any], begin: Begin, end: End,
 
 
 def sync_generator_method(original: Callable[..., Any], begin: Begin,
-                          make_state: Callable[[ProviderCall], StreamState]) -> Callable[..., Any]:
+                          make_state: Callable[[ProviderCall], StreamState],
+                          spec: Any = None) -> Callable[..., Any]:
     """Wrap a method that is a *generator function* (google-genai's
     ``generate_content_stream``). The wrapper is a generator function too,
     so ``inspect.isgeneratorfunction`` still holds and, exactly like the
@@ -1328,6 +1704,8 @@ def sync_generator_method(original: Callable[..., Any], begin: Begin,
         call = _safe_begin(begin, args, kwargs)
         if call is None:
             return (yield from original(*args, **kwargs))
+        if _hooks:
+            _hooked(call, spec, kwargs, False)
         try:
             state = make_state(call)
             on_item, on_end = state.on_item, state.on_end
@@ -1359,6 +1737,9 @@ def _safe_end(end: End, call: ProviderCall, result: Any, args: tuple, kwargs: di
 
 __all__ = [
     "AsyncStreamProxy",
+    "CallBlocked",
+    "CallContext",
+    "CallOutcome",
     "PatchTarget",
     "ProviderCall",
     "ProviderInstrumentor",
@@ -1370,7 +1751,10 @@ __all__ = [
     "StreamProxy",
     "StreamState",
     "async_method",
+    "active_providers",
+    "add_call_hook",
     "atee",
+    "call_hooks",
     "flush_abandoned",
     "given",
     "http_status_of",
@@ -1378,7 +1762,9 @@ __all__ = [
     "instrument_stream",
     "jsonable",
     "normalize_capture_content",
+    "raise_after_stream",
     "read",
+    "remove_call_hook",
     "scalar_params",
     "sync_generator_method",
     "sync_method",

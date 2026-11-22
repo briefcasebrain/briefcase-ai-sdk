@@ -89,6 +89,26 @@ else:
     _native_import_error = None
 
 
+_LAZY_ATTRS = {"budget": ("briefcase.budgets", "budget"),
+               "budget_scope": ("briefcase.budgets", "budget_scope")}
+_native_getattr = globals().get("__getattr__")
+
+
+def __getattr__(name: str):  # noqa: F811
+    """``briefcase.budget`` / ``briefcase.budget_scope`` load the budgets package on first
+    use, so importing briefcase does not pay for it."""
+    target = _LAZY_ATTRS.get(name)
+    if target is not None:
+        import importlib
+
+        value = getattr(importlib.import_module(target[0]), target[1])
+        globals()[name] = value
+        return value
+    if _native_getattr is not None:
+        return _native_getattr(name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 class _CallableAutoModule(_types.ModuleType):
     """Lets ``briefcase.auto("langchain")`` work while ``briefcase.auto`` stays
     the submodule, so ``from briefcase.auto import auto, undo`` and
@@ -105,6 +125,8 @@ from briefcase.prompts import prompt  # noqa: E402
 
 __all__ = [
     "prompt",
+    "budget",
+    "budget_scope",
     "DecisionSnapshot",
     "ExecutionContext",
     "HardwareMetadata",

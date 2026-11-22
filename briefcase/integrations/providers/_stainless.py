@@ -114,7 +114,7 @@ class Surface:
                 call.finish({"request_id": request_id, "limits": [LIMIT_STREAM_LAYOUT]},
                             stream={"chunk_count": None, "stream_completed": None})
             return
-        call.finish(self.info_fn(parsed, self.inst.captures_content))
+        call.finish(self.info_fn(parsed, call.want_content))
 
     def end(self, call: ProviderCall, result: Any, args: tuple, kwargs: dict) -> Any:
         mode = raw_mode(kwargs)

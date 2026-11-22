@@ -238,6 +238,7 @@ Needs an extra (third-party deps):
 - `pip install briefcase-ai[mcp]`                # MCP server (briefcase-mcp)
 - `pip install briefcase-ai[run]`                # gRPC client for the eval-run CLI
 - `pip install briefcase-ai[receiver]`           # OTLP/protobuf for `briefcase receive`
+- `pip install briefcase-ai[budgets-redis]`     # shared budget store; also `budgets-postgres`, `budgets-mysql`
 - `pip install briefcase-ai[all]`                # everything above except kdb
 
 ------------------------------------------------------------------------------

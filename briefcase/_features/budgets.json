@@ -1,0 +1,13 @@
+{
+  "id": "budgets",
+  "title": "Spending budgets for LLM calls",
+  "verb": "enforce",
+  "one_line": "Hard and soft spend limits per app, model or tenant, checked before each call.",
+  "command": "briefcase budget set daily --usd 20",
+  "docs_slug": "enforce/budgets",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Enforced through the openai 3.57.0, anthropic 2.12.0, google-genai 3.6.1 and botocore 1.44.9 clients over fake transports (no real provider call, no real bill). Shared counters exercised against real Redis 7.0.15, PostgreSQL 16.15 and MySQL 8.0.46 servers on localhost (threads and two processes) and SQLite. Prices are the packaged, unverified table.",
+  "snippet": "import briefcase\nfrom briefcase import budgets\n\nbriefcase.auto()                       # instrument the provider SDKs\nbudgets.enable()                       # ~/.briefcase/budgets.toml, or define them in code:\nbudgets.budget(\"daily\", usd=20, soft_usd=15)\nwith budgets.budget_scope(tenant=\"acme\"):\n    ...  # calls here count against tenant=acme",
+  "status_id": "budgets"
+}

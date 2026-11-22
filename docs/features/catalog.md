@@ -3,7 +3,7 @@
      `briefcase features --markdown > docs/features/catalog.md`. -->
 # Feature catalog
 
-37 features · 5 groups. The same list, with
+39 features · 5 groups. The same list, with
 whether each feature is on for you, is in your terminal: `briefcase features`.
 
 ## Connect (8)
@@ -32,13 +32,15 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Record destinations](../../llms-full.txt) | Send records to the console, a JSON Lines file or memory with one line. | `briefcase exec --to runs.jsonl -- python app.py` | stable |
 | [Zero-code capture for Node (TypeScript)](../../docs/features/typescript-auto.md) | Record every OpenAI, Anthropic, Gemini and Bedrock call in Node apps. | `node --import @briefcase-ai/auto/register app.js` | experimental |
 
-## Enforce (3)
+## Enforce (5)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
 | [Budget and quota gateway](../../llms-full.txt) | Cap spend and request rates per tenant before a model call goes out. | `briefcase features controls-gateway` | experimental |
+| [Content guardrails on LLM calls](../../docs/features/content-guardrails.md) | Redact PII and secrets, flag prompt injection, block bad completions. | `briefcase guard test --text "call +44 20 7946 0958, password=hunter22"` | experimental |
 | [Guardrail checks](../../briefcase/guardrails/__init__.py) | Decide allow or deny for an agent action, and fail closed on errors. | `briefcase features guardrails` | experimental |
 | [Policy for coding tools](../../docs/features/policy-hooks.md) | Allow, ask or deny what Claude Code, Cursor and Codex may run. | `briefcase policy init` | experimental |
+| [Spending budgets for LLM calls](../../docs/features/budgets.md) | Hard and soft spend limits per app, model or tenant, checked before each call. | `briefcase budget set daily --usd 20` | experimental |
 
 ## Verify (9)
 

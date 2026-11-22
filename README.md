@@ -170,6 +170,7 @@ one-click install link for the MCP server. Per-tool details:
 | `mcp` | MCP server (`briefcase-mcp`) exposing the SDK to AI agents |
 | `run` | gRPC client for the `briefcase` evaluation-run CLI (adds `grpcio`, `grpcio-reflection`, `protobuf`) |
 | `receiver` | OTLP/protobuf decoding for `briefcase receive` (adds `opentelemetry-proto`; OTLP/JSON needs no extra) |
+| `budgets-redis` / `budgets-postgres` / `budgets-mysql` | Shared stores for `briefcase.budgets` (each adds its client: `redis`, `psycopg`, `pymysql`) |
 | `dev` | Dev tooling: pytest, mypy, flake8, moto (not part of `all`) |
 | `all` | Installs every optional extra listed above except `kdb` and `dev` |
 
@@ -182,8 +183,8 @@ third-party packages are `otel`, `kafka`, `gcp-logging`, `opa`, `lakefs`,
 `rag-chroma`, `rag-pinecone`, `rag-weaviate`, `vcs-dvc`, `vcs-pachyderm`,
 `vcs-ducklake`, `vcs-iceberg`, `gym`, `evals`, `bitemporal-iceberg`,
 `bitemporal-glue`, `kdb`, `compliance-kms`, `integrity`, `langchain`, `crewai`,
-`llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`, `mcp`, `run`, and
-`receiver`.
+`llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`, `mcp`, `run`,
+`receiver`, `budgets-redis`, `budgets-postgres`, and `budgets-mysql`.
 `all` installs every one of those except `kdb`; `dev` is the test tooling and is
 not part of `all`.
 

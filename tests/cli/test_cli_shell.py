@@ -416,7 +416,7 @@ def test_setup_coding_tools_connects_then_starts_the_receiver(at_terminal, shell
     assert setup_record(shell_home)["persona"] == "coding-tools"
     # The status screen at the end reflects what was just done.
     # (column width depends on the longest row title, which hook rows can extend)
-    assert re.search(r"on {8}Coding tools +Claude Code connected", out)
+    assert re.search(r"\bon +Coding tools +Claude Code connected", out)
 
 
 def test_setup_coding_tools_writes_nothing_when_the_user_says_no(at_terminal, shell_home, fake_tool, monkeypatch,
@@ -494,8 +494,8 @@ def test_setup_team_path_offers_real_steps_when_policy_is_discovered(at_terminal
     assert "briefcase connect --managed --out ./briefcase-rollout" in managed and "Coming" not in managed
     policy = out.split("Decide what coding tools may run", 1)[1].split("Step 4", 1)[0]
     assert "briefcase policy init" in policy and "Coming" not in policy
-    assert out.count("Coming: there is no command for this in the version installed here.") == 1  # budget
-    assert "Today:  briefcase features controls-gateway" in out
+    assert "Coming" not in out                 # everything is discovered, "Cap spend" included
+    assert "briefcase budget set daily --usd 20" in out.split("Cap spend", 1)[1]
     assert setup_record(shell_home)["persona"] == "team"
     assert files_under(shell_home) == [".briefcase/setup.json"]          # declined: nothing written
 
@@ -505,6 +505,7 @@ def test_setup_team_path_marks_missing_commands_as_coming(shell_home, capsys):
     out = capsys.readouterr().out
     assert out.count("Coming: there is no command for this in the version installed here.") == 3
     assert "Today:  briefcase connect --dry-run" in out
+    assert "Today:  briefcase features controls-gateway" in out
     assert files_under(shell_home) == []
 
 
