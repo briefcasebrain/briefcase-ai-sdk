@@ -138,9 +138,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Every supported line: 22 is the floor the package.json files declare in
-        # `engines`, 26 is the Active LTS.
-        node-version: ["22", "24", "26"]
+        # The floor the package.json files declare in `engines` (Node 26, Active LTS).
+        # Node 27 is not released yet; add the next even line here when it ships.
+        node-version: ["26"]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
