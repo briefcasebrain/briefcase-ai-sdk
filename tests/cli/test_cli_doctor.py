@@ -82,3 +82,15 @@ def test_summarize_severity_ordering():
     assert summarize([(OK, "a", ""), (WARN, "b", "")]) == 0
     assert summarize([(WARN, "b", "")], strict=True) == 1
     assert summarize([(OK, "a", ""), (FAIL, "c", "")]) == 1
+
+
+def test_secured_server_is_reported_as_auth_not_unreachable():
+    """A server with OCI_JJ_AUTH_TOKENS rejects reflection with UNAUTHENTICATED: doctor must say a
+    token is needed, not that the stack is down."""
+    def probe(server):
+        raise RuntimeError("status = StatusCode.UNAUTHENTICATED details = missing or invalid bearer token")
+
+    results = Doctor(runner=QueuedRunner(), compat=COMPAT, probe=probe).checks()
+    server = [(sev, detail) for sev, lab, detail in results if lab == "server"]
+    assert server[0][0] == FAIL
+    assert "OCI_JJ_AUTH_TOKEN" in server[0][1]

@@ -89,3 +89,54 @@ def test_resolution_is_cached_per_endpoint(reflection_server):
     # a second transport to the same endpoint reuses the process-wide cache
     t2 = ReflectionTransport(reflection_server, timeout=5.0)
     assert t2._get_resolved() is first
+
+
+class _RequireBearer(grpc.ServerInterceptor):
+    """Rejects every RPC (reflection included) without `authorization: Bearer sek`, like
+    oci-jj-server with OCI_JJ_AUTH_TOKENS set (rust/crates/oci-jj-server/src/auth.rs)."""
+
+    def intercept_service(self, continuation, details):
+        if ("authorization", "Bearer sek") in tuple(details.invocation_metadata or ()):
+            return continuation(details)
+
+        def deny(request_or_iterator, context):
+            context.abort(grpc.StatusCode.UNAUTHENTICATED, "missing or invalid bearer token")
+
+        handler = continuation(details)
+        if handler is not None and handler.request_streaming and handler.response_streaming:
+            return grpc.stream_stream_rpc_method_handler(deny)
+        return grpc.unary_unary_rpc_method_handler(deny)
+
+
+@pytest.fixture
+def secured_server():
+    pool = descriptor_pool.DescriptorPool()
+    pool.Add(_file_descriptor())
+    PingRequest = message_factory.GetMessageClass(pool.FindMessageTypeByName("bench.v1.PingRequest"))
+    PingReply = message_factory.GetMessageClass(pool.FindMessageTypeByName("bench.v1.PingReply"))
+    handler = grpc.method_handlers_generic_handler(SERVICE, {"Ping": grpc.unary_unary_rpc_method_handler(
+        lambda req, ctx: PingReply(echoed=req.text),
+        request_deserializer=PingRequest.FromString, response_serializer=PingReply.SerializeToString)})
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=2), interceptors=(_RequireBearer(),))
+    server.add_generic_rpc_handlers((handler,))
+    reflection.enable_server_reflection((SERVICE,), server, pool=pool)
+    port = server.add_insecure_port("127.0.0.1:0")
+    server.start()
+    try:
+        yield f"127.0.0.1:{port}"
+    finally:
+        server.stop(0)
+        ReflectionTransport._CACHE.clear()
+
+
+def test_bearer_token_reaches_reflection_and_calls(secured_server):
+    t = ReflectionTransport(secured_server, timeout=5.0, env={"OCI_JJ_AUTH_TOKEN": "sek"})
+    assert SERVICE in t.list_services()
+    assert t.unary(SERVICE, "Ping", {"text": "hi"}).get("echoed") == "hi"
+
+
+def test_missing_token_names_the_setting(secured_server):
+    from briefcase.cli.grpc_engine import TransportUnavailable
+
+    with pytest.raises(TransportUnavailable, match="OCI_JJ_AUTH_TOKEN"):
+        ReflectionTransport(secured_server, timeout=5.0, env={}).list_services()

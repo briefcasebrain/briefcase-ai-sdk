@@ -40,6 +40,17 @@ def _inject_env(store, secret_items, env_items) -> dict:
     return env
 
 
+def _response_field(result, name):
+    """A field of a gRPC ``ResponseView``; ``None`` for a subprocess result (no ``.get``)."""
+    get = getattr(result, "get", None)
+    if get is None:
+        return None
+    try:
+        return get(name, None)
+    except Exception:
+        return None
+
+
 def _rc_of(result) -> int:
     """A subprocess result carries ``.returncode``; a gRPC ``ResponseView`` (a returned response)
     means success. gRPC failures raise ``RpcError`` rather than returning a code."""
@@ -57,7 +68,7 @@ def _maybe_print_rendered(result) -> None:
     if reason:
         print(reason)
     rendered = get("rendered", "")
-    if rendered:
+    if rendered and rendered != reason:  # oci-jj repeats the reason as the body when unavailable
         print(rendered)
 
 
@@ -155,8 +166,14 @@ def cmd_run_submit(args, store, engine, stack=None) -> int:
     if rc != 0:
         _maybe_print_rendered(result)  # surface the gRPC/engine error detail (e.g. "unknown ref ...")
     run["status"] = "submitted" if rc == 0 else "error"
+    # The gRPC response carries the server's verdict_queue job id (AttachBench/RunHunt.job_id); keep
+    # it so the run can be correlated with the queue (`oci-bai op log`, dead letters).
+    job_id = _response_field(result, "job_id") if rc == 0 else None
+    if job_id:
+        run["job_id"] = int(job_id)
     store.record_run(run)
-    print(f"submitted run {args.name} (mode={mode}) -> rc={rc}")
+    suffix = f", server job {int(job_id)}" if job_id else ""
+    print(f"submitted run {args.name} (mode={mode}) -> rc={rc}{suffix}")
     return 0 if rc == 0 else 1
 
 
@@ -174,7 +191,8 @@ def cmd_run_inspect(args, store, engine, stack=None) -> int:
     if run is None:
         print(f"unknown run {args.id!r}", file=sys.stderr)
         return 2
-    for key in ("name", "mode", "status", "repository", "checkpoint", "dataset", "dataset_uri", "metric"):
+    for key in ("name", "mode", "status", "repository", "checkpoint", "dataset", "dataset_uri", "metric",
+                "job_id"):
         print(f"{key}: {run.get(key, '')}")
     # Deeper provenance comes from the engine (best-effort; needs a live stack).
     result = engine.exec(engine.call_provenance(run["repository"]))
@@ -202,6 +220,12 @@ def cmd_run_results(args, store, engine, stack=None) -> int:
     run = store.get_run(args.id)
     if run is None:
         print(f"unknown run {args.id!r}", file=sys.stderr)
+        return 2
+    if not run.get("checkpoint"):
+        # The bench diff needs an explicit baseline ref; a None here used to reach the request
+        # builder and crash with a TypeError.
+        print(f"run {args.id!r} has no --checkpoint, so there is no baseline to diff its bench "
+              "results against; resubmit with --checkpoint <baseline-ref>", file=sys.stderr)
         return 2
     result = engine.exec(engine.call_diff_bench(run["checkpoint"], run["repository"]))
     _maybe_print_rendered(result)

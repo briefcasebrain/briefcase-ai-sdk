@@ -10,15 +10,28 @@ Argv construction is **pure** (the ``argv_*`` methods) and separated from the si
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from collections.abc import Sequence
 
 from briefcase.cli.calls import ArgvCall
 
 
+# oci-jj's CLI crate builds a binary named ``oci-bai`` (rust/crates/oci-jj-cli/Cargo.toml); older
+# builds and docs call it ``oci-jj``. Prefer whichever is on PATH, newest name first.
+BINARY_NAMES = ("oci-bai", "oci-jj")
+
+
+def default_binary(which=shutil.which) -> str:
+    for name in BINARY_NAMES:
+        if which(name):
+            return name
+    return BINARY_NAMES[0]
+
+
 class OciJJEngine:
     def __init__(self, binary=None, server=None, repo=None, runner=None) -> None:
-        self.binary = binary or os.environ.get("BRIEFCASE_OCIJJ_BIN", "oci-jj")
+        self.binary = binary or os.environ.get("BRIEFCASE_OCIJJ_BIN") or default_binary()
         self.server = server or os.environ.get("OCI_JJ_SERVER", "http://127.0.0.1:50051")
         self.repo = repo or os.environ.get("OCI_JJ_REPO", "rl-gym-env")
         self.runner = runner or subprocess.run
