@@ -26,6 +26,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+from briefcase.integrity.canonical import HASH_SCHEME_V1
 from briefcase.integrity.chain import (
     GENESIS_PRIOR_HASH,
     ChainConflictError,
@@ -95,6 +96,9 @@ def _opener(path: str, flags: int) -> int:
 
 def _entry_to_dict(entry: HashChainEntry) -> Dict[str, object]:
     d = asdict(entry)
+    if entry.hash_scheme == HASH_SCHEME_V1:
+        # Keep json-sorted-1 lines byte-identical to earlier releases.
+        del d["hash_scheme"]
     d["observed_at"] = entry.observed_at.isoformat()
     d["recorded_at"] = entry.recorded_at.isoformat()
     return d
@@ -112,6 +116,9 @@ def _entry_from_dict(d: Dict[str, object]) -> HashChainEntry:
         prior_hash=str(d["prior_hash"]),
         hash=str(d["hash"]),
         signature=None if d.get("signature") is None else str(d["signature"]),
+        # Lines written before hash schemes existed carry no field: they
+        # are json-sorted-1, the only scheme there was.
+        hash_scheme=str(d.get("hash_scheme") or HASH_SCHEME_V1),
     )
 
 

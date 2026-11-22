@@ -1,0 +1,11 @@
+{
+  "id": "audit-bundle",
+  "title": "Audit bundles and briefcase verify",
+  "verb": "verify",
+  "one_line": "Hand an auditor one file that proves which decisions were recorded, unaltered.",
+  "command": "briefcase bundle create --from evidence.db --out evidence-bundle.zip",
+  "docs_slug": "verify/audit-bundle",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "End to end in a temp HOME: keygen, capture via briefcase.observe('chain:...'), verify, bundle create/verify, and tampering with the store and the bundle (output in docs/features/audit-bundle.md). Commands were run through each module's register() because CLI auto-discovery is built by another work package. Bundle verification also tested with neither PyNaCl nor the compiled core (pure-Python RFC 8032 fallback). No external auditor tooling was used."
+}

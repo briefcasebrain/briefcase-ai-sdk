@@ -25,7 +25,7 @@ const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 /// go through [`format_created_at`].
 const CREATED_AT_FORMAT: &str = "%Y-%m-%d %H:%M:%S%.3f";
 
-fn format_created_at(timestamp: &chrono::DateTime<chrono::Utc>) -> String {
+pub(crate) fn format_created_at(timestamp: &chrono::DateTime<chrono::Utc>) -> String {
     timestamp.format(CREATED_AT_FORMAT).to_string()
 }
 
@@ -40,12 +40,61 @@ const MIGRATIONS: &[&str] = &[
        SET created_at = strftime('%Y-%m-%d %H:%M:%f', created_at)
        WHERE created_at LIKE '%T%'
          AND strftime('%Y-%m-%d %H:%M:%f', created_at) IS NOT NULL"#,
+    // v2: tables for the opt-in hash-chained mode (`chain` feature). Empty
+    // and unused unless a handle opts in, so plain databases behave exactly
+    // as before. The triggers stop ordinary UPDATE/DELETE statements; they
+    // are a guard against accidents, not against someone who can drop them
+    // (that is what `verify` is for).
+    r#"CREATE TABLE IF NOT EXISTS chain_entries (
+           seq INTEGER PRIMARY KEY,
+           record_id TEXT NOT NULL UNIQUE,
+           kind TEXT NOT NULL,
+           hash_scheme TEXT NOT NULL,
+           record_json TEXT NOT NULL,
+           record_hash TEXT NOT NULL,
+           prev_hash TEXT NOT NULL UNIQUE,
+           entry_hash TEXT NOT NULL,
+           recorded_at TEXT NOT NULL
+       );
+       CREATE TABLE IF NOT EXISTS chain_checkpoints (
+           checkpoint_no INTEGER PRIMARY KEY,
+           from_seq INTEGER NOT NULL,
+           seq INTEGER NOT NULL,
+           head_hash TEXT NOT NULL,
+           merkle_root TEXT NOT NULL,
+           prev_checkpoint_hash TEXT NOT NULL,
+           created_at TEXT NOT NULL,
+           hash_scheme TEXT NOT NULL,
+           key_id TEXT,
+           public_key TEXT,
+           signature TEXT,
+           checkpoint_hash TEXT NOT NULL
+       );
+       CREATE TABLE IF NOT EXISTS chain_meta (
+           key TEXT PRIMARY KEY,
+           value TEXT NOT NULL
+       );
+       CREATE TRIGGER IF NOT EXISTS chain_entries_no_update
+           BEFORE UPDATE ON chain_entries
+           BEGIN SELECT RAISE(ABORT, 'chain_entries is append-only'); END;
+       CREATE TRIGGER IF NOT EXISTS chain_entries_no_delete
+           BEFORE DELETE ON chain_entries
+           BEGIN SELECT RAISE(ABORT, 'chain_entries is append-only'); END;
+       CREATE TRIGGER IF NOT EXISTS chain_checkpoints_no_update
+           BEFORE UPDATE ON chain_checkpoints
+           BEGIN SELECT RAISE(ABORT, 'chain_checkpoints is append-only'); END;
+       CREATE TRIGGER IF NOT EXISTS chain_checkpoints_no_delete
+           BEFORE DELETE ON chain_checkpoints
+           BEGIN SELECT RAISE(ABORT, 'chain_checkpoints is append-only'); END;"#,
 ];
 
 pub struct SqliteBackend {
     pub conn: Arc<Mutex<Connection>>,
     /// See [`SqliteBackend::with_append_only`].
-    append_only: bool,
+    pub(crate) append_only: bool,
+    /// Set by [`SqliteBackend::with_chain`].
+    #[cfg(feature = "chain")]
+    pub(crate) chain: Option<Arc<super::chain::ChainConfig>>,
 }
 
 /// The two write statements. `INSERT OR REPLACE` is the default and lets a
@@ -57,7 +106,7 @@ const UPSERT_SQL: &str = r#"
                 id, snapshot_type, data_json, created_at, created_by, checksum
             ) VALUES (?, ?, ?, ?, ?, ?)
             "#;
-const INSERT_ONLY_SQL: &str = r#"
+pub(crate) const INSERT_ONLY_SQL: &str = r#"
             INSERT INTO snapshots (
                 id, snapshot_type, data_json, created_at, created_by, checksum
             ) VALUES (?, ?, ?, ?, ?, ?)
@@ -65,7 +114,7 @@ const INSERT_ONLY_SQL: &str = r#"
 
 /// Map a failed write. A primary-key conflict can only happen under the plain
 /// `INSERT` of append-only mode, and it means the id is already stored.
-fn insert_error(id: &str, e: rusqlite::Error) -> StorageError {
+pub(crate) fn insert_error(id: &str, e: rusqlite::Error) -> StorageError {
     if let rusqlite::Error::SqliteFailure(ref code, _) = e {
         if code.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_PRIMARYKEY {
             return StorageError::AlreadyExists(format!(
@@ -95,6 +144,8 @@ impl SqliteBackend {
         let backend = Self {
             conn: Arc::new(Mutex::new(conn)),
             append_only: false,
+            #[cfg(feature = "chain")]
+            chain: None,
         };
 
         // Run migrations
@@ -158,6 +209,8 @@ impl SqliteBackend {
         let backend = Self {
             conn: Arc::new(Mutex::new(conn)),
             append_only: false,
+            #[cfg(feature = "chain")]
+            chain: None,
         };
 
         // Run migrations
@@ -284,6 +337,12 @@ impl SqliteBackend {
     }
 
     pub fn save_internal(&self, snapshot: &Snapshot) -> Result<String, StorageError> {
+        #[cfg(feature = "chain")]
+        if self.chain.is_some() {
+            return self
+                .save_snapshots_chained(std::slice::from_ref(snapshot))
+                .map(|mut ids| ids.remove(0));
+        }
         let conn_guard = self.lock_conn();
         let snapshot_id = snapshot.metadata.snapshot_id.to_string();
 
@@ -327,6 +386,18 @@ impl SqliteBackend {
         &self,
         decisions: &[DecisionSnapshot],
     ) -> Result<Vec<String>, StorageError> {
+        #[cfg(feature = "chain")]
+        if self.chain.is_some() {
+            let snapshots: Vec<Snapshot> = decisions
+                .iter()
+                .map(|decision| Snapshot {
+                    metadata: decision.metadata.clone(),
+                    decisions: vec![decision.clone()],
+                    snapshot_type: SnapshotType::Decision,
+                })
+                .collect();
+            return self.save_snapshots_chained(&snapshots);
+        }
         let write_sql = self.write_sql();
         let mut conn_guard = self.lock_conn();
         let tx = conn_guard
@@ -691,6 +762,8 @@ impl Clone for SqliteBackend {
         Self {
             conn: Arc::clone(&self.conn),
             append_only: self.append_only,
+            #[cfg(feature = "chain")]
+            chain: self.chain.clone(),
         }
     }
 }

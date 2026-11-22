@@ -15,7 +15,10 @@ documentation = "https://docs.rs/briefcase-core"
 
 [dependencies]
 serde.workspace = true
-serde_json.workspace = true
+# `float_roundtrip`: parse every float to the exact double it denotes. The
+# default parser can be one ULP off, which breaks re-verifying RFC 8785
+# canonical text (a hash over a float must survive a write/read cycle).
+serde_json = { workspace = true, features = ["float_roundtrip"] }
 uuid.workspace = true
 chrono.workspace = true
 tokio = { workspace = true, optional = true }
@@ -34,6 +37,9 @@ futures = { workspace = true, optional = true }
 strsim = { version = "0.11", optional = true }
 rayon = { version = "1.10", optional = true }
 opentelemetry = { version = "0.24", optional = true, default-features = false, features = ["trace"] }
+# Ed25519 for signed chain checkpoints. Already in the lock file through
+# rustls, so the `chain` feature adds no new crate to the graph.
+ring = { version = "0.17", optional = true }
 
 [features]
 default = ["recording", "async", "storage"]
@@ -43,6 +49,8 @@ drift = ["dep:rayon", "dep:strsim"]
 sanitize = ["dep:regex"]
 storage = ["sqlite-storage"]
 sqlite-storage = ["dep:rusqlite"]
+# Tamper-evident, hash-chained SQLite store with signed Merkle checkpoints.
+chain = ["sqlite-storage", "dep:ring"]
 vcs-storage = ["async"]
 otel = ["dep:opentelemetry", "async", "networking"]
 tokens = ["dep:tiktoken-rs"]

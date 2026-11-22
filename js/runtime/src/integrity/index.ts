@@ -30,7 +30,23 @@
  * - Python naive datetimes, non-UTC offsets, and every other type the
  *   Python side stringifies through `fallback=str`.
  *
- * Neither side is RFC 8785 (JCS). This module throws a `TypeError` rather
+ * That profile (hash scheme "json-sorted-1") is not RFC 8785 (JCS).
+ * `canonicalJsonV2` (hash scheme "jcs-1") is: object members sorted by UTF-16
+ * code units, numbers formatted by ECMAScript `Number::toString`, ECMAScript
+ * string escaping, UTF-8 bytes. It agrees byte for byte with Python's
+ * `canonical_json_v2` and Rust's `canonical_json_v2`, floats included, on
+ * every value all three accept; `tests/vectors/canonical_json_v2.json` holds
+ * the golden vectors. Integers in "jcs-1": a `bigint` is accepted only when a
+ * double holds it exactly (then it is serialized as that double); any other
+ * `bigint` throws a `RangeError` rather than being rounded. Python and Rust
+ * apply the same value-based rule to their integer types. Encode large
+ * identifiers and exact decimals as strings.
+ *
+ * Every hash-carrying structure records the scheme that produced it
+ * (`hashScheme`, default "json-sorted-1" for compatibility) and verifiers
+ * dispatch on it.
+ *
+ * This module throws a `TypeError` rather
  * than hash a value it cannot represent: `undefined`, functions, symbols,
  * non-finite numbers, strings with lone surrogates, and every non-plain
  * object (`Date`, `Map`, `Set`, typed arrays, `RegExp`, ...), which would
@@ -48,6 +64,10 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { readonly [key: string]: 
 export type MaybePromise<T> = T | Promise<T>;
 
 export const HASH_SPEC_VERSION = 1 as const;
+export const HASH_SCHEME_V1 = "json-sorted-1" as const;
+export const HASH_SCHEME_V2 = "jcs-1" as const;
+export type HashScheme = typeof HASH_SCHEME_V1 | typeof HASH_SCHEME_V2;
+export const HASH_SCHEMES: readonly HashScheme[] = [HASH_SCHEME_V1, HASH_SCHEME_V2];
 export const GENESIS_PRIOR_HASH = "00".repeat(32);
 
 export interface CanonicalJsonOptions {
@@ -128,6 +148,66 @@ export function canonicalJson(value: unknown, options: CanonicalJsonOptions = {}
   return Buffer.from(encodeJson(value, options, new Set()), "utf8");
 }
 
+// RFC 8785 section 3.2.3: plain UTF-16 code-unit comparison.
+const compareCodeUnits = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
+function encodeJcsNumber(value: number): string {
+  if (!Number.isFinite(value)) throw new TypeError("jcs-1 numbers must be finite (NaN and Infinity are not JSON)");
+  // JSON.stringify(number) is ECMAScript Number::toString for finite values,
+  // which is exactly RFC 8785 section 3.2.2.3 (it already renders -0 as "0").
+  return JSON.stringify(value);
+}
+
+function encodeJcs(value: unknown, options: CanonicalJsonOptions, seen: Set<object>): string {
+  if (value === null) return "null";
+  if (typeof value === "string") return encodeString(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") return encodeJcsNumber(value);
+  if (typeof value === "bigint") {
+    const asDouble = Number(value);
+    if (!Number.isFinite(asDouble) || BigInt(asDouble) !== value) {
+      throw new RangeError(
+        `jcs-1 cannot represent the integer ${value.toString(10)} exactly (RFC 8785 numbers are IEEE-754 doubles); encode it as a string`,
+      );
+    }
+    return encodeJcsNumber(asDouble);
+  }
+  const isArray = Array.isArray(value);
+  if (isArray || (typeof value === "object" && Object.prototype.toString.call(value) === "[object Object]")) {
+    const container = value as object;
+    if (seen.has(container)) throw new TypeError("canonical JSON values must not be circular");
+    seen.add(container);
+    let encoded: string;
+    if (isArray) {
+      const items: string[] = [];
+      for (let index = 0; index < value.length; index += 1) items.push(encodeJcs(value[index], options, seen));
+      encoded = `[${items.join(",")}]`;
+    } else {
+      const object = value as Record<string, unknown>;
+      const entries = Object.keys(object)
+        .sort(compareCodeUnits)
+        .map((key) => `${encodeString(key)}:${encodeJcs(object[key], options, seen)}`);
+      encoded = `{${entries.join(",")}}`;
+    }
+    seen.delete(container);
+    return encoded;
+  }
+  if (options.fallback) return encodeJcs(options.fallback(value), {}, seen);
+  throw new TypeError(`unsupported canonical JSON value: ${describe(value)}`);
+}
+
+/** RFC 8785 (JCS) canonical JSON, hash scheme "jcs-1". */
+export function canonicalJsonV2(value: unknown, options: CanonicalJsonOptions = {}): Uint8Array {
+  return Buffer.from(encodeJcs(value, options, new Set()), "utf8");
+}
+
+/** Encode with the canonical profile a structure's `hash_scheme` names. */
+export function canonicalBytes(value: unknown, scheme: string, options: CanonicalJsonOptions = {}): Uint8Array {
+  if (scheme === HASH_SCHEME_V1) return canonicalJson(value, options);
+  if (scheme === HASH_SCHEME_V2) return canonicalJsonV2(value, options);
+  throw new TypeError(`unknown hash scheme ${JSON.stringify(scheme)} (known: ${HASH_SCHEMES.join(", ")})`);
+}
+
 export function sha256Hex(value: Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -153,8 +233,8 @@ export function pythonStrFallback(value: unknown): string {
   throw new TypeError(`unsupported canonical JSON value: ${describe(value)}`);
 }
 
-export function computePayloadHash(payload: unknown): string {
-  return sha256Hex(canonicalJson(payload, { fallback: pythonStrFallback }));
+export function computePayloadHash(payload: unknown, hashScheme: string = HASH_SCHEME_V1): string {
+  return sha256Hex(canonicalBytes(payload, hashScheme, { fallback: pythonStrFallback }));
 }
 
 function rfc3339Nanos(value: Date): string {
@@ -171,10 +251,13 @@ export interface EntryHashInput {
   payloadHash: string;
   supersedes: string | null;
   priorHash: string;
+  /** Canonical scheme of the entry; omitted means "json-sorted-1". */
+  hashScheme?: string;
 }
 
 function entryInput(input: EntryHashInput): Record<string, unknown> {
-  return {
+  const scheme = input.hashScheme ?? HASH_SCHEME_V1;
+  const entry: Record<string, unknown> = {
     v: HASH_SPEC_VERSION,
     id: input.rowId,
     table: input.table,
@@ -185,10 +268,12 @@ function entryInput(input: EntryHashInput): Record<string, unknown> {
     supersedes: input.supersedes,
     prior_hash: input.priorHash,
   };
+  if (scheme !== HASH_SCHEME_V1) entry.hash_scheme = scheme;
+  return entry;
 }
 
 export function computeEntryHash(input: EntryHashInput): string {
-  return sha256Hex(canonicalJson(entryInput(input)));
+  return sha256Hex(canonicalBytes(entryInput(input), input.hashScheme ?? HASH_SCHEME_V1));
 }
 
 export interface HashChainEntry extends EntryHashInput {
@@ -222,6 +307,12 @@ export interface AppendRowInput {
 export interface HashChainAppenderOptions {
   sleep?: (milliseconds: number) => Promise<void>;
   random?: () => number;
+  /**
+   * Canonical scheme for new entries. Defaults to "json-sorted-1", which every
+   * earlier verifier understands; pass "jcs-1" (RFC 8785) for chains that must
+   * hash floats identically in Python, TypeScript and Rust.
+   */
+  hashScheme?: HashScheme;
 }
 
 const defaultSleep = (milliseconds: number) =>
@@ -230,6 +321,7 @@ const defaultSleep = (milliseconds: number) =>
 export class HashChainAppender {
   private readonly sleep: (milliseconds: number) => Promise<void>;
   private readonly random: () => number;
+  private readonly hashScheme: HashScheme;
 
   constructor(
     private readonly store: HashChainStore,
@@ -237,6 +329,8 @@ export class HashChainAppender {
   ) {
     this.sleep = options.sleep ?? defaultSleep;
     this.random = options.random ?? Math.random;
+    this.hashScheme = options.hashScheme ?? HASH_SCHEME_V1;
+    if (!HASH_SCHEMES.includes(this.hashScheme)) throw new TypeError(`unknown hash scheme ${String(this.hashScheme)}`);
   }
 
   async appendRow(input: AppendRowInput): Promise<HashChainEntry> {
@@ -244,7 +338,7 @@ export class HashChainAppender {
     if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
       throw new RangeError("maxAttempts must be a positive integer");
     }
-    const payloadHash = computePayloadHash(input.payload);
+    const payloadHash = computePayloadHash(input.payload, this.hashScheme);
     let lastConflict: ChainConflictError | undefined;
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       const priorHash = await this.store.lastEntryHash(input.table, input.entityId ?? null);
@@ -259,6 +353,7 @@ export class HashChainAppender {
         priorHash,
         hash: "",
         signature: null,
+        hashScheme: this.hashScheme,
       };
       entry.hash = computeEntryHash(entry);
       try {
@@ -278,7 +373,11 @@ export class HashChainAppender {
 
 export type ChainVerification =
   | { ok: true }
-  | { ok: false; rowId: string; reason: "prior_hash" | "hash" | "payload_missing" | "payload_hash" };
+  | {
+      ok: false;
+      rowId: string;
+      reason: "prior_hash" | "hash" | "payload_missing" | "payload_hash" | "hash_scheme";
+    };
 
 export interface VerifyChainOptions {
   /** Hash the first entry must link to; defaults to the genesis sentinel. */
@@ -308,7 +407,17 @@ export function verifyChainSegment(
     if (entry.priorHash !== expectedPrior) {
       return { ok: false, rowId: entry.rowId, reason: "prior_hash" };
     }
-    if (computeEntryHash(entry) !== entry.hash) {
+    const scheme = entry.hashScheme ?? HASH_SCHEME_V1;
+    if (!(HASH_SCHEMES as readonly string[]).includes(scheme)) {
+      return { ok: false, rowId: entry.rowId, reason: "hash_scheme" };
+    }
+    let entryHash: string;
+    try {
+      entryHash = computeEntryHash(entry);
+    } catch {
+      return { ok: false, rowId: entry.rowId, reason: "hash" };
+    }
+    if (entryHash !== entry.hash) {
       return { ok: false, rowId: entry.rowId, reason: "hash" };
     }
     if (payloads !== undefined) {
@@ -316,7 +425,7 @@ export function verifyChainSegment(
       if (payload === undefined) return { ok: false, rowId: entry.rowId, reason: "payload_missing" };
       let payloadHash: string;
       try {
-        payloadHash = computePayloadHash(payload);
+        payloadHash = computePayloadHash(payload, scheme);
       } catch {
         return { ok: false, rowId: entry.rowId, reason: "payload_hash" };
       }
