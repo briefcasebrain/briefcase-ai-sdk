@@ -467,7 +467,8 @@ def _install(args, upgrading: bool) -> int:
         opts.tls = bool(previous.get("tls"))  # an upgrade keeps what was installed unless told otherwise
     # An upgrade becomes current only once the engine has restarted onto it, and an install next to a release that
     # is running (or may be: docker could not say) leaves that one current: current is what is running.
-    keep_current, running_now, running_ok = False, [], True
+    keep_current, running_ok = False, True
+    running_now: List[str] = []
     uses_compose = any(isinstance(r, dict) and r.get("compose")
                        for r in (_engine.load_state().get("installs") or {}).values())
     if not upgrading and uses_compose:
@@ -540,9 +541,9 @@ def _install(args, upgrading: bool) -> int:
     except RuntimeError as exc:  # --tls without openssl
         return _ux.fail(str(exc), fix="install openssl, or install without --tls")
     if upgrading:
-        code = _restart_and_promote(opts, record, previous, log)
-        if code is not None:
-            return code
+        stop_code = _restart_and_promote(opts, record, previous, log)
+        if stop_code is not None:
+            return stop_code
     elif not running_ok and uses_compose and previous and previous.get("version") != record["version"]:
         return _ux.fail(f"engine {record['version']} was installed, but docker could not say which release is "
                         f"running, so {previous['version']} stays current until you check (`briefcase-ai engine "
