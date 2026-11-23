@@ -178,7 +178,7 @@ one-click install link for the MCP server. Per-tool details:
 | `langchain` / `crewai` / `llamaindex` / `autogen` / `ag2` / `pageindex` / `openai-agents` | Framework auto-instrumentation via `briefcase.auto` (each adds its framework) |
 | `mcp` | MCP server (`briefcase-mcp`) exposing the SDK to AI agents |
 | `run` | gRPC client for the `briefcase` evaluation-run CLI (adds `grpcio`, `grpcio-reflection`, `protobuf`) |
-| `engine` | gRPC client for `briefcase engine`, `graph` and `env` against the licensed Briefcase engine (adds `grpcio`, `protobuf`; the engine itself is installed with `briefcase engine install`) |
+| `engine` | gRPC client for `briefcase engine`, `graph` and `env` against the licensed Briefcase engine (adds `grpcio`, `protobuf`, `cryptography`; the engine itself is installed with `briefcase engine install`) |
 | `receiver` | OTLP/protobuf decoding for `briefcase receive` (adds `opentelemetry-proto`; OTLP/JSON needs no extra) |
 | `budgets-redis` / `budgets-postgres` / `budgets-mysql` | Shared stores for `briefcase.budgets` (each adds its client: `redis`, `psycopg`, `pymysql`) |
 | `dev` | Dev tooling: pytest, mypy, flake8, moto (not part of `all`) |
