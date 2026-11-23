@@ -13,8 +13,8 @@ library.
 ## The one command
 
 ```bash
-briefcase drift baseline save prod --from runs.jsonl --last 500
-briefcase drift check prod --from today.jsonl --fail-on attention
+briefcase-ai drift baseline save prod --from runs.jsonl --last 500
+briefcase-ai drift check prod --from today.jsonl --fail-on attention
 ```
 
 `--from` takes any JSONL file of decision records (`briefcase.observe("runs.jsonl")`). Select
@@ -27,25 +27,25 @@ Captured on 2026-11-21 in a temporary `HOME` (shown as `/tmp/home`) with **synth
 400 classification-style records over five days for the baseline file, and a "today" file of 150
 records generated with slower latency, an 8% error rate, a second model on a third of the calls
 and a new output label. The `ok` run checks the baseline file's own later days (not part of the
-saved baseline). `briefcase drift ...` was invoked through the command module's `register()`
+saved baseline). `briefcase-ai drift ...` was invoked through the command module's `register()`
 (what the CLI's command discovery does). Lines for signals that were `ok` were removed from the
 first check below for length; nothing else was edited.
 
 ```text
-$ briefcase drift baselines
+$ briefcase-ai drift baselines
 No baselines in /tmp/home/.briefcase/baselines.
-Next: briefcase drift baseline save prod --from runs.jsonl
+Next: briefcase-ai drift baseline save prod --from runs.jsonl
 [exit 0]
 
-$ briefcase drift baseline save prod --from prod-week.jsonl --until 2026-11-13T00:00:00Z
+$ briefcase-ai drift baseline save prod --from prod-week.jsonl --until 2026-11-13T00:00:00Z
 Saved baseline 'prod': 256 records, 2026-11-10T00:00:00+00:00 .. 2026-11-12T23:11:00+00:00
   file      /tmp/home/.briefcase/baselines/prod.json
   signals   categories, latency_ms, lexical, output_chars, output_tokens, prompt_tokens, total_tokens
   content   none stored (aggregates and hashes only)
-Next: briefcase drift check prod --from FILE --since 24h
+Next: briefcase-ai drift check prod --from FILE --since 24h
 [exit 0]
 
-$ briefcase drift check prod --from today.jsonl --fail-on attention
+$ briefcase-ai drift check prod --from today.jsonl --fail-on attention
 Drift check: baseline 'prod' (256 records) vs window (150 records): ATTENTION
   ATTENTION  latency_ms.psi             p95 latency rose from 1.46 s to 3.72 s; p50 rose from 1.14 s to 2.78 s (PSI 8.253)
   ATTENTION  latency_ms.ks              p95 latency rose from 1.46 s to 3.72 s; p50 rose from 1.14 s to 2.78 s (KS D 0.993; asymptotic 5% critical value 0.140)
@@ -54,17 +54,17 @@ Drift check: baseline 'prod' (256 records) vs window (150 records): ATTENTION
   ATTENTION  model_mix                  model mix JSD 0.169; new: gpt-4.1-mini (30%)
   ATTENTION  output_categories          label distribution JSD 0.156 over 3 baseline labels; 27% of window outputs are labels never seen in the baseline (chi-square 79.24, df 3, p = 4.46e-17)
   ATTENTION  output_lexical             character 3-gram JSD 0.109 between baseline and window outputs (baseline split-half noise floor 0.007)
-Next: briefcase replay run today.jsonl --sample 20   (re-run a sample to see what changed)
+Next: briefcase-ai replay run today.jsonl --sample 20   (re-run a sample to see what changed)
 [exit 1]
 
-$ briefcase drift check prod --from today-small.jsonl --fail-on attention
+$ briefcase-ai drift check prod --from today-small.jsonl --fail-on attention
 Drift check: baseline 'prod' (256 records) vs window (12 records): not scored
   (14 signal(s) not scored; --all lists them with the reason)
   Nothing was scored: each signal needs at least 30 records on both sides.
-Next: briefcase drift check prod --from today-small.jsonl --since 7d
+Next: briefcase-ai drift check prod --from today-small.jsonl --since 7d
 [exit 0]
 
-$ briefcase drift check prod --from today-small.jsonl --all
+$ briefcase-ai drift check prod --from today-small.jsonl --all
 Drift check: baseline 'prod' (256 records) vs window (12 records): not scored
   not scored latency_ms.psi             not scored: needs at least 30 records on each side, has 256 in the baseline and 12 in the window
   not scored latency_ms.ks              not scored: needs at least 30 records on each side, has 256 in the baseline and 12 in the window
@@ -81,10 +81,10 @@ Drift check: baseline 'prod' (256 records) vs window (12 records): not scored
   not scored output_categories          not scored: needs at least 30 records on each side, has 256 in the baseline and 12 in the window
   not scored output_lexical             not scored: needs at least 30 records on each side, has 256 in the baseline and 12 in the window
   Nothing was scored: each signal needs at least 30 records on both sides.
-Next: briefcase drift check prod --from today-small.jsonl --since 7d
+Next: briefcase-ai drift check prod --from today-small.jsonl --since 7d
 [exit 0]
 
-$ briefcase drift check prod --from prod-week.jsonl --since 2026-11-13T00:00:00Z --fail-on attention
+$ briefcase-ai drift check prod --from prod-week.jsonl --since 2026-11-13T00:00:00Z --fail-on attention
 Drift check: baseline 'prod' (256 records) vs window (144 records): ok
   ok         latency_ms.psi             p95 latency rose from 1.46 s to 1.48 s; p50 rose from 1.14 s to 1.16 s (PSI 0.040)
   ok         latency_ms.ks              p95 latency rose from 1.46 s to 1.48 s; p50 rose from 1.14 s to 1.16 s (KS D 0.067; asymptotic 5% critical value 0.141)
@@ -100,12 +100,12 @@ Drift check: baseline 'prod' (256 records) vs window (144 records): ok
   ok         model_mix                  model mix JSD 0.000
   ok         output_categories          label distribution JSD 0.000 over 3 baseline labels; 0% of window outputs are labels never seen in the baseline (chi-square 0.18, df 2, p = 0.915)
   ok         output_lexical             character 3-gram JSD 0.000 between baseline and window outputs (baseline split-half noise floor 0.007)
-Next: briefcase drift check prod --from FILE --fail-on attention   (add to CI)
+Next: briefcase-ai drift check prod --from FILE --fail-on attention   (add to CI)
 [exit 0]
 
-$ briefcase drift baselines
+$ briefcase-ai drift baselines
   prod                    256 records  2026-11-10T00:00:00+00:00 .. 2026-11-12T23:11:00+00:00  models: gpt-4o-mini
-Next: briefcase drift check prod --from FILE
+Next: briefcase-ai drift check prod --from FILE
 [exit 0]
 ```
 
@@ -114,7 +114,7 @@ Next: briefcase drift check prod --from FILE
 | What | Where | Content? |
 |---|---|---|
 | Baseline profile | `~/.briefcase/baselines/<name>.json` (`$BRIEFCASE_HOME` overrides `~/.briefcase`), mode 0600 | **no** |
-| Last check, for `briefcase status` | `~/.briefcase/drift/last_check.json` | no: state and flagged signal names |
+| Last check, for `briefcase-ai status` | `~/.briefcase/drift/last_check.json` | no: state and flagged signal names |
 
 Nothing is sent anywhere. A profile holds only aggregates and hashes, so it is safe to commit or
 share: record counts; a 101-point quantile table, mean, p50, p95 and ten-bin proportions for
@@ -210,7 +210,7 @@ Nothing else is changed.
 | "not scored: needs at least 30 records on each side" | Widen the window (`--since 7d`) or the baseline; lowering `--threshold min_n=` trades away reliability. |
 | Everything is `unavailable` for output signals | Records were captured without content; latency, tokens and rates still work. |
 | CI job never fails | Add `--fail-on attention`; the default only reports. |
-| "no baseline named ..." | `briefcase drift baselines` lists saved names; save one with `drift baseline save`. |
+| "no baseline named ..." | `briefcase-ai drift baselines` lists saved names; save one with `drift baseline save`. |
 | "no records matched the selection" | Check `--where` keys (dotted, glob values) and the `--since`/`--until` times (UTC). |
 | A known-good window shows `attention` | Read the signal's reading and sample sizes; raise that threshold with `--threshold`, or re-save the baseline if "normal" has changed. |
 | `output_embedding` is `unavailable` | The baseline has a centroid; pass the same `--embed` to `check`. |

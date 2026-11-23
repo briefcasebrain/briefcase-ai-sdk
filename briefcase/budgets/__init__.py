@@ -137,7 +137,7 @@ def enable(path: Optional[Union[str, Path]] = None, *, store: Union[str, Any, No
     engine = configure(config.budgets_from(data), store=chosen, **settings)
     if not engine.budgets:
         logger.warning("briefcase budgets: %s defines no budget; nothing is limited. "
-                       "Add one: briefcase budget set NAME --usd 10",
+                       "Add one: briefcase-ai budget set NAME --usd 10",
                        path or config.default_path())
     return engine
 

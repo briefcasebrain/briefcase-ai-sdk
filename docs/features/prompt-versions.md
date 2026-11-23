@@ -1,6 +1,6 @@
 # Prompt versions on every record
 
-Verb: **Review** · Status: experimental · API: `briefcase.prompts.prompt` · Command: `briefcase prompt`
+Verb: **Review** · Status: experimental · API: `briefcase.prompts.prompt` · Command: `briefcase-ai prompt`
 
 ## What it is for
 
@@ -11,7 +11,7 @@ record says which prompt produced it. Combined with evaluation datasets, one tab
 ## The one command
 
 ```bash
-briefcase prompt list
+briefcase-ai prompt list
 ```
 
 Prompts are registered in code; the version is the first 12 hex characters of the
@@ -44,23 +44,23 @@ is shown as `/tmp/demo`). A captured record:
 ```
 
 ```text
-$ briefcase prompt list
+$ briefcase-ai prompt list
   name    versions  latest        first seen
   triage  2         f64e29b2acce  2026-11-22T04:47:04
-Next: briefcase prompt show triage
+Next: briefcase-ai prompt show triage
 [exit 0]
 
-$ briefcase prompt show triage@1aa8
+$ briefcase-ai prompt show triage@1aa8
 triage@1aa8e1bfefb4  first seen 2026-11-22T04:47:04+00:00  63 chars
 placeholders: text
 ---
 Classify the ticket as bug, question or billing.
 Ticket: {text}
 ---
-Next: briefcase dataset from-records runs.jsonl --name triage --where prompt_name=triage
+Next: briefcase-ai dataset from-records runs.jsonl --name triage --where prompt_name=triage
 [exit 0]
 
-$ briefcase prompt diff triage@1aa8e1bfefb4 triage@f64e29b2acce
+$ briefcase-ai prompt diff triage@1aa8e1bfefb4 triage@f64e29b2acce
 --- triage@1aa8e1bfefb4
 +++ triage@f64e29b2acce
 @@ -1,2 +1,3 @@
@@ -68,17 +68,17 @@ $ briefcase prompt diff triage@1aa8e1bfefb4 triage@f64e29b2acce
 +Classify the support ticket as exactly one of: bug, question, billing.
 +Money or charges -> billing.
  Ticket: {text}
-Next: briefcase eval run --dataset triage --target <old> --target <new>  (compare both versions)
+Next: briefcase-ai eval run --dataset triage --target <old> --target <new>  (compare both versions)
 [exit 0]
 
-$ briefcase dataset from-records runs.jsonl --name triage-v1-prompt --where prompt_name=triage,prompt_version=1aa8e1bfefb4
+$ briefcase-ai dataset from-records runs.jsonl --name triage-v1-prompt --where prompt_name=triage,prompt_version=1aa8e1bfefb4
 Created triage-v1-prompt@v1: 8 cases, hash 56bb8587e84e
   source     runs.jsonl  sha256 27205a1945c2  (11 records)
   filters    prompt_name=triage, prompt_version=1aa8e1bfefb4
   reference  recorded output
   sanitized  yes (briefcase.sanitize, native extension)
   3 of 11 records skipped: did not match --where
-Next: briefcase eval run --dataset triage-v1-prompt@v1 --target module:function
+Next: briefcase-ai eval run --dataset triage-v1-prompt@v1 --target module:function
 [exit 0]
 ```
 
@@ -86,7 +86,7 @@ Next: briefcase eval run --dataset triage-v1-prompt@v1 --target module:function
 the prompt version each call actually used.
 
 ```text
-$ briefcase eval run --dataset triage --target triage_app:triage_v1 --target triage_app:triage_v2
+$ briefcase-ai eval run --dataset triage --target triage_app:triage_v1 --target triage_app:triage_v2
 eval triage@v2 (41b577a112a6): 7 cases, scorer exact
   target                prompt               cases  passed  pass rate  mean score  errors  gate  result
   triage_app:triage_v1  triage@1aa8e1bfefb4  7      4       57.1%      0.57        0       -     -
@@ -104,7 +104,7 @@ In CI, gate the new prompt and fail if it regresses against the old one (the old
 worse, so `--fail-under` is not applied to it):
 
 ```bash
-briefcase eval run --dataset triage --target app:triage_v1 --target app:triage_v2 \
+briefcase-ai eval run --dataset triage --target app:triage_v1 --target app:triage_v2 \
   --no-regression app:triage_v1 --fail-under 0.9 --gate app:triage_v2
 ```
 
@@ -113,7 +113,7 @@ briefcase eval run --dataset triage --target app:triage_v1 --target app:triage_v
 | What | Where |
 |---|---|
 | `prompt_name`, `prompt_version` fields | On each tagged decision record, through your configured exporter (the template text is never put on records) |
-| Each distinct template, once | `~/.briefcase/prompts/<name>/<version>.json` (`$BRIEFCASE_HOME` overrides `~/.briefcase`), mode 0600; local only, read by `briefcase prompt` |
+| Each distinct template, once | `~/.briefcase/prompts/<name>/<version>.json` (`$BRIEFCASE_HOME` overrides `~/.briefcase`), mode 0600; local only, read by `briefcase-ai prompt` |
 | `eval.case` records | carry `prompt_name` / `prompt_version` in `metadata` and a `prompt_version:<v>` tag |
 
 ## Defaults and how to change them
@@ -145,7 +145,7 @@ briefcase eval run --dataset triage --target app:triage_v1 --target app:triage_v
 | Symptom | Do this |
 |---|---|
 | Records have no `prompt_version` | Make sure the prompt is used (`render` or `with`) inside the captured call, in the same thread |
-| `briefcase prompt list` says `no prompts recorded yet` | The code that calls `prompt(...)` has not run on this machine, or `BRIEFCASE_PROMPT_REGISTRY=off` is set |
+| `briefcase-ai prompt list` says `no prompts recorded yet` | The code that calls `prompt(...)` has not run on this machine, or `BRIEFCASE_PROMPT_REGISTRY=off` is set |
 | `(modified on disk)` in `prompt list` | A saved template was edited; delete that file and re-run the code that registers it |
 | `version '…' of NAME is ambiguous` | Give more characters of the version |
 | Eval table shows `-` in the prompt column | The target never rendered or entered a prompt |

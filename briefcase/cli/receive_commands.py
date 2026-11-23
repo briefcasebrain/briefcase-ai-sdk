@@ -1,4 +1,4 @@
-"""``briefcase receive``: run the local OTLP receiver (foreground or detached)."""
+"""``briefcase-ai receive``: run the local OTLP receiver (foreground or detached)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def register(sub) -> None:
     p = sub.add_parser(
         "receive",
         help="Run a local OTLP receiver that turns coding-tool telemetry into decision records.",
-        description="Zero-config OTLP/HTTP receiver for the tools set up by `briefcase connect`.",
+        description="Zero-config OTLP/HTTP receiver for the tools set up by `briefcase-ai connect`.",
     )
     p.add_argument("--port", type=int, default=4318)
     p.add_argument("--host", default="127.0.0.1",
@@ -64,7 +64,7 @@ def start_detached(args, out=print) -> int:
     out(f"receiver started (pid {info['pid']}) on {info['endpoint']}")
     out(f"  records: {args.to}")
     out(f"  log:     {daemon.log_path()}")
-    out("  stop:    briefcase receive --stop")
+    out("  stop:    briefcase-ai receive --stop")
     return 0
 
 
@@ -76,7 +76,7 @@ def cmd_receive(args, store=None, engine=None, stack=None) -> int:
     if args.status:
         state = daemon.status()
         if not state.get("running"):
-            print("receiver: not running (start it with: briefcase receive --detach)")
+            print("receiver: not running (start it with: briefcase-ai receive --detach)")
             return 1
         health = state["health"]
         print(f"receiver: running (pid {state['pid']}) on {state['endpoint']}")

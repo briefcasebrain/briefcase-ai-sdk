@@ -3,7 +3,7 @@
   "title": "Guided setup and status",
   "verb": "connect",
   "one_line": "One command to get started and one screen that shows what is on.",
-  "command": "briefcase setup",
+  "command": "briefcase-ai setup",
   "docs_slug": "connect/cli-shell",
   "status": "experimental",
   "requires_extra": null,

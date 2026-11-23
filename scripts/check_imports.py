@@ -118,7 +118,7 @@ def main() -> int:
                 print(f"  FAIL     {name}: {type(exc).__name__}: {exc}")
                 failures.append(name)
 
-    # Package data for `briefcase stack` / `briefcase doctor` must ship in the wheel (maturin only
+    # Package data for `briefcase-ai stack` / `briefcase-ai doctor` must ship in the wheel (maturin only
     # bundles non-.py files listed in `[tool.maturin] include`). A missing entry silently drops them,
     # so assert they resolve from the installed package.
     for resource in ("docker-compose.yml", "compat.json"):

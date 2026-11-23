@@ -1,10 +1,10 @@
-"""``briefcase policy``: allow, ask or deny what coding tools may run.
+"""``briefcase-ai policy``: allow, ask or deny what coding tools may run.
 
-    briefcase policy init                # write ~/.briefcase/policy.toml and install the hooks
-    briefcase policy check               # validate, list every rule, show what differs from the preset
-    briefcase policy test -- rm -rf /    # dry-run one decision and explain it
-    briefcase policy log                 # recent decisions (works without the receiver)
-    briefcase policy off                 # remove the hooks; the policy file stays
+    briefcase-ai policy init                # write ~/.briefcase/policy.toml and install the hooks
+    briefcase-ai policy check               # validate, list every rule, show what differs from the preset
+    briefcase-ai policy test -- rm -rf /    # dry-run one decision and explain it
+    briefcase-ai policy log                 # recent decisions (works without the receiver)
+    briefcase-ai policy off                 # remove the hooks; the policy file stays
 """
 
 from __future__ import annotations
@@ -49,14 +49,14 @@ def register(sub) -> None:
         help="Allow, ask or deny what Claude Code, Cursor and Codex may run.",
         description="Policy for coding tools: a hook in Claude Code, Cursor and Codex CLI checks each shell "
                     "command,\nfile access, MCP tool and web request against ~/.briefcase/policy.toml before "
-                    "it runs.\n\nExample:\n  briefcase policy init --preset guarded",
+                    "it runs.\n\nExample:\n  briefcase-ai policy init --preset guarded",
         epilog=ENV_HELP, formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     psub = p.add_subparsers(dest="sub")
 
     init = _sub(psub, "init", "Write the policy file and install the enforcement hooks.",
                 "Writes ~/.briefcase/policy.toml, then adds a hook to each coding tool (diff, one confirmation,\n"
-                "undo with `briefcase policy off`).", "briefcase policy init --preset guarded")
+                "undo with `briefcase-ai policy off`).", "briefcase-ai policy init --preset guarded")
     init.add_argument("tools", nargs="*", metavar="TOOL",
                       help="claude-code, cursor, codex. Default: the ones detected on this machine.")
     init.add_argument("--preset", choices=PRESETS, default=None,
@@ -67,7 +67,7 @@ def register(sub) -> None:
     init.add_argument("--fail-closed", action="store_true",
                       help="Block tool calls when the policy or the hook is broken (default: allow and report).")
     init.add_argument("--portable", action="store_true",
-                      help="Install `briefcase hook <tool> --enforce` instead of an absolute path (slower start).")
+                      help="Install `briefcase-ai hook <tool> --enforce` instead of an absolute path (slower start).")
     init.add_argument("--capture-content", action="store_true",
                       help="Also log the command, path or URL of each decision. Default: a keyed hash only.")
     init.add_argument("--endpoint", default=None, help="Receiver URL for decision records (default 127.0.0.1:4318).")
@@ -79,13 +79,13 @@ def register(sub) -> None:
 
     check = _sub(psub, "check", "Validate the policy and list its rules.",
                  "Validates every policy file that applies here and lists the rules in the order they are\n"
-                 "checked. Exit 1 when a file is invalid.", "briefcase policy check")
+                 "checked. Exit 1 when a file is invalid.", "briefcase-ai policy check")
     check.add_argument("--json", action="store_true", help="Machine-readable output.")
     check.set_defaults(func=cmd_check)
 
     test = _sub(psub, "test", "Dry-run one decision and explain which rule matched.",
                 "Shows what the policy would do with a command, a file, an MCP tool or a URL, and why.\n"
-                "Nothing is run.", "briefcase policy test -- git push --force origin main")
+                "Nothing is run.", "briefcase-ai policy test -- git push --force origin main")
     test.add_argument("--file", metavar="PATH", help="A file read (add --write for a write).")
     test.add_argument("--write", action="store_true", help="With --file: test a write instead of a read.")
     test.add_argument("--mcp", metavar="SERVER.TOOL", help="An MCP tool call.")
@@ -101,21 +101,21 @@ def register(sub) -> None:
 
     log = _sub(psub, "log", "Show recent policy decisions.",
                "Reads ~/.briefcase/policy/decisions.jsonl, which the hook appends to on every decision.",
-               "briefcase policy log --effect deny")
+               "briefcase-ai policy log --effect deny")
     log.add_argument("-n", type=int, default=20, dest="count", help="How many (default 20).")
     log.add_argument("--effect", choices=("allow", "ask", "deny"), default=None, help="Only this effect.")
     log.add_argument("--json", action="store_true", help="One JSON object per line.")
     log.set_defaults(func=cmd_log)
 
     off = _sub(psub, "off", "Remove the enforcement hooks; keep the policy file.",
-               "Removes exactly the hook entries `briefcase policy init` added.", "briefcase policy off")
+               "Removes exactly the hook entries `briefcase-ai policy init` added.", "briefcase-ai policy off")
     off.add_argument("tools", nargs="*", metavar="TOOL", help="Only these tools (default: all).")
     off.add_argument("--dry-run", dest="policy_dry_run", action="store_true", help="Show what would be removed.")
     off.add_argument("--yes", "-y", action="store_true", help="Do not ask for confirmation.")
     off.set_defaults(func=cmd_off)
 
     status_p = _sub(psub, "status", "Show whether enforcement is on and healthy.",
-                    "Policy files, installed hooks and recent hook problems.", "briefcase policy status")
+                    "Policy files, installed hooks and recent hook problems.", "briefcase-ai policy status")
     status_p.add_argument("--json", action="store_true", help="Machine-readable output.")
     status_p.set_defaults(func=cmd_status)
     p.set_defaults(func=_usage(p))
@@ -198,7 +198,7 @@ def overview(project_dir: Optional[str] = None) -> Dict[str, Any]:
             problems.append(f"{row['tool']}: the hook command points at a file that no longer exists")
         if loaded.policy is not None and loaded.fail_closed and not row["fail_closed"]:
             problems.append(f"{row['tool']}: the policy says fail_closed but the installed hook does not; "
-                            "run `briefcase policy init` again")
+                            "run `briefcase-ai policy init` again")
     last = _recent_problem()
     settings = dict(loaded.policy.settings) if loaded.policy is not None else None
     return {"files": files, "errors": [list(e) for e in loaded.errors], "hooks": hooks, "problems": problems,
@@ -207,55 +207,55 @@ def overview(project_dir: Optional[str] = None) -> Dict[str, Any]:
 
 
 def status() -> Dict[str, str]:
-    """The row ``briefcase status`` shows for this feature, titled "Policy"."""
+    """The row ``briefcase-ai status`` shows for this feature, titled "Policy"."""
     row = _status_row()
     row["title"] = "Policy"
     return row
 
 
 def _status_row() -> Dict[str, str]:
-    """The row ``briefcase status`` shows for this feature. Read-only and quick: it reads the
+    """The row ``briefcase-ai status`` shows for this feature. Read-only and quick: it reads the
     policy files, the connect journal and the hook's health file. ``state`` is ``on``,
     ``off`` or ``attention`` (installed, but broken or failing open)."""
     try:
         info = overview()
-    except Exception as exc:  # status must never take `briefcase status` down
+    except Exception as exc:  # status must never take `briefcase-ai status` down
         return {"id": FEATURE_ID, "state": "attention", "detail": f"could not read policy state: {exc}",
-                "next": "briefcase policy check"}
+                "next": "briefcase-ai policy check"}
     tools = ", ".join(row["tool"] for row in info["hooks"])
     if not info["hooks"]:
         detail = "policy file present, hooks not installed" if info["files"] else "not set up"
-        return {"id": FEATURE_ID, "state": "off", "detail": detail, "next": "briefcase policy init"}
+        return {"id": FEATURE_ID, "state": "off", "detail": detail, "next": "briefcase-ai policy init"}
     if info["errors"]:
         blocked = "tool calls are BLOCKED" if info["fail_closed"] else "enforcement is OFF (failing open)"
         return {"id": FEATURE_ID, "state": "attention",
-                "detail": f"policy file invalid, {blocked}: {info['errors'][0][2]}", "next": "briefcase policy check"}
+                "detail": f"policy file invalid, {blocked}: {info['errors'][0][2]}", "next": "briefcase-ai policy check"}  # noqa: E501
     if not info["has_policy"]:
         return {"id": FEATURE_ID, "state": "attention", "detail": f"hooks installed for {tools} but there is no "
-                "policy file, so nothing is enforced", "next": "briefcase policy init"}
+                "policy file, so nothing is enforced", "next": "briefcase-ai policy init"}
     if info["problems"]:
-        return {"id": FEATURE_ID, "state": "attention", "detail": info["problems"][0], "next": "briefcase policy init"}
+        return {"id": FEATURE_ID, "state": "attention", "detail": info["problems"][0], "next": "briefcase-ai policy init"}  # noqa: E501
     settings = info["settings"]
     detail = f"{settings['preset']} preset, mode {settings['mode']}, hooks: {tools}"
     if info["last_hook_error"]:
         last = info["last_hook_error"]
         return {"id": FEATURE_ID, "state": "attention",
                 "detail": f"{detail}; last hook problem {_ago(float(last['at']))}: {last.get('message', '')}",
-                "next": "briefcase policy check"}
-    return {"id": FEATURE_ID, "state": "on", "detail": detail, "next": "briefcase policy log"}
+                "next": "briefcase-ai policy check"}
+    return {"id": FEATURE_ID, "state": "on", "detail": detail, "next": "briefcase-ai policy log"}
 
 
 def doctor_checks() -> List[Any]:
-    """``(severity, label, detail)`` rows for ``briefcase doctor --connect``."""
+    """``(severity, label, detail)`` rows for ``briefcase-ai doctor --connect``."""
     info = overview()
     rows: List[Any] = []
     if not info["hooks"] and not info["files"]:
-        return [("ok", "policy", "not set up (briefcase policy init)")]
+        return [("ok", "policy", "not set up (briefcase-ai policy init)")]
     for entry in info["files"]:
         rows.append(("ok" if entry["valid"] else "fail", f"policy {entry['source']}",
-                     _tilde(entry["path"]) + ("" if entry["valid"] else ": invalid, run `briefcase policy check`")))
+                     _tilde(entry["path"]) + ("" if entry["valid"] else ": invalid, run `briefcase-ai policy check`")))
     if not info["hooks"]:
-        rows.append(("warn", "policy hooks", "no hooks installed, so nothing is enforced; run: briefcase policy init"))
+        rows.append(("warn", "policy hooks", "no hooks installed, so nothing is enforced; run: briefcase-ai policy init"))  # noqa: E501
     for row in info["hooks"]:
         bad = [what for ok, what in row["files"] if not ok]
         if bad or not row["launcher_ok"]:
@@ -333,7 +333,7 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
             layer = model.load_layer(str(policy_path), source)
         except model.PolicyError as exc:
             _error(f"{_tilde(policy_path)} is not a valid policy: {exc}\n"
-                   "Fix it (briefcase policy check), or replace it with: briefcase policy init --force")
+                   "Fix it (briefcase-ai policy check), or replace it with: briefcase-ai policy init --force")
             return 1
         kept = layer.settings.get("preset", "guarded") if layer else "guarded"
         out(f"Policy: {_tilde(policy_path)} (kept as it is; preset {kept})")
@@ -368,8 +368,8 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
             out("Detected: " + ", ".join(adapters[name].data["name"] for name in tools))
         else:
             out("No supported coding tool was detected (Claude Code, Cursor, Codex CLI).")
-            out("The policy file is still useful with `briefcase policy test`. To install a hook anyway, "
-                "name the tool: briefcase policy init claude-code")
+            out("The policy file is still useful with `briefcase-ai policy test`. To install a hook anyway, "
+                "name the tool: briefcase-ai policy init claude-code")
     if options.capture_content:
         print("warning: --capture-content writes the command, path or URL of every decision to "
               "~/.briefcase/policy/decisions.jsonl and sends it to the receiver.", file=sys.stderr)
@@ -385,7 +385,7 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
     if write_policy is None and not plan.has_work:
         out("\nNothing to write: the policy file exists and the hooks are already installed."
             if tools else "\nNothing was installed.")
-        out("Next: briefcase policy test -- rm -rf /")
+        out("Next: briefcase-ai policy test -- rm -rf /")
         return 0
     out("")
     question = (f"Write {'the policy file and ' if write_policy else ''}{len(plan.changes)} tool file(s)?"
@@ -407,14 +407,14 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
         out(f"  wrote  {_tilde(policy_path)}")
     failures = connect_engine.apply_plan(plan, ctx, out) if plan.has_work else 0
     if failures:
-        out(f"\n{failures} step(s) failed; the rest were applied. Run `briefcase policy status`.")
+        out(f"\n{failures} step(s) failed; the rest were applied. Run `briefcase-ai policy status`.")
         return 1
-    out("\nUndo the hooks any time with: briefcase policy off")
+    out("\nUndo the hooks any time with: briefcase-ai policy off")
     if install.PREFIX + "codex" in tools:
         out("Codex CLI: open /hooks once and trust the new hook; Codex skips it until you do.")
     if install.PREFIX + "cursor" in tools:
         out("Cursor reloads hooks.json on save; restart it if the hook does not show under Customize > Hooks.")
-    out("Next: briefcase policy test -- rm -rf /")
+    out("Next: briefcase-ai policy test -- rm -rf /")
     return 0
 
 
@@ -436,7 +436,7 @@ def cmd_off(args, store=None, engine=None, stack=None) -> int:
     present = [row["tool"] for row in install.installed() if install.PREFIX + row["tool"] in owners]
     if not present:
         print("No policy hooks are installed" + (" for those tools." if named else "."))
-        print("Next: briefcase policy init")
+        print("Next: briefcase-ai policy init")
         return 0
     if not dry:
         answer = _confirm(f"Remove the policy hooks for {', '.join(present)}?", bool(args.yes))
@@ -450,7 +450,7 @@ def cmd_off(args, store=None, engine=None, stack=None) -> int:
     connect_engine.undo(owners, print, dry_run=dry)
     if not dry:
         print(f"Enforcement is off. The policy file is kept: {_tilde(model.user_policy_path())}")
-        print("Next: briefcase policy init   (to turn it back on)")
+        print("Next: briefcase-ai policy init   (to turn it back on)")
     return 0
 
 
@@ -509,14 +509,14 @@ def cmd_check(args, store=None, engine=None, stack=None) -> int:
         print(f"\nerror in {_tilde(path) or source}:\n  {text}")
     if policy is None:
         if not loaded.paths:
-            print("\nThere is no policy file yet.\nNext: briefcase policy init")
+            print("\nThere is no policy file yet.\nNext: briefcase-ai policy init")
             return 1
         closed = "Tool calls are BLOCKED until this is fixed (fail_closed)." if loaded.fail_closed else \
             "Until this is fixed NOTHING is enforced: the hook allows every call (fail open)."
         print(f"\nThe policy cannot be applied. {closed}")
         print("An invalid file is never applied in part.")
-        print("Next: fix the line above, then run `briefcase policy check` again "
-              "(or `briefcase policy init --force` to start over)")
+        print("Next: fix the line above, then run `briefcase-ai policy check` again "
+              "(or `briefcase-ai policy init --force` to start over)")
         return 1
     settings = policy.settings
     print("\nSettings")
@@ -551,14 +551,14 @@ def cmd_check(args, store=None, engine=None, stack=None) -> int:
             print(f"  {note}")
     print("\nHooks")
     if not hooks:
-        print("  none installed, so this policy is not enforced anywhere yet. Run: briefcase policy init")
+        print("  none installed, so this policy is not enforced anywhere yet. Run: briefcase-ai policy init")
     for row in hooks:
         ok = all(flag for flag, _ in row["files"]) and row["launcher_ok"]
         extra = " (fail-closed)" if row["fail_closed"] else ""
         print(f"  {'ok    ' if ok else 'BROKEN'} {row['tool']}{extra}")
         if settings["fail_closed"] and not row["fail_closed"]:
             print("         the policy says fail_closed but this hook was installed without it; "
-                  "run `briefcase policy init` again")
+                  "run `briefcase-ai policy init` again")
     if loaded.errors:
         print("\nResult: INVALID (see the error above). The valid files are still enforced"
               + (", and tool calls are blocked (fail_closed)." if loaded.fail_closed else "."))
@@ -569,7 +569,7 @@ def cmd_check(args, store=None, engine=None, stack=None) -> int:
     except OSError:
         pass
     print("\nResult: OK")
-    print("Next: briefcase policy test -- rm -rf /")
+    print("Next: briefcase-ai policy test -- rm -rf /")
     return 0
 
 
@@ -588,7 +588,7 @@ def _policy_for_test(args, cwd: str):
     if loaded.errors:
         return None, "", loaded.errors
     layer = model.parse_layer('version = 1\npreset = "guarded"\n', "user", "(preset)")
-    return model.merge([layer]), "the guarded preset (you have no policy file yet; run `briefcase policy init`)", []
+    return model.merge([layer]), "the guarded preset (you have no policy file yet; run `briefcase-ai policy init`)", []
 
 
 def cmd_test(args, store=None, engine=None, stack=None) -> int:
@@ -599,11 +599,11 @@ def cmd_test(args, store=None, engine=None, stack=None) -> int:
     given = [bool(args.words), bool(args.file), bool(args.mcp), bool(args.url)]
     if sum(given) != 1:
         _error("give exactly one thing to test: `-- COMMAND`, --file PATH, --mcp SERVER.TOOL or --url URL\n"
-               "example: briefcase policy test -- git push --force origin main")
+               "example: briefcase-ai policy test -- git push --force origin main")
         return 2
     if args.words:
         # One argument is taken as a whole command line; several are re-quoted so
-        # `briefcase policy test -- rm -rf "my dir"` tests what the shell passed in.
+        # `briefcase-ai policy test -- rm -rf "my dir"` tests what the shell passed in.
         import shlex
         command = args.words[0] if len(args.words) == 1 else " ".join(shlex.quote(w) for w in args.words)
         call = policy_engine.ToolCall("shell", command=command, cwd=cwd, project_dir=cwd)
@@ -622,7 +622,7 @@ def cmd_test(args, store=None, engine=None, stack=None) -> int:
     policy, used, errors = _policy_for_test(args, cwd)
     if policy is None:
         _error("the policy cannot be applied: " + "; ".join(f"{_tilde(p)}: {e}" for _, p, e in errors)
-               + "\nFix it with: briefcase policy check")
+               + "\nFix it with: briefcase-ai policy check")
         return 1
     decision = policy_engine.evaluate(policy, call)
     per_tool = {}
@@ -716,7 +716,7 @@ def cmd_log(args, store=None, engine=None, stack=None) -> int:
         return 0
     if not entries:
         print(f"No decisions logged yet ({_tilde(hook.log_path())}).")
-        print("Next: briefcase policy status")
+        print("Next: briefcase-ai policy status")
         return 0
     print(f"{'TIME':<20} {'TOOL':<12} {'KIND':<6} {'EFFECT':<6} {'RULE':<26} WHAT")
     for entry in entries:
@@ -732,5 +732,5 @@ def cmd_log(args, store=None, engine=None, stack=None) -> int:
     if not any(entry.get("target") for entry in entries):
         print("\nWHAT is a keyed hash: commands and paths are not logged unless the hooks were installed "
               "with --capture-content.")
-    print("Next: briefcase policy test -- <command>   (to see why a command gets its result)")
+    print("Next: briefcase-ai policy test -- <command>   (to see why a command gets its result)")
     return 0

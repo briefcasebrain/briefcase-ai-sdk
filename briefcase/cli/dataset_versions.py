@@ -1,13 +1,13 @@
-"""``briefcase dataset`` subcommands for local, versioned evaluation datasets.
+"""``briefcase-ai dataset`` subcommands for local, versioned evaluation datasets.
 
 Not a ``*_commands`` module on purpose: the ``dataset`` command itself is
 owned by the evaluation-job commands (``register`` / ``list``), which call
 :func:`extend_dataset_parser` on their ``dataset`` subparsers to add:
 
-    briefcase dataset from-records runs.jsonl --name triage --where decision_type=triage,status=ok
-    briefcase dataset list | show triage@v2 | diff triage@v1 triage@v2
-    briefcase dataset export triage --format jsonl|inspect|lm-eval
-    briefcase dataset import edited.jsonl --name triage
+    briefcase-ai dataset from-records runs.jsonl --name triage --where decision_type=triage,status=ok
+    briefcase-ai dataset list | show triage@v2 | diff triage@v1 triage@v2
+    briefcase-ai dataset export triage --format jsonl|inspect|lm-eval
+    briefcase-ai dataset import edited.jsonl --name triage
 
 Versions live in ``$BRIEFCASE_HOME/datasets/<name>/v<N>.jsonl`` (default
 ``~/.briefcase``), are written once and never modified.
@@ -68,7 +68,7 @@ def extend_dataset_parser(ds: argparse._SubParsersAction) -> None:
         help="Create a dataset version from a decision-record JSONL file.",
         description="Turn captured decision records into an immutable, versioned evaluation dataset. "
                     "Each record's input becomes a case; its recorded output becomes the reference.",
-        epilog="example:\n  briefcase dataset from-records runs.jsonl --name triage "
+        epilog="example:\n  briefcase-ai dataset from-records runs.jsonl --name triage "
                "--where decision_type=triage,status=ok --sample 50 --seed 1 --dedupe",
     )
     p.add_argument("file", metavar="FILE.jsonl", help="Records written by briefcase.observe(\"runs.jsonl\").")
@@ -101,14 +101,14 @@ def extend_dataset_parser(ds: argparse._SubParsersAction) -> None:
     listp.set_defaults(func=cmd_list)
 
     p = ds.add_parser("show", formatter_class=_RAW, help="Show a dataset version and its first cases.",
-                      epilog="example:\n  briefcase dataset show triage@v2")
+                      epilog="example:\n  briefcase-ai dataset show triage@v2")
     p.add_argument("ref", metavar="NAME[@VERSION]", help="NAME (latest), NAME@v2, or NAME@<hash prefix>.")
     p.add_argument("--cases", type=int, default=5, metavar="N", help="Cases to print (default 5).")
     p.add_argument("--json", action="store_true", help="Machine-readable output (all cases).")
     p.set_defaults(func=cmd_show)
 
     p = ds.add_parser("diff", formatter_class=_RAW, help="Compare two versions of a dataset.",
-                      epilog="example:\n  briefcase dataset diff triage@v1 triage@v2")
+                      epilog="example:\n  briefcase-ai dataset diff triage@v1 triage@v2")
     p.add_argument("a", metavar="NAME@V1")
     p.add_argument("b", metavar="NAME@V2", help="A bare version (v2) means the same dataset as the first.")
     p.add_argument("--json", action="store_true", help="Machine-readable output.")
@@ -119,7 +119,7 @@ def extend_dataset_parser(ds: argparse._SubParsersAction) -> None:
         description="jsonl: briefcase format, hand-editable, re-importable with `dataset import`. "
                     "inspect: inspect-ai Sample JSONL (json_dataset). lm-eval: docs JSONL + task YAML "
                     "(experimental; needs --out).",
-        epilog="example:\n  briefcase dataset export triage --format jsonl --out triage.jsonl",
+        epilog="example:\n  briefcase-ai dataset export triage --format jsonl --out triage.jsonl",
     )
     p.add_argument("ref", metavar="NAME[@VERSION]")
     p.add_argument("--format", choices=EXPORT_FORMATS, default="jsonl")
@@ -132,7 +132,7 @@ def extend_dataset_parser(ds: argparse._SubParsersAction) -> None:
         "import", formatter_class=_RAW, help="Create a version from an edited briefcase JSONL file.",
         description="Reads one case per line: {\"id\": ..., \"input\": ..., \"reference\": ..., "
                     "\"metadata\": {...}}. Only input is required. Errors are reported by line.",
-        epilog="example:\n  briefcase dataset import triage.jsonl --name triage",
+        epilog="example:\n  briefcase-ai dataset import triage.jsonl --name triage",
     )
     p.add_argument("file", metavar="FILE.jsonl")
     p.add_argument("--name", help="Dataset name (default: the name in the file's header line).")
@@ -263,7 +263,7 @@ def cmd_from_records(args, store, engine=None, stack=None) -> int:
     for line in explain:
         print(f"  {line}")
     if version is not None:
-        print(f"Next: briefcase eval run --dataset {version.ref} --target module:function")
+        print(f"Next: briefcase-ai eval run --dataset {version.ref} --target module:function")
     return 0
 
 
@@ -286,7 +286,7 @@ def cmd_list(args, store, engine=None, stack=None) -> int:
         return 0
     if not registered and not local:
         print("no datasets registered")
-        print("Next: briefcase dataset from-records runs.jsonl --name NAME")
+        print("Next: briefcase-ai dataset from-records runs.jsonl --name NAME")
         return 0
     for r in registered:
         print(f"{r['name']}\t{r['uri']}")
@@ -335,7 +335,7 @@ def cmd_show(args, store, engine=None, stack=None) -> int:
             print(f"  {c['id']:<16} {_short(c['input']):<48} {_short(c.get('reference'), 40)}")
         if len(version.cases) > len(shown):
             print(f"  … {len(version.cases) - len(shown)} more (--cases N, or --json)")
-    print(f"Next: briefcase eval run --dataset {version.ref} --target module:function")
+    print(f"Next: briefcase-ai eval run --dataset {version.ref} --target module:function")
     return 0
 
 
@@ -399,7 +399,7 @@ def cmd_export(args, store, engine=None, stack=None) -> int:
     if args.format == "lm-eval":
         if not args.out:
             return _err(f"--format lm-eval writes two files; give the docs path: "
-                        f"briefcase dataset export {args.ref} --format lm-eval --out {version.name}.jsonl")
+                        f"briefcase-ai dataset export {args.ref} --format lm-eval --out {version.name}.jsonl")
         docs_path = Path(args.out)
         docs, task_yaml = export_lm_eval(version, docs_path)
         outputs = [(docs_path, docs), (docs_path.with_suffix(".yaml"), task_yaml)]
@@ -420,7 +420,7 @@ def cmd_export(args, store, engine=None, stack=None) -> int:
     for path, text in outputs:
         _write(path, text)
     if args.format == "jsonl":
-        print(f"Next: edit {args.out}, then: briefcase dataset import {args.out} --name {version.name}")
+        print(f"Next: edit {args.out}, then: briefcase-ai dataset import {args.out} --name {version.name}")
     elif args.format == "inspect":
         print(f"Next: in inspect-ai, Task(dataset=json_dataset({str(args.out)!r}), ...)")
     else:
@@ -459,7 +459,7 @@ def cmd_import(args, store, engine=None, stack=None) -> int:
         return _err(f"{path} has no cases; add lines like {{\"input\": \"...\", \"reference\": \"...\"}}", 1)
     name = args.name or (header or {}).get("name")
     if not name:
-        return _err(f"no dataset name: pass --name, e.g. briefcase dataset import {path} --name NAME")
+        return _err(f"no dataset name: pass --name, e.g. briefcase-ai dataset import {path} --name NAME")
     try:
         core.validate_name(name)
         uri = _registered_conflict(store, name)
@@ -499,9 +499,9 @@ def cmd_import(args, store, engine=None, stack=None) -> int:
     else:
         print(f"Unchanged: same cases as {version.ref}; no new version written.")
     print(f"  sanitized  {_sanitized_line(sanitizer is not None)}")
-    print(f"Next: briefcase dataset diff {version.name}@v{max(1, version.number - 1)} {version.ref}"
+    print(f"Next: briefcase-ai dataset diff {version.name}@v{max(1, version.number - 1)} {version.ref}"
           if created and version.number > 1 else
-          f"Next: briefcase eval run --dataset {version.ref} --target module:function")
+          f"Next: briefcase-ai eval run --dataset {version.ref} --target module:function")
     return 0
 
 
@@ -511,7 +511,7 @@ STATUS_ID = "datasets-from-records"
 
 
 def status() -> dict:
-    """``briefcase status`` row: dataset count and the last eval result
+    """``briefcase-ai status`` row: dataset count and the last eval result
     (exposed through ``eval_commands.status``)."""
     return {**_status_row(), "title": "Datasets"}
 
@@ -528,19 +528,19 @@ def _status_row() -> dict:
     runs = last_history(home)
     if not names:
         return {"id": STATUS_ID, "state": "off", "detail": "no evaluation datasets yet",
-                "next": "briefcase dataset from-records runs.jsonl --name NAME"}
+                "next": "briefcase-ai dataset from-records runs.jsonl --name NAME"}
     detail = f"{len(names)} dataset{'s' if len(names) != 1 else ''} ({', '.join(names[:3])}" + \
         (", …)" if len(names) > 3 else ")")
     if not runs:
         return {"id": STATUS_ID, "state": "on", "detail": detail + "; never evaluated",
-                "next": f"briefcase eval run --dataset {names[0]} --target module:function"}
+                "next": f"briefcase-ai eval run --dataset {names[0]} --target module:function"}
     parts = []
     for r in runs:
         rate = r.get("pass_rate")
         parts.append(f"{r.get('target')} {'n/a' if rate is None else f'{rate * 100:.1f}%'}")
     detail += f"; last eval {runs[-1].get('dataset')} ({str(runs[-1].get('at', ''))[:10]}): {', '.join(parts)}"
     failing = [r for r in runs if r.get("ok") is False]
-    again = f"briefcase eval run --dataset {runs[-1].get('dataset')} " + " ".join(
+    again = f"briefcase-ai eval run --dataset {runs[-1].get('dataset')} " + " ".join(
         f"--target {r.get('target')}" for r in runs)
     if failing:
         gate = failing[0].get("gate") or f"--fail-under {failing[0].get('fail_under')}"

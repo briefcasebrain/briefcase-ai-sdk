@@ -3,7 +3,7 @@
   "title": "Cursor hooks",
   "verb": "connect",
   "one_line": "Record Cursor sessions, prompts and tool calls through its hook system.",
-  "command": "briefcase connect cursor",
+  "command": "briefcase-ai connect cursor",
   "docs_slug": "connect/cursor-hook",
   "status": "experimental",
   "requires_extra": null,

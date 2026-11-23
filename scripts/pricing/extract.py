@@ -38,7 +38,7 @@ NOTICE = (
     "UNVERIFIED. These prices were copied mechanically from the hardcoded table in "
     "crates/briefcase-core/src/cost.rs. Nobody has checked them against provider price pages, "
     "so source_url, effective_from and verified_on are null on every model. Treat them as "
-    "estimates; set a verified price with `briefcase pricing set MODEL ... --source-url URL`."
+    "estimates; set a verified price with `briefcase-ai pricing set MODEL ... --source-url URL`."
 )
 
 EXTRAS_FIELDS = {

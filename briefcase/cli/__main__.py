@@ -1,4 +1,4 @@
-"""``briefcase`` CLI entry point: ``briefcase <command> ...`` (run ``python -m briefcase.cli``).
+"""``briefcase-ai`` CLI entry point: ``briefcase-ai <command> ...`` (run ``python -m briefcase.cli``).
 
 Commands are not listed here. Every ``briefcase/cli/*_commands.py`` module that exposes
 ``register(subparsers)`` is discovered and registered (see ``briefcase/cli/_discovery.py`` for
@@ -7,13 +7,13 @@ that fails to import is skipped; ``--debug`` says which and why.
 
 Three front doors:
 
-- ``briefcase`` with no arguments: the guided setup on a first interactive run, otherwise
+- ``briefcase-ai`` with no arguments: the guided setup on a first interactive run, otherwise
   the status screen plus the grouped command list (exit 0, never a prompt in a script).
-- ``briefcase status``: what is on, what is off, what to do next.
-- ``briefcase features``: the catalog generated from ``briefcase/_features/*.json``.
+- ``briefcase-ai status``: what is on, what is off, what to do next.
+- ``briefcase-ai features``: the catalog generated from ``briefcase/_features/*.json``.
 
-``briefcase --help`` groups commands under Connect, Capture, Enforce, Verify and Review
-(plus "Start here" and "Evaluate"); ``briefcase <command> --help`` is plain argparse.
+``briefcase-ai --help`` groups commands under Connect, Capture, Enforce, Verify and Review
+(plus "Start here" and "Evaluate"); ``briefcase-ai <command> --help`` is plain argparse.
 """
 from __future__ import annotations
 
@@ -29,8 +29,9 @@ from briefcase.cli.engine import OciJJEngine
 from briefcase.cli.state import Store
 
 DESCRIPTION = (
-    "Briefcase: record what AI coding tools and LLM apps do, limit it, and prove the records "
-    "are intact. Run `briefcase` with no arguments for a guided setup."
+    "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models.\n\n"
+    "Record what AI coding tools and LLM apps do, limit it, and prove the records "
+    "are intact. Run `briefcase-ai` with no arguments for a guided setup."
 )
 
 
@@ -54,7 +55,7 @@ class _GroupedParser(argparse.ArgumentParser):
             return {}
 
     def format_commands(self) -> str:
-        """The grouped command listing (also printed by a bare ``briefcase``)."""
+        """The grouped command listing (also printed by a bare ``briefcase-ai``)."""
         helps = self._command_help()
         by_group: dict = {}
         for entry in sorted(self.modules, key=lambda module: module.order):
@@ -76,7 +77,7 @@ class _GroupedParser(argparse.ArgumentParser):
                 lines.extend(f"  {'':<{width}}{more}" for more in wrapped[1:])
             if is_verb and counts.get(key):
                 count = f"{counts[key]} feature" + ("" if counts[key] == 1 else "s")
-                lines.append(f"  ({count} in this group: briefcase features --verb {key})")
+                lines.append(f"  ({count} in this group: briefcase-ai features --verb {key})")
             elif is_verb and not commands:
                 lines.append("  (nothing installed for this step yet)")
             lines.append("")
@@ -99,8 +100,8 @@ class _GroupedParser(argparse.ArgumentParser):
             "",
             options.format_help().rstrip("\n"),
             "",
-            "Run `briefcase <command> --help` for one command, `briefcase status` to see where "
-            "you are,\nand `briefcase features` for everything briefcase can do.",
+            "Run `briefcase-ai <command> --help` for one command, `briefcase-ai status` to see where "
+            "you are,\nand `briefcase-ai features` for everything briefcase can do.",
             "",
         ])
 
@@ -108,7 +109,8 @@ class _GroupedParser(argparse.ArgumentParser):
 def build_parser() -> _GroupedParser:
     from briefcase import __version__
 
-    parser = _GroupedParser(prog="briefcase", description=DESCRIPTION)
+    parser = _GroupedParser(
+        prog="briefcase-ai", description=DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--version", action="version", version=f"{_ux.PRODUCT} {__version__}")
     parser.add_argument("--server", help="oci-jj-server gRPC endpoint (default $OCI_JJ_SERVER).")
     parser.add_argument("--repo", help="oci-jj repository / image family (default $OCI_JJ_REPO).")
@@ -122,7 +124,7 @@ def build_parser() -> _GroupedParser:
     )
     parser.add_argument(
         "--no-input", action="store_true",
-        help="Never prompt; a bare `briefcase` prints status and this list (or set BRIEFCASE_NO_INPUT=1).",
+        help="Never prompt; a bare `briefcase-ai` prints status and this list (or set BRIEFCASE_NO_INPUT=1).",
     )
     sub = parser.add_subparsers(dest="command", metavar="<command>", parser_class=argparse.ArgumentParser)
     parser.subparsers = sub
@@ -200,7 +202,7 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
 
         return _run(lambda: setup_commands.front_door(parser.format_commands(), parser.modules), argv)
     if not getattr(args, "func", None):
-        # A command group without its subcommand (`briefcase run`): show that group's help.
+        # A command group without its subcommand (`briefcase-ai run`): show that group's help.
         (_subparser(parser, args.command) or parser).print_help(sys.stderr)
         return 2
     # Lazy for the same reason as the engine: opening the store creates ~/.briefcase, which
@@ -223,7 +225,7 @@ def _run(call, argv) -> int:
         print(file=sys.stderr)
         return 130
     except BrokenPipeError:
-        # The reader went away (`briefcase features | head`). Point stdout at /dev/null so the
+        # The reader went away (`briefcase-ai features | head`). Point stdout at /dev/null so the
         # interpreter's exit-time flush does not raise again.
         try:
             os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
@@ -236,7 +238,7 @@ def _run(call, argv) -> int:
         message = " ".join(str(exc).split())
         rerun = " ".join(word for word in argv if word != "--debug")
         return _ux.fail(f"{type(exc).__name__}: {message}" if message else type(exc).__name__,
-                        fix=f"briefcase --debug {rerun}".rstrip() + "   # shows the full traceback")
+                        fix=f"briefcase-ai --debug {rerun}".rstrip() + "   # shows the full traceback")
 
 
 if __name__ == "__main__":

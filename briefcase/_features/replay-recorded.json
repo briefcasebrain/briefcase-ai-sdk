@@ -3,7 +3,7 @@
   "title": "Replay recorded LLM calls",
   "verb": "verify",
   "one_line": "Re-run captured LLM calls and see what changed in answers, tokens and cost.",
-  "command": "briefcase replay explain runs.jsonl",
+  "command": "briefcase-ai replay explain runs.jsonl",
   "docs_slug": "verify/replay-recorded",
   "status": "experimental",
   "requires_extra": null,

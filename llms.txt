@@ -1,6 +1,6 @@
 # briefcase-ai
 
-> Governance infrastructure for AI decisions: enforce controls, record context,
+> Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models. Enforce controls, record context,
 > replay later. Instrument any Python function with a decorator to capture its
 > inputs, outputs, timing, and errors as structured decision records, then ship
 > them to an exporter. Also provides an enforcement gateway, PII sanitization,
@@ -23,7 +23,7 @@ def classify(text: str) -> str:     # records inputs, outputs, timing, errors
 
 Content rule: briefcase records prompt, completion and tool content only where
 someone chose to. Automatic capture (`briefcase.auto()` for frameworks and
-provider SDKs, `briefcase exec`, `connect`/`receive`, eval records) records none
+provider SDKs, `briefcase-ai exec`, `connect`/`receive`, eval records) records none
 unless given `capture_content="full"` (or `"hash"`), `--capture-content` /
 `--keep-content`, or `BRIEFCASE_CAPTURE_CONTENT=full`; `@capture` on your own
 function is that choice and records its arguments and return value.
@@ -42,8 +42,8 @@ function is that choice and records its arguments and return value.
 
 ## Optional
 - Logging is opt-in: `briefcase.enable_logging("DEBUG")` or `BRIEFCASE_LOG_LEVEL=DEBUG`
-- MCP server: `pip install briefcase-ai[mcp]` then run `briefcase-mcp`
-- Plug-and-play integrations: `briefcase connect` writes the telemetry and MCP config of the coding tools it detects (Claude Code, Codex, Cursor, VS Code Copilot; others print-only) as key-level edits with a diff, one confirmation, backups, and `briefcase connect --undo`. `briefcase receive` is a local OTLP receiver (127.0.0.1:4318) that turns their telemetry into decision records, redacting content by default. Codex and VS Code Copilot send protobuf and need `pip install 'briefcase-ai[receiver]'`. `briefcase mcp link cursor` prints a one-click MCP install link. See [docs/integrations](docs/integrations/README.md).
+- MCP server: `pip install briefcase-ai[mcp]` then run `briefcase-ai-mcp`
+- Plug-and-play integrations: `briefcase-ai connect` writes the telemetry and MCP config of the coding tools it detects (Claude Code, Codex, Cursor, VS Code Copilot; others print-only) as key-level edits with a diff, one confirmation, backups, and `briefcase-ai connect --undo`. `briefcase-ai receive` is a local OTLP receiver (127.0.0.1:4318) that turns their telemetry into decision records, redacting content by default. Codex and VS Code Copilot send protobuf and need `pip install 'briefcase-ai[receiver]'`. `briefcase-ai mcp link cursor` prints a one-click MCP install link. See [docs/integrations](docs/integrations/README.md).
 - Extras map: these extras are empty groupings that install nothing: `replay`, `drift`, `sanitize`, `storage`, `validate`, `guardrails`, `rag`, `correlation`, `external`, `events`, `webhook`, `routing`, `vcs`, `bitemporal`, `compliance`, and `controls`. Extras that install third-party packages: `otel`, `kafka`, `gcp-logging`, `opa`, `lakefs`, `rag-chroma`, `rag-pinecone`, `rag-weaviate`, `vcs-dvc`, `vcs-pachyderm`, `vcs-ducklake`, `vcs-iceberg`, `gym`, `evals`, `bitemporal-iceberg`, `bitemporal-glue`, `kdb`, `compliance-kms`, `integrity`, `langchain`, `crewai`, `llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`, `mcp`, `run`, `engine`, `receiver`, `budgets-redis`, `budgets-postgres`, and `budgets-mysql`. `all` covers every one of those except `kdb`; `dev` is test tooling.
 - Eval and RL bridges: `briefcase.integrations.evals` (EvalRun, inspect-ai / lm-eval log replay) and `briefcase.integrations.gym` (guardrail env adapter, episode capture) emit the `eval.case`, `eval.run`, `rl.step`, and `rl.episode` decision types.
 - Integrity: `briefcase.integrity` adds tamper evidence. `HashChainAppender(JsonlHashChainStore("chain.jsonl")).append_row(table="audit", row_id=..., entity_id=None, observed_at=..., recorded_at=..., payload={...})` links each record to the prior one; `verify_chain_segment(entries)` proves nothing was altered or re-stitched. `canonical_json` gives deterministic hash input; `sign_json` / `verify_json_signature` / `jwk_thumbprint` handle local Ed25519 attestation (signing needs the `integrity` extra, PyNaCl).

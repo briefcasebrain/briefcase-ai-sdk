@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "notice": "Ids only, no prices. These are commonly used models that the built-in table in crates/briefcase-core/src/cost.rs does not price. The list is a hint for `briefcase pricing show`, not a price source and not exhaustive; a model missing from both files is simply unknown.",
+  "notice": "Ids only, no prices. These are commonly used models that the built-in table in crates/briefcase-core/src/cost.rs does not price. The list is a hint for `briefcase-ai pricing show`, not a price source and not exhaustive; a model missing from both files is simply unknown.",
   "models": [
     {
       "id": "o1",

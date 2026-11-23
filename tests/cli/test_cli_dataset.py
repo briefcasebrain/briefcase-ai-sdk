@@ -1,4 +1,4 @@
-"""`briefcase dataset` (versioned datasets from records), `eval run` and `prompt`.
+"""`briefcase-ai dataset` (versioned datasets from records), `eval run` and `prompt`.
 
 The commands are registered the way the CLI's auto-discovery does it: the
 built-in parser first, then each module's ``register(subparsers)``.
@@ -194,7 +194,7 @@ def test_from_records_filters_and_explains_skips(tmp_path, records, monkeypatch,
     assert version.cases[0]["metadata"]["prompt_version"] == "aaaaaaaaaaaa"
     assert version.header["sanitized"] is False
     assert version.header["filters"] == ["decision_type=triage", "status=ok"]
-    assert "Next: briefcase eval run" in out
+    assert "Next: briefcase-ai eval run" in out
 
 
 def test_no_content_only_produces_no_dataset(tmp_path, monkeypatch, capsys):
@@ -602,7 +602,7 @@ def test_eval_fail_under_with_several_targets_needs_gate(tmp_path, records, toy,
     rc, out, err = run(["eval", "run", "--dataset", "t", "--target", _t(toy, "weak"), "--target", _t(toy, "good"),
                         "--fail-under", "0.9", "--to", str(tmp_path / "g.jsonl")], tmp_path, monkeypatch, capsys)
     assert rc == 2 and out == ""
-    assert (f"briefcase eval run --dataset t --target {toy}:weak --target {toy}:good --fail-under 0.9 "
+    assert (f"briefcase-ai eval run --dataset t --target {toy}:weak --target {toy}:good --fail-under 0.9 "
             f"--gate {toy}:good") in err
     assert f"--no-regression {toy}:weak" in err
     assert not (tmp_path / "g.jsonl").exists()  # nothing ran
@@ -652,7 +652,7 @@ def test_status_hook(tmp_path, records, toy, monkeypatch, capsys):
         tmp_path, monkeypatch, capsys)
     s = dataset_versions.status()
     assert s["state"] == "attention" and "toyapp_ds:weak" in s["detail"] and "gate failed" in s["detail"]
-    assert s["next"].startswith("briefcase eval run --dataset t@v1")
+    assert s["next"].startswith("briefcase-ai eval run --dataset t@v1")
 
 
 # -- prompt commands -------------------------------------------------------------------

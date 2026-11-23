@@ -16,7 +16,7 @@ is **unverified** (see [pricing-data.md](pricing-data.md)); a budget is only as 
 ## The one command
 
 ```bash
-briefcase budget set daily --usd 20
+briefcase-ai budget set daily --usd 20
 ```
 
 Then, in the app (budgets act on the SDK calls that `briefcase.auto()` instruments):
@@ -43,11 +43,11 @@ budgets.budget("per-tenant", usd=2, per="tenant", window="month",
 ## Output (real run in a temp HOME)
 
 ```text
-$ briefcase budget set daily --usd 20 --soft-usd 15
+$ briefcase-ai budget set daily --usd 20 --soft-usd 15
 --- /dev/null
 +++ ~/.briefcase/budgets.toml
 @@ -0,0 +1,7 @@
-+# briefcase budgets (written by `briefcase budget set`; edit freely).
++# briefcase budgets (written by `briefcase-ai budget set`; edit freely).
 +# Enforced in apps that call briefcase.budgets.enable(). Docs: docs/features/budgets.md
 +
 +[budgets.daily]
@@ -56,20 +56,20 @@ $ briefcase budget set daily --usd 20 --soft-usd 15
 +window = "day"
 Wrote ~/.briefcase/budgets.toml
 Apps enforce it after calling briefcase.budgets.enable() (and briefcase.auto()).
-Next: briefcase budget test --model gpt-4o --input-tokens 1000 --max-tokens 500  # see what a call would do
+Next: briefcase-ai budget test --model gpt-4o --input-tokens 1000 --max-tokens 500  # see what a call would do
 
-$ briefcase budget set per-tenant --usd 2 --per tenant --window month --on-exceed degrade --degrade-to gpt-4o-mini --model gpt-4o*
+$ briefcase-ai budget set per-tenant --usd 2 --per tenant --window month --on-exceed degrade --degrade-to gpt-4o-mini --model gpt-4o*
 ...
 Wrote ~/.briefcase/budgets.toml
 
-$ briefcase budget test --model gpt-4o --input-tokens 2000 --max-tokens 500 --scope tenant=acme
+$ briefcase-ai budget test --model gpt-4o --input-tokens 2000 --max-tokens 500 --scope tenant=acme
 call: gpt-4o, 2000 input tokens, up to 500 output tokens, scope tenant=acme
 price: $5 in / $15 out per million tokens; reserve $0.017500 before sending
 counters: memory store, so every budget starts at 0 here
   daily [*, 2026-11-22]: $0.017500 of $20 after this call -> allow
   per-tenant [tenant=acme, 2026-11]: $0.017500 of $2 after this call -> allow
 decision: ALLOW
-Next: briefcase budget status
+Next: briefcase-ai budget status
 ```
 
 Then an app (`app.py`: `briefcase.auto("openai")`, `budgets.enable()`, gpt-4o calls of 1,200 input +
@@ -79,13 +79,13 @@ Then an app (`app.py`: `briefcase.auto("openai")`, `budgets.enable()`, gpt-4o ca
 ```text
 $ python app.py
 call 190: degraded to gpt-4o-mini
-$ briefcase budget status
+$ briefcase-ai budget status
 store: sql (sqlite, table briefcase_budget_usage)
 BUDGET           SCOPE                  WINDOW                        SPENT      %  RESETS
 daily            *                      2026-11-22              $1.9954/$20   10.0  18h 15m left
 per-tenant       tenant=acme            2026-11                  $1.9954/$2   99.8  8d 18h left
-Next: briefcase budget show  # 1 budget(s) at 80% or more: raise a limit with budget set
-$ briefcase status
+Next: briefcase-ai budget show  # 1 budget(s) at 80% or more: raise a limit with budget set
+$ briefcase-ai status
 ...
 Enforce
   attention Budgets                per-tenant (tenant=acme) at 99.8% of its limit; 1 over 80%
@@ -95,7 +95,7 @@ Enforce
 A blocked call raises before anything is sent:
 
 ```text
-BudgetExceeded: budget 'daily' (*, window 2026-11-22) would be exceeded: $0.000240 spent + $0.015025 reserved for this call > $0.01 limit; resets 2026-11-23 00:00 UTC. The request was not sent. Check: briefcase budget status
+BudgetExceeded: budget 'daily' (*, window 2026-11-22) would be exceeded: $0.000240 spent + $0.015025 reserved for this call > $0.01 limit; resets 2026-11-23 00:00 UTC. The request was not sent. Check: briefcase-ai budget status
 ```
 
 ## How a call is counted
@@ -124,7 +124,7 @@ counted and the next call sees it.
 
 **Windows** are calendar windows in UTC: `hour`, `day`, `month`, or `total` (never resets). They were
 chosen over rolling windows because a shared store then needs one counter per window, the reset
-time is predictable (`briefcase budget status` shows it), and monthly windows line up with provider
+time is predictable (`briefcase-ai budget status` shows it), and monthly windows line up with provider
 invoices. A reservation is always settled into the window it was taken in.
 
 **Effects** at the hard limit (`on_exceed`):
@@ -140,7 +140,7 @@ record says `budget_effect: "soft_limit"`.
 
 ## What it writes or sends, and where
 
-- `briefcase budget set|unset` writes `~/.briefcase/budgets.toml` (or `$BRIEFCASE_BUDGETS_FILE`; a path
+- `briefcase-ai budget set|unset` writes `~/.briefcase/budgets.toml` (or `$BRIEFCASE_BUDGETS_FILE`; a path
   outside `~/.briefcase` asks first, `--yes` skips). Every write shows a diff; `--dry-run` writes nothing.
 - Counters go to the configured store: in-process memory (default), Redis, or a SQL table. Keys are
   `<budget>|<scope>|<window>`; no prompt or completion content is ever stored.
@@ -175,7 +175,7 @@ Real record fields from a call with a $0.01 daily budget (fake transport):
 | Setting | Default | Change it |
 | --- | --- | --- |
 | Store | in-process memory (limits hold within one process) | `store = "redis://host:6379/0"`, `"sqlite:///path.db"`, `"postgresql://..."`, `"mysql://user:pw@host/db"`; or `budgets.configure(store=RedisBudgetStore(client))` |
-| Unpriced models | `warn`: one log line per model naming `briefcase pricing set`; token limits still apply | `unpriced = "block"` or `"allow"` |
+| Unpriced models | `warn`: one log line per model naming `briefcase-ai pricing set`; token limits still apply | `unpriced = "block"` or `"allow"` |
 | Output tokens when the request sets no cap | the model's maximum, else 4096 | set `max_tokens` on requests; `default_max_tokens = N` |
 | Input tokens | high estimate | `budgets.configure(..., token_counter=lambda provider, model, kwargs: n)` |
 | Window | `day` | `--window hour|day|month|total` |
@@ -211,7 +211,7 @@ the model to use after a `degrade`.
 
 ## How to turn it off or undo
 
-- `briefcase budget unset NAME` removes one budget (shows the diff); delete `budgets.toml` to remove all.
+- `briefcase-ai budget unset NAME` removes one budget (shows the diff); delete `budgets.toml` to remove all.
 - In code: `briefcase.budgets.disable()`. Counters in a shared store are kept; delete the Redis keys
   `briefcase:budget:*` or the `briefcase_budget_usage` rows to reset them.
 
@@ -221,7 +221,7 @@ the model to use after a `degrade`.
   embeddings), anthropic (`messages.create/parse/stream`), google-genai (`generate_content`,
   streaming), Bedrock (Converse, InvokeModel and their streams). Raw HTTP calls, other SDKs and
   bound methods created before `briefcase.auto()` are not. Use the gateway's `usage_of` for those.
-- Prices are the packaged, unverified table plus your `briefcase pricing set` entries.
+- Prices are the packaged, unverified table plus your `briefcase-ai pricing set` entries.
   Cached-prompt and long-context calls settle at an upper bound, not the exact price.
 - The input-token estimate is deliberately high; a tight limit can block a call that would have fit.
   Pass a `token_counter` for exact counts.
@@ -234,7 +234,7 @@ the model to use after a `degrade`.
   varied between runs). The whole budget hook added about 0.18-0.19 ms per call with the memory store.
 - `per="tenant"` reads the scope from a `contextvars.ContextVar`: it follows `asyncio` tasks and
   `asyncio.to_thread`, not threads you start by hand.
-- In-process (`memory`) counters are invisible to `briefcase budget status`; use a shared store or
+- In-process (`memory`) counters are invisible to `briefcase-ai budget status`; use a shared store or
   `briefcase.budgets.status()` in the app.
 - Redis counters are Lua numbers: exact up to 2**53 nano-USD (about 9 million USD) per counter.
 
@@ -243,10 +243,10 @@ the model to use after a `degrade`.
 | Symptom | Do this |
 | --- | --- |
 | Calls are never blocked / records have no `budget_effect` | The SDK is not instrumented or budgets are not enabled in that process: call `briefcase.auto()` and `briefcase.budgets.enable()`; check `briefcase.auto.status()`. |
-| `BudgetExceeded` on the first call of the day | The reservation (input estimate + output cap) is larger than the limit: `briefcase budget test --model M --input-tokens N --max-tokens M` shows it; set `max_tokens` on the request or pass a `token_counter`. |
-| `briefcase budget status` shows "(in app)" | The store is in-process memory. Set a shared store: `briefcase budget set NAME --store sqlite:///$HOME/.briefcase/budgets.db`. |
-| WARNING "model ... has no price" | Add one: `briefcase pricing set MODEL --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL`. |
+| `BudgetExceeded` on the first call of the day | The reservation (input estimate + output cap) is larger than the limit: `briefcase-ai budget test --model M --input-tokens N --max-tokens M` shows it; set `max_tokens` on the request or pass a `token_counter`. |
+| `briefcase-ai budget status` shows "(in app)" | The store is in-process memory. Set a shared store: `briefcase-ai budget set NAME --store sqlite:///$HOME/.briefcase/budgets.db`. |
+| WARNING "model ... has no price" | Add one: `briefcase-ai pricing set MODEL --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL`. |
 | `cost_source: "reserved"` on every streamed openai call | Chat streams carry usage only with `stream_options={"include_usage": True}` (or `BRIEFCASE_OPENAI_STREAM_USAGE=1`); otherwise the reservation is kept. |
 | "in flight" stays above zero | A process died mid-call, or a stream object is still alive. It clears when the window ends. |
-| Spend in `briefcase status` looks too high | `cost_source: "usage_upper_bound"` calls (prompt caching) are counted at an upper bound. |
-| `briefcase budget status` fails with a store error | Check the URL in `briefcase budget show`; Redis needs `pip install redis`, Postgres `psycopg`, MySQL `pymysql`. |
+| Spend in `briefcase-ai status` looks too high | `cost_source: "usage_upper_bound"` calls (prompt caching) are counted at an upper bound. |
+| `briefcase-ai budget status` fails with a store error | Check the URL in `briefcase-ai budget show`; Redis needs `pip install redis`, Postgres `psycopg`, MySQL `pymysql`. |

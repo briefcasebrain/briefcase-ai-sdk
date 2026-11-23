@@ -1,7 +1,7 @@
 """Bundled, pinned engine stack — package data + resolvers.
 
 Ships a pinned ``docker-compose.yml`` (published GHCR image tags) and a ``compat.json`` manifest inside
-the wheel, so ``briefcase stack up`` brings up the oci-jj engine with no checkout and no Rust toolchain.
+the wheel, so ``briefcase-ai stack up`` brings up the oci-jj engine with no checkout and no Rust toolchain.
 Both files are declared in ``[tool.maturin] include`` so they actually land in the wheel and sdist.
 """
 from __future__ import annotations

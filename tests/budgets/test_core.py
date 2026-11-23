@@ -172,7 +172,7 @@ def test_block_raises_before_anything_is_counted(table):
     assert exc.budget == "daily" and exc.reason == "limit" and exc.limit_usd == 0.01
     assert exc.requested_usd == pytest.approx(0.02)
     assert "resets 2026-11-23 00:00 UTC" in str(exc)
-    assert "briefcase budget status" in str(exc)
+    assert "briefcase-ai budget status" in str(exc)
     assert used(eng) == (0, 0, 0)
 
 
@@ -264,7 +264,7 @@ def test_unpriced_warn_logs_once_naming_the_fix(table, caplog):
         res = eng.reserve("my-private-model", 100, 100)
         eng.reserve("my-private-model", 100, 100)
     lines = [r.getMessage() for r in caplog.records if "no price" in r.getMessage()]
-    assert len(lines) == 1 and "briefcase pricing set my-private-model" in lines[0]
+    assert len(lines) == 1 and "briefcase-ai pricing set my-private-model" in lines[0]
     assert res.effect == "unpriced" and res.priced is False
     assert used(eng)[:2] == (0, 400)  # token limits still count
     fields = eng.settle(res, {"prompt_tokens": 50, "completion_tokens": 5})
@@ -283,7 +283,7 @@ def test_unpriced_block(table):
     with pytest.raises(BudgetExceeded) as info:
         eng.reserve("my-private-model", 100, 100)
     assert info.value.reason == "unpriced"
-    assert "briefcase pricing set" in str(info.value)
+    assert "briefcase-ai pricing set" in str(info.value)
 
 
 def test_unpriced_with_only_token_budgets_is_fine(table, caplog):

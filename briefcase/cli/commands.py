@@ -1,4 +1,4 @@
-"""Command handlers for the ``briefcase`` evaluation-run CLI.
+"""Command handlers for the ``briefcase-ai`` evaluation-run CLI.
 
 Each handler takes an argparse ``Namespace`` plus an injected ``store`` and ``engine`` (no globals),
 so the lifecycle is unit-tested with fakes. Handlers return a process exit code.
@@ -294,7 +294,7 @@ def cmd_run_attach(args, store, engine, stack=None) -> int:
     baseline = getattr(args, "checkpoint", None) or (run or {}).get("checkpoint")
     if not repository:
         return _ux.fail(f"unknown run {args.id!r} and no --repository to attach the verdict to",
-                        fix=f"briefcase run attach {args.id} --result {args.result} --repository <ref>", code=2)
+                        fix=f"briefcase-ai run attach {args.id} --result {args.result} --repository <ref>", code=2)
     for label, path in (("--result", args.result), ("--manifest", getattr(args, "manifest", None))):
         if not path:
             continue
@@ -316,7 +316,7 @@ def cmd_run_attach(args, store, engine, stack=None) -> int:
     rc = _rc_of(result)
     if rc != 0:
         _maybe_print_rendered(result)
-        return _ux.fail("the engine did not record the verdict", fix="briefcase engine status")
+        return _ux.fail("the engine did not record the verdict", fix="briefcase-ai engine status")
     decision = _response_field(result, "decision")
     summary_id = _response_field(result, "summary_id")
     fields = {"status": "verdict-attached", "verdict_file": args.result}
@@ -331,7 +331,7 @@ def cmd_run_attach(args, store, engine, stack=None) -> int:
                           "mode": "attach", "created_at": time.time(), **fields})
     print(f"verdict recorded on {repository}" + (f": {decision}" if decision else "")
           + (f" (summary {summary_id})" if summary_id else ""))
-    _ux.print_next(f"briefcase graph provenance {repository}")
+    _ux.print_next(f"briefcase-ai graph provenance {repository}")
     return 0
 
 
@@ -346,7 +346,7 @@ def cmd_dataset_publish(args, store, engine, stack=None) -> int:
 
     path = Path(args.path)
     if not path.is_file():
-        return _ux.fail(f"{path} is not a file", fix="briefcase dataset publish NAME ./data.parquet", code=2)
+        return _ux.fail(f"{path} is not a file", fix="briefcase-ai dataset publish NAME ./data.parquet", code=2)
     record = _engine.current_install()
     tenant = (record or {}).get("tenant") or "local"
     digest = datasets.sha256_hex(path)
@@ -368,22 +368,22 @@ def cmd_dataset_publish(args, store, engine, stack=None) -> int:
     if record is None:
         return _ux.fail("dataset publish uploads into a local engine install; this engine runs elsewhere",
                         fix="upload to s3://<its dataset bucket>/tenants/<tenant>/..., then "
-                            f"briefcase dataset register {args.name} --uri s3://...")
+                            f"briefcase-ai dataset register {args.name} --uri s3://...")
     with open(path, "rb") as handle:
         try:
             result = subprocess.run(datasets.upload_argv(record, key), stdin=handle, capture_output=True, text=False)
         except FileNotFoundError:
-            return _ux.fail("docker is not installed", fix="briefcase engine doctor")
+            return _ux.fail("docker is not installed", fix="briefcase-ai engine doctor")
     if result.returncode != 0:
         detail = (result.stderr or b"").decode("utf-8", "replace").strip()[:300]
         return _ux.fail(f"upload failed ({detail or 'exit ' + str(result.returncode)})",
-                        fix="briefcase engine up   # MinIO must be running")
+                        fix="briefcase-ai engine up   # MinIO must be running")
     rec = store.register_dataset(args.name, uri)
     if getattr(args, "json", False):
         return _ux.print_json({**rec, "sha256": digest, "size": path.stat().st_size})
     print(f"published {path.name} ({path.stat().st_size} bytes) as {uri}")
     print(f"registered dataset {rec['name']} -> {rec['uri']}")
-    _ux.print_next(f"briefcase run submit NAME --repository REF --dataset {args.name}")
+    _ux.print_next(f"briefcase-ai run submit NAME --repository REF --dataset {args.name}")
     return 0
 
 
@@ -400,7 +400,7 @@ def cmd_verify_graph(args, store=None, engine=None, stack=None) -> int:
         if resp.get("ok"):
             print(f"{args.graph}: intact ({resp.get('trees_checked', 0)} trees, {resp.get('inodes_checked', 0)} "
                   f"inodes, {resp.get('segments_checked', 0)} segments re-hashed)")
-            _ux.print_next(f"briefcase graph provenance {args.graph}")
+            _ux.print_next(f"briefcase-ai graph provenance {args.graph}")
             return 0
         print(f"{args.graph}: NOT intact")
         for problem in resp.get("problems") or []:

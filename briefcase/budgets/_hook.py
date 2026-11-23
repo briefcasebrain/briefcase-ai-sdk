@@ -74,7 +74,7 @@ class BudgetHook:
                 ctx.fields.update(budget_effect="block", cost_usd=0.0, cost_source="not_billed")
                 raise BudgetExceeded(
                     f"the budget store failed ({type(exc).__name__}: {exc}) and on_error='block'; "
-                    "the request was not sent. Check: briefcase budget status",
+                    "the request was not sent. Check: briefcase-ai budget status",
                     reason="store_error", model=model) from exc
             logger.warning("briefcase budgets: the budget store failed (%s: %s); the call goes "
                            "through uncounted (on_error='allow')", type(exc).__name__, exc)

@@ -1,21 +1,21 @@
 # Adapter conformance checks
 
-`briefcase connect` writes other vendors' config files and `briefcase receive` parses their telemetry, and
+`briefcase-ai connect` writes other vendors' config files and `briefcase-ai receive` parses their telemetry, and
 those formats change without notice. The conformance harness installs the latest release of each tool that can
-be installed from a script, runs `briefcase connect` against it, and asks the tool itself whether it accepted
+be installed from a script, runs `briefcase-ai connect` against it, and asks the tool itself whether it accepted
 the result. It runs nightly in CI and tells you when a release breaks an adapter.
 
 ## The one command
 
 ```bash
-briefcase doctor --connect
+briefcase-ai doctor --connect
 ```
 
 Real output from a temp HOME, with Claude Code and Codex CLI on PATH:
 
 ```text
-briefcase connect integrations:
-[warn] connect: no tools connected yet; run: briefcase connect
+briefcase-ai connect integrations:
+[warn] connect: no tools connected yet; run: briefcase-ai connect
 [ok]   conformance claude-code: Claude Code 2.1.330: telemetry-verified on 2026-11-21; your version 2.1.330 matches
 [ok]   conformance codex: Codex CLI 0.171.0: config-accepted on 2026-11-21; your version 0.171.0 matches
 ```
@@ -29,8 +29,8 @@ The data comes from `briefcase/connect/conformance-report.json`, shipped with th
 | Level | Meaning |
 | --- | --- |
 | `docs-only` | Built from the vendor's documentation. No file that briefcase wrote was loaded by a real install of the tool. |
-| `config-accepted` | A real install loaded the config `briefcase connect` wrote, and the tool's own commands reported it (or did not reject it). No telemetry was captured. |
-| `telemetry-verified` | The real tool emitted telemetry and `briefcase receive` turned it into decision records. |
+| `config-accepted` | A real install loaded the config `briefcase-ai connect` wrote, and the tool's own commands reported it (or did not reject it). No telemetry was captured. |
+| `telemetry-verified` | The real tool emitted telemetry and `briefcase-ai receive` turned it into decision records. |
 
 Levels are recorded per tool with the tool version and the date. A failed run never erases a recorded level; it
 adds a `last_attempt` entry and opens the tracking issue.
@@ -39,7 +39,7 @@ adds a `last_attempt` entry and opens the tracking issue.
 
 | Tool | Version | Level | How it was verified |
 | --- | --- | --- | --- |
-| Claude Code | 2.1.330 | `telemetry-verified` | `claude mcp list`/`get`, `claude plugin validate` on the bundled plugin, `claude doctor` (no invalid settings), then `claude -p` against a local stub model API: the real binary exported OTLP/JSON log events that `briefcase receive` mapped to records (user prompt, model request, response). |
+| Claude Code | 2.1.330 | `telemetry-verified` | `claude mcp list`/`get`, `claude plugin validate` on the bundled plugin, `claude doctor` (no invalid settings), then `claude -p` against a local stub model API: the real binary exported OTLP/JSON log events that `briefcase-ai receive` mapped to records (user prompt, model request, response). |
 | Codex CLI | 0.171.0 | `config-accepted` | `codex mcp list` and `codex mcp get briefcase` load `config.toml`; `codex doctor --json` reports `config.load` ok and `config.toml parse` ok. Its parser is strict: a deliberately bad `[otel]` value made `codex mcp list` fail, so acceptance is meaningful. No telemetry: it needs a login. |
 | Gemini CLI | 0.70.0 | `config-accepted` (weak) | The project `.gemini/settings.json` loads without a configuration error. Gemini CLI has no command that echoes telemetry settings and accepts unknown values, so this only proves the file parses. A telemetry run with a dummy key was tried and stopped at "Invalid auth method selected". |
 | GitHub Copilot CLI | 1.0.114 | `docs-only` | `connect` is print-only for this tool. `copilot help environment` documents `COPILOT_OTEL_ENABLED` and `OTEL_EXPORTER_OTLP_ENDPOINT`, and `copilot mcp get briefcase` accepts the MCP entry we print, but nothing briefcase wrote was loaded. |
@@ -60,7 +60,7 @@ Everything happens in temp directories removed at the end: a temp HOME, an isola
 It never touches your real tool configuration. The harness removes `CLAUDE*`, `ANTHROPIC*`, `OPENAI*`, `GEMINI*`,
 `COPILOT*` and `OTEL_*` variables from the environment it hands the tool, so no identity or credential leaks in.
 The telemetry step talks only to `127.0.0.1`: a local stub answers the tool's model API call with a canned
-"ok", and a tee records the tool's OTLP requests and forwards them to a real `briefcase receive`. The tool's
+"ok", and a tee records the tool's OTLP requests and forwards them to a real `briefcase-ai receive`. The tool's
 telemetry is its own; only the model's answer is canned.
 
 ## Run it locally
@@ -100,7 +100,7 @@ directory's `README.md` for provenance.
 ## Turn it off or undo
 
 There is nothing to undo: the harness writes only to temp directories. Disable the schedule by disabling the
-workflow in GitHub. `briefcase doctor --connect` simply omits the section's rows for tools it has no data on.
+workflow in GitHub. `briefcase-ai doctor --connect` simply omits the section's rows for tools it has no data on.
 
 ## Limits and failure modes
 
@@ -117,7 +117,7 @@ workflow in GitHub. `briefcase doctor --connect` simply omits the section's rows
 | Symptom | What to do |
 | --- | --- |
 | `doctor --connect` says "your version is newer, untested" | Nothing is broken yet. Run `python -m scripts.conformance run --use-path <tool>` to test your version. |
-| `doctor --connect` shows "no conformance data shipped for this tool" | The tool is not covered; see `briefcase connect list`. |
+| `doctor --connect` shows "no conformance data shipped for this tool" | The tool is not covered; see `briefcase-ai connect list`. |
 | A tool run fails at install | Check `node --version` (CI runs 26) and proxy settings; the check name and detail are printed per step. |
 | `claude mcp list` check fails offline | The MCP health check starts `uvx --from briefcase-ai[mcp]`; the harness only requires that `briefcase` is listed. |
 | Drift reports `unknown` for every page | No network from this machine; nothing was checked. |

@@ -9,4 +9,4 @@
 Windows Registry Editor Version 5.00
 
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\ClaudeCode]
-"Settings"="{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"https://otel.example.com\"},\"hooks\":{\"PreToolUse\":[{\"matcher\":\"^(Bash|PowerShell|Read|Write|Edit|MultiEdit|NotebookEdit|Glob|Grep|WebFetch|WebSearch)$|^mcp__\",\"hooks\":[{\"type\":\"command\",\"command\":\"briefcase hook claude-code --enforce --endpoint https://otel.example.com\",\"timeout\":10}]}]}}"
+"Settings"="{\"env\":{\"CLAUDE_CODE_ENABLE_TELEMETRY\":\"1\",\"OTEL_METRICS_EXPORTER\":\"otlp\",\"OTEL_LOGS_EXPORTER\":\"otlp\",\"OTEL_EXPORTER_OTLP_PROTOCOL\":\"http/json\",\"OTEL_EXPORTER_OTLP_ENDPOINT\":\"https://otel.example.com\"},\"hooks\":{\"PreToolUse\":[{\"matcher\":\"^(Bash|PowerShell|Read|Write|Edit|MultiEdit|NotebookEdit|Glob|Grep|WebFetch|WebSearch)$|^mcp__\",\"hooks\":[{\"type\":\"command\",\"command\":\"briefcase-ai hook claude-code --enforce --endpoint https://otel.example.com\",\"timeout\":10}]}]}}"

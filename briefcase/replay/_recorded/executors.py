@@ -569,7 +569,7 @@ class CassetteExecutor:
         if entry is None:
             raise ExecutorError(
                 "no cassette entry for this request (it differs from every recorded one); "
-                "record one with: briefcase replay run FILE --save-cassette CASSETTE --yes"
+                "record one with: briefcase-ai replay run FILE --save-cassette CASSETTE --yes"
             )
         return Execution(dict(entry.get("output") or {}), entry.get("usage"),
                          entry.get("latency_ms"), entry.get("model"), entry.get("finish_reason"),

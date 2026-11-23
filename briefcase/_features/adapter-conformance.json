@@ -3,7 +3,7 @@
   "title": "Adapter conformance checks",
   "verb": "connect",
   "one_line": "Know when a coding tool update breaks its briefcase connection.",
-  "command": "briefcase doctor --connect",
+  "command": "briefcase-ai doctor --connect",
   "docs_slug": "connect/adapter-conformance",
   "status": "experimental",
   "requires_extra": null,

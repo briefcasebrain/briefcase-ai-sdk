@@ -1,4 +1,4 @@
-"""`briefcase doctor --connect` reads the shipped conformance report and compares versions."""
+"""`briefcase-ai doctor --connect` reads the shipped conformance report and compares versions."""
 
 import json
 from argparse import Namespace
@@ -55,8 +55,8 @@ def test_doctor_connect_appends_conformance_rows_and_keeps_existing_output(home,
     rc = doctor.cmd_doctor_connect(Namespace(strict=False))
     out = capsys.readouterr().out
     assert rc == 0                                           # a newer version is a warning, not a failure
-    assert out.startswith("briefcase connect integrations:")
-    assert "[warn] connect: no tools connected yet; run: briefcase connect" in out      # existing output intact
+    assert out.startswith("briefcase-ai connect integrations:")
+    assert "[warn] connect: no tools connected yet; run: briefcase-ai connect" in out      # existing output intact
     assert ("[warn] conformance codex: Codex CLI 0.171.0: config-accepted on 2026-11-20; "
             "your version 0.180.2 is newer, untested") in out
 

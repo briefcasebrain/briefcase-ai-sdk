@@ -10,10 +10,10 @@ node --import @briefcase-ai/auto/register app.js        # records on stderr as J
 BRIEFCASE_EXPORTER=runs.jsonl node --import @briefcase-ai/auto/register app.js
 ```
 
-With the Python CLI (`briefcase exec` sets `BRIEFCASE_AUTO=1`):
+With the Python CLI (`briefcase-ai exec` sets `BRIEFCASE_AUTO=1`):
 
 ```bash
-NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase exec -- node app.js
+NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec -- node app.js
 ```
 
 In code:

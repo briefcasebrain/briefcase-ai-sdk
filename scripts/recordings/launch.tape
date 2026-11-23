@@ -17,9 +17,9 @@ Type "uv venv -q --python 3.12 .venv && source .venv/bin/activate" Enter
 Sleep 2s
 Type "uv pip install $WHEEL" Enter
 Sleep 5s
-Type "clear; briefcase --version" Enter
+Type "clear; briefcase-ai --version" Enter
 Sleep 3s
-Type "clear; briefcase" Enter
+Type "clear; briefcase-ai" Enter
 Sleep 6s
 Type "4" Enter
 Sleep 3s

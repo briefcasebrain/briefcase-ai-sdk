@@ -3,7 +3,7 @@
   "title": "Policy for coding tools",
   "verb": "enforce",
   "one_line": "Allow, ask or deny what Claude Code, Cursor and Codex may run.",
-  "command": "briefcase policy init",
+  "command": "briefcase-ai policy init",
   "docs_slug": "enforce/policy-hooks",
   "status": "experimental",
   "requires_extra": null,

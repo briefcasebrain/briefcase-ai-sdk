@@ -1,4 +1,4 @@
-"""Cut an evidence bundle from a chained store (``briefcase bundle create --from evidence.db``).
+"""Cut an evidence bundle from a chained store (``briefcase-ai bundle create --from evidence.db``).
 
 The bundle format, its writer and its single verifier live in
 :mod:`briefcase.compliance.bundle`; this module selects records from a
@@ -205,7 +205,7 @@ def create_bundle(
     if not report.intact:
         first = report.problems[0].detail if report.problems else "unknown problem"
         raise BundleError(
-            "%s is not intact (%d problem(s), first: %s). Run `briefcase verify %s` for details; "
+            "%s is not intact (%d problem(s), first: %s). Run `briefcase-ai verify %s` for details; "
             "a bundle from a broken log would prove nothing." % (source, len(report.problems), first, source)
         )
     if not entries:

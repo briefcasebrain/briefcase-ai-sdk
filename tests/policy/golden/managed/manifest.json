@@ -1,5 +1,5 @@
 {
-  "generated_by": "briefcase connect --managed",
+  "generated_by": "briefcase-ai connect --managed",
   "endpoint": "https://otel.example.com",
   "tools": [
     "claude-code",

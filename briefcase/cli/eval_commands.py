@@ -1,10 +1,10 @@
-"""``briefcase eval run``: score a function against a dataset version, locally.
+"""``briefcase-ai eval run``: score a function against a dataset version, locally.
 
-    briefcase eval run --dataset triage --target myapp.triage:classify --fail-under 0.9
-    briefcase eval run --dataset triage@v2 --target app:triage_v1 --target app:triage_v2
+    briefcase-ai eval run --dataset triage --target myapp.triage:classify --fail-under 0.9
+    briefcase-ai eval run --dataset triage@v2 --target app:triage_v1 --target app:triage_v2
 
 Named ``eval`` because ``run`` is the evaluation-engine job group
-(``briefcase run submit``). Results are ``eval.case`` / ``eval.run`` decision
+(``briefcase-ai run submit``). Results are ``eval.case`` / ``eval.run`` decision
 records sent to ``--to``, else ``$BRIEFCASE_EXPORTER`` / the OpenTelemetry
 variables, else ``$BRIEFCASE_HOME/evals/records.jsonl``.
 
@@ -27,7 +27,7 @@ import uuid
 from pathlib import Path
 from typing import Any, List, Optional
 
-# `status` is this module's `briefcase status` row (dataset count, last eval result).
+# `status` is this module's `briefcase-ai status` row (dataset count, last eval result).
 from briefcase.cli.dataset_versions import status  # noqa: F401
 from briefcase.datasets import core
 from briefcase.datasets import evaluate as ev
@@ -41,9 +41,9 @@ def register(sub: argparse._SubParsersAction) -> None:
         return
     parser = sub.add_parser(
         "eval", help="Score a function against an evaluation dataset (local, offline).",
-        description="Score functions against versioned datasets made with `briefcase dataset from-records`.",
+        description="Score functions against versioned datasets made with `briefcase-ai dataset from-records`.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="example:\n  briefcase eval run --dataset triage --target myapp.triage:classify --fail-under 0.9",
+        epilog="example:\n  briefcase-ai eval run --dataset triage --target myapp.triage:classify --fail-under 0.9",
     )
     ev_sub = parser.add_subparsers(dest="sub")
     p = ev_sub.add_parser(
@@ -55,7 +55,7 @@ def register(sub: argparse._SubParsersAction) -> None:
             "prompt versions) in one table; rows are split by the prompt_version each call used.\n\n"
             "env: BRIEFCASE_EXPORTER (destination when --to is not given), BRIEFCASE_HOME."
         ),
-        epilog="example:\n  briefcase eval run --dataset triage --target myapp.triage:classify "
+        epilog="example:\n  briefcase-ai eval run --dataset triage --target myapp.triage:classify "
                "--scorer exact --fail-under 0.9",
     )
     p.add_argument("--dataset", required=True, metavar="NAME[@VERSION]")
@@ -127,7 +127,7 @@ def _check_gates(args) -> Optional[str]:
         if len(targets) < 2:
             return "--no-regression compares against another target: give at least two --target values"
     if args.fail_under is not None and len(targets) > 1 and not gate:
-        base = f"briefcase eval run --dataset {args.dataset} " + " ".join(f"--target {t}" for t in targets)
+        base = f"briefcase-ai eval run --dataset {args.dataset} " + " ".join(f"--target {t}" for t in targets)
         return (f"--fail-under with {len(targets)} targets does not say which must reach it (an old prompt is "
                 f"expected to score lower than a new one). Name the gated target(s):\n"
                 f"  {base} --fail-under {args.fail_under:g} --gate {targets[-1]}\n"
@@ -180,8 +180,8 @@ def cmd_eval_run(args, store, engine=None, stack=None) -> int:
     if needs_ref and all(c.get("reference") is None for c in version.cases):
         print(f"error: {version.ref} has no references (made with --reference none), so --scorer "
               f"{scorer_name} has nothing to compare against. Use --scorer module:function, or add "
-              f"references: briefcase dataset export {version.ref} --out {version.name}.jsonl, edit, "
-              f"then briefcase dataset import {version.name}.jsonl", file=sys.stderr)
+              f"references: briefcase-ai dataset export {version.ref} --out {version.name}.jsonl, edit, "
+              f"then briefcase-ai dataset import {version.name}.jsonl", file=sys.stderr)
         return 2
 
     invocation = str(uuid.uuid4())
@@ -277,10 +277,10 @@ def cmd_eval_run(args, store, engine=None, stack=None) -> int:
                 why = f"(baseline {c['baseline']} {_pct(c['baseline_rate'])}, tolerance {c['tolerance']:g})"
             print(f"{verdict}  {t['target']}: pass rate {_pct(t['pass_rate'])} {cmp} {_pct(c['min_rate'])} {why}")
     if ok:
-        print(f"Next: briefcase dataset show {version.ref}" if gated else
+        print(f"Next: briefcase-ai dataset show {version.ref}" if gated else
               ("Next: add --fail-under 0.9 to gate CI on this pass rate" if len(per_target) == 1 else
                f"Next: add --no-regression {per_target[0]['target']} (or --fail-under 0.9 --gate "
                f"{per_target[-1]['target']}) to gate CI"))
     else:
-        print(f"Next: briefcase dataset show {version.ref} --cases 20  (inspect the failing inputs)")
+        print(f"Next: briefcase-ai dataset show {version.ref} --cases 20  (inspect the failing inputs)")
     return 0 if ok else 1

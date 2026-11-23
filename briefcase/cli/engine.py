@@ -1,6 +1,6 @@
 """Adapter from the Briefcase-native lifecycle to the real ``oci-jj`` CLI.
 
-The verbs of the ``briefcase`` façade delegate to existing ``oci-jj`` subcommands (see
+The verbs of the ``briefcase-ai`` façade delegate to existing ``oci-jj`` subcommands (see
 ``rust/crates/oci-jj-cli/src/main.rs``): a *run* is an ``oci-jj attach-bench … --run`` verdict gate
 (or ``oci-jj hunt``) whose scorecard is read back with ``oci-jj diff --depth bench``.
 

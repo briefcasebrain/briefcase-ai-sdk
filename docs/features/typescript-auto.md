@@ -16,10 +16,10 @@ node --import @briefcase-ai/auto/register app.js
 
 Requires Node 26 or later (`engines.node` is `>=26`; see [Node versions](#node-versions)).
 
-From the Python CLI, `briefcase exec` sets `BRIEFCASE_AUTO=1`; add the preload yourself:
+From the Python CLI, `briefcase-ai exec` sets `BRIEFCASE_AUTO=1`; add the preload yourself:
 
 ```bash
-NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase exec -- node app.js
+NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec -- node app.js
 ```
 
 Or in code (`await` is not needed; `auto()` is synchronous):

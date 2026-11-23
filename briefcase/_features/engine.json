@@ -3,7 +3,7 @@
   "title": "Briefcase engine (oci-jj) install",
   "verb": "connect",
   "one_line": "Install the licensed engine from the portal, verified against a pinned key.",
-  "command": "briefcase engine install",
+  "command": "briefcase-ai engine install",
   "docs_slug": "connect/engine",
   "status": "experimental",
   "requires_extra": null,

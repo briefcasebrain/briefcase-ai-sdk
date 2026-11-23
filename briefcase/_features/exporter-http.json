@@ -3,7 +3,7 @@
   "title": "HTTPS export",
   "verb": "capture",
   "one_line": "POST records as JSON batches to your own endpoint, with retries and a token.",
-  "command": "briefcase exec --to https://collector.example.com/v1/decisions -- python app.py",
+  "command": "briefcase-ai exec --to https://collector.example.com/v1/decisions -- python app.py",
   "docs_slug": "capture/exporter-http",
   "status": "experimental",
   "requires_extra": null,

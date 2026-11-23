@@ -113,7 +113,7 @@ Changelog headings and `- ` bullets:
 
 ```markdown
 ### Added
-- `briefcase thing --flag`: what it does, in one or two sentences.
+- `briefcase-ai thing --flag`: what it does, in one or two sentences.
 
 ### Changed
 - **Breaking:** what changed and how to migrate.

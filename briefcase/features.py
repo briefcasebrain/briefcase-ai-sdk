@@ -1,6 +1,6 @@
 """The feature manifest: one small JSON file per feature in ``briefcase/_features/``.
 
-``briefcase features``, ``briefcase --help`` and the docs catalog are all generated from
+``briefcase-ai features``, ``briefcase-ai --help`` and the docs catalog are all generated from
 these files, so a feature that has a manifest can be found without reading source.
 
     from briefcase.features import load_catalog
@@ -17,7 +17,7 @@ A manifest (``briefcase/_features/policy-hooks.json``)::
       "title": "Policy for coding tools",
       "verb": "enforce",
       "one_line": "Allow, ask or deny what Claude Code and Cursor may run.",
-      "command": "briefcase policy init",
+      "command": "briefcase-ai policy init",
       "docs_slug": "enforce/policy-hooks",
       "status": "experimental",
       "requires_extra": null,
@@ -29,9 +29,10 @@ Required: ``id``, ``title``, ``verb`` (connect | capture | enforce | verify | re
 experimental). Optional: ``requires_extra`` (a pip extra name or null), ``verified_against``,
 ``docs_path`` (repo-relative path of the page, when it is not ``docs/features/<id>.md``),
 ``snippet`` (a few lines of code for a feature used from Python) and ``status_id`` (the id of
-the ``briefcase status`` row that says whether the feature is on; defaults to ``id``) and
+the ``briefcase-ai status`` row that says whether the feature is on; defaults to ``id``) and
 ``runtime`` (``"python"``, the default, or ``"node"``: the feature is started from another
-runtime, so ``command`` need not begin with ``briefcase``).
+runtime, so ``command`` need not begin with
+ ``briefcase-ai``).
 Unknown keys are kept in ``Feature.extra`` and otherwise ignored.
 
 Loading never raises. A file that is not valid JSON, is missing a required key or names an

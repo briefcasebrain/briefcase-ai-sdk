@@ -3,7 +3,7 @@
   "title": "Tamper-evident hash chain",
   "verb": "verify",
   "one_line": "Prove that stored records were not altered, removed or reordered.",
-  "command": "briefcase features integrity-chain",
+  "command": "briefcase-ai features integrity-chain",
   "docs_slug": "verify/integrity-chain",
   "status": "experimental",
   "requires_extra": "integrity",

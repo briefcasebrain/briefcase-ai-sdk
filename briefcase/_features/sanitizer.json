@@ -3,7 +3,7 @@
   "title": "PII redaction",
   "verb": "capture",
   "one_line": "Strip emails, phone numbers, card numbers and keys before anything is stored.",
-  "command": "briefcase features sanitizer",
+  "command": "briefcase-ai features sanitizer",
   "docs_slug": "capture/sanitizer",
   "status": "stable",
   "requires_extra": null,

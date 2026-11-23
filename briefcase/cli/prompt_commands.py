@@ -1,11 +1,11 @@
-"""``briefcase prompt``: list, show and diff versions of named prompt templates.
+"""``briefcase-ai prompt``: list, show and diff versions of named prompt templates.
 
 Versions are recorded by ``briefcase.prompts.prompt(name, template)`` in
 ``$BRIEFCASE_HOME/prompts`` (local only):
 
-    briefcase prompt list
-    briefcase prompt show triage@3f2a9c01b7d4
-    briefcase prompt diff triage@3f2a9c01b7d4 triage@9c1d0e22a6f3
+    briefcase-ai prompt list
+    briefcase-ai prompt show triage@3f2a9c01b7d4
+    briefcase-ai prompt diff triage@3f2a9c01b7d4 triage@9c1d0e22a6f3
 """
 
 from __future__ import annotations
@@ -30,20 +30,20 @@ def register(sub: argparse._SubParsersAction) -> None:
         "prompt", help="List, show and diff prompt template versions.", formatter_class=_RAW,
         description="Prompt templates registered with briefcase.prompts.prompt(name, template). Each version "
                     "is the first 12 hex characters of the template's SHA-256.",
-        epilog="example:\n  briefcase prompt list",
+        epilog="example:\n  briefcase-ai prompt list",
     )
     ps = parser.add_subparsers(dest="sub")
     p = ps.add_parser("list", help="Every prompt name with its versions.", formatter_class=_RAW,
-                      epilog="example:\n  briefcase prompt list --json")
+                      epilog="example:\n  briefcase-ai prompt list --json")
     p.add_argument("--json", action="store_true", help="Machine-readable output.")
     p.set_defaults(func=cmd_prompt_list)
     p = ps.add_parser("show", help="Print one version's template.", formatter_class=_RAW,
-                      epilog="example:\n  briefcase prompt show triage")
+                      epilog="example:\n  briefcase-ai prompt show triage")
     p.add_argument("ref", metavar="NAME[@VERSION]", help="Latest version when @VERSION is omitted; a prefix works.")
     p.add_argument("--json", action="store_true", help="Machine-readable output.")
     p.set_defaults(func=cmd_prompt_show)
     p = ps.add_parser("diff", help="Unified diff between two versions.", formatter_class=_RAW,
-                      epilog="example:\n  briefcase prompt diff triage@3f2a9c01b7d4 triage@9c1d0e22a6f3")
+                      epilog="example:\n  briefcase-ai prompt diff triage@3f2a9c01b7d4 triage@9c1d0e22a6f3")
     p.add_argument("a", metavar="NAME@V1")
     p.add_argument("b", metavar="NAME@V2", nargs="?",
                    help="Default: the latest version. A bare version means the same name.")
@@ -92,7 +92,7 @@ def cmd_prompt_list(args, store, engine=None, stack=None) -> int:
         print(f"  {name.ljust(width)}  {len(entries):<8}  {latest['version']}  "
               f"{str(latest.get('first_seen', ''))[:19]}{flag}")
     first = next(iter(saved))
-    print(f"Next: briefcase prompt show {first}")
+    print(f"Next: briefcase-ai prompt show {first}")
     return 0
 
 
@@ -114,7 +114,7 @@ def cmd_prompt_show(args, store, engine=None, stack=None) -> int:
     print("---")
     print(entry["template"])
     print("---")
-    print(f"Next: briefcase dataset from-records runs.jsonl --name {name} --where prompt_name={name}")
+    print(f"Next: briefcase-ai dataset from-records runs.jsonl --name {name} --where prompt_name={name}")
     return 0
 
 
@@ -141,5 +141,5 @@ def cmd_prompt_diff(args, store, engine=None, stack=None) -> int:
         return 0
     for line in lines:
         print(line)
-    print(f"Next: briefcase eval run --dataset {name} --target <old> --target <new>  (compare both versions)")
+    print(f"Next: briefcase-ai eval run --dataset {name} --target <old> --target <new>  (compare both versions)")
     return 0

@@ -3,7 +3,7 @@
   "title": "OpenTelemetry export",
   "verb": "capture",
   "one_line": "Send records as spans to any OTLP collector you already run.",
-  "command": "briefcase exec --to otlp -- python app.py",
+  "command": "briefcase-ai exec --to otlp -- python app.py",
   "docs_slug": "capture/exporter-otel",
   "status": "experimental",
   "requires_extra": "otel",

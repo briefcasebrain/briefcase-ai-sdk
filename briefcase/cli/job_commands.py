@@ -1,4 +1,4 @@
-"""``briefcase dataset`` / ``secret`` / ``run``: the evaluation-job lifecycle commands.
+"""``briefcase-ai dataset`` / ``secret`` / ``run``: the evaluation-job lifecycle commands.
 
 Parser wiring only; the handlers live in ``briefcase.cli.commands``.
 """
@@ -31,7 +31,7 @@ def register(sub) -> None:
                     "requires (s3://oci-jj-datasets/tenants/<tenant>/datasets/<sha256>/<file>) and registers "
                     "NAME -> that URI. The engine presigns it for the verdict worker per job. Engine call: "
                     "none (docker compose exec minio mc pipe); the URI is checked by the engine on run submit.",
-        epilog="example:\n  briefcase dataset publish churn ./churn.parquet\n\n"
+        epilog="example:\n  briefcase-ai dataset publish churn ./churn.parquet\n\n"
                "exit codes: 0 ok, 1 failed, 2 usage, 3 engine not installed",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -101,7 +101,7 @@ def register(sub) -> None:
         description="Sends the verdict (and optional fold-contract manifest) to the engine, which records "
                     "it as a bench summary plus a benchmarked_against edge. Engine call: "
                     "VcsService.AttachBench with run=false (oci-bai attach-bench --result).",
-        epilog="example:\n  briefcase run attach demo --result verdict.json\n\n"
+        epilog="example:\n  briefcase-ai run attach demo --result verdict.json\n\n"
                "exit codes: 0 ok, 1 failed, 2 usage, 3 engine not installed",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

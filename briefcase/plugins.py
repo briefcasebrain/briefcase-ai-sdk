@@ -25,20 +25,20 @@ Groups (``GROUPS`` below) and what each entry point must name:
     accepts ``POST /v1/sources/NAME`` (JSON) and maps the events like its built-in ones.
 ``briefcase.connect_adapters``
     A :class:`briefcase.connect.adapters.Adapter` subclass with a ``DATA`` dict (the same
-    keys as an entry of ``adapters.json``); ``briefcase connect NAME`` plans for it.
+    keys as an entry of ``adapters.json``); ``briefcase-ai connect NAME`` plans for it.
 ``briefcase.guardrails``
     A guardrail environment class; ``briefcase.guardrails.framework.make(NAME)`` builds it.
 ``briefcase.cli_commands``
     A module with ``register(subparsers)`` (the protocol of ``briefcase/cli/*_commands.py``)
-    that adds the command ``NAME``. It is imported only when ``briefcase NAME`` runs.
+    that adds the command ``NAME``. It is imported only when ``briefcase-ai NAME`` runs.
 ``briefcase.features``
     A feature manifest (a dict, JSON text, or a callable returning a dict) that
-    ``briefcase features`` lists.
+    ``briefcase-ai features`` lists.
 
 Contract:
 
 - Lazy: nothing is imported until its group and name are needed. Listing entry points reads
-  package metadata only. ``briefcase --help`` imports no plugin.
+  package metadata only. ``briefcase-ai --help`` imports no plugin.
 - Isolated: a plugin that raises on import, names something missing, or fails its group's
   check is skipped with one WARNING on the ``briefcase.plugins`` logger naming the
   distribution. It never breaks the CLI or the application.
@@ -51,7 +51,7 @@ Contract:
   its module. A version this release does not support is refused with a clear message;
   no declaration is read as version 1.
 
-``briefcase plugins`` and ``briefcase doctor`` report every entry point and what became of it.
+``briefcase-ai plugins`` and ``briefcase-ai doctor`` report every entry point and what became of it.
 """
 
 from __future__ import annotations
@@ -82,10 +82,10 @@ GROUPS: Dict[str, str] = {
     "briefcase.bitemporal_backends": "bitemporal store backend class",
     "briefcase.vcs_providers": "data-versioning client class, a VcsClientBase",
     "briefcase.receiver_sources": "normaliser for POST /v1/sources/NAME on the receiver",
-    "briefcase.connect_adapters": "adapter class for `briefcase connect NAME`",
+    "briefcase.connect_adapters": "adapter class for `briefcase-ai connect NAME`",
     "briefcase.guardrails": "guardrail environment class for guardrails.make('NAME')",
-    "briefcase.cli_commands": "module whose register(subparsers) adds `briefcase NAME`",
-    "briefcase.features": "feature manifest listed by `briefcase features`",
+    "briefcase.cli_commands": "module whose register(subparsers) adds `briefcase-ai NAME`",
+    "briefcase.features": "feature manifest listed by `briefcase-ai features`",
 }
 
 _NOUNS = {
@@ -463,7 +463,7 @@ def explain(group: str, name: str) -> str:
     return f"{plugin.key} from {who} is {plugin.state}" + (f": {plugin.reason}" if plugin.reason else "")
 
 
-# -- checks per group (used by the hooks in each registry and by `briefcase plugins`) -----
+# -- checks per group (used by the hooks in each registry and by `briefcase-ai plugins`) -----
 
 def _subclass_of(base_path: str, what: str) -> Validator:
     def check(obj: Any) -> Optional[str]:
@@ -576,7 +576,7 @@ def builtin_names(group: str) -> List[str]:
 
 def report(load_them: bool = True) -> List[Plugin]:
     """Every entry point, each loaded (with its group's check) when ``load_them`` is true, so
-    its state says whether it works. Used by ``briefcase plugins`` and ``briefcase doctor``."""
+    its state says whether it works. Used by ``briefcase-ai plugins`` and ``briefcase-ai doctor``."""
     plugins = all_plugins()
     if load_them:
         for group in GROUPS:

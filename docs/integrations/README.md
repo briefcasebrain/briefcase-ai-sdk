@@ -4,12 +4,12 @@ Two commands connect your coding tools to briefcase:
 
 ```bash
 pip install briefcase-ai
-briefcase connect            # detects your tools, shows the plan and a diff, asks once, writes
-briefcase receive            # local OTLP receiver: tool telemetry -> briefcase decision records
+briefcase-ai connect            # detects your tools, shows the plan and a diff, asks once, writes
+briefcase-ai receive            # local OTLP receiver: tool telemetry -> briefcase decision records
 ```
 
-`briefcase connect` writes each tool's telemetry and MCP configuration for you.
-`briefcase receive` listens on `http://127.0.0.1:4318` and turns what the tools
+`briefcase-ai connect` writes each tool's telemetry and MCP configuration for you.
+`briefcase-ai receive` listens on `http://127.0.0.1:4318` and turns what the tools
 send into decision records shaped like `@briefcase.capture` output.
 
 ## What `connect` does to your files
@@ -29,21 +29,21 @@ send into decision records shaped like `@briefcase.capture` output.
 - Running it again changes nothing.
 
 ```bash
-briefcase connect --dry-run          # plan and diff only
-briefcase connect claude-code cursor # only these tools
-briefcase connect --scope project    # project-level files where the tool supports them
-briefcase connect --no-mcp           # telemetry only
-briefcase connect --endpoint https://otel.example.com --headers "Authorization=Bearer T"
-briefcase connect list               # supported tools and whether each was detected
-briefcase connect status             # what is connected, and whether the keys are still there
-briefcase doctor --connect           # keys present, tool version, managed overrides, receiver up
+briefcase-ai connect --dry-run          # plan and diff only
+briefcase-ai connect claude-code cursor # only these tools
+briefcase-ai connect --scope project    # project-level files where the tool supports them
+briefcase-ai connect --no-mcp           # telemetry only
+briefcase-ai connect --endpoint https://otel.example.com --headers "Authorization=Bearer T"
+briefcase-ai connect list               # supported tools and whether each was detected
+briefcase-ai connect status             # what is connected, and whether the keys are still there
+briefcase-ai doctor --connect           # keys present, tool version, managed overrides, receiver up
 ```
 
 ### Undo
 
 ```bash
-briefcase connect --undo             # everything connect wrote
-briefcase connect --undo cursor      # one tool
+briefcase-ai connect --undo             # everything connect wrote
+briefcase-ai connect --undo cursor      # one tool
 ```
 
 Undo reads the journal at `~/.briefcase/connect/journal.json` and removes only
@@ -58,15 +58,15 @@ are not removed automatically; undo prints the command that removes them.
 
 | Tool | Command | Mode | What is written |
 | --- | --- | --- | --- |
-| Claude Code | `briefcase connect claude-code` | automatic | `env` keys in `~/.claude/settings.json`; MCP via `claude mcp add --scope user` |
-| Codex CLI | `briefcase connect codex` | automatic | `[otel]` block in `~/.codex/config.toml`; MCP via `codex mcp add` |
-| Cursor | `briefcase connect cursor` | automatic | hooks in `~/.cursor/hooks.json`; MCP in `~/.cursor/mcp.json` |
-| VS Code Copilot Chat | `briefcase connect vscode-copilot` | automatic | `github.copilot.chat.otel.*` in VS Code user `settings.json`; MCP via `code --add-mcp` |
-| Gemini CLI | `briefcase connect gemini-cli` | experimental | `telemetry` block in `.gemini/settings.json` |
-| Claude Desktop / Cowork | `briefcase connect cowork` | print-only | nothing; prints the admin steps |
-| GitHub Copilot CLI | `briefcase connect copilot-cli` | print-only | nothing; prints env vars and the MCP entry |
-| Cline | `briefcase connect cline` | print-only | nothing; prints env vars |
-| Windsurf, opencode | `briefcase connect windsurf opencode` | print-only | nothing; prints the MCP server command |
+| Claude Code | `briefcase-ai connect claude-code` | automatic | `env` keys in `~/.claude/settings.json`; MCP via `claude mcp add --scope user` |
+| Codex CLI | `briefcase-ai connect codex` | automatic | `[otel]` block in `~/.codex/config.toml`; MCP via `codex mcp add` |
+| Cursor | `briefcase-ai connect cursor` | automatic | hooks in `~/.cursor/hooks.json`; MCP in `~/.cursor/mcp.json` |
+| VS Code Copilot Chat | `briefcase-ai connect vscode-copilot` | automatic | `github.copilot.chat.otel.*` in VS Code user `settings.json`; MCP via `code --add-mcp` |
+| Gemini CLI | `briefcase-ai connect gemini-cli` | experimental | `telemetry` block in `.gemini/settings.json` |
+| Claude Desktop / Cowork | `briefcase-ai connect cowork` | print-only | nothing; prints the admin steps |
+| GitHub Copilot CLI | `briefcase-ai connect copilot-cli` | print-only | nothing; prints env vars and the MCP entry |
+| Cline | `briefcase-ai connect cline` | print-only | nothing; prints env vars |
+| Windsurf, opencode | `briefcase-ai connect windsurf opencode` | print-only | nothing; prints the MCP server command |
 
 "Print-only" means the tool has no local setting to write, or its format is
 not confirmed against its documentation, so `connect` shows you what to add and
@@ -95,7 +95,7 @@ so telemetry is always user-level, also with `--scope project`. The protocol
 is `http/json`, which the receiver decodes with no extra dependency.
 `--capture-content` adds `OTEL_LOG_USER_PROMPTS=1` and `OTEL_LOG_TOOL_DETAILS=1`.
 
-MCP: `claude mcp add --scope user briefcase -- briefcase-mcp`, or with
+MCP: `claude mcp add --scope user briefcase -- briefcase-ai-mcp`, or with
 `--scope project` an entry in `.mcp.json`.
 
 A plugin that adds the MCP server (no telemetry; a plugin cannot set it):
@@ -126,7 +126,7 @@ pip install 'briefcase-ai[receiver]'
 
 `connect` checks for it and prints that command when it is missing.
 `--capture-content` sets `log_user_prompt = true`. MCP is registered with
-`codex mcp add briefcase -- briefcase-mcp`, or written as
+`codex mcp add briefcase -- briefcase-ai-mcp`, or written as
 `[mcp_servers.briefcase]` in the same block when `codex` is not on PATH.
 
 ### Cursor
@@ -137,10 +137,10 @@ Cursor has no OpenTelemetry export. `connect` adds one hook entry to each of
 `.cursor/hooks.json` with `--scope project`):
 
 ```json
-{ "command": "briefcase hook cursor", "timeout": 5 }
+{ "command": "briefcase-ai hook cursor", "timeout": 5 }
 ```
 
-`briefcase hook cursor` reads the hook event from stdin and posts it to the
+`briefcase-ai hook cursor` reads the hook event from stdin and posts it to the
 receiver. It always exits 0, prints nothing, and gives up after one second, so
 it cannot block or slow the agent when the receiver is down. Prompt text,
 agent text, tool input and output, `user_email`, `workspace_roots` and
@@ -169,7 +169,7 @@ protobuf, so install `briefcase-ai[receiver]`. `--capture-content` adds
 ### Claude Desktop / Cowork
 
 Telemetry is configured by an organization admin under Organization settings >
-Data and privacy > Monitoring. `briefcase connect cowork` prints those steps
+Data and privacy > Monitoring. `briefcase-ai connect cowork` prints those steps
 and the receiver endpoint. Cowork always sends `user.email` and
 `workspace.host_paths`; the receiver hashes the first and drops the second.
 
@@ -183,7 +183,7 @@ and the receiver endpoint. Cowork always sends `user.email` and
 | Errors | error type and `[redacted]`; the message is never kept (it routinely quotes the command or path that failed) | raw message |
 | `user.email` | keyed hash (`user_email_hmac_sha256`; the key stays in `~/.briefcase/receiver/`) | as sent |
 | Host paths, transcript paths, URLs, raw API bodies | dropped | as sent |
-| OTLP metrics | dropped (`briefcase receive --metrics` passes them through) | the same |
+| OTLP metrics | dropped (`briefcase-ai receive --metrics` passes them through) | the same |
 
 Default redaction is an allow-list, not a filter: only the fields in the
 "Default" column are copied, and a value is copied only when it looks like
@@ -212,11 +212,11 @@ Records use the `@capture` field set (`schema_version`, `decision_id`,
 ## The receiver
 
 ```bash
-briefcase receive                          # foreground, records to the console
-briefcase receive --to runs.jsonl          # or https://collector.example.com/v1/decisions, or otlp
-briefcase receive --detach                 # background; records to ~/.briefcase/receiver/records.jsonl
-briefcase receive --status
-briefcase receive --stop
+briefcase-ai receive                          # foreground, records to the console
+briefcase-ai receive --to runs.jsonl          # or https://collector.example.com/v1/decisions, or otlp
+briefcase-ai receive --detach                 # background; records to ~/.briefcase/receiver/records.jsonl
+briefcase-ai receive --status
+briefcase-ai receive --stop
 ```
 
 - Endpoints: `POST /v1/logs`, `/v1/metrics`, `/v1/traces`, `/v1/hooks/cursor`; `GET /healthz`.
@@ -226,7 +226,7 @@ briefcase receive --stop
   (`--max-body-mb`).
 - It binds `127.0.0.1`. Any other `--host` requires `--token` (or
   `BRIEFCASE_RECEIVER_TOKEN`), sent by the tool as `Authorization: Bearer <token>`;
-  pass it to the tools with `briefcase connect --headers "Authorization=Bearer <token>"`.
+  pass it to the tools with `briefcase-ai connect --headers "Authorization=Bearer <token>"`.
 - `--to otlp` forwards records as spans through the `otel` extra
   (`BRIEFCASE_OTLP_ENDPOINT`, default `http://localhost:4317`). For an
   `https://` sink, `BRIEFCASE_EXPORTER_TOKEN` is sent as the bearer token (the
@@ -235,16 +235,16 @@ briefcase receive --stop
 
 ## MCP server: copy-paste and one-click installs
 
-`briefcase connect` registers the `briefcase-mcp` server by default. To do only
+`briefcase-ai connect` registers the `briefcase-ai-mcp` server by default. To do only
 that, or to share an install link:
 
 ```bash
-briefcase mcp install                 # every detected tool
-briefcase mcp install cursor --scope project
-briefcase mcp link cursor             # prints the payloads below
+briefcase-ai mcp install                 # every detected tool
+briefcase-ai mcp install cursor --scope project
+briefcase-ai mcp link cursor             # prints the payloads below
 ```
 
-When `briefcase-mcp` is not on PATH the payloads use `uvx`, which needs
+When `briefcase-ai-mcp` is not on PATH the payloads use `uvx`, which needs
 nothing installed beforehand. Those are the forms shown here.
 
 **Cursor** (open the link, or paste the JSON into `~/.cursor/mcp.json`):
@@ -259,7 +259,7 @@ cursor://anysphere.cursor-deeplink/mcp/install?name=briefcase&config=eyJjb21tYW5
     "briefcase": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "briefcase-ai[mcp]", "briefcase-mcp"]
+      "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]
     }
   }
 }
@@ -268,8 +268,8 @@ cursor://anysphere.cursor-deeplink/mcp/install?name=briefcase&config=eyJjb21tYW5
 **Claude Code**
 
 ```bash
-claude mcp add --scope user briefcase -- uvx --from 'briefcase-ai[mcp]' briefcase-mcp
-claude mcp add-json briefcase '{"type":"stdio","command":"uvx","args":["--from","briefcase-ai[mcp]","briefcase-mcp"]}'
+claude mcp add --scope user briefcase -- uvx --from 'briefcase-ai[mcp]' briefcase-ai-mcp
+claude mcp add-json briefcase '{"type":"stdio","command":"uvx","args":["--from","briefcase-ai[mcp]","briefcase-ai-mcp"]}'
 ```
 
 Project scope, in `.mcp.json`:
@@ -277,7 +277,7 @@ Project scope, in `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "briefcase": { "command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-mcp"] }
+    "briefcase": { "command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"] }
   }
 }
 ```
@@ -285,13 +285,13 @@ Project scope, in `.mcp.json`:
 **Codex CLI**
 
 ```bash
-codex mcp add briefcase -- uvx --from 'briefcase-ai[mcp]' briefcase-mcp
+codex mcp add briefcase -- uvx --from 'briefcase-ai[mcp]' briefcase-ai-mcp
 ```
 
 **VS Code**
 
 ```bash
-code --add-mcp '{"name":"briefcase","type":"stdio","command":"uvx","args":["--from","briefcase-ai[mcp]","briefcase-mcp"]}'
+code --add-mcp '{"name":"briefcase","type":"stdio","command":"uvx","args":["--from","briefcase-ai[mcp]","briefcase-ai-mcp"]}'
 ```
 
 Workspace scope, in `.vscode/mcp.json` (note the `servers` key):
@@ -299,14 +299,14 @@ Workspace scope, in `.vscode/mcp.json` (note the `servers` key):
 ```json
 {
   "servers": {
-    "briefcase": { "type": "stdio", "command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-mcp"] }
+    "briefcase": { "type": "stdio", "command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"] }
   }
 }
 ```
 
 ## Limits and failure modes
 
-This section covers the zero-code path: `briefcase exec -- <command>`,
+This section covers the zero-code path: `briefcase-ai exec -- <command>`,
 `briefcase.observe()` with no argument, and `briefcase.auto()` with the
 provider integrations (`openai`, `anthropic`, `google-genai`, `bedrock`,
 `aiobotocore`). `briefcase.auto.status()` (text: `briefcase.auto.format_status()`)
@@ -325,14 +325,14 @@ tested with.
   reported; anything not captured is named in `capture_limits`.
 - No prompt, completion, tool argument, `user` / `metadata` value, header or
   API key is recorded unless `capture_content` is `full` (or `hash`). The
-  rule for every capture path: Briefcase records prompt, completion and tool content only where someone chose to record it: every automatic path (framework handlers, provider SDKs, `briefcase exec`, `connect` and the receiver, eval records) records none until you opt in with `capture_content=`, `--capture-content` / `--keep-content` or `BRIEFCASE_CAPTURE_CONTENT`, while `@briefcase.capture` on your own function is itself that choice and records its arguments and return value (pass `capture_content="hash"` or `"none"` to keep them out). With
+  rule for every capture path: Briefcase records prompt, completion and tool content only where someone chose to record it: every automatic path (framework handlers, provider SDKs, `briefcase-ai exec`, `connect` and the receiver, eval records) records none until you opt in with `capture_content=`, `--capture-content` / `--keep-content` or `BRIEFCASE_CAPTURE_CONTENT`, while `@briefcase.capture` on your own function is itself that choice and records its arguments and return value (pass `capture_content="hash"` or `"none"` to keep them out). With
   `full`, each string is cut at 8,000 characters, one `inputs`/`outputs`
   value at 128,000, bytes become `<N bytes>`, other objects their type name.
 
 ### Forked worker processes
 
 This applies to every process that exports records (`briefcase.observe()` /
-`@capture` / `auto()`), not only under `briefcase exec`.
+`@capture` / `auto()`), not only under `briefcase-ai exec`.
 
 - Just before a fork the export queue is given up to 0.5 s to drain, so the
   export thread holds no exporter lock at the moment of the fork.
@@ -413,7 +413,7 @@ provider SDK produces two records for one model call. By default both are
 kept and linked: the provider record carries `parent_run_id` (the
 framework's LLM run id) and `parent_framework`. **Sum `token_usage` over one
 side only**, for example over records without `parent_run_id`.
-`briefcase.auto(dedupe="provider")` (`briefcase exec --dedupe provider`)
+`briefcase.auto(dedupe="provider")` (`briefcase-ai exec --dedupe provider`)
 drops the provider record of a call made inside a framework LLM run;
 `dedupe="framework"` drops the framework's LLM-level record when a provider
 record was emitted for it.
@@ -433,7 +433,7 @@ minutes.
 
 `briefcase.auto("langchain")` and the other framework handlers record no
 prompt, completion or error text by default, like the provider integrations
-and `briefcase exec`. They take the same values: `capture_content="full"`
+and `briefcase-ai exec`. They take the same values: `capture_content="full"`
 (or `True`), `"hash"`, or `"none"` (`False`, the default), passed to
 `auto(...)` or the handler constructor, or `BRIEFCASE_CAPTURE_CONTENT` when
 `auto()` is not given one. Up to 4.4.0 the framework handlers recorded full
@@ -454,7 +454,7 @@ content by default; to keep that, pass
   packages, hands the module its real loader back, and is removed when
   nothing is waiting or on `undo()`.
 
-### `briefcase exec`
+### `briefcase-ai exec`
 
 | Situation | What happens |
 | --- | --- |
@@ -466,7 +466,7 @@ content by default; to keep that, pass
 | `subprocess`, `multiprocessing` spawn/forkserver children | Run the bootstrap themselves: instrumented once. |
 | `os.fork`, gunicorn workers, `multiprocessing` fork children | Inherit the parent's patches (once). Export works in the child as described under "Forked worker processes" below. |
 | An existing `sitecustomize` (conda, Debian, your own) | Runs after briefcase's, and is what `import sitecustomize` returns. An error in it is reported, as Python does. |
-| Signals and exit code | On POSIX the program replaces the `briefcase` process, so both are exactly the program's. On Windows it runs as a child: the exit code is passed on, Ctrl-C reaches both. |
+| Signals and exit code | On POSIX the program replaces the `briefcase-ai` process, so both are exactly the program's. On Windows it runs as a child: the exit code is passed on, Ctrl-C reaches both. |
 | Non-Python commands | Run unchanged; any Python they start is instrumented. |
 
 `briefcase.observe()` from the environment: `BRIEFCASE_EXPORTER` wins, then

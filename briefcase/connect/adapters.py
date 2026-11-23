@@ -1,4 +1,4 @@
-"""Per-tool adapters for ``briefcase connect``.
+"""Per-tool adapters for ``briefcase-ai connect``.
 
 Each adapter knows how to ``detect()`` its tool, build a ``plan()`` (a list of
 :class:`FileEdit`, :class:`Command` and :class:`Manual` items) and report its
@@ -267,7 +267,7 @@ class Cowork(Adapter):
             "  1. Open Organization settings > Data and privacy > Monitoring.",
             "  2. Enable OpenTelemetry export.",
             f"  3. Set the OTLP endpoint to a receiver your organization runs, e.g. {ctx.endpoint}",
-            "     (run `briefcase receive --host 0.0.0.0 --token <secret>` behind TLS for a shared one,",
+            "     (run `briefcase-ai receive --host 0.0.0.0 --token <secret>` behind TLS for a shared one,",
             "     and send the token as an `Authorization=Bearer <secret>` header).",
             "  4. If the exporter sends protobuf: pip install 'briefcase-ai[receiver]' on the receiver.",
             "Cowork always sends user.email and workspace.host_paths; the receiver hashes the",
@@ -329,8 +329,8 @@ class Cursor(Adapter):
     id = "cursor"
 
     def hook_command(self, ctx: Context) -> str:
-        if which("briefcase"):
-            base = "briefcase hook cursor"
+        if which("briefcase-ai"):
+            base = "briefcase-ai hook cursor"
         else:
             base = f"{shlex.quote(sys.executable)} -m briefcase.cli hook cursor"
         if ctx.endpoint != DEFAULT_ENDPOINT:

@@ -1,8 +1,8 @@
-"""``briefcase plugins``: what installed packages add to briefcase, and whether it works.
+"""``briefcase-ai plugins``: what installed packages add to briefcase, and whether it works.
 
-    briefcase plugins                 # same as `plugins list`
-    briefcase plugins list --json
-    briefcase plugins show acme       # one plugin (NAME or GROUP:NAME)
+    briefcase-ai plugins                 # same as `plugins list`
+    briefcase-ai plugins list --json
+    briefcase-ai plugins show acme       # one plugin (NAME or GROUP:NAME)
 
 Plugins are packages that declare ``briefcase.*`` entry points (see ``briefcase/plugins.py``
 and ``docs/features/plugins.md``). Listing them imports each one, so the state shown
@@ -19,7 +19,7 @@ GROUP = "connect"
 ORDER = 90
 
 _EPILOG = """example:
-  briefcase plugins list
+  briefcase-ai plugins list
 
 env:
   BRIEFCASE_PLUGINS=off               load no plugin at all
@@ -44,12 +44,12 @@ def register(sub) -> None:
     p.set_defaults(func=cmd_plugins_list)
     psub = p.add_subparsers(dest="plugins_command", metavar="<subcommand>")
     lst = psub.add_parser("list", help="Every plugin, by group, with its status.",
-                          epilog="example:\n  briefcase plugins list --json",
+                          epilog="example:\n  briefcase-ai plugins list --json",
                           formatter_class=argparse.RawDescriptionHelpFormatter)
     _ux.add_json_flag(lst)
     lst.set_defaults(func=cmd_plugins_list)
     show = psub.add_parser("show", help="One plugin: where it comes from and why it is or is not used.",
-                           epilog="example:\n  briefcase plugins show briefcase.exporters:acme",
+                           epilog="example:\n  briefcase-ai plugins show briefcase.exporters:acme",
                            formatter_class=argparse.RawDescriptionHelpFormatter)
     show.add_argument("name", metavar="NAME", help="Plugin name, or GROUP:NAME when a name is in two groups.")
     _ux.add_json_flag(show)
@@ -81,7 +81,7 @@ def cmd_plugins_list(args, store=None, engine=None, stack=None) -> int:
     if getattr(args, "json", False):
         return _ux.print_json(data)
     rows = data["plugins"]
-    print(_ux.style("briefcase plugins", "bold") + f" · plugin API {plugins.PLUGIN_API_VERSION}"
+    print(_ux.style("briefcase-ai plugins", "bold") + f" · plugin API {plugins.PLUGIN_API_VERSION}"
           + f" · {len(rows)} entry point" + ("" if len(rows) == 1 else "s"))
     if not plugins.enabled():
         print(f"Plugins are turned off ({plugins.ENV_SWITCH}=off); nothing below is loaded.")
@@ -89,7 +89,7 @@ def cmd_plugins_list(args, store=None, engine=None, stack=None) -> int:
         print("")
         print("No installed package declares a briefcase plugin.")
         print("")
-        _ux.print_next("briefcase features plugins", "how to write one")
+        _ux.print_next("briefcase-ai features plugins", "how to write one")
         return 0
     for group in plugins.GROUPS:
         items = [row for row in rows if row["group"] == group]
@@ -106,9 +106,9 @@ def cmd_plugins_list(args, store=None, engine=None, stack=None) -> int:
     print("")
     broken = [row for row in rows if row["state"] in ("skipped", "refused")]
     if broken:
-        _ux.print_next(f"briefcase plugins show {broken[0]['group']}:{broken[0]['name']}", "see why it is not used")
+        _ux.print_next(f"briefcase-ai plugins show {broken[0]['group']}:{broken[0]['name']}", "see why it is not used")
     else:
-        _ux.print_next("briefcase features", "plugin features are listed with the built-in ones")
+        _ux.print_next("briefcase-ai features", "plugin features are listed with the built-in ones")
     return 0
 
 
@@ -126,7 +126,7 @@ def cmd_plugins_show(args, store=None, engine=None, stack=None) -> int:
     data = collect()
     found = [row for row in data["plugins"] if _matches(row, args.name)]
     if not found:
-        return _ux.fail(f"no installed plugin named {args.name!r}", fix="briefcase plugins list",
+        return _ux.fail(f"no installed plugin named {args.name!r}", fix="briefcase-ai plugins list",
                         code=_ux.EXIT_USAGE)
     if getattr(args, "json", False):
         return _ux.print_json({"plugin_api_version": plugins.PLUGIN_API_VERSION, "plugins": found})
@@ -140,7 +140,7 @@ def cmd_plugins_show(args, store=None, engine=None, stack=None) -> int:
         print(f"  Plugin API:  {api if api is not None else 'not declared (read as 1)'}; "
               f"this briefcase-ai supports {plugins.MIN_PLUGIN_API}..{plugins.PLUGIN_API_VERSION}")
         print("")
-    _ux.print_next("briefcase plugins list")
+    _ux.print_next("briefcase-ai plugins list")
     return 0
 
 

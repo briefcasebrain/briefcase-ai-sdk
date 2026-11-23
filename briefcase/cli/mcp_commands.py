@@ -1,7 +1,7 @@
-"""``briefcase mcp install`` / ``briefcase mcp link``: one-step MCP setup.
+"""``briefcase-ai mcp install`` / ``briefcase-ai mcp link``: one-step MCP setup.
 
-``install`` registers the SDK's ``briefcase-mcp`` server with the tools on this
-machine (the MCP half of ``briefcase connect``). ``link`` prints the payload
+``install`` registers the SDK's ``briefcase-ai-mcp`` server with the tools on this
+machine (the MCP half of ``briefcase-ai connect``). ``link`` prints the payload
 for one tool so it can be pasted, clicked or shared.
 """
 
@@ -14,7 +14,7 @@ from briefcase.connect.adapters import registry, resolve_names, which
 
 LINK_TOOLS = ("cursor", "claude-code", "codex", "vscode-copilot")
 
-# What the briefcase-mcp server offers (kept equal to briefcase.mcp.server by tests/test_mcp_records.py;
+# What the briefcase-ai-mcp server offers (kept equal to briefcase.mcp.server by tests/test_mcp_records.py;
 # not imported from there because that needs the mcp extra).
 SERVER_TOOLS = (
     ("search_decisions", "find recorded decisions by time, type, model, tool, session or trace"),
@@ -33,7 +33,7 @@ SERVER_TOOLS = (
 
 
 def tools_text() -> str:
-    lines = ["Tools briefcase-mcp gives your assistant (read-only over your records in ~/.briefcase):"]
+    lines = ["Tools briefcase-ai-mcp gives your assistant (read-only over your records in ~/.briefcase):"]
     lines += [f"  {name:<24} {what}" for name, what in SERVER_TOOLS]
     return "\n".join(lines)
 
@@ -44,7 +44,7 @@ GROUP = "connect"
 def register(sub) -> None:
     mcp = sub.add_parser("mcp", help="Install the briefcase MCP server into coding tools.")
     msub = mcp.add_subparsers(dest="sub")
-    install = msub.add_parser("install", help="Register briefcase-mcp with detected (or named) tools.")
+    install = msub.add_parser("install", help="Register briefcase-ai-mcp with detected (or named) tools.")
     install.add_argument("tools", nargs="*", help="Tools to set up (default: every detected tool).")
     install.add_argument("--scope", choices=("user", "project"), default="user")
     install.add_argument("--dry-run", dest="connect_dry_run", action="store_true",

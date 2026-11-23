@@ -3,7 +3,7 @@
   "title": "Plugins from other packages",
   "verb": "connect",
   "one_line": "Add exporters, backends, commands and checks from other packages.",
-  "command": "briefcase plugins list",
+  "command": "briefcase-ai plugins list",
   "docs_slug": "connect/plugins",
   "status": "experimental",
   "requires_extra": null,

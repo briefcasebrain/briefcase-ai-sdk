@@ -3,7 +3,7 @@
   "title": "Framework auto-instrumentation",
   "verb": "capture",
   "one_line": "Record LangChain, LlamaIndex, CrewAI and AutoGen runs with no handler code.",
-  "command": "briefcase exec -- python app.py",
+  "command": "briefcase-ai exec -- python app.py",
   "docs_slug": "capture/auto-instrumentation",
   "status": "experimental",
   "requires_extra": null,

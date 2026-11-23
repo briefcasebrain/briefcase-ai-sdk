@@ -27,9 +27,9 @@ LEVELS = (DOCS_ONLY, CONFIG_ACCEPTED, TELEMETRY_VERIFIED)  # ordered, lowest fir
 LEVEL_MEANING = {
     DOCS_ONLY: "Built from the vendor's documentation. No real install of the tool was exercised "
                "(or what we write could not be checked by the tool).",
-    CONFIG_ACCEPTED: "A real install loaded the config `briefcase connect` wrote and the tool's own "
+    CONFIG_ACCEPTED: "A real install loaded the config `briefcase-ai connect` wrote and the tool's own "
                      "commands reported it (or did not reject it). No telemetry was captured.",
-    TELEMETRY_VERIFIED: "The real tool emitted telemetry that `briefcase receive` turned into "
+    TELEMETRY_VERIFIED: "The real tool emitted telemetry that `briefcase-ai receive` turned into "
                         "decision records.",
 }
 

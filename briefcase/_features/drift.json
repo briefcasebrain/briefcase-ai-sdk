@@ -3,7 +3,7 @@
   "title": "Drift detection",
   "verb": "review",
   "one_line": "Measure how consistent a model's answers are across repeated runs.",
-  "command": "briefcase features drift",
+  "command": "briefcase-ai features drift",
   "docs_slug": "review/drift",
   "status": "experimental",
   "requires_extra": null,

@@ -1,9 +1,9 @@
-"""``briefcase connect``: set up coding tools to report to briefcase, in one command.
+"""``briefcase-ai connect``: set up coding tools to report to briefcase, in one command.
 
-    briefcase connect                 # detect tools, show the plan and diff, ask once, write
-    briefcase connect claude-code     # one tool
-    briefcase connect --undo          # remove exactly what connect wrote
-    briefcase connect list | status
+    briefcase-ai connect                 # detect tools, show the plan and diff, ask once, write
+    briefcase-ai connect claude-code     # one tool
+    briefcase-ai connect --undo          # remove exactly what connect wrote
+    briefcase-ai connect list | status
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def register(sub) -> None:
         "connect",
         help="Configure coding tools (Claude Code, Codex, Cursor, Copilot, ...) to report to briefcase.",
         description="Writes each detected tool's telemetry and MCP configuration for you. "
-                    "Use `briefcase connect list` to see supported tools and `status` to see what is connected.",
+                    "Use `briefcase-ai connect list` to see supported tools and `status` to see what is connected.",
     )
     p.add_argument("tools", nargs="*", metavar="TOOL",
                    help="Tools to connect, or `list` / `status`. Default: every detected tool.")
@@ -53,7 +53,7 @@ def register(sub) -> None:
     p.add_argument("--start", action="store_true", help="Start the receiver in the background afterwards.")
     # Enforcement and fleet rollout live in briefcase.policy; these flags only route to it.
     p.add_argument("--enforce", action="store_true",
-                   help="Also write a policy and install the enforcement hooks (same as `briefcase policy init`).")
+                   help="Also write a policy and install the enforcement hooks (same as `briefcase-ai policy init`).")
     p.add_argument("--preset", choices=("observe", "guarded", "strict"), default=None,
                    help="With --enforce: the preset for a new policy file (default guarded).")
     p.add_argument("--managed", action="store_true",
@@ -119,7 +119,7 @@ def cmd_status(adapters: Dict[str, Adapter], out=print) -> int:
     rows = engine.status(adapters)
     connected = [row for row in rows if row["connected"]]
     if not connected:
-        out("No tools connected yet. Run: briefcase connect")
+        out("No tools connected yet. Run: briefcase-ai connect")
     for row in connected:
         missing = [what for ok, what in row["checks"] if not ok]
         state = "connected" if not missing else "DRIFTED"
@@ -136,7 +136,7 @@ def cmd_status(adapters: Dict[str, Adapter], out=print) -> int:
     endpoints = {row["settings"].get("endpoint") for row in connected} - {None} or {DEFAULT_ENDPOINT}
     for endpoint in sorted(endpoints):
         up = daemon.probe(endpoint) is not None
-        out(f"receiver {endpoint}: {'up' if up else 'not running (briefcase receive --detach)'}")
+        out(f"receiver {endpoint}: {'up' if up else 'not running (briefcase-ai receive --detach)'}")
     return 0
 
 
@@ -144,7 +144,7 @@ def run_undo(args, out=print) -> int:
     try:
         tools = resolve_names(args.tools) if args.tools else None
     except KeyError as exc:
-        print(f"error: unknown tool {exc.args[0]!r}; see `briefcase connect list`", file=sys.stderr)
+        print(f"error: unknown tool {exc.args[0]!r}; see `briefcase-ai connect list`", file=sys.stderr)
         return 2
     dry = _dry_run(args)
     out("Undo plan:" if dry else "Undoing:")
@@ -168,7 +168,7 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
         headers = _parse_headers(getattr(args, "headers", []) or [])
         named = resolve_names(args.tools)
     except KeyError as exc:
-        print(f"error: unknown tool {exc.args[0]!r}; see `briefcase connect list`", file=sys.stderr)
+        print(f"error: unknown tool {exc.args[0]!r}; see `briefcase-ai connect list`", file=sys.stderr)
         return 2
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -181,7 +181,7 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
         tools = engine.detected_tools(adapters)
         if not tools:
             out("No supported coding tool was detected on this machine.")
-            out("Name one explicitly (briefcase connect claude-code) or see: briefcase connect list")
+            out("Name one explicitly (briefcase-ai connect claude-code) or see: briefcase-ai connect list")
             return 1
         out("Detected: " + ", ".join(adapters[name].name for name in tools))
     ctx = Context(
@@ -215,8 +215,8 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
             return 1
         failures = engine.apply_plan(plan, ctx, out, runner=runner)
         if failures:
-            out(f"\n{failures} step(s) failed; the rest were applied. Run `briefcase connect status`.")
-        out("\nUndo any time with: briefcase connect --undo")
+            out(f"\n{failures} step(s) failed; the rest were applied. Run `briefcase-ai connect status`.")
+        out("\nUndo any time with: briefcase-ai connect --undo")
         if failures:
             return 1
     if dry:
@@ -253,8 +253,8 @@ def _receiver_step(plan, ctx: Context, adapters, args, out, ask) -> None:
                                  metrics=False, token=None, max_body_mb=8.0), out)
     else:
         out("\nStart the receiver when you are ready:")
-        out("  briefcase receive            # foreground, records to the console")
-        out("  briefcase receive --detach   # background, records to ~/.briefcase/receiver/records.jsonl")
+        out("  briefcase-ai receive            # foreground, records to the console")
+        out("  briefcase-ai receive --detach   # background, records to ~/.briefcase/receiver/records.jsonl")
     out("Restart the connected tools so they pick up the new settings.")
 
 
@@ -274,7 +274,7 @@ def cmd_connect(args, store=None, engine_=None, stack=None) -> int:
 
 
 def _enforce_step(args) -> int:
-    """``connect --enforce``: connect, then ``briefcase policy init`` for the same tools."""
+    """``connect --enforce``: connect, then ``briefcase-ai policy init`` for the same tools."""
     from argparse import Namespace
 
     from briefcase.cli import policy_commands

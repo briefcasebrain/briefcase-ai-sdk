@@ -98,7 +98,7 @@ def cmd_changes(args) -> int:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m scripts.conformance",
-                                     description="Check `briefcase connect` / `receive` against real tools.")
+                                     description="Check `briefcase-ai connect` / `receive` against real tools.")
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("run", help="Install each tool in a temp prefix and HOME, connect, verify, report a level.")
     p.add_argument("tools", nargs="*", help=f"Default: all ({', '.join(DRIVERS)}).")

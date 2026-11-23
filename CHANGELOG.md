@@ -7,12 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
-- `auto(dedupe="none"|"provider"|"framework")` and `briefcase exec --dedupe`;
+- `auto(dedupe="none"|"provider"|"framework")` and `briefcase-ai exec --dedupe`;
   provider records carry `parent_run_id` / `parent_framework` linking them to
   the framework run that made the call. `briefcase.auto.status()` reports what
   is patched or skipped and why. Opt-in OpenAI stream usage
   (`stream_usage=True`) and aiobotocore support.
-- Zero-code Python instrumentation. `briefcase exec -- python app.py` runs an
+- Zero-code Python instrumentation. `briefcase-ai exec -- python app.py` runs an
   unmodified program with capture switched on. `briefcase.observe()` with no
   arguments resolves its destination from `BRIEFCASE_EXPORTER` (and
   `BRIEFCASE_EXPORTER_TOKEN`), then the standard `OTEL_EXPORTER_OTLP_*`
@@ -24,7 +24,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Bedrock (boto3) SDKs, sync, async, and streaming: one decision record per
   call with model, token usage, latency, status, finish reason, and request
   id. Prompt and completion content is off unless `capture_content` is set.
-- `briefcase connect`: one command that configures the coding tools on the
+- `briefcase-ai connect`: one command that configures the coding tools on the
   machine to report to briefcase. It detects Claude Code, Codex CLI, Cursor and
   VS Code Copilot Chat, shows a plan with a unified diff, asks once, and writes
   key-level edits (JSON keys merged in place, one marker-delimited TOML block)
@@ -36,7 +36,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   enabled in a tool only with `--capture-content` (Copilot CLI then gets
   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_CONTENT=SPAN_ONLY`). Tested against Claude
   Code 2.1.330 and Codex CLI 0.171.0.
-- `briefcase receive`: a stdlib OTLP/HTTP receiver (default `127.0.0.1:4318`)
+- `briefcase-ai receive`: a stdlib OTLP/HTTP receiver (default `127.0.0.1:4318`)
   that turns Claude Code, Cowork, Codex and Copilot telemetry and Cursor hook
   events into decision records and sends them to any exporter (`--to console`,
   a `.jsonl` path, an `https://` URL, or `otlp`). Prompts, responses, tool
@@ -45,15 +45,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--detach`, `--stop` and `--status` manage a background instance.
 - `receiver` extra (`opentelemetry-proto`) for OTLP/protobuf, which Codex CLI
   sends. Claude Code and Copilot CLI (`http/json` by default) need no extra, so
-  `pip install briefcase-ai && briefcase connect && briefcase receive` works
+  `pip install briefcase-ai && briefcase-ai connect && briefcase-ai receive` works
   for them as is.
-- `briefcase mcp install` and `briefcase mcp link <tool>`: per-tool install
-  payloads for `briefcase-mcp` (Cursor deeplink, `claude mcp add`,
+- `briefcase-ai mcp install` and `briefcase-ai mcp link <tool>`: per-tool install
+  payloads for `briefcase-ai-mcp` (Cursor deeplink, `claude mcp add`,
   `codex mcp add`, `code --add-mcp`, project `.mcp.json` / `.cursor/mcp.json` /
   `.vscode/mcp.json`), and a Claude Code plugin
   (`claude plugin install briefcase@briefcase-ai`).
-- `briefcase hook cursor` (the hook entry point `connect` installs; always
-  exits 0) and `briefcase doctor --connect`.
+- `briefcase-ai hook cursor` (the hook entry point `connect` installs; always
+  exits 0) and `briefcase-ai doctor --connect`.
 - `briefcase.semantic_conventions.cowork` gains `assistant_response`,
   `api_refusal`, `tool_use_id`, and the event-name prefixes of sources that
   share the vocabulary.
@@ -125,8 +125,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (SQLite, PostgreSQL, MySQL; conditional `UPDATE`, retried on deadlocks),
   tested against real Redis 7, PostgreSQL 16 and MySQL 8 servers including two
   processes.
-- `briefcase budget set|unset|show|status|test` and `~/.briefcase/budgets.toml`
-  (`$BRIEFCASE_BUDGETS_FILE`); a `briefcase status` row that turns to attention
+- `briefcase-ai budget set|unset|show|status|test` and `~/.briefcase/budgets.toml`
+  (`$BRIEFCASE_BUDGETS_FILE`); a `briefcase-ai status` row that turns to attention
   above 80%.
 - Content guardrails (`briefcase.guardrails.content`): PII/secret checks (native
   Sanitizer when importable plus pure-Python detectors for `password=`/`secret=`
@@ -137,8 +137,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `block` / `redact` / `warn`; redaction keeps the SDK object's type; `block`
   checks fail closed when the checker raises. Streams: final-text checks,
   optional per-chunk early stop.
-- `briefcase guard test|show|init` and `~/.briefcase/guard.toml`
-  (`$BRIEFCASE_GUARD_FILE`); a `briefcase status` row.
+- `briefcase-ai guard test|show|init` and `~/.briefcase/guard.toml`
+  (`$BRIEFCASE_GUARD_FILE`); a `briefcase-ai status` row.
 - Call hooks for provider auto-instrumentation
   (`briefcase.integrations.providers._base.add_call_hook`): `before(ctx)` /
   `after(ctx, outcome)` around every instrumented openai, anthropic,
@@ -150,26 +150,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `controls.Gateway`: `GatewayConfig(budgets=...)` and `invoke(...,
   budget=BudgetRequest(...))`, new outcome reason `budget_exceeded` and
   `Outcome.budget`.
-- `briefcase` with no arguments is now a front door. The first time on a
+- `briefcase-ai` with no arguments is now a front door. The first time on a
   terminal it runs a guided setup: one question (AI coding tools, an app that
   calls LLMs, or a team rollout), then two or three steps that call the existing
   commands (`connect`, `receive --detach`, `exec`), each with its own
   confirmation. Completion is remembered in `~/.briefcase/setup.json` only after
-  the guide was finished or skipped; `briefcase setup` runs it again. Without a
+  the guide was finished or skipped; `briefcase-ai setup` runs it again. Without a
   terminal, or with `--no-input` / `BRIEFCASE_NO_INPUT=1`, it prints the command
   list and the status screen and exits 0.
-- `briefcase status [--json]`: one screen showing connected coding tools, the
+- `briefcase-ai status [--json]`: one screen showing connected coding tools, the
   receiver and its request counters, MCP registration and where records go,
   ending with exactly one `Next:` suggestion. Command modules can add a row with
   an optional `status()` hook.
-- `briefcase features [ID] [--verb V] [--json] [--markdown]`: the feature
+- `briefcase-ai features [ID] [--verb V] [--json] [--markdown]`: the feature
   catalog, grouped by Connect, Capture, Enforce, Verify and Review, generated
   from one JSON manifest per feature in `briefcase/_features/`. `briefcase
   features <id>` shows the docs link and whether the feature is active on this
   machine. `briefcase.features.load_catalog()` reads the manifests through
   `importlib.resources`, skips malformed files with a warning and ignores
   unknown keys. Manifests are seeded for the 23 features that already existed.
-- `briefcase completion bash|zsh|fish`: a completion script generated from the
+- `briefcase-ai completion bash|zsh|fish`: a completion script generated from the
   installed commands, with no new dependency.
 - Command auto-discovery: every `briefcase/cli/*_commands.py` module with a
   `register(subparsers)` function is registered without editing `__main__.py`. A
@@ -185,7 +185,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Adapter conformance harness (`python -m scripts.conformance
   run|drift|scrub|merge|changes`): installs the latest Claude Code, Codex CLI,
   Gemini CLI and Copilot CLI into an isolated prefix and temp HOME, runs
-  `briefcase connect --yes`, checks the result with each tool's own commands,
+  `briefcase-ai connect --yes`, checks the result with each tool's own commands,
   and records a level (`docs-only` < `config-accepted` < `telemetry-verified`)
   with tool version and date.
 - Docs-drift check: `briefcase/connect/conformance.json` lists the strings each
@@ -197,10 +197,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.github/workflows/conformance.yml`: nightly and manual run, per-tool matrix,
   report artifact, one tracking issue on a level change or failure. Never runs
   on pull requests.
-- `briefcase doctor --connect` shows the last known conformance level per tool
+- `briefcase-ai doctor --connect` shows the last known conformance level per tool
   and flags an installed version newer than the tested one
   (`briefcase/connect/conformance-report.json`).
-- `briefcase dataset from-records FILE.jsonl --name NAME`: turn captured
+- `briefcase-ai dataset from-records FILE.jsonl --name NAME`: turn captured
   decision records into an immutable, content-addressed evaluation dataset
   version, with `--where` filters (globs; `status`, `model`, `prompt_name`,
   `prompt_version` keys), seeded `--sample`, `--dedupe`, `--reference
@@ -208,12 +208,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   counted and explained, never turned into empty cases. Content is run through
   `briefcase.sanitize` when the native extension is present; otherwise
   `--allow-unsanitized` is required and the output says so.
-- `briefcase dataset show|diff|export|import`: inspect and compare versions;
+- `briefcase-ai dataset show|diff|export|import`: inspect and compare versions;
   export as hand-editable JSONL, inspect-ai `Sample` JSONL, or an lm-eval docs
   file plus task YAML (experimental); re-import edited JSONL with errors
-  reported by line. `briefcase dataset list` also lists local versions and takes
+  reported by line. `briefcase-ai dataset list` also lists local versions and takes
   `--json`; `dataset register` / `list` behave as before.
-- `briefcase eval run --dataset NAME[@v] --target module:function`: score a
+- `briefcase-ai eval run --dataset NAME[@v] --target module:function`: score a
   function per case offline with `exact`, `contains`, `json` or a custom scorer,
   `--concurrency`, CI gates (exit 1): `--fail-under X` for a single target,
   `--fail-under X --gate TARGET` to gate named targets when comparing several,
@@ -224,10 +224,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   through `EvalRun` (content as SHA-256 digests unless `--capture-content`).
 - `briefcase.prompts`: `prompt(name, template)` gives a template a content-hash
   version; records made while it is used carry `prompt_name` and
-  `prompt_version`. `briefcase prompt list|show|diff`.
-- `status()` hooks for `briefcase status`: dataset count and the last eval
+  `prompt_version`. `briefcase-ai prompt list|show|diff`.
+- `status()` hooks for `briefcase-ai status`: dataset count and the last eval
   result.
-- `briefcase engine install|up|down|status|logs|doctor|upgrade|uninstall`:
+- `briefcase-ai engine install|up|down|status|logs|doctor|upgrade|uninstall`:
   install the licensed Briefcase engine (oci-jj) from the gated portal
   (https://observe.briefcasebrain.io/engine): `engine install --code bci_...`
   (single-use install code), `--token bcl_...` (automation), or offline
@@ -244,7 +244,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it) against release keys pinned in `briefcase/engine/keys/release-*.pub`. No
   override exists. This build ships no key yet, so install refuses with "no
   trusted release key is bundled in this SDK build".
-- `briefcase engine verify FILE [--signature S] [--manifest M]`: check a
+- `briefcase-ai engine verify FILE [--signature S] [--manifest M]`: check a
   manually downloaded file against the pinned key; prints the key id.
 - `engine status` shows the key id the install was verified with and, given a
   licence token, whether a newer release exists (`GET /v1/engine/index`).
@@ -254,18 +254,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the install still succeeds and the commands that need `oci-bai` run it from
   the verified server image with `docker run`. A verified macOS build, should
   one ship, has `com.apple.quarantine` removed only after verification.
-- `briefcase graph
+- `briefcase-ai graph
   log|diff|search|provenance|whodepends|show|explain|resolve|referrers|optimize`
-  (Review) and `briefcase env
+  (Review) and `briefcase-ai env
   push|cohort|compose|checkout|mount|bookmark|undo|gc` (Capture).
-- `briefcase run attach ID --result verdict.json`, `briefcase dataset publish
+- `briefcase-ai run attach ID --result verdict.json`, `briefcase-ai dataset publish
   NAME FILE` (tenant-scoped `s3://` dataset in the local engine), `briefcase
   verify --graph REF` (engine fsck).
 - The `engine` extra (`grpcio`, `protobuf`, `cryptography`) and the vendored
   Apache-2.0 gRPC contract in `briefcase/engine/_proto` (regenerate with
   `scripts/engine/regen_proto.py`).
-- Engine commands are listed in `--help`, `briefcase features` and `briefcase
-  status` without an install, marked "engine not installed — `briefcase engine
+- Engine commands are listed in `--help`, `briefcase-ai features` and `briefcase
+  status` without an install, marked "engine not installed — `briefcase-ai engine
   install`", and exit 3 when run.
 - Hash scheme `jcs-1`: RFC 8785 canonical JSON in Python
   (`briefcase.integrity.canonical_json_v2`, `canonical_bytes`,
@@ -295,7 +295,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `briefcase.observe("chain:evidence.db")` and
   `briefcase.exporters.ChainedSqliteExporter` (`BRIEFCASE_SIGNING_KEY`,
   `BRIEFCASE_CHECKPOINT_EVERY`); a checkpoint is written on shutdown.
-- `briefcase verify PATH` for a chained store, chain JSONL or evidence bundle of
+- `briefcase-ai verify PATH` for a chained store, chain JSONL or evidence bundle of
   any version: plain-language verdict, `--json`, `--against CHECKPOINT`,
   `--key`, `--kms`, `--save-checkpoint`; exit 0 intact, 1 tampered or
   incomplete, 2 usage. Pure Python, read-only.
@@ -312,7 +312,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `SignedExaminerBundle`), a `Signer` protocol and `register_verifier` for
   others. Verifiers pin keys; KMS is only called when the caller passes a client
   (`--kms`).
-- `briefcase bundle create|verify|inspect|keygen`: create from a chained store
+- `briefcase-ai bundle create|verify|inspect|keygen`: create from a chained store
   (select by session, workflow, trace or time) or re-package a format-1 examiner
   JSON (its KMS signature is kept and still checked); `--sign-key` accepts key
   files and `kms:KEY_ID`.
@@ -325,25 +325,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   proofs); KMS signatures are reported unchecked and format 1 is not read.
 - `briefcase.integrity.merkle`, `briefcase.integrity.keys`,
   `briefcase.integrity.evidence`.
-- `status()` hook for `briefcase status` (`chained-store`).
+- `status()` hook for `briefcase-ai status` (`chained-store`).
 - Plugin entry points (`briefcase.plugins`, plugin API 1): installed packages
   can add exporters (`briefcase.exporters`, used by `observe("NAME:TARGET")` and
   `BRIEFCASE_EXPORTER`), bitemporal backends (`briefcase.bitemporal_backends`,
   `get_backend(NAME)`), VCS providers (`briefcase.vcs_providers`,
   `get_provider(NAME)`), receiver sources (`briefcase.receiver_sources`, `POST
-  /v1/sources/NAME`), `briefcase connect` adapters
+  /v1/sources/NAME`), `briefcase-ai connect` adapters
   (`briefcase.connect_adapters`), guardrails (`briefcase.guardrails`,
   `make(NAME)`), CLI commands (`briefcase.cli_commands`) and feature cards
   (`briefcase.features`). Plugins are imported only when their name is used
-  (`briefcase --help` imports none), a broken one is skipped with one warning
+  (`briefcase-ai --help` imports none), a broken one is skipped with one warning
   naming its package, built-in names always win, and `BRIEFCASE_PLUGINS=off` /
   `BRIEFCASE_PLUGINS_DISABLE=...` turn them off. A plugin may declare
   `BRIEFCASE_PLUGIN_API`; an unsupported version is refused with the upgrade
   command.
-- `briefcase plugins [list|show NAME] [--json]`, and `briefcase doctor
-  --plugins` (the default `briefcase doctor` adds a plugins section only when a
+- `briefcase-ai plugins [list|show NAME] [--json]`, and `briefcase-ai doctor
+  --plugins` (the default `briefcase-ai doctor` adds a plugins section only when a
   plugin is installed).
-- `briefcase-mcp` tools over recorded decisions, all read-only:
+- `briefcase-ai-mcp` tools over recorded decisions, all read-only:
   `search_decisions`, `get_decision` (content only with `include_content=true`,
   capped), `get_trace` (tree with durations, tokens and cost; provider records
   under framework runs counted once), `summarize_usage` (recorded vs
@@ -357,7 +357,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `available_backends` and `briefcase.integrations.vcs.get_provider` /
   `available_providers`: name-based lookup of the built-in backends and
   providers.
-- `briefcase policy` (init, check, test, log, off, status): allow, ask or deny
+- `briefcase-ai policy` (init, check, test, log, off, status): allow, ask or deny
   what Claude Code, Cursor and Codex CLI may run. A `PreToolUse` / `before*`
   hook decides in-process against `~/.briefcase/policy.toml` (presets `observe`,
   `guarded`, `strict`; project and system policy layers that can only make it
@@ -366,9 +366,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   resolve `..` and symlinks. Fails open by default and says so in `briefcase
   status`; `fail_closed = true` blocks instead. Claude Code 2.1.330 verified end
   to end; Cursor and Codex from their documentation.
-- `briefcase hook claude-code|codex|cursor --enforce`: the hook entry point,
+- `briefcase-ai hook claude-code|codex|cursor --enforce`: the hook entry point,
   always exit 0, with the verdict as each tool's documented JSON.
-- `briefcase connect --enforce` (connect plus `policy init`) and `briefcase
+- `briefcase-ai connect --enforce` (connect plus `policy init`) and `briefcase
   connect --managed --out DIR`: a rollout pack for administrators (Claude Code
   `managed-settings.d` drop-in and macOS profile, Cursor enterprise
   `hooks.json`, Codex system `hooks.json`, labelled templates for the rest, and
@@ -386,7 +386,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   into a native `CostCalculator`, staleness helpers, and a pure-Python
   `estimate()` for flat per-token pricing that raises "needs native extension"
   for anything else.
-- `briefcase pricing list|show|set|unset|import|check`; `check --records FILE`
+- `briefcase-ai pricing list|show|set|unset|import|check`; `check --records FILE`
   lists the models in your records that have no price.
 - `scripts/pricing/extract.py`, `generate.py --check` and a cargo oracle, plus
   drift tests tying the JSON to `cost.rs` and
@@ -401,7 +401,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   retrieval date, SHA-256 and licence in `tests/contracts/specs/manifest.json`;
   `scripts/refresh_provider_specs.py` and a weekly workflow report upstream
   drift. CI runs the suite; `jsonschema` joins the `dev` extra.
-- `briefcase replay run|explain|diff` and `briefcase.replay.recorded`: replay
+- `briefcase-ai replay run|explain|diff` and `briefcase.replay.recorded`: replay
   LLM calls captured by `briefcase.auto(capture_content=True)` from a JSONL
   file, through the user's installed OpenAI, Anthropic, google-genai or Bedrock
   SDK (`--executor auto`) or a no-network cassette (`--executor cassette`).
@@ -414,7 +414,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unanswered tool calls, failed originals) are reported with the reason. What-if
   replays with `--model`, `--param`, `--drop-param`. Replays are not re-captured
   as decisions and never run tools.
-- `briefcase drift baseline save|check` and `briefcase drift baselines`, plus
+- `briefcase-ai drift baseline save|check` and `briefcase-ai drift baselines`, plus
   `briefcase.drift.baseline`: save a content-free baseline profile to
   `~/.briefcase/baselines/<name>.json` and compare a later window against it:
   PSI and two-sample KS for latency, output tokens and output length; mean
@@ -424,7 +424,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `embed=` hook. Signals under `min_n` records are refused, not scored.
   `--fail-on attention` makes it a CI gate.
 - Feature manifests `replay-recorded` (verify) and `drift-baseline` (review),
-  with `status()` hooks for `briefcase status`.
+  with `status()` hooks for `briefcase-ai status`.
 - `@briefcase-ai/auto` (new npm package, `js/auto`): zero-code decision capture
   for Node. `node --import @briefcase-ai/auto/register app.js` (or `observe()` +
   `auto()` in code) records one decision per `openai`, `@anthropic-ai/sdk`,
@@ -454,7 +454,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bundled).
 
 ### Changed
-- **Breaking:** `briefcase exec` refuses `python -I/-E/-S` (override with
+- **Breaking:** `briefcase-ai exec` refuses `python -I/-E/-S` (override with
   `--allow-uninstrumented`) and exits 2 on an unknown `BRIEFCASE_EXPORTER`, a
   malformed OTLP endpoint or an unsupported OTLP protocol.
 - **Breaking:** the OTLP protocol defaults to `http/protobuf` and is no longer
@@ -480,7 +480,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `"llamaindex"`, `"crewai"`, `"openai-agents"`, `"autogen"`, `"ag2"`,
   `"pageindex"`, and the handler classes themselves) record no prompt,
   completion or error text by default, like the provider integrations,
-  `briefcase exec`, `connect`/the receiver and eval records. They take the
+  `briefcase-ai exec`, `connect`/the receiver and eval records. They take the
   providers' values (`capture_content="full"`/`True`, `"hash"`,
   `"none"`/`False`) and `BRIEFCASE_CAPTURE_CONTENT` through `auto()`. The
   one-time "records FULL content" warning is gone. `@briefcase.capture` is
@@ -492,7 +492,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and `>= 12.22` for native). Node 26 is the Active LTS; Node 20 reached end of
   life on 2026-04-30. The code uses nothing newer than `AbortSignal.any` (Node
   20.3), so no later 26.x minor is required.
-- `briefcase receive` reads `BRIEFCASE_EXPORTER_TOKEN`; `BRIEFCASE_EXPORT_TOKEN`
+- `briefcase-ai receive` reads `BRIEFCASE_EXPORTER_TOKEN`; `BRIEFCASE_EXPORT_TOKEN`
   still works with a deprecation warning.
 - Decision records carry `schema_version` "1.2" (adds optional `prompt_name`,
   `prompt_version`, `parent_run_id`, `parent_framework`); `prompt_name` and
@@ -549,14 +549,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `import briefcase` no longer requires the compiled core. Pure-Python
   features work without it; native-backed names raise an `ImportError` that
   says how to get the core when first used.
-- `briefcase --help` lists commands under "Start here", Connect, Capture,
+- `briefcase-ai --help` lists commands under "Start here", Connect, Capture,
   Enforce, Verify, Review and Evaluate instead of one flat list. `briefcase
   <command> --help` is unchanged.
-- `briefcase` with no arguments exits 0 (it used to print help and exit 2). A
-  command group without a subcommand, such as `briefcase run`, still exits 2 and
+- `briefcase-ai` with no arguments exits 0 (it used to print help and exit 2). A
+  command group without a subcommand, such as `briefcase-ai run`, still exits 2 and
   now prints that group's help instead of the top-level help.
 - An unexpected error in a command prints one `error:` line and a `Fix:` line
-  and exits 1; the traceback needs `--debug`. `briefcase features | head` no
+  and exits 1; the traceback needs `--debug`. `briefcase-ai features | head` no
   longer ends in a broken-pipe traceback.
 - The `dataset`, `secret`, `run`, `stack` and `doctor` parsers moved out of
   `__main__.py` into discovered modules (`job_commands.py`, `stack_commands.py`,
@@ -565,7 +565,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The gRPC client builds messages from the vendored contract instead of server
   reflection (`BRIEFCASE_GRPC_REFLECTION=1` keeps reflection) and finds a local
   engine install on its own.
-- `briefcase secret` says what it is for: the engine uses only
+- `briefcase-ai secret` says what it is for: the engine uses only
   `OCI_JJ_AUTH_TOKEN`.
 - `run submit` says "was not submitted" when the engine refuses a run.
 - SQLite schema migration 2 adds the empty `chain_entries`, `chain_checkpoints`
@@ -587,11 +587,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - CI tests the TypeScript packages on Node 26 only (previously 20.19 and 22);
   the next even line is added when it ships. Single-version jobs, `publish.yml`
   and `conformance.yml` use Node 26.
-- `briefcase --help` has a "Plugins" group; `briefcase mcp install` and
-  `briefcase mcp link` list the server's tools.
+- `briefcase-ai --help` has a "Plugins" group; `briefcase-ai mcp install` and
+  `briefcase-ai mcp link` list the server's tools.
 - `briefcase.features.load_catalog(plugins=False)`: plugin feature cards are
-  added only when asked for (`briefcase features` does; `--markdown` and
-  `briefcase --help` counts do not).
+  added only when asked for (`briefcase-ai features` does; `--markdown` and
+  `briefcase-ai --help` counts do not).
 - Provider records gain usage counters the specs define and capture dropped:
   `token_usage.cache_write_tokens` (OpenAI chat and Responses; a part of
   `prompt_tokens`, priced by budgets at the cache-write rate) and
@@ -599,7 +599,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`output_tokens_details.thinking_tokens`, a part of `completion_tokens`).
   OpenAI chat records `verbosity`, google-genai records `frequency_penalty` and
   `presence_penalty`.
-- `briefcase replay explain` names more request settings that capture does not
+- `briefcase-ai replay explain` names more request settings that capture does not
   record and that change the answer (OpenAI `web_search_options`, `modalities`,
   `audio`, `functions`, `function_call`, `moderation`; Responses `prompt`,
   `max_tool_calls`, `parallel_tool_calls`, `context_management`, `moderation`,
@@ -620,7 +620,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   pyo3 advisory ignores from `deny.toml`.
 
 ### Deprecated
-- `briefcase stack`: use `briefcase engine` (one release).
+- `briefcase-ai stack`: use `briefcase-ai engine` (one release).
 
 ### Fixed
 - `briefcase.observe("https://...")` sends `BRIEFCASE_EXPORTER_TOKEN` as the
@@ -631,7 +631,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   after shutdown".
 - The GCP Logging exporter is fork-safe: fresh locks, the parent's unsent
   buffer is not re-sent, and the client is rebuilt in the child.
-- `briefcase receive` default redaction keeps only identifier-shaped values:
+- `briefcase-ai receive` default redaction keeps only identifier-shaped values:
   tool parameters, commands, file paths, URLs and error text are dropped
   unless `--keep-content` (a command such as `cat ~/project/.env` used to be
   kept).
@@ -689,7 +689,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - README, AGENTS.md, `llms.txt`, and `llms-full.txt` now list the same extras
   as `pyproject.toml` for "installs third-party packages" versus "empty
   grouping".
-- `briefcase connect --undo` reported a hook entry that had been edited after it
+- `briefcase-ai connect --undo` reported a hook entry that had been edited after it
   was written as "already removed" and left it in place; it now recognises its
   own entry by its marker. Undoing two owners of one file (connect telemetry and
   policy hooks in Cursor's `hooks.json`) no longer leaves an empty `"hooks": {}`

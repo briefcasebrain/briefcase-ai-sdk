@@ -3,7 +3,7 @@
   "title": "Connect coding tools",
   "verb": "connect",
   "one_line": "Point Claude Code, Codex, Cursor and Copilot at briefcase in one command.",
-  "command": "briefcase connect",
+  "command": "briefcase-ai connect",
   "docs_slug": "connect/connect",
   "status": "experimental",
   "requires_extra": null,

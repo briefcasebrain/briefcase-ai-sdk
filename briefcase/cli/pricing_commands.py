@@ -1,7 +1,7 @@
-"""``briefcase pricing``: see, check and extend the model price table.
+"""``briefcase-ai pricing``: see, check and extend the model price table.
 
-    briefcase pricing check --records runs.jsonl     # which of YOUR models have no price?
-    briefcase pricing list | show MODEL | set MODEL ... | unset MODEL | import FILE
+    briefcase-ai pricing check --records runs.jsonl     # which of YOUR models have no price?
+    briefcase-ai pricing list | show MODEL | set MODEL ... | unset MODEL | import FILE
 
 Layers (lowest to highest): packaged data < ~/.briefcase/pricing.json < $BRIEFCASE_PRICING_FILE.
 `BRIEFCASE_HOME` moves ~/.briefcase. Only the user file is ever written.
@@ -20,7 +20,7 @@ from briefcase import pricing as pr
 
 GROUP = "review"
 DEFAULT_MAX_AGE_DAYS = 90
-SET_EXAMPLE = ("briefcase pricing set MODEL --input USD_PER_MTOK --output USD_PER_MTOK "
+SET_EXAMPLE = ("briefcase-ai pricing set MODEL --input USD_PER_MTOK --output USD_PER_MTOK "
                "--context-window N --provider NAME --source-url URL")
 
 
@@ -34,25 +34,25 @@ def register(sub) -> None:
         help="Model prices: list, check which of your models are unpriced, add verified prices.",
         description="Versioned model pricing with provenance. Layers: packaged data < "
                     "~/.briefcase/pricing.json < $BRIEFCASE_PRICING_FILE ($BRIEFCASE_HOME moves ~/.briefcase).",
-        epilog="example: briefcase pricing check --records runs.jsonl",
+        epilog="example: briefcase-ai pricing check --records runs.jsonl",
     )
     p.set_defaults(func=cmd_usage, pricing_parser=p)
     ps = p.add_subparsers(dest="pricing_cmd")
 
     sp = ps.add_parser("list", help="List priced models.",
-                       epilog="example: briefcase pricing list --provider anthropic")
+                       epilog="example: briefcase-ai pricing list --provider anthropic")
     sp.add_argument("--provider", help="Only this provider.")
     sp.add_argument("--json", action="store_true", help="Machine-readable output.")
     sp.set_defaults(func=cmd_list)
 
     sp = ps.add_parser("show", help="Resolved price, source layer and provenance for one model.",
-                       epilog="example: briefcase pricing show claude-sonnet-4-5")
+                       epilog="example: briefcase-ai pricing show claude-sonnet-4-5")
     sp.add_argument("model")
     sp.add_argument("--json", action="store_true", help="Machine-readable output.")
     sp.set_defaults(func=cmd_show)
 
     sp = ps.add_parser("set", help="Add or replace one model's price in the user file (needs a source URL).",
-                       epilog="example: briefcase pricing set my-model --input 2.5 --output 10 "
+                       epilog="example: briefcase-ai pricing set my-model --input 2.5 --output 10 "
                               "--context-window 128000 --provider acme --source-url https://acme.example/pricing")
     sp.add_argument("model")
     sp.add_argument("--input", required=True, metavar="USD_PER_MTOK", help="Input price, USD per million tokens.")
@@ -68,21 +68,21 @@ def register(sub) -> None:
     sp.set_defaults(func=cmd_set)
 
     sp = ps.add_parser("unset", help="Remove a model from the user file (undo for `pricing set`).",
-                       epilog="example: briefcase pricing unset my-model")
+                       epilog="example: briefcase-ai pricing unset my-model")
     sp.add_argument("model")
     sp.add_argument("--dry-run", dest="pricing_dry_run", action="store_true")
     sp.add_argument("--yes", "-y", action="store_true")
     sp.set_defaults(func=cmd_unset)
 
     sp = ps.add_parser("import", help="Merge a pricing JSON file into the user file.",
-                       epilog="example: briefcase pricing import team-prices.json")
+                       epilog="example: briefcase-ai pricing import team-prices.json")
     sp.add_argument("file")
     sp.add_argument("--dry-run", dest="pricing_dry_run", action="store_true")
     sp.add_argument("--yes", "-y", action="store_true")
     sp.set_defaults(func=cmd_import)
 
     sp = ps.add_parser("check", help="Validate all layers; flag unverified/old data and unpriced models in records.",
-                       epilog="example: briefcase pricing check --records runs.jsonl")
+                       epilog="example: briefcase-ai pricing check --records runs.jsonl")
     sp.add_argument("--records", metavar="FILE", help="Records JSONL; reports its models that have no price.")
     sp.add_argument("--max-age-days", type=int, default=DEFAULT_MAX_AGE_DAYS,
                     help=f"Flag data older than this (default {DEFAULT_MAX_AGE_DAYS}).")
@@ -120,7 +120,7 @@ def _load(args=None):
         _err("Pricing files are invalid:")
         for line in exc.errors:
             _err(f"  {line}")
-        _err("Fix the lines above, or move the file aside; `briefcase pricing check` shows every layer.")
+        _err("Fix the lines above, or move the file aside; `briefcase-ai pricing check` shows every layer.")
         return None, 1
 
 
@@ -153,7 +153,7 @@ def cmd_list(args, store=None, engine=None, stack=None) -> int:
         _out(f"{r['model']:<26} {r['provider']:<10} {r['input_usd_per_mtok']:>10} {r['output_usd_per_mtok']:>11}  "
              f"{r['layer']:<9} {r['verified_on'] or 'no'}")
     unv = sum(1 for r in rows if not r["verified_on"])
-    _out(f"\n{len(rows)} models, {unv} unverified. Next: briefcase pricing check --records FILE")
+    _out(f"\n{len(rows)} models, {unv} unverified. Next: briefcase-ai pricing check --records FILE")
     return 0
 
 
@@ -180,7 +180,7 @@ def cmd_show(args, store=None, engine=None, stack=None) -> int:
         _err(f"No price for '{args.model}'.")
         if hint:
             _err(f"It is a known model with no price shipped (provider {hint['provider']}); "
-                 "add one with `briefcase pricing set`.")
+                 "add one with `briefcase-ai pricing set`.")
         if close:
             _err(f"Closest priced ids: {', '.join(close)}")
         _err(f"Add it:  {info['add_command']}")
@@ -208,7 +208,7 @@ def cmd_show(args, store=None, engine=None, stack=None) -> int:
              "estimate refuses them (native extension needed)")
     if not e.get("verified_on"):
         _out("  note    this price has not been checked against a provider page")
-    _out("\nNext: briefcase pricing check --records FILE")
+    _out("\nNext: briefcase-ai pricing check --records FILE")
     return 0
 
 
@@ -302,7 +302,7 @@ def cmd_set(args, store=None, engine=None, stack=None) -> int:
         "context_window": ctx, "max_output_tokens": max_out,
         "aliases": list((existing or {}).get("aliases") or []),
         "source_url": args.source_url, "effective_from": None, "verified_on": _today().isoformat(),
-        "origin": "user:briefcase pricing set",
+        "origin": "user:briefcase-ai pricing set",
     }
     if cached is not None:
         entry["rate_card_extras"] = {"cache_rates": {
@@ -317,7 +317,7 @@ def cmd_set(args, store=None, engine=None, stack=None) -> int:
     doc["models"] = [m for m in doc["models"] if m["model_name"] != args.model] + [entry]
     rc = _apply_change(args, path, doc, f"Set {args.model}: input ${pr.mtok(in1k)}/MTok, output ${pr.mtok(out1k)}/MTok")
     if rc == 0 and not args.pricing_dry_run:
-        _out(f"Next: briefcase pricing show {args.model}")
+        _out(f"Next: briefcase-ai pricing show {args.model}")
     return rc
 
 
@@ -329,12 +329,12 @@ def cmd_unset(args, store=None, engine=None, stack=None) -> int:
         _err("\n".join(exc.errors))
         return 1
     if not any(m["model_name"] == args.model for m in doc["models"]):
-        _err(f"'{args.model}' is not in {path}. See what it holds: briefcase pricing list")
+        _err(f"'{args.model}' is not in {path}. See what it holds: briefcase-ai pricing list")
         return 1
     doc["models"] = [m for m in doc["models"] if m["model_name"] != args.model]
     rc = _apply_change(args, path, doc, f"Remove {args.model} from the user file")
     if rc == 0 and not args.pricing_dry_run:
-        _out("Next: briefcase pricing check")
+        _out("Next: briefcase-ai pricing check")
     return rc
 
 
@@ -370,7 +370,7 @@ def cmd_import(args, store=None, engine=None, stack=None) -> int:
     rc = _apply_change(args, path, doc, f"Import {len(names)} model(s) from {src}"
                        + (f" (replacing {', '.join(replaced)})" if replaced else ""))
     if rc == 0 and not args.pricing_dry_run:
-        _out("Next: briefcase pricing check")
+        _out("Next: briefcase-ai pricing check")
     return rc
 
 
@@ -446,7 +446,7 @@ def cmd_check(args, store=None, engine=None, stack=None) -> int:
         _err("Invalid pricing files:")
         for line in errors:
             _err(f"  {line}")
-        _err("Fix those lines, or move the file aside and re-run `briefcase pricing check`.")
+        _err("Fix those lines, or move the file aside and re-run `briefcase-ai pricing check`.")
         return 1
     for x in report["layers"]:
         _out(f"ok  {x['layer']:<9} {x['models']:>3} models  {x['path'] or 'packaged'}")
@@ -469,14 +469,14 @@ def cmd_check(args, store=None, engine=None, stack=None) -> int:
     if not report["warnings"]:
         _out("No problems found.")
     first = report["unpriced"][0]["model"] if report["unpriced"] else None
-    _out("Next: " + (f"briefcase pricing set {first} --input ... --output ... --source-url URL"
-                     if first else "briefcase pricing list"))
+    _out("Next: " + (f"briefcase-ai pricing set {first} --input ... --output ... --source-url URL"
+                     if first else "briefcase-ai pricing list"))
     return 1 if failed else 0
 
 
 def status() -> Dict[str, Any]:
-    """Hook for `briefcase status`."""
-    base = {"id": "pricing-data", "title": "Pricing data", "next": "briefcase pricing check"}
+    """Hook for `briefcase-ai status`."""
+    base = {"id": "pricing-data", "title": "Pricing data", "next": "briefcase-ai pricing check"}
     try:
         table = pr.load()
     except pr.PricingError as exc:
@@ -496,5 +496,5 @@ def status() -> Dict[str, Any]:
         return dict(base, state="attention", unpriced=unpriced,
                     summary=f"{summary}; {len(unpriced)} model(s) in your records have no price: "
                             f"{', '.join(unpriced[:3])}",
-                    next=f"briefcase pricing check --records {records}")
+                    next=f"briefcase-ai pricing check --records {records}")
     return dict(base, state="ok", summary=summary, unpriced=[])

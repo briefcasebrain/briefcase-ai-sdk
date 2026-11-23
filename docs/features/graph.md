@@ -1,43 +1,43 @@
 # Environment graph: history, diffs and provenance
 
 The engine records every environment you push as a commit in a content-addressed graph.
-`briefcase graph` reads it: what changed between two environments, where a file came from,
+`briefcase-ai graph` reads it: what changed between two environments, where a file came from,
 what was derived from what, and what depends on a given environment.
 
 ## The one command
 
 ```bash
-briefcase graph log cand
+briefcase-ai graph log cand
 ```
 
 Real output from an engine built from oci-jj be043d9, after pushing two images with
-`briefcase env push` (`OCI_JJ_REPO=local/rl-env`):
+`briefcase-ai env push` (`OCI_JJ_REPO=local/rl-env`):
 
 ```text
-$ briefcase graph log cand
+$ briefcase-ai graph log cand
 c1efb76c  2026-11-22 09:47:49  parents daf12cba  filesystem  local/rl-env:cand
 daf12cba  2026-11-22 09:47:47  parents -  filesystem  local/rl-env:base
-Next: briefcase graph show cand
-$ briefcase graph diff base cand
+Next: briefcase-ai graph show cand
+$ briefcase-ai graph diff base cand
 file: +1 -0 ~0
   + app/main.py
-Next: briefcase graph explain cand
-$ briefcase graph resolve cand:/app/main.py
+Next: briefcase-ai graph explain cand
+$ briefcase-ai graph resolve cand:/app/main.py
 /app/main.py: provided by layer[2] (commit c1efb76c)
   tree path /app/main.py
   segment   blake3:205d3a8abd5d2a34190f6fbc7275820cf807be210fbc09e77cdfdcf6ee53fc2d
-Next: briefcase graph provenance cand
-$ briefcase graph explain cand
+Next: briefcase-ai graph provenance cand
+$ briefcase-ai graph explain cand
 Provenance:
   c1efb76c local/rl-env:cand
     daf12cba local/rl-env:base
 
 Changes from parent base (package depth):
   package: (no change; catalog may still be ingesting, §16)
-Next: briefcase graph whodepends cand
-$ briefcase verify --graph cand
+Next: briefcase-ai graph whodepends cand
+$ briefcase-ai verify --graph cand
 cand: intact (14 trees, 460 inodes, 19 segments re-hashed)
-Next: briefcase graph provenance cand
+Next: briefcase-ai graph provenance cand
 ```
 
 ## Commands and the engine call each makes
@@ -74,7 +74,7 @@ see [engine.md](engine.md#defaults-and-how-to-change-them).
 ## How to turn it off
 
 Nothing runs in the background. Without the engine every `graph` command prints
-"engine not installed — `briefcase engine install`" and exits 3.
+"engine not installed — `briefcase-ai engine install`" and exits 3.
 
 ## Limits and failure modes
 
@@ -84,15 +84,15 @@ Nothing runs in the background. Without the engine every `graph` command prints
 - `Diff` takes ref names, not commit ids; `explain` looks the parent's ref up and says so when
   the parent has none.
 - An RPC the engine does not implement prints "... is not available on this engine" with
-  `Fix: briefcase engine upgrade`.
+  `Fix: briefcase-ai engine upgrade`.
 
 ## Troubleshooting
 
 | Symptom | Do this |
 | --- | --- |
-| `engine not installed` (exit 3) | `briefcase engine install` |
-| `no commits for 'X'` | Push first: `briefcase env push IMAGE`; check `--repo` |
-| `the engine is not reachable` | `briefcase engine status` |
+| `engine not installed` (exit 3) | `briefcase-ai engine install` |
+| `no commits for 'X'` | Push first: `briefcase-ai env push IMAGE`; check `--repo` |
+| `the engine is not reachable` | `briefcase-ai engine status` |
 | `refused the call (missing or invalid bearer token)` | Unset a stale `OCI_JJ_AUTH_TOKEN`, or set the right one |
-| `unknown ref` | `briefcase env bookmark list` shows the refs that exist |
+| `unknown ref` | `briefcase-ai env bookmark list` shows the refs that exist |
 | `this token is read-only` | Use a tenant token, not the read-only one |

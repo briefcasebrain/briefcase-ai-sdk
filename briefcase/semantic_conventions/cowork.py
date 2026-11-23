@@ -6,7 +6,7 @@ logs/events protocol. These conventions map 1:1 to the attributes
 emitted by the Cowork agent.
 
 Claude Code emits the same events under a ``claude_code.`` prefix and Codex
-under ``codex.``; ``briefcase receive`` strips the prefix (see
+under ``codex.``; ``briefcase-ai receive`` strips the prefix (see
 ``SOURCE_EVENT_PREFIXES``) and maps both onto these names.
 """
 

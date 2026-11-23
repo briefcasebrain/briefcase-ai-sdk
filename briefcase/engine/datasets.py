@@ -1,4 +1,4 @@
-"""``briefcase dataset publish``: put a dataset where the engine's verdict worker may read it.
+"""``briefcase-ai dataset publish``: put a dataset where the engine's verdict worker may read it.
 
 oci-jj's dataset policy (``rust/crates/oci-jj-server/src/dataset.rs``, commit e89ddbf) accepts
 only ``synthetic://<name>`` and ``s3://<OCI_JJ_DATASET_S3_BUCKET>/tenants/<tenant>/<key>`` (key
@@ -10,7 +10,7 @@ So a dataset is published into the local install's MinIO, under the tenant prefi
 content-addressed key (its sha256), by piping the file into ``mc`` inside the MinIO container
 (``docker compose exec -T minio mc pipe``): the MinIO credentials never leave the container and
 no extra port is opened. For an engine run elsewhere, upload to that engine's dataset bucket
-yourself and use ``briefcase dataset register``.
+yourself and use ``briefcase-ai dataset register``.
 """
 from __future__ import annotations
 

@@ -139,7 +139,7 @@ def _resolve_exporter(
     raise ValueError(
         f"Unknown exporter shorthand: {_safe_url(exporter)!r}. Pass a BaseExporter instance, "
         "'console', 'memory', a path ending in '.jsonl', 'chain:PATH.db', an http(s):// URL, "
-        "or the name of an installed exporter plugin ('NAME' or 'NAME:TARGET'; see `briefcase plugins`)."
+        "or the name of an installed exporter plugin ('NAME' or 'NAME:TARGET'; see `briefcase-ai plugins`)."
     )
 
 
@@ -335,7 +335,7 @@ def check_environment(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
     Checks only what can be checked without side effects (no file is
     opened, no connection made, no exporter built): the
     ``BRIEFCASE_EXPORTER`` value is a known shorthand, and the OTLP
-    endpoint and protocol are well formed. ``briefcase exec`` calls this
+    endpoint and protocol are well formed. ``briefcase-ai exec`` calls this
     before starting the program so a typo fails at once instead of sending
     records to the wrong place. Secrets are not echoed."""
     env = os.environ if env is None else env
@@ -366,7 +366,7 @@ def check_environment(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
             return (
                 f"{ENV_EXPORTER}={_safe_url(choice)!r} is not a destination{hint}. Use "
                 "console, memory, otlp, a path ending in .jsonl, chain:PATH.db, an http(s):// URL, "
-                "or an installed exporter plugin (`briefcase plugins list`)."
+                "or an installed exporter plugin (`briefcase-ai plugins list`)."
             )
     except ValueError as exc:
         return str(exc)

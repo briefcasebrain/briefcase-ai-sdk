@@ -1,4 +1,4 @@
-"""``briefcase engine install``: get the engine from the gated portal, verify it, install it.
+"""``briefcase-ai engine install``: get the engine from the gated portal, verify it, install it.
 
 Three ways in, one trust model (:mod:`briefcase.engine.trust`): everything installed is checked
 against the signed release manifest, and the manifest against a release key pinned in this SDK.
@@ -154,7 +154,7 @@ def request_install(platform: str, *, code: Optional[str] = None, token: Optiona
         if exc.code == 404:
             raise InstallError(f"no engine release matches{detail_s}",
                                fix=f"pick a version at {page}" if code else
-                               "briefcase engine install --token ...   # without --version, for the newest") from exc
+                               "briefcase-ai engine install --token ...   # without --version, for the newest") from exc
         if exc.code == 429:
             wait = exc.headers.get("Retry-After") if exc.headers else None
             raise InstallError(f"too many install attempts; retry in {wait or '60'} seconds"
@@ -673,7 +673,7 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
             raise InstallError(
                 f"engine {manifest.version} has no oci-bai build for {target['os']}/{target['arch']}, and "
                 "--no-images leaves no server image to run it from",
-                fix="briefcase engine install   # without --no-images")
+                fix="briefcase-ai engine install   # without --no-images")
         client = {"mode": "container", "image": images[CLIENT_IMAGE], "image_id": ids[CLIENT_IMAGE]}
         log(f"no oci-bai build for {target['os']}/{target['arch']} in engine {manifest.version}: commands that "
             f"need it (env cohort, run attach, run submit) run it from {images[CLIENT_IMAGE]} with `docker run`")

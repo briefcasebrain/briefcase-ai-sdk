@@ -1,4 +1,4 @@
-"""briefcase.receiver_sources: POST /v1/sources/alpha on `briefcase receive`."""
+"""briefcase.receiver_sources: POST /v1/sources/alpha on `briefcase-ai receive`."""
 
 BRIEFCASE_PLUGIN_API = 1
 

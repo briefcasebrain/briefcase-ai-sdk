@@ -291,7 +291,7 @@ def test_unsigned_bundles_say_so(tmp_path):
 
 
 def run_cli(argv, capsys):
-    parser = argparse.ArgumentParser(prog="briefcase")
+    parser = argparse.ArgumentParser(prog="briefcase-ai")
     sub = parser.add_subparsers(dest="command")
     verify_commands.register(sub)
     bundle_commands.register(sub)
@@ -341,7 +341,7 @@ def test_cli_bundle_create_verify_keygen(store, tmp_path, capsys):
     store_key = keys.key_id(keys.public_jwk(SEED)["x"])
     code, out, _ = run_cli(["bundle", "verify", str(out_zip), "--key", str(key), "--key", store_key], capsys)
     assert code == 0 and out.startswith("INTACT")
-    # `briefcase verify` dispatches bundles too; a wrong pinned key fails.
+    # `briefcase-ai verify` dispatches bundles too; a wrong pinned key fails.
     code, out, _ = run_cli(["verify", str(out_zip), "--key", "0" * 64], capsys)
     assert code == 1 and "not the expected key" in out
     code, out, _ = run_cli(["bundle", "verify", str(out_zip), "--json"], capsys)

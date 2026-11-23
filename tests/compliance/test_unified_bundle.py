@@ -255,7 +255,7 @@ def test_dispatch_refuses_unknown_versions_and_schemes(tmp_path):
 
 
 def run_cli(argv, capsys):
-    parser = argparse.ArgumentParser(prog="briefcase")
+    parser = argparse.ArgumentParser(prog="briefcase-ai")
     sub = parser.add_subparsers(dest="command")
     verify_commands.register(sub)
     bundle_commands.register(sub)

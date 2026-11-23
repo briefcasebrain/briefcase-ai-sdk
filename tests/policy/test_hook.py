@@ -259,7 +259,7 @@ def test_broken_policy_fails_open_and_says_so(home, project, write_policy):
     code, out, _ = run("claude-code", claude("Bash", {"command": "rm -rf /"}, project))
     assert code == 0
     assert set(out) == {"systemMessage"}                      # allowed, with a warning in the tool
-    assert "Enforcement is OFF" in out["systemMessage"] and "briefcase policy check" in out["systemMessage"]
+    assert "Enforcement is OFF" in out["systemMessage"] and "briefcase-ai policy check" in out["systemMessage"]
     last = health(home)["last_error"]
     assert "cannot be applied" in last["message"] and last["fail_closed"] is False
     entry = log_entries(home)[-1]
@@ -281,7 +281,7 @@ def test_fail_closed_in_the_file_blocks_even_when_the_file_does_not_parse(home, 
     _, out, _ = run("claude-code", claude("Bash", {"command": "ls"}, project))
     reason = out["hookSpecificOutput"]["permissionDecisionReason"]
     assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
-    assert "fail_closed" in reason and "briefcase policy check" in reason and "briefcase policy off" in reason
+    assert "fail_closed" in reason and "briefcase-ai policy check" in reason and "briefcase-ai policy off" in reason
     assert log_entries(home)[-1]["rule"] == "fail_closed"
     _, out, _ = run("cursor", cursor("beforeReadFile", project, file_path=str(project / "a.txt"), content=""))
     assert out["permission"] == "deny" and set(out) == {"permission", "user_message"}
@@ -555,11 +555,11 @@ def test_launcher_fails_open_when_the_package_is_broken(home, tmp_path):
     done = launch("cursor", "--enforce")
     assert done.returncode == 0 and json.loads(done.stdout) == {"permission": "allow"}
     done = launch("claude-code", "--enforce", "--fail-closed")
-    assert done.returncode == 2 and b"half-installed" in done.stderr and b"briefcase policy" in done.stderr
+    assert done.returncode == 2 and b"half-installed" in done.stderr and b"briefcase-ai policy" in done.stderr
 
 
 def test_briefcase_hook_enforce_entry_point(home, project, write_policy, capsys, monkeypatch):
-    """`briefcase hook <tool> --enforce` through the CLI parser, including a flag from the future."""
+    """`briefcase-ai hook <tool> --enforce` through the CLI parser, including a flag from the future."""
     from briefcase.cli.__main__ import main
 
     write_policy(GUARDED)

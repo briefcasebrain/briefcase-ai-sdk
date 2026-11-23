@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "Python bindings for Briefcase AI"
+description = "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models."
 documentation = "https://docs.rs/briefcase-python"
 publish = false
 

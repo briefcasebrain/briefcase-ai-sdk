@@ -2,7 +2,7 @@
 
 Skipped unless ``BRIEFCASE_OCIJJ_ADDR`` names a running server, so the default
 ``pytest tests/`` run never needs Docker or a network. Re-run it in CI or by hand
-against any oci-jj stack (``briefcase engine up``, oci-jj's own compose, or a
+against any oci-jj stack (``briefcase-ai engine up``, oci-jj's own compose, or a
 natively built ``oci-jj-server``):
 
     BRIEFCASE_OCIJJ_ADDR=http://127.0.0.1:50051 \\
@@ -49,7 +49,7 @@ BASELINE = os.environ.get("BRIEFCASE_OCIJJ_BASELINE", "base")
 
 @pytest.fixture
 def cli(tmp_path, monkeypatch):
-    """Run ``briefcase <argv>`` in-process against the live server with a throwaway store."""
+    """Run ``briefcase-ai <argv>`` in-process against the live server with a throwaway store."""
     from briefcase.cli.__main__ import main
     from briefcase.cli.grpc_engine import ReflectionTransport
 

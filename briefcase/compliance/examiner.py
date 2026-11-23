@@ -204,7 +204,7 @@ class ExaminerBundle:
         ``content_hash`` go into the manifest context. ``signers`` (Ed25519,
         AWS KMS, ...) seal the new bundle; a KMS signature already on a
         :class:`SignedExaminerBundle` is carried along and still verifies.
-        Check the result with ``briefcase bundle verify`` or
+        Check the result with ``briefcase-ai bundle verify`` or
         :func:`briefcase.compliance.verify_bundle`.
         """
         from briefcase.compliance.bundle import examiner_context, legacy_to_records, write_bundle

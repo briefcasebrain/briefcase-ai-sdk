@@ -1,8 +1,8 @@
-"""``briefcase drift``: compare recent records against a saved baseline.
+"""``briefcase-ai drift``: compare recent records against a saved baseline.
 
-    briefcase drift baseline save prod --from runs.jsonl --last 500
-    briefcase drift check prod --from today.jsonl --fail-on attention   # CI gate
-    briefcase drift baselines
+    briefcase-ai drift baseline save prod --from runs.jsonl --last 500
+    briefcase-ai drift check prod --from today.jsonl --fail-on attention   # CI gate
+    briefcase-ai drift baselines
 
 Profiles live in ``~/.briefcase/baselines/<name>.json`` (``$BRIEFCASE_HOME``
 overrides the root) and hold aggregates and hashes only, never content.
@@ -22,9 +22,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 GROUP = "review"
 
-_SAVE_EXAMPLE = "Example:\n  briefcase drift baseline save prod --from runs.jsonl --last 500"
-_CHECK_EXAMPLE = "Example:\n  briefcase drift check prod --from today.jsonl --fail-on attention"
-_LIST_EXAMPLE = "Example:\n  briefcase drift baselines"
+_SAVE_EXAMPLE = "Example:\n  briefcase-ai drift baseline save prod --from runs.jsonl --last 500"
+_CHECK_EXAMPLE = "Example:\n  briefcase-ai drift check prod --from today.jsonl --fail-on attention"
+_LIST_EXAMPLE = "Example:\n  briefcase-ai drift baselines"
 
 
 def _home() -> Path:
@@ -86,7 +86,7 @@ def register(sub) -> None:
                     "the exit code is 1 when any signal crosses its threshold (a CI gate).",
         epilog=_CHECK_EXAMPLE, formatter_class=fmt,
     )
-    chk.add_argument("name", help="Baseline name (see `briefcase drift baselines`).")
+    chk.add_argument("name", help="Baseline name (see `briefcase-ai drift baselines`).")
     _selection(chk)
     chk.add_argument("--threshold", action="append", default=[], metavar="KEY=VALUE",
                      help="Override a threshold (repeatable), e.g. psi=0.1 min_n=50.")
@@ -159,7 +159,7 @@ def cmd_baseline_save(args, store=None, engine=None, stack=None) -> int:
     try:
         bl.check_name(args.name)
     except ValueError as exc:
-        return _err(str(exc), "briefcase drift baseline save prod --from runs.jsonl")
+        return _err(str(exc), "briefcase-ai drift baseline save prod --from runs.jsonl")
     if not Path(args.source).is_file():
         return _err(f"{args.source} not found",
                     "write records to a file first: briefcase.observe('runs.jsonl')")
@@ -167,10 +167,10 @@ def cmd_baseline_save(args, store=None, engine=None, stack=None) -> int:
         records = _select(args)
         embed = _embed(args.embed)
     except (ValueError, ImportError, AttributeError) as exc:
-        return _err(str(exc), "briefcase drift baseline save --help")
+        return _err(str(exc), "briefcase-ai drift baseline save --help")
     if not records:
         return _err("no records matched the selection",
-                    f"briefcase drift baseline save {args.name} --from {args.source}")
+                    f"briefcase-ai drift baseline save {args.name} --from {args.source}")
     source = {
         "file": Path(args.source).name,  # basename only: host paths are not kept
         "file_sha256": _sha256(args.source),
@@ -201,7 +201,7 @@ def cmd_baseline_save(args, store=None, engine=None, stack=None) -> int:
     if profile["n"] < min_n:
         print(f"  warning   fewer than {min_n} records: checks against this baseline will "
               "refuse to score until it has more")
-    print(f"Next: briefcase drift check {args.name} --from FILE --since 24h")
+    print(f"Next: briefcase-ai drift check {args.name} --from FILE --since 24h")
     return 0
 
 
@@ -229,11 +229,11 @@ def cmd_check(args, store=None, engine=None, stack=None) -> int:
         profile = bl.load_profile(args.name)
     except FileNotFoundError:
         return _err(f"no baseline named {args.name!r}",
-                    f"briefcase drift baseline save {args.name} --from runs.jsonl")
+                    f"briefcase-ai drift baseline save {args.name} --from runs.jsonl")
     except ValueError as exc:
-        return _err(str(exc), "briefcase drift baselines")
+        return _err(str(exc), "briefcase-ai drift baselines")
     if not Path(args.source).is_file():
-        return _err(f"{args.source} not found", "briefcase drift check --help")
+        return _err(f"{args.source} not found", "briefcase-ai drift check --help")
     try:
         thresholds = {k: float(v) for k, v in _pairs(args.threshold, "--threshold").items()}
         unknown = sorted(set(thresholds) - set(bl.DEFAULT_THRESHOLDS))
@@ -243,7 +243,7 @@ def cmd_check(args, store=None, engine=None, stack=None) -> int:
         records = _select(args)
         embed = _embed(args.embed)
     except (ValueError, ImportError, AttributeError) as exc:
-        return _err(str(exc), "briefcase drift check --help")
+        return _err(str(exc), "briefcase-ai drift check --help")
     result = bl.check(profile, records, thresholds=thresholds, embed=embed)
     _save_state(result)
     failed = (args.fail_on == "attention" and result["state"] == "attention") or (
@@ -264,12 +264,12 @@ def cmd_check(args, store=None, engine=None, stack=None) -> int:
     if result["state"] == "insufficient_data":
         print(f"  Nothing was scored: each signal needs at least {int(result['thresholds']['min_n'])}"
               " records on both sides.")
-        print(f"Next: briefcase drift check {args.name} --from {args.source} --since 7d")
+        print(f"Next: briefcase-ai drift check {args.name} --from {args.source} --since 7d")
     elif result["state"] == "attention":
-        print(f"Next: briefcase replay run {args.source} --sample 20   "
+        print(f"Next: briefcase-ai replay run {args.source} --sample 20   "
               "(re-run a sample to see what changed)")
     else:
-        print(f"Next: briefcase drift check {args.name} --from FILE --fail-on attention   "
+        print(f"Next: briefcase-ai drift check {args.name} --from FILE --fail-on attention   "
               "(add to CI)")
     return 1 if failed else 0
 
@@ -284,23 +284,23 @@ def cmd_baselines(args, store=None, engine=None, stack=None) -> int:
         return 0
     if not profiles:
         print(f"No baselines in {bl.baselines_dir()}.")
-        print("Next: briefcase drift baseline save prod --from runs.jsonl")
+        print("Next: briefcase-ai drift baseline save prod --from runs.jsonl")
         return 0
     for item in profiles:
         span = " .. ".join(item["time_range"]) if item["time_range"] else "no timestamps"
         print(f"  {item['name']:<20} {item['n']:>6} records  {span}  "
               f"models: {', '.join(item['models']) or '-'}")
-    print(f"Next: briefcase drift check {profiles[0]['name']} --from FILE")
+    print(f"Next: briefcase-ai drift check {profiles[0]['name']} --from FILE")
     return 0
 
 
 def status() -> Dict[str, Any]:
-    """Last drift check, for ``briefcase status`` (content-free)."""
+    """Last drift check, for ``briefcase-ai status`` (content-free)."""
     try:
         data = json.loads(_state_path().read_text())
     except (OSError, ValueError):
         return {"feature": "drift-baseline", "state": "off", "summary": "no drift check yet",
-                "next": "briefcase drift baseline save prod --from runs.jsonl"}
+                "next": "briefcase-ai drift baseline save prod --from runs.jsonl"}
     state = data.get("state")
     flagged = data.get("attention") or []
     return {
@@ -308,7 +308,7 @@ def status() -> Dict[str, Any]:
         "state": "attention" if state == "attention" else "on",
         "summary": f"last check {data.get('at')} against {data.get('baseline')!r}: {state}"
                    + (f" ({', '.join(flagged)})" if flagged else ""),
-        "next": f"briefcase drift check {data.get('baseline')} --from FILE",
+        "next": f"briefcase-ai drift check {data.get('baseline')} --from FILE",
     }
 
 

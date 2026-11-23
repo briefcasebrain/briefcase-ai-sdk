@@ -23,5 +23,5 @@ Type "python quickstart.py" Enter
 Sleep 4s
 Type "python -c 'import briefcase; print(briefcase.__version__)'" Enter
 Sleep 2s
-Type "briefcase --version" Enter
+Type "briefcase-ai --version" Enter
 Sleep 3s

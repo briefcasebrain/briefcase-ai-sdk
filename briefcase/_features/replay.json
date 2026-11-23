@@ -3,7 +3,7 @@
   "title": "Decision replay",
   "verb": "verify",
   "one_line": "Re-run a recorded decision and see whether the output still matches.",
-  "command": "briefcase features replay",
+  "command": "briefcase-ai features replay",
   "docs_slug": "verify/replay",
   "status": "experimental",
   "requires_extra": null,

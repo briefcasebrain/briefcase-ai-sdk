@@ -1,4 +1,4 @@
-"""Read-only queries over recorded decisions, for the ``briefcase-mcp`` tools.
+"""Read-only queries over recorded decisions, for the ``briefcase-ai-mcp`` tools.
 
 Kept free of the ``mcp`` dependency: :mod:`briefcase.mcp.server` registers a thin MCP tool
 around each public function here, and the tests call them directly as well as through an
@@ -7,7 +7,7 @@ MCP client session.
 Sources (all read-only; nothing here writes a file, changes config or calls a model):
 
 - the receiver's records, ``$BRIEFCASE_HOME/receiver/records.jsonl`` (default
-  ``~/.briefcase/receiver/records.jsonl``), written by ``briefcase receive --detach``;
+  ``~/.briefcase/receiver/records.jsonl``), written by ``briefcase-ai receive --detach``;
 - ``BRIEFCASE_EXPORTER`` when it names a ``*.jsonl`` file (your app's own records);
 - files listed in ``BRIEFCASE_MCP_RECORDS`` (``os.pathsep``-separated);
 - or, per call, the ``path`` the caller passes (a ``.jsonl`` records file, a hash-chain
@@ -237,7 +237,7 @@ def load(path: Optional[str] = None) -> Loaded:
     paths = [resolve_path(path)] if path else default_sources()
     if not paths:
         loaded.notes.append(
-            "no record files found: run `briefcase receive --detach` (coding tools), set "
+            "no record files found: run `briefcase-ai receive --detach` (coding tools), set "
             "BRIEFCASE_EXPORTER=runs.jsonl in your app, or pass path=")
     for source in paths:
         stats = SourceStats(source)
@@ -770,7 +770,7 @@ def get_trace(id: str, kind: str = "auto", path: Optional[str] = None,
               "duration_ms": duration, "totals": totals, "truncated": truncated, "roots": roots}
     if totals["cost_estimated_usd"]:
         result["cost_note"] = ("cost_estimated_usd comes from briefcase.pricing (packaged rates are "
-                               "unverified; `briefcase pricing check`), not from the records")
+                               "unverified; `briefcase-ai pricing check`), not from the records")
     result.update(loaded.meta())
     while len(json.dumps(result, default=str)) > MAX_RESULT_CHARS and len(result["roots"]) > 1:
         result["roots"] = result["roots"][: len(result["roots"]) // 2]
@@ -897,7 +897,7 @@ def summarize_usage(path: Optional[str] = None, group_by: str = "model", since: 
         "unpriced_models": unpriced_models, "deduplicated_model_calls": len(pairs),
         "cost_note": ("cost_recorded_usd is what the records carry; cost_estimated_usd is computed "
                       "here from token counts with briefcase.pricing (packaged rates are unverified "
-                      "unless `briefcase pricing check` says otherwise); unpriced calls are counted "
+                      "unless `briefcase-ai pricing check` says otherwise); unpriced calls are counted "
                       "in `unpriced` and add nothing"),
     }
     result.update(loaded.meta())
@@ -957,7 +957,7 @@ def _current_rule(rule_id: Optional[str], inputs: Dict[str, Any], kind: Optional
     loaded = policy_model.load()
     if loaded.policy is None:
         why = "; ".join(f"{src}: {msg}" for src, _, msg in loaded.errors) or "no policy file on this machine"
-        return {"available": False, "why": why, "fix": "briefcase policy init"}
+        return {"available": False, "why": why, "fix": "briefcase-ai policy init"}
     policy = loaded.policy
     out: Dict[str, Any] = {"available": True, "mode": policy.settings.get("mode"),
                            "preset": policy.settings.get("preset")}
@@ -1172,7 +1172,7 @@ def replay_plan(path: str, decision_ids: Optional[List[str]] = None, limit: Opti
         "calls": per_call,
         "missing_ids": sorted(set(decision_ids or []) - {r.get("decision_id") for r in records}),
         "note": ("plan only: nothing was replayed and no model was called. To run it yourself: "
-                 f"`briefcase replay run {_short(source)}` (it asks before spending money)"),
+                 f"`briefcase-ai replay run {_short(source)}` (it asks before spending money)"),
         "sources": [stats.to_dict()],
     }
     return fit(result, "calls")
@@ -1192,7 +1192,7 @@ def drift_check(baseline: str, path: Optional[str] = None, since: Optional[str] 
         if not drift.profile_path(baseline).is_file():
             names = [p["name"] for p in drift.list_profiles()]
             raise ToolError(f"no saved baseline {baseline!r}; saved: {', '.join(names) or 'none'} "
-                            "(create one with `briefcase drift baseline save NAME --from FILE`)")
+                            "(create one with `briefcase-ai drift baseline save NAME --from FILE`)")
         profile = drift.load_profile(baseline)
     loaded = load(path)
     window = drift.select_records([{k: v for k, v in r.items() if not k.startswith("_")}

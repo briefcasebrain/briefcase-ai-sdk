@@ -9,7 +9,7 @@ Flow: **Verify**. Feature id: `replay-recorded`. Status: experimental.
 ## The one command
 
 ```bash
-briefcase replay run runs.jsonl
+briefcase-ai replay run runs.jsonl
 ```
 
 `runs.jsonl` is a file of decision records written by provider auto-instrumentation **with
@@ -21,7 +21,7 @@ briefcase.observe("runs.jsonl")
 briefcase.auto(capture_content=True)   # content is off by default (or BRIEFCASE_CAPTURE_CONTENT=full); replay needs the request
 ```
 
-Start with `briefcase replay explain runs.jsonl` to see which records can be replayed and why
+Start with `briefcase-ai replay explain runs.jsonl` to see which records can be replayed and why
 the others cannot. It reads only the file.
 
 ### Real output
@@ -31,11 +31,11 @@ records in the layout `briefcase.auto` writes: three replayable OpenAI chat call
 with content off, one stream that was not read to the end, one Anthropic conversation ending in
 an unanswered tool call) and the **cassette executor**, so no provider was called. The
 "changed" run uses a cassette whose three answers were edited by hand to simulate a model that
-now answers differently. `briefcase replay ...` was invoked through the command module's
+now answers differently. `briefcase-ai replay ...` was invoked through the command module's
 `register()` (what the CLI's command discovery does).
 
 ```text
-$ briefcase replay explain runs.jsonl
+$ briefcase-ai replay explain runs.jsonl
 3 of 6 record(s) can be replayed.
   ok   #0 0000a7c2 openai.chat gpt-4o-mini
   ok   #1 1111a7c2 openai.chat gpt-4o-mini
@@ -47,13 +47,13 @@ $ briefcase replay explain runs.jsonl
   no   #5 5555a7c2 anthropic.messages claude-haiku-test
          - the conversation ends in tool calls with no tool results (get_weather); replay never runs tools, so the request cannot be completed
 note (#0, #1, #2): capture does not record response_format, tool_choice, stop, parallel_tool_calls, logit_bias, prediction, reasoning_effort (non-string), web_search_options, modalities, audio, functions, function_call, moderation; if the original call set any of them, pass it with --param
-Next: briefcase replay run runs.jsonl --plan-only
+Next: briefcase-ai replay run runs.jsonl --plan-only
 [exit 0]
 
-$ briefcase replay run runs.jsonl --executor cassette --save-cassette cassette.jsonl --out report.jsonl
+$ briefcase-ai replay run runs.jsonl --executor cassette --save-cassette cassette.jsonl --out report.jsonl
 Replay plan (cassette executor, no network)
   records in file      6
-  replayable           3  (3 not replayable: see `briefcase replay explain`)
+  replayable           3  (3 not replayable: see `briefcase-ai replay explain`)
   calls to make        3
     gpt-4o-mini                  3
   tokens (upper bound) 252  (recorded prompt tokens + each call's max-tokens cap)
@@ -64,15 +64,15 @@ Result: 3 matched, 0 changed, 3 not_replayable, 0 error
   total tokens delta     +0
   mean latency delta     +0.0 ms
 Report: report.jsonl
-Next: briefcase replay diff report.jsonl
+Next: briefcase-ai replay diff report.jsonl
 [exit 0]
 ```
 
 ```text
-$ briefcase replay run runs.jsonl --executor cassette --cassette cassette-changed.jsonl --out report.jsonl --fail-on-change
+$ briefcase-ai replay run runs.jsonl --executor cassette --cassette cassette-changed.jsonl --out report.jsonl --fail-on-change
 Replay plan (cassette executor, no network)
   records in file      6
-  replayable           3  (3 not replayable: see `briefcase replay explain`)
+  replayable           3  (3 not replayable: see `briefcase-ai replay explain`)
   calls to make        3
     gpt-4o-mini                  3
   tokens (upper bound) 252  (recorded prompt tokens + each call's max-tokens cap)
@@ -83,10 +83,10 @@ Result: 2 matched, 1 changed, 3 not_replayable, 0 error
   total tokens delta     +2
   mean latency delta     +110.0 ms
 Report: report.jsonl
-Next: briefcase replay diff report.jsonl
+Next: briefcase-ai replay diff report.jsonl
 [exit 1]
 
-$ briefcase replay diff report.jsonl
+$ briefcase-ai replay diff report.jsonl
 6 call(s): 2 matched, 1 changed, 3 not_replayable, 0 error
 
 #0 openai.chat gpt-4o-mini -> gpt-4o-mini: changed
@@ -108,39 +108,39 @@ $ briefcase replay diff report.jsonl
 #5 anthropic.messages claude-haiku-test -> claude-haiku-test: not_replayable
   - the conversation ends in tool calls with no tool results (get_weather); replay never runs tools, so the request cannot be completed
 
-Next: briefcase replay explain FILE   (why records were not replayable)
+Next: briefcase-ai replay explain FILE   (why records were not replayable)
 [exit 0]
 
-$ briefcase replay run runs.jsonl --executor cassette --model gpt-4.1-mini
+$ briefcase-ai replay run runs.jsonl --executor cassette --model gpt-4.1-mini
 Replay plan (cassette executor, no network)
   records in file      6
-  replayable           3  (3 not replayable: see `briefcase replay explain`)
+  replayable           3  (3 not replayable: see `briefcase-ai replay explain`)
   blocked by executor  3
     3 x the built-in cassette only holds the recorded answer to the recorded request; --model/--param need a live executor (--executor auto) or a --cassette file with entries for the changed request
   calls to make        0
 Result: 0 matched, 0 changed, 6 not_replayable, 0 error
-Next: briefcase replay run runs.jsonl --out report.jsonl
+Next: briefcase-ai replay run runs.jsonl --out report.jsonl
 [exit 0]
 
-$ briefcase replay run runs.jsonl --plan-only --model gpt-4.1-mini --param temperature=0.5
+$ briefcase-ai replay run runs.jsonl --plan-only --model gpt-4.1-mini --param temperature=0.5
 Replay plan (auto executor, live calls: spends your provider credits)
   records in file      6
-  replayable           3  (3 not replayable: see `briefcase replay explain`)
+  replayable           3  (3 not replayable: see `briefcase-ai replay explain`)
   calls to make        3
     gpt-4.1-mini                 3
   tokens (upper bound) 252  (recorded prompt tokens + each call's max-tokens cap)
-Next: briefcase replay run runs.jsonl --model gpt-4.1-mini --param temperature=0.5 --yes
+Next: briefcase-ai replay run runs.jsonl --model gpt-4.1-mini --param temperature=0.5 --yes
 [exit 0]
 
-$ briefcase replay run runs.jsonl --model gpt-4.1-mini
+$ briefcase-ai replay run runs.jsonl --model gpt-4.1-mini
 Replay plan (auto executor, live calls: spends your provider credits)
   records in file      6
-  replayable           3  (3 not replayable: see `briefcase replay explain`)
+  replayable           3  (3 not replayable: see `briefcase-ai replay explain`)
   calls to make        3
     gpt-4.1-mini                 3
   tokens (upper bound) 252  (recorded prompt tokens + each call's max-tokens cap)
 error: live replay needs confirmation and there is no terminal to ask
-  fix: briefcase replay run runs.jsonl --yes   (or --executor cassette)
+  fix: briefcase-ai replay run runs.jsonl --yes   (or --executor cassette)
 [exit 1]
 ```
 
@@ -151,7 +151,7 @@ error: live replay needs confirmation and there is no terminal to ask
 | Reads your records | the file you name | yes, it needs the captured request |
 | Report (`--out FILE`) | the file you name, mode 0600 | yes: recorded and replayed answers and their diff |
 | Cassette (`--save-cassette FILE`) | the file you name, mode 0600 | yes: the replayed answers, keyed by a SHA-256 request fingerprint |
-| Last-run summary for `briefcase status` | `~/.briefcase/replay/last_run.json` | no: counts, executor, file basename |
+| Last-run summary for `briefcase-ai status` | `~/.briefcase/replay/last_run.json` | no: counts, executor, file basename |
 | Live calls (`--executor auto`) | the provider of each record, through **your installed SDK** and its usual credentials (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`/`GEMINI_API_KEY`, AWS credentials) | the recorded request |
 
 Live replays add the header `x-briefcase-replay: <run id>` to OpenAI, Anthropic and Gemini
@@ -263,11 +263,11 @@ files you asked for, and `~/.briefcase/replay/` for the status summary.
 | Symptom | What to do |
 |---|---|
 | "content capture was off when this call was recorded" | Re-capture with `briefcase.auto(capture_content=True)`; old records cannot be replayed. |
-| Every record is `not_replayable` | `briefcase replay explain runs.jsonl` lists the reason per record. |
+| Every record is `not_replayable` | `briefcase-ai replay explain runs.jsonl` lists the reason per record. |
 | "live replay needs confirmation and there is no terminal to ask" | Add `--yes` in scripts and CI, or use `--executor cassette`. |
 | "over --max-calls" | Narrow with `--limit N` / `--sample N`, or raise `--max-calls`. |
 | `error` rows with "could not create an OpenAI client" (or another provider) | Set that provider's API key / credentials in the environment. |
 | "recorded parameter(s) temperature are not accepted by the installed anthropic" | Your SDK no longer takes that parameter; `--drop-param temperature`. |
 | "no cassette entry for this request" | The request changed since the cassette was recorded; re-record with `--save-cassette` or inspect the change. |
 | Everything matched with the built-in cassette | Expected: it answers with the recorded outputs. Use a live run or a recorded `--cassette`. |
-| Answers differ only in formatting | `briefcase replay diff report.jsonl` shows which level held; consider `--scorer`. |
+| Answers differ only in formatting | `briefcase-ai replay diff report.jsonl` shows which level held; consider `--scorer`. |

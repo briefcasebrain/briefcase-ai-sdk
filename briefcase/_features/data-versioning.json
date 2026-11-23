@@ -3,7 +3,7 @@
   "title": "Data versioning (lakeFS and others)",
   "verb": "verify",
   "one_line": "Pin each decision to the exact data commit it read.",
-  "command": "briefcase features data-versioning",
+  "command": "briefcase-ai features data-versioning",
   "docs_slug": "verify/data-versioning",
   "status": "experimental",
   "requires_extra": "lakefs",

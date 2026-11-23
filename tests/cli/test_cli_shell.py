@@ -1,4 +1,4 @@
-"""``briefcase status``, ``features``, the guided setup and ``completion``, in a temp HOME."""
+"""``briefcase-ai status``, ``features``, the guided setup and ``completion``, in a temp HOME."""
 
 import io
 import json
@@ -35,16 +35,16 @@ def connect_claude(fake_tool):
 # --- _ux --------------------------------------------------------------------------
 
 def test_next_and_fail_helpers(capsys):
-    _ux.print_next("briefcase connect")
-    _ux.print_next("briefcase receive --detach", "nothing is listening")
-    assert _ux.fail("no receiver is running", fix="briefcase receive --detach") == 1
+    _ux.print_next("briefcase-ai connect")
+    _ux.print_next("briefcase-ai receive --detach", "nothing is listening")
+    assert _ux.fail("no receiver is running", fix="briefcase-ai receive --detach") == 1
     assert _ux.fail("bad flag", code=2) == 2
     assert _ux.print_json({"a": 1}) == 0
     captured = capsys.readouterr()
-    assert captured.out == ("Next: briefcase connect\n"
-                            "Next: briefcase receive --detach  # nothing is listening\n"
+    assert captured.out == ("Next: briefcase-ai connect\n"
+                            "Next: briefcase-ai receive --detach  # nothing is listening\n"
                             '{\n  "a": 1\n}\n')
-    assert captured.err == ("error: no receiver is running\nFix: briefcase receive --detach\n"
+    assert captured.err == ("error: no receiver is running\nFix: briefcase-ai receive --detach\n"
                             "error: bad flag\n")
 
 
@@ -113,9 +113,9 @@ def test_status_json_shape_on_a_fresh_machine(shell_home, capsys):
     for item in extras:
         assert item["source"] != "core" and item["id"] not in status_commands.CORE_IDS
         assert item["title"] and item["detail"] and item["group"] in _discovery.GROUP_KEYS
-        assert item["next"] is None or item["next"].startswith("briefcase ")
+        assert item["next"] is None or item["next"].startswith("briefcase-ai ")
     assert report["summary"] == {"on": 0, "off": 4 + len(extras), "attention": 0}
-    assert report["next"] == {"command": "briefcase exec -- python your_app.py",
+    assert report["next"] == {"command": "briefcase-ai exec -- python your_app.py",
                               "reason": "no coding tool found here; capture a Python app instead"}
     assert items[3]["data"]["sdk"] == {"kind": "console", "target": "stderr", "kept": False,
                                        "problem": None}
@@ -125,10 +125,10 @@ def test_status_screen_ends_with_exactly_one_next_line(shell_home, capsys):
     assert main(["status"]) == 0
     out = capsys.readouterr().out
     lines = out.rstrip("\n").splitlines()
-    assert lines[0].startswith("briefcase status  (briefcase-ai ")
+    assert lines[0].startswith("briefcase-ai status  (briefcase-ai ")
     assert "Connect" in lines and "Capture" in lines
     assert re.fullmatch(r"0 on · \d+ off · 0 need attention", lines[-2])
-    assert lines[-1].startswith("Next: briefcase exec -- python your_app.py  # ")
+    assert lines[-1].startswith("Next: briefcase-ai exec -- python your_app.py  # ")
     assert out.count("Next:") == 1 and "\033[" not in out
 
 
@@ -136,7 +136,7 @@ def test_status_follows_connect_then_receiver_then_mcp(shell_home, fake_tool, mo
     fake_tool("claude", "2.1.330 (Claude Code)")
     report = status_commands.collect([])
     assert report["items"][0]["detail"] == "none connected; detected on this machine: Claude Code"
-    assert report["next"]["command"] == "briefcase connect"
+    assert report["next"]["command"] == "briefcase-ai connect"
 
     assert main(["connect", "--yes", "--no-mcp"]) == 0
     capsys.readouterr()
@@ -144,7 +144,7 @@ def test_status_follows_connect_then_receiver_then_mcp(shell_home, fake_tool, mo
     states = {item["id"]: item["state"] for item in report["items"]}
     assert states == {"connect": "on", "receive": "off", "mcp": "off", "records": "off"}
     assert report["items"][0]["data"]["connected"] == ["claude-code"]
-    assert report["next"] == {"command": "briefcase receive --detach",
+    assert report["next"] == {"command": "briefcase-ai receive --detach",
                               "reason": "tools are connected but nothing is listening"}
 
     # A receiver answering on the default endpoint (started in the foreground: no pidfile).
@@ -158,13 +158,13 @@ def test_status_follows_connect_then_receiver_then_mcp(shell_home, fake_tool, mo
     assert receive["state"] == "on" and receive["data"]["stats"] == {"requests": 3, "records": 2, "rejected": 1}
     assert "3 requests, 2 records, 1 rejected" in receive["detail"]
     assert report["items"][3]["state"] == "off"          # a foreground receiver prints to the console
-    assert report["next"]["command"] == "briefcase mcp install"
+    assert report["next"]["command"] == "briefcase-ai mcp install"
 
     assert main(["mcp", "install", "--yes"]) == 0
     capsys.readouterr()
     report = status_commands.collect([])
     assert {item["id"]: item["state"] for item in report["items"]}["mcp"] == "on"
-    assert report["next"]["command"] == "briefcase features"
+    assert report["next"]["command"] == "briefcase-ai features"
 
 
 def test_status_flags_a_tool_whose_settings_were_removed(shell_home, fake_tool, capsys):
@@ -173,7 +173,7 @@ def test_status_flags_a_tool_whose_settings_were_removed(shell_home, fake_tool, 
     report = status_commands.collect([])
     assert report["items"][0]["state"] == "attention"
     assert report["items"][0]["data"]["drifted"] == ["claude-code"]
-    assert report["next"]["command"] == "briefcase connect claude-code"
+    assert report["next"]["command"] == "briefcase-ai connect claude-code"
 
 
 def test_status_reports_where_python_records_go(shell_home, tmp_path):
@@ -191,7 +191,7 @@ def test_status_reports_where_python_records_go(shell_home, tmp_path):
     item = status_commands.records_item({"data": {}}, {"BRIEFCASE_EXPORTER": "carrier-pigeon"})
     assert item["state"] == "attention" and "carrier-pigeon" in item["detail"]
     report_next = status_commands.choose_next([item])
-    assert report_next["command"] == "briefcase features exporters"
+    assert report_next["command"] == "briefcase-ai features exporters"
 
     item = status_commands.records_item({"data": {"running": True, "to": str(target)}}, {})
     assert item["state"] == "on" and item["data"]["receiver"]["receiving"] is True
@@ -214,10 +214,10 @@ def test_status_uses_the_sdk_environment_check_when_it_exists(shell_home, monkey
 def test_status_hooks_add_rows_and_drive_next(shell_home, capsys):
     modules = [
         fake_module("policy_commands", "enforce", lambda: {
-            "id": "policy", "state": "off", "detail": "no policy file", "next": "briefcase policy init"}),
+            "id": "policy", "state": "off", "detail": "no policy file", "next": "briefcase-ai policy init"}),
         fake_module("budget_commands", "enforce", lambda: [
             {"id": "budget", "title": "Budget", "state": "attention", "detail": "92% of 20 USD used",
-             "next": "briefcase budget show", "data": {"used": 18.4}},
+             "next": "briefcase-ai budget show", "data": {"used": 18.4}},
             {"id": "budget-alerts", "state": "on", "detail": "e-mail", "next": None}]),
         fake_module("verify_commands", "verify", lambda: {"id": "verify", "state": "on", "detail": "chain intact"}),
         fake_module("raises_commands", "review", lambda: 1 / 0),
@@ -232,12 +232,12 @@ def test_status_hooks_add_rows_and_drive_next(shell_home, capsys):
     assert ids == ["connect", "receive", "mcp", "records", "policy", "budget", "budget-alerts", "verify"]
     budget = report["items"][5]
     assert budget == {"id": "budget", "title": "Budget", "state": "attention", "detail": "92% of 20 USD used",
-                      "next": "briefcase budget show", "data": {"used": 18.4}, "group": "enforce",
+                      "next": "briefcase-ai budget show", "data": {"used": 18.4}, "group": "enforce",
                       "source": "budget_commands"}
     assert report["items"][4]["title"] == "policy" and report["items"][7]["next"] is None
     assert report["summary"] == {"on": 2, "off": 5, "attention": 1}
     # An item needing attention outranks one that is merely off.
-    assert report["next"] == {"command": "briefcase budget show", "reason": "Budget needs attention"}
+    assert report["next"] == {"command": "briefcase-ai budget show", "reason": "Budget needs attention"}
     assert len(report["problems"]) == 3
     assert "raises_commands.status() raised ZeroDivisionError" in report["problems"][0]
 
@@ -248,9 +248,9 @@ def test_status_hooks_add_rows_and_drive_next(shell_home, capsys):
 
     quiet = [modules[0]]
     report = status_commands.collect(quiet)
-    assert report["next"]["command"] == "briefcase exec -- python your_app.py"   # core steps come first
+    assert report["next"]["command"] == "briefcase-ai exec -- python your_app.py"   # core steps come first
     connected = [dict(item, state="on", next=None) for item in report["items"][:4]] + report["items"][4:]
-    assert status_commands.choose_next(connected) == {"command": "briefcase policy init", "reason": "policy is off"}
+    assert status_commands.choose_next(connected) == {"command": "briefcase-ai policy init", "reason": "policy is off"}
 
 
 def test_status_survives_an_unreadable_piece(shell_home, monkeypatch):
@@ -269,13 +269,13 @@ def test_features_catalog_text(shell_home, capsys):
     from briefcase.features import load_catalog
 
     catalog = load_catalog()
-    assert lines[0] == f"briefcase features · {len(catalog.features)} features · 5 groups"
+    assert lines[0] == f"briefcase-ai features · {len(catalog.features)} features · 5 groups"
     for verb, items in catalog.groups():
         assert f"{verb.capitalize()} ({len(items)})" in lines
     feature = catalog.get("connect")
     index = lines.index(f"  {feature.title}  [{feature.status}]  id: connect")
-    assert lines[index + 1].strip() == feature.one_line and lines[index + 2].strip() == "$ briefcase connect"
-    assert lines[-1].startswith("Next: briefcase features <id>") and out.count("Next:") == 1
+    assert lines[index + 1].strip() == feature.one_line and lines[index + 2].strip() == "$ briefcase-ai connect"
+    assert lines[-1].startswith("Next: briefcase-ai features <id>") and out.count("Next:") == 1
 
 
 def test_features_filter_and_json_shape(shell_home, capsys):
@@ -302,7 +302,7 @@ def test_one_feature_shows_docs_and_whether_it_is_active_here(shell_home, fake_t
     assert "Active here:   no (none connected" in out
     assert "Docs:          docs/integrations/README.md" in out
     assert "https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/docs/integrations/README.md" in out
-    assert out.rstrip().splitlines()[-1] == "Next: briefcase connect"
+    assert out.rstrip().splitlines()[-1] == "Next: briefcase-ai connect"
 
     connect_claude(fake_tool)
     capsys.readouterr()
@@ -315,13 +315,13 @@ def test_one_feature_shows_docs_and_whether_it_is_active_here(shell_home, fake_t
 
     assert main(["features", "capture-decorator"]) == 0
     out = capsys.readouterr().out
-    assert "not tracked by `briefcase status`" in out and "In Python:" in out and "@briefcase.capture" in out
+    assert "not tracked by `briefcase-ai status`" in out and "In Python:" in out and "@briefcase.capture" in out
     assert "Start with:" not in out
 
 
 def test_unknown_feature_suggests_the_closest_id(shell_home, capsys):
     assert main(["features", "recieve"]) == 2
-    assert capsys.readouterr().err == "error: no feature with id 'recieve'\nFix: briefcase features receive\n"
+    assert capsys.readouterr().err == "error: no feature with id 'recieve'\nFix: briefcase-ai features receive\n"
 
 
 # --- guided setup -----------------------------------------------------------------
@@ -346,7 +346,7 @@ def test_bare_briefcase_without_a_terminal_prints_help_and_status_and_exits_zero
     monkeypatch.setattr(sys, "stdin", io.StringIO(""))       # a prompt would hit end of input
     assert main([]) == 0
     out = capsys.readouterr().out
-    assert out.index("Start here:") < out.index("Connect:") < out.index("briefcase status  (") < out.index("Next:")
+    assert out.index("Start here:") < out.index("Connect:") < out.index("briefcase-ai status  (") < out.index("Next:")
     assert out.count("Next:") == 1 and "What are you setting up?" not in out
     assert files_under(shell_home) == []                      # not remembered: nobody answered
 
@@ -374,9 +374,9 @@ def test_setup_skip_is_remembered_and_the_guide_is_not_repeated(at_terminal, she
     at_terminal("")                                           # a second prompt would fail on EOF
     assert main([]) == 0
     out = capsys.readouterr().out
-    assert "What are you setting up?" not in out and "briefcase status  (" in out and "Start here:" in out
+    assert "What are you setting up?" not in out and "briefcase-ai status  (" in out and "Start here:" in out
 
-    at_terminal("s\n")                                        # `briefcase setup` always runs the guide
+    at_terminal("s\n")                                        # `briefcase-ai setup` always runs the guide
     assert main(["setup"]) == 0
     assert "What are you setting up?" in capsys.readouterr().out
 
@@ -436,7 +436,7 @@ def test_setup_coding_tools_writes_nothing_when_the_user_says_no(at_terminal, sh
     at_terminal("1\ny\nn\n")
     assert main(["setup"]) == 0
     out = capsys.readouterr().out
-    assert "Start it when you are ready: briefcase receive --detach" in out
+    assert "Start it when you are ready: briefcase-ai receive --detach" in out
     assert (shell_home / ".claude" / "settings.json").exists()
 
 
@@ -444,7 +444,7 @@ def test_setup_coding_tools_with_no_tool_installed(at_terminal, shell_home, caps
     at_terminal("1\n")
     assert main(["setup"]) == 0
     out = capsys.readouterr().out
-    assert "No supported coding tool was detected" in out and "briefcase connect list" in out
+    assert "No supported coding tool was detected" in out and "briefcase-ai connect list" in out
     assert files_under(shell_home) == [".briefcase/setup.json"]
 
 
@@ -461,7 +461,7 @@ def test_setup_app_path_offers_a_dry_run(at_terminal, shell_home, monkeypatch, c
     at_terminal("2\nn\n")
     assert main(["setup"]) == 0
     out = capsys.readouterr().out
-    assert "briefcase exec -- python your_app.py" in out and "Step 2 of 2 · Keep the records" in out
+    assert "briefcase-ai exec -- python your_app.py" in out and "Step 2 of 2 · Keep the records" in out
     assert calls == [] and out.count("Next:") == 1
 
     at_terminal("2\n\n")                                      # Enter accepts the default: run it
@@ -474,7 +474,7 @@ def test_setup_app_path_offers_a_dry_run(at_terminal, shell_home, monkeypatch, c
 
 
 def test_setup_app_dry_run_for_real(at_terminal, shell_home, monkeypatch, capfd):
-    """The dry run starts a real child interpreter through ``briefcase exec``."""
+    """The dry run starts a real child interpreter through ``briefcase-ai exec``."""
     monkeypatch.setenv("PYTHONPATH", str(REPO))
     at_terminal("2\ny\n")
     assert main(["setup"]) == 0
@@ -491,11 +491,11 @@ def test_setup_team_path_offers_real_steps_when_policy_is_discovered(at_terminal
     out = capsys.readouterr().out
     assert "Step 1 of 4 · Collect records in one place" in out
     managed = out.split("Roll out to every developer machine", 1)[1].split("Step 3", 1)[0]
-    assert "briefcase connect --managed --out ./briefcase-rollout" in managed and "Coming" not in managed
+    assert "briefcase-ai connect --managed --out ./briefcase-rollout" in managed and "Coming" not in managed
     policy = out.split("Decide what coding tools may run", 1)[1].split("Step 4", 1)[0]
-    assert "briefcase policy init" in policy and "Coming" not in policy
+    assert "briefcase-ai policy init" in policy and "Coming" not in policy
     assert "Coming" not in out                 # everything is discovered, "Cap spend" included
-    assert "briefcase budget set daily --usd 20" in out.split("Cap spend", 1)[1]
+    assert "briefcase-ai budget set daily --usd 20" in out.split("Cap spend", 1)[1]
     assert setup_record(shell_home)["persona"] == "team"
     assert files_under(shell_home) == [".briefcase/setup.json"]          # declined: nothing written
 
@@ -504,8 +504,8 @@ def test_setup_team_path_marks_missing_commands_as_coming(shell_home, capsys):
     setup_commands.path_team([fake_module("other_commands", "enforce", commands=["other"])])
     out = capsys.readouterr().out
     assert out.count("Coming: there is no command for this in the version installed here.") == 3
-    assert "Today:  briefcase connect --dry-run" in out
-    assert "Today:  briefcase features controls-gateway" in out
+    assert "Today:  briefcase-ai connect --dry-run" in out
+    assert "Today:  briefcase-ai features controls-gateway" in out
     assert files_under(shell_home) == []
 
 
@@ -554,15 +554,15 @@ def test_completion_covers_every_command(shell_home, shell, capsys):
 
 def test_completion_tree_matches_the_parser():
     nodes = {node.key: node for node in completion_commands.tree(build_parser())}
-    assert {"briefcase", "briefcase run submit", "briefcase mcp link", "briefcase features"} <= set(nodes)
-    root = nodes["briefcase"]
+    assert {"briefcase-ai", "briefcase-ai run submit", "briefcase-ai mcp link", "briefcase-ai features"} <= set(nodes)
+    root = nodes["briefcase-ai"]
     assert {name for name, _ in root.subcommands} == set(build_parser().subparsers.choices)
-    connect = nodes["briefcase connect"]
+    connect = nodes["briefcase-ai connect"]
     scope = next(option for option in connect.options if "--scope" in option.flags)
     assert scope.choices == ["user", "project"] and scope.takes_value
     yes = next(option for option in connect.options if "--yes" in option.flags)
     assert yes.flags == ["--yes", "-y"] and not yes.takes_value
-    assert nodes["briefcase completion"].positional_choices == ["bash", "zsh", "fish"]
+    assert nodes["briefcase-ai completion"].positional_choices == ["bash", "zsh", "fish"]
     assert all("'" not in help_ and '"' not in help_ for _, help_ in root.subcommands)
 
 
@@ -576,18 +576,18 @@ def test_bash_completion_is_valid_and_completes(shell_home, tmp_path):
 
     def complete(*words):
         program = (f'source "{script}"; COMP_WORDS=({" ".join(words)}); COMP_CWORD=$(( ${{#COMP_WORDS[@]}} - 1 )); '
-                   '_briefcase; printf "%s\\n" "${COMPREPLY[@]}"')
+                   '_briefcase_ai; printf "%s\\n" "${COMPREPLY[@]}"')
         result = subprocess.run([bash, "--norc", "--noprofile", "-c", program], capture_output=True, text=True)
         assert result.returncode == 0, result.stderr
         return result.stdout.split()
 
-    assert set(complete("briefcase", "st")) == {"status", "stack"}
-    assert set(complete("briefcase", "run", "s")) == {"submit", "stop"}
-    assert complete("briefcase", "connect", "--sc") == ["--scope"]
-    assert complete("briefcase", "connect", "--scope", '""') == ["user", "project"]
-    assert complete("briefcase", "completion", "z") == ["zsh"]
-    assert complete("briefcase", "connect", "--endpoint", '""') == []      # a free value: fall back to files
-    assert complete("briefcase", "exec", "--", "pyth") == []               # the rest is another program
+    assert set(complete("briefcase-ai", "st")) == {"status", "stack"}
+    assert set(complete("briefcase-ai", "run", "s")) == {"submit", "stop"}
+    assert complete("briefcase-ai", "connect", "--sc") == ["--scope"]
+    assert complete("briefcase-ai", "connect", "--scope", '""') == ["user", "project"]
+    assert complete("briefcase-ai", "completion", "z") == ["zsh"]
+    assert complete("briefcase-ai", "connect", "--endpoint", '""') == []      # a free value: fall back to files
+    assert complete("briefcase-ai", "exec", "--", "pyth") == []               # the rest is another program
 
 
 @pytest.mark.parametrize("shell,check", [("zsh", ["-n"]), ("fish", ["--no-execute"])])

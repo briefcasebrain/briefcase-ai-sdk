@@ -12,7 +12,7 @@ Signing and verification use PyNaCl (the ``integrity`` extra) when it is
 installed, else the compiled core that ships in the wheel, else the RFC 8032
 section 6 reference algorithm in pure Python (slow and not constant time:
 fine for checking public data, a last resort for signing). So
-``briefcase bundle verify`` needs nothing beyond the SDK.
+``briefcase-ai bundle verify`` needs nothing beyond the SDK.
 """
 
 from __future__ import annotations

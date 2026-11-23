@@ -1,4 +1,4 @@
-"""One driver per tool. Each knows how to install the tool, what `briefcase connect` should have
+"""One driver per tool. Each knows how to install the tool, what `briefcase-ai connect` should have
 done to it, which of the TOOL'S OWN commands confirm that, and whether it can produce telemetry
 without credentials.
 
@@ -62,7 +62,7 @@ class Driver:
     def connect(self, sandbox: Sandbox, result: ToolResult, extra: Optional[List[str]] = None) -> bool:
         argv = briefcase_cli("connect", self.tool, "--yes", *self.connect_args, *(extra or []))
         done = run(argv, sandbox.env(), cwd=sandbox.project, timeout=180)
-        return result.add("briefcase connect --yes", done.ok, done.out[-400:] if not done.ok else "exit 0")
+        return result.add("briefcase-ai connect --yes", done.ok, done.out[-400:] if not done.ok else "exit 0")
 
     def verify_config(self, sandbox: Sandbox, result: ToolResult) -> bool:
         raise NotImplementedError
@@ -93,7 +93,7 @@ class Driver:
                 return result
             self.log(f"[{self.tool}] {result.version}: connect + verify")
             if not self.connect(sandbox, result):
-                result.status, result.note = "failed", "briefcase connect failed"
+                result.status, result.note = "failed", "briefcase-ai connect failed"
                 return result
             accepted = self.verify_config(sandbox, result)
             if not accepted:

@@ -3,7 +3,7 @@
   "title": "Ask your assistant about your records",
   "verb": "review",
   "one_line": "Let your coding assistant search, explain and verify your recorded decisions.",
-  "command": "briefcase mcp install",
+  "command": "briefcase-ai mcp install",
   "docs_slug": "review/mcp-records",
   "status": "experimental",
   "requires_extra": "mcp",

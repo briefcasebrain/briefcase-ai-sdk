@@ -3,10 +3,10 @@
   "title": "Zero-code capture for Python apps",
   "verb": "connect",
   "one_line": "Run any Python program with decision capture on, without editing it.",
-  "command": "briefcase exec -- python app.py",
+  "command": "briefcase-ai exec -- python app.py",
   "docs_slug": "connect/exec",
   "status": "experimental",
   "requires_extra": null,
-  "verified_against": "Real child Python interpreters started through `briefcase exec` in tests, records read back from a .jsonl file. Python only; not tried under process managers such as gunicorn or uvicorn.",
+  "verified_against": "Real child Python interpreters started through `briefcase-ai exec` in tests, records read back from a .jsonl file. Python only; not tried under process managers such as gunicorn or uvicorn.",
   "docs_path": "briefcase/cli/exec_commands.py"
 }

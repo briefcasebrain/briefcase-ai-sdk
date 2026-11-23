@@ -14,17 +14,17 @@ Sleep 1s
 Type "bc_venv && clear" Enter
 Sleep 6s
 Show
-Type "briefcase engine --help | head -30" Enter
+Type "briefcase-ai engine --help | head -30" Enter
 Sleep 5s
-Type "clear; briefcase engine install --code bci_demo --yes; echo exit=$?" Enter
+Type "clear; briefcase-ai engine install --code bci_demo --yes; echo exit=$?" Enter
 Sleep 5s
-Type "echo '{}' > engine-manifest.json; briefcase engine verify engine-manifest.json; echo exit=$?" Enter
+Type "echo '{}' > engine-manifest.json; briefcase-ai engine verify engine-manifest.json; echo exit=$?" Enter
 Sleep 5s
-Type "clear; briefcase engine status; echo exit=$?" Enter
+Type "clear; briefcase-ai engine status; echo exit=$?" Enter
 Sleep 4s
-Type "briefcase engine up; echo exit=$?" Enter
+Type "briefcase-ai engine up; echo exit=$?" Enter
 Sleep 4s
-Type "briefcase graph log main; echo exit=$?" Enter
+Type "briefcase-ai graph log main; echo exit=$?" Enter
 Sleep 4s
-Type "briefcase engine doctor; echo exit=$?" Enter
+Type "briefcase-ai engine doctor; echo exit=$?" Enter
 Sleep 5s

@@ -1,4 +1,4 @@
-"""Background lifecycle for ``briefcase receive``: ``--detach``, ``--stop``, ``--status``.
+"""Background lifecycle for ``briefcase-ai receive``: ``--detach``, ``--stop``, ``--status``.
 
 State lives under ``~/.briefcase/receiver/`` (``BRIEFCASE_HOME`` overrides the
 root): a JSON pidfile, the log, and by default the JSONL the records go to.
@@ -96,7 +96,7 @@ def status() -> Dict[str, Any]:
 
 def detach(args: List[str], host: str, port: int, to: str, token: Optional[str],
            wait: float = 5.0) -> Dict[str, Any]:
-    """Start ``briefcase receive <args>`` in the background and wait until it
+    """Start ``briefcase-ai receive <args>`` in the background and wait until it
     answers ``/healthz``. Raises ``RuntimeError`` with the log tail if it does not."""
     current = status()
     if current.get("running"):

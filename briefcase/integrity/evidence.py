@@ -3,7 +3,7 @@
 An independent, pure-Python implementation of the checks the Rust core runs
 in ``SqliteBackend.verify_chain`` (same hashes, same Merkle layout, same
 problem kinds), so a chain written by Rust is re-verified here byte for byte
-and ``briefcase verify`` works on any install. It reads the database
+and ``briefcase-ai verify`` works on any install. It reads the database
 read-only and never writes to it.
 
 What it can see, for a chained store (``SqliteBackend(path, chained=True)``):
@@ -670,7 +670,7 @@ def _verify_hash_chain_lines(path: Path, lines: List[Dict[str, Any]]) -> VerifyR
 
 
 def load_checkpoint_file(path: Union[str, Path]) -> Dict[str, Any]:
-    """A checkpoint saved with ``briefcase verify --save-checkpoint``."""
+    """A checkpoint saved with ``briefcase-ai verify --save-checkpoint``."""
     data = json.loads(Path(path).read_text("utf-8"))
     if isinstance(data, dict) and "checkpoint" in data and isinstance(data["checkpoint"], dict):
         data = data["checkpoint"]

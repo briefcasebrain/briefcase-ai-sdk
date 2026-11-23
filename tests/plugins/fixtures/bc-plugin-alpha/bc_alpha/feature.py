@@ -1,4 +1,4 @@
-"""briefcase.features: a manifest `briefcase features` lists (same keys as briefcase/_features/*.json)."""
+"""briefcase.features: a manifest `briefcase-ai features` lists (same keys as briefcase/_features/*.json)."""
 
 BRIEFCASE_PLUGIN_API = 1
 
@@ -7,7 +7,7 @@ MANIFEST = {
     "title": "Alpha exporter",
     "verb": "capture",
     "one_line": "Send decision records to Alpha.",
-    "command": "briefcase alpha hello",
+    "command": "briefcase-ai alpha hello",
     "docs_slug": "capture/alpha-export",
     "status": "experimental",
     "requires_extra": None,

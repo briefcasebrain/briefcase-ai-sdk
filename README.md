@@ -2,8 +2,9 @@
 
 ![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 
-Governance infrastructure for AI decisions: enforce controls, record context,
-replay later.
+Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models.
+
+Enforce controls, record context, replay later.
 
 ## Install
 
@@ -64,7 +65,7 @@ calls.
 
 **Content rule.** Briefcase records prompt, completion and tool content only
 where someone chose to record it. Every automatic path (`briefcase.auto()`
-for frameworks and provider SDKs, `briefcase exec`, `connect` and the
+for frameworks and provider SDKs, `briefcase-ai exec`, `connect` and the
 receiver, eval records) records none until you opt in with
 `capture_content="full"` (or `"hash"`), `--capture-content` / `--keep-content`,
 or `BRIEFCASE_CAPTURE_CONTENT=full`. `@capture` on your own function is itself
@@ -123,23 +124,23 @@ briefcase.enable_logging("DEBUG")     # or set BRIEFCASE_LOG_LEVEL=DEBUG
 This repo ships machine-readable usage guidance: [`llms.txt`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/llms.txt) /
 [`llms-full.txt`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/llms-full.txt), an [`AGENTS.md`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/AGENTS.md), and copy-paste
 editor rules under [`docs/llm/`](https://github.com/briefcasebrain/briefcase-ai-sdk/tree/main/docs/llm/). An MCP server is available via
-`pip install briefcase-ai[mcp]` then `briefcase-mcp`.
+`pip install briefcase-ai[mcp]` then `briefcase-ai-mcp`.
 
 ## Plug-and-play integrations
 
 Connect the coding tools on your machine in one command. Nothing to configure by hand:
 
 ```bash
-briefcase connect     # detects Claude Code, Codex, Cursor, VS Code Copilot, ...; shows a diff; asks once
-briefcase receive     # local OTLP receiver: their telemetry becomes briefcase decision records
+briefcase-ai connect     # detects Claude Code, Codex, Cursor, VS Code Copilot, ...; shows a diff; asks once
+briefcase-ai receive     # local OTLP receiver: their telemetry becomes briefcase decision records
 ```
 
 `connect` writes each tool's telemetry and MCP settings as key-level edits with
-a backup, and `briefcase connect --undo` removes exactly what it wrote.
+a backup, and `briefcase-ai connect --undo` removes exactly what it wrote.
 Prompts, responses, tool input, e-mail addresses and host paths are redacted
 unless you opt in (`--capture-content` / `--keep-content`). Claude Code and
 Cursor work on a bare install; Codex and VS Code Copilot send protobuf, which needs
-`pip install 'briefcase-ai[receiver]'`. `briefcase mcp link cursor` prints a
+`pip install 'briefcase-ai[receiver]'`. `briefcase-ai mcp link cursor` prints a
 one-click install link for the MCP server. Per-tool details:
 [`docs/integrations/`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/docs/integrations/README.md).
 
@@ -176,10 +177,10 @@ one-click install link for the MCP server. Per-tool details:
 | `controls` | Gateway, quota, throttle classification, and retry (no extra dependencies) |
 | `integrity` | Tamper-evident hash chains, canonical JSON, Ed25519 signing over digests and JSON manifests (signing adds `pynacl`) |
 | `langchain` / `crewai` / `llamaindex` / `autogen` / `ag2` / `pageindex` / `openai-agents` | Framework auto-instrumentation via `briefcase.auto` (each adds its framework) |
-| `mcp` | MCP server (`briefcase-mcp`) exposing the SDK to AI agents |
-| `run` | gRPC client for the `briefcase` evaluation-run CLI (adds `grpcio`, `grpcio-reflection`, `protobuf`) |
-| `engine` | gRPC client for `briefcase engine`, `graph` and `env` against the licensed Briefcase engine (adds `grpcio`, `protobuf`, `cryptography`; the engine itself is installed with `briefcase engine install`) |
-| `receiver` | OTLP/protobuf decoding for `briefcase receive` (adds `opentelemetry-proto`; OTLP/JSON needs no extra) |
+| `mcp` | MCP server (`briefcase-ai-mcp`) exposing the SDK to AI agents |
+| `run` | gRPC client for the `briefcase-ai` evaluation-run CLI (adds `grpcio`, `grpcio-reflection`, `protobuf`) |
+| `engine` | gRPC client for `briefcase-ai engine`, `graph` and `env` against the licensed Briefcase engine (adds `grpcio`, `protobuf`, `cryptography`; the engine itself is installed with `briefcase-ai engine install`) |
+| `receiver` | OTLP/protobuf decoding for `briefcase-ai receive` (adds `opentelemetry-proto`; OTLP/JSON needs no extra) |
 | `budgets-redis` / `budgets-postgres` / `budgets-mysql` | Shared stores for `briefcase.budgets` (each adds its client: `redis`, `psycopg`, `pymysql`) |
 | `dev` | Dev tooling: pytest, mypy, flake8, moto (not part of `all`) |
 | `all` | Installs every optional extra listed above except `kdb` and `dev` |

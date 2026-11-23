@@ -3,7 +3,7 @@
   "title": "Cross-language hashing (RFC 8785)",
   "verb": "verify",
   "one_line": "Hashes Python, TypeScript and Rust compute identically, floats included.",
-  "command": "briefcase verify ./evidence.db",
+  "command": "briefcase-ai verify ./evidence.db",
   "docs_slug": "verify/hashing-v2",
   "status": "experimental",
   "requires_extra": null,

@@ -173,7 +173,7 @@ _CURSOR_TYPES = {
 
 
 def normalize_cursor(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """A Cursor hook's stdin JSON (as forwarded by ``briefcase hook cursor``)."""
+    """A Cursor hook's stdin JSON (as forwarded by ``briefcase-ai hook cursor``)."""
     hook = payload.get("hook_event_name")
     if not isinstance(hook, str) or not _IDENTIFIER.match(hook):
         return None

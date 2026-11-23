@@ -2,10 +2,10 @@
 #
 # This is the image-only counterpart of oci-jj's own docker-compose.yml: every first-party `build:`
 # context is replaced by a published GHCR `image:` reference, pinned by `briefcase/cli/stack/compat.json`
-# (`briefcase stack up` exports OCI_JJ_IMAGE_TAG from the manifest; the default below is a fallback).
+# (`briefcase-ai stack up` exports OCI_JJ_IMAGE_TAG from the manifest; the default below is a fallback).
 #
-# The private `verdict-worker` scorer is gated behind the `scorer` profile: `briefcase stack up` enables
-# it by default (needs `docker login ghcr.io` with beta read access); `briefcase stack up --no-scorer`
+# The private `verdict-worker` scorer is gated behind the `scorer` profile: `briefcase-ai stack up` enables
+# it by default (needs `docker login ghcr.io` with beta read access); `briefcase-ai stack up --no-scorer`
 # omits it — runs still enqueue, but are not scored.
 #
 # NOTE (depends on oci-jj's image-publish workflow, ADR-0060): schema migrations are baked into the

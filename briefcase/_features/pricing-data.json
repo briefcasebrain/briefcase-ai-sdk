@@ -3,7 +3,7 @@
   "title": "Model pricing data",
   "verb": "review",
   "one_line": "See which of your models have no price, and add verified ones.",
-  "command": "briefcase pricing check --records runs.jsonl",
+  "command": "briefcase-ai pricing check --records runs.jsonl",
   "docs_slug": "review/pricing-data",
   "status": "experimental",
   "requires_extra": null,

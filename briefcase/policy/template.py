@@ -1,14 +1,14 @@
-"""The policy file ``briefcase policy init`` writes."""
+"""The policy file ``briefcase-ai policy init`` writes."""
 
 from __future__ import annotations
 
 _HEAD = '''\
-# briefcase policy for coding tools (Claude Code, Cursor, Codex CLI).
+# briefcase-ai policy for coding tools (Claude Code, Cursor, Codex CLI).
 #
-#   briefcase policy check              validate this file and list every rule
-#   briefcase policy test -- rm -rf /   see what a command would get, and why
-#   briefcase policy log                recent decisions
-#   briefcase policy off                remove the hooks (this file stays)
+#   briefcase-ai policy check              validate this file and list every rule
+#   briefcase-ai policy test -- rm -rf /   see what a command would get, and why
+#   briefcase-ai policy log                recent decisions
+#   briefcase-ai policy off                remove the hooks (this file stays)
 version = 1
 
 # The built-in rules this policy starts from:
@@ -23,9 +23,9 @@ preset = "{preset}"
 mode = "{mode}"
 
 # What happens when this file is broken or the hook itself fails:
-#   false  tool calls are ALLOWED, and `briefcase status` reports the problem
+#   false  tool calls are ALLOWED, and `briefcase-ai status` reports the problem
 #   true   every tool call is BLOCKED until it is fixed
-# After changing this, run `briefcase policy init` again so the tools' own
+# After changing this, run `briefcase-ai policy init` again so the tools' own
 # hook settings match.
 fail_closed = {fail_closed}
 

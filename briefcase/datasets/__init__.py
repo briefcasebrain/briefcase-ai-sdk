@@ -11,8 +11,8 @@ it (:mod:`briefcase.datasets.evaluate`). Everything is local files under
                      where=["decision_type=triage"], allow_unsanitized=True)
     version = DatasetStore().save("triage", result.cases, result.metadata)
 
-The CLI is ``briefcase dataset from-records|list|show|diff|export|import``
-and ``briefcase eval run``.
+The CLI is ``briefcase-ai dataset from-records|list|show|diff|export|import``
+and ``briefcase-ai eval run``.
 """
 
 from briefcase.datasets.core import (

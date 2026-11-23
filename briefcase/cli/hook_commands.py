@@ -1,4 +1,4 @@
-"""``briefcase hook cursor``: forward a Cursor hook event to the receiver.
+"""``briefcase-ai hook cursor``: forward a Cursor hook event to the receiver.
 
 Cursor runs this for each configured hook with the event as JSON on stdin.
 The contract is to never get in the agent's way: it always exits 0, prints
@@ -78,7 +78,7 @@ def parse_args(argv: List[str]):
 
 
 def run_enforce(tool: str, argv: List[str], stdin: Any = None, stdout: Any = None) -> int:
-    """``briefcase hook <tool> --enforce``: decide one tool call under the policy.
+    """``briefcase-ai hook <tool> --enforce``: decide one tool call under the policy.
 
     Always returns 0; the verdict is the JSON on stdout. Fails open unless the
     policy or the command line says ``fail_closed`` (see ``briefcase.policy.hook``)."""
@@ -121,7 +121,7 @@ def cmd_hook_enforce(args, store=None, engine=None, stack=None) -> int:
 
 
 def register(sub) -> None:
-    hook = sub.add_parser("hook", help="Tool hook entry points (installed by `briefcase connect`).")
+    hook = sub.add_parser("hook", help="Tool hook entry points (installed by `briefcase-ai connect`).")
     hooks = hook.add_subparsers(dest="sub")
     cursor = hooks.add_parser(
         "cursor", add_help=False,
@@ -135,7 +135,7 @@ def register(sub) -> None:
         # as "block this tool call".
         enforce = hooks.add_parser(
             tool, add_help=False, prefix_chars="\x00",
-            help=f"Decide a {tool} tool call under the briefcase policy (stdin JSON); always exits 0.",
+            help=f"Decide a {tool} tool call under the briefcase-ai policy (stdin JSON); always exits 0.",
         )
         enforce.add_argument("hook_args", nargs="*")
         enforce.set_defaults(func=cmd_hook_enforce, hook_tool=tool)

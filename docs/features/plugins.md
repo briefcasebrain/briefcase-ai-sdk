@@ -1,7 +1,7 @@
 # Plugins from other packages
 
 Add an exporter, a storage backend, a data-versioning provider, a telemetry source for the
-receiver, a `briefcase connect` adapter, a guardrail, a CLI command or a feature card from your
+receiver, a `briefcase-ai connect` adapter, a guardrail, a CLI command or a feature card from your
 own package, without editing briefcase. Install the package and briefcase finds it.
 
 Flow: **Connect**. Feature id: `plugins`. Status: experimental.
@@ -9,12 +9,12 @@ Flow: **Connect**. Feature id: `plugins`. Status: experimental.
 ## The one command
 
 ```bash
-briefcase plugins list
+briefcase-ai plugins list
 ```
 
 It lists every plugin installed packages declare, by group, with the package and version it
-comes from and whether it loaded. `briefcase plugins show NAME` explains one;
-`briefcase doctor --plugins` gives the same verdicts as `[ok]` / `[warn]` lines for CI.
+comes from and whether it loaded. `briefcase-ai plugins show NAME` explains one;
+`briefcase-ai doctor --plugins` gives the same verdicts as `[ok]` / `[warn]` lines for CI.
 
 ### Real output
 
@@ -24,8 +24,8 @@ working plugin per group; `bc-plugin-beta` provides the broken ones used under
 [Troubleshooting](#troubleshooting)). Only alpha installed:
 
 ```text
-$ briefcase plugins list
-briefcase plugins · plugin API 1 · 8 entry points
+$ briefcase-ai plugins list
+briefcase-ai plugins · plugin API 1 · 8 entry points
 
 briefcase.exporters  (exporter class for briefcase.observe('NAME:...') and BRIEFCASE_EXPORTER)
   alpha                loaded    bc-plugin-alpha 0.1.0
@@ -39,30 +39,30 @@ briefcase.vcs_providers  (data-versioning client class, a VcsClientBase)
 briefcase.receiver_sources  (normaliser for POST /v1/sources/NAME on the receiver)
   alpha                loaded    bc-plugin-alpha 0.1.0
 
-briefcase.connect_adapters  (adapter class for `briefcase connect NAME`)
+briefcase.connect_adapters  (adapter class for `briefcase-ai connect NAME`)
   alphatool            loaded    bc-plugin-alpha 0.1.0
 
 briefcase.guardrails  (guardrail environment class for guardrails.make('NAME'))
   alpha-check-v1       loaded    bc-plugin-alpha 0.1.0
 
-briefcase.cli_commands  (module whose register(subparsers) adds `briefcase NAME`)
+briefcase.cli_commands  (module whose register(subparsers) adds `briefcase-ai NAME`)
   alpha                loaded    bc-plugin-alpha 0.1.0
 
-briefcase.features  (feature manifest listed by `briefcase features`)
+briefcase.features  (feature manifest listed by `briefcase-ai features`)
   alpha-export         loaded    bc-plugin-alpha 0.1.0
 
-Next: briefcase features  # plugin features are listed with the built-in ones
+Next: briefcase-ai features  # plugin features are listed with the built-in ones
 
-$ briefcase alpha hello --name you
+$ briefcase-ai alpha hello --name you
 hello, you (from bc-plugin-alpha)
-Next: briefcase plugins show alpha
+Next: briefcase-ai plugins show alpha
 
-$ briefcase --help          (excerpt)
-Plugins: commands from installed packages (briefcase plugins list)
+$ briefcase-ai --help          (excerpt)
+Plugins: commands from installed packages (briefcase-ai plugins list)
   alpha       Plugin command from bc-plugin-alpha 0.1.0.
 
-$ briefcase doctor --plugins
-briefcase plugins (plugin API 1):
+$ briefcase-ai doctor --plugins
+briefcase-ai plugins (plugin API 1):
 [ok]   plugin bitemporal_backends:alphadb: bc-plugin-alpha 0.1.0
 [ok]   plugin cli_commands:alpha: bc-plugin-alpha 0.1.0
 [ok]   plugin connect_adapters:alphatool: bc-plugin-alpha 0.1.0
@@ -88,7 +88,7 @@ imported is up to that plugin: it runs with your permissions, like any package y
 | Name clash with a built-in | the built-in is used, the plugin is `shadowed` | rename the plugin |
 | Two packages, one name | the alphabetically first distribution is used, the other is `skipped` | uninstall or disable one |
 
-`briefcase plugins` and `briefcase doctor` always say which applied.
+`briefcase-ai plugins` and `briefcase-ai doctor` always say which applied.
 
 ## How to turn it off or undo
 
@@ -97,15 +97,15 @@ remove a plugin for good. Nothing is left behind.
 
 ## Limits and failure modes
 
-- **Lazy.** Listing reads metadata only. `briefcase --help` lists plugin commands without
+- **Lazy.** Listing reads metadata only. `briefcase-ai --help` lists plugin commands without
   importing them. Measured on 2026-11-22 (40 interleaved runs, ~170 installed distributions):
-  `briefcase --help` took a median 142 ms before this feature, 148 ms after with no plugin
+  `briefcase-ai --help` took a median 142 ms before this feature, 148 ms after with no plugin
   installed (a raw scan of `entry_points.txt` files, about 1 ms, finds none and
   `importlib.metadata` is never imported), and 156 ms with the two fixture packages installed. A plugin is imported the first time its group and name are
   needed: `observe("acme:...")`, `get_backend("acme")`, a request to `/v1/sources/acme`,
-  `briefcase acme ...`. `briefcase connect` and `briefcase features` import the plugins of their
-  own group; `briefcase status` imports plugin commands that have a `status()` hook;
-  `briefcase plugins` and `briefcase doctor` import everything (that is how they can tell you
+  `briefcase-ai acme ...`. `briefcase-ai connect` and `briefcase-ai features` import the plugins of their
+  own group; `briefcase-ai status` imports plugin commands that have a `status()` hook;
+  `briefcase-ai plugins` and `briefcase-ai doctor` import everything (that is how they can tell you
   what works).
 - **Isolated.** A plugin that raises on import (including `SystemExit`), names something
   missing, or has the wrong type for its group is skipped. One WARNING goes to the
@@ -116,12 +116,12 @@ remove a plugin for good. Nothing is left behind.
   `BRIEFCASE_PLUGIN_API = 1` on the object its entry point names or in that object's module.
   A higher number is refused ("needs briefcase plugin API 2 ... upgrade with: pip install -U
   briefcase-ai"); no declaration is read as 1.
-- `check_environment()` (used by `briefcase exec` to validate `BRIEFCASE_EXPORTER` before
+- `check_environment()` (used by `briefcase-ai exec` to validate `BRIEFCASE_EXPORTER` before
   starting your program) imports nothing, so it cannot tell that a not-yet-loaded plugin is
   broken; the exporter raises with the reason when it is built.
-- A plugin command's own `GROUP` is not read for `briefcase --help` (that would need an import);
+- A plugin command's own `GROUP` is not read for `briefcase-ai --help` (that would need an import);
   plugin commands are listed under "Plugins". Its `status()` row does use its `GROUP`.
-- Plugin feature cards appear in `briefcase features`, not in the generated
+- Plugin feature cards appear in `briefcase-ai features`, not in the generated
   `docs/features/catalog.md`, which lists what ships with briefcase.
 
 ## Writing a plugin
@@ -168,11 +168,11 @@ digit.
 | `briefcase.exporters` | a `BaseExporter` subclass | `briefcase.observe("NAME")`, `observe("NAME:TARGET")`, `BRIEFCASE_EXPORTER=NAME:TARGET` |
 | `briefcase.bitemporal_backends` | a class implementing `BitemporalStore` | `briefcase.bitemporal.backends.get_backend("NAME")`, `open_backend(...)` |
 | `briefcase.vcs_providers` | a `VcsClientBase` subclass | `briefcase.integrations.vcs.get_provider("NAME")` |
-| `briefcase.receiver_sources` | a callable `normalize(payload) -> event, [events] or None` | `POST /v1/sources/NAME` on `briefcase receive` |
-| `briefcase.connect_adapters` | an `Adapter` subclass with a `DATA` dict | `briefcase connect NAME`, `briefcase mcp install NAME` |
+| `briefcase.receiver_sources` | a callable `normalize(payload) -> event, [events] or None` | `POST /v1/sources/NAME` on `briefcase-ai receive` |
+| `briefcase.connect_adapters` | an `Adapter` subclass with a `DATA` dict | `briefcase-ai connect NAME`, `briefcase-ai mcp install NAME` |
 | `briefcase.guardrails` | a guardrail environment class | `briefcase.guardrails.framework.make("NAME")`, `list_registered()` |
-| `briefcase.cli_commands` | a module with `register(subparsers)` adding command `NAME` | `briefcase NAME ...` |
-| `briefcase.features` | a manifest: dict, JSON text, or a callable returning one | `briefcase features` |
+| `briefcase.cli_commands` | a module with `register(subparsers)` adding command `NAME` | `briefcase-ai NAME ...` |
+| `briefcase.features` | a manifest: dict, JSON text, or a callable returning one | `briefcase-ai features` |
 
 ### Exporter (`briefcase.exporters`)
 
@@ -274,7 +274,7 @@ defaults to the plugin name. Built-in names (`cursor`, `otlp`, `policy`, `claude
 never route to a plugin.
 
 ```python
-"""briefcase.receiver_sources: POST /v1/sources/alpha on `briefcase receive`."""
+"""briefcase.receiver_sources: POST /v1/sources/alpha on `briefcase-ai receive`."""
 
 BRIEFCASE_PLUGIN_API = 1
 
@@ -300,7 +300,7 @@ def normalize(payload):
     return events
 ```
 
-Run against a real `briefcase receive --port 4399 --to recv.jsonl`:
+Run against a real `briefcase-ai receive --port 4399 --to recv.jsonl`:
 
 ```text
 $ curl -s -X POST http://127.0.0.1:4399/v1/sources/alpha -H 'Content-Type: application/json' \
@@ -312,14 +312,14 @@ $ head -1 recv.jsonl
 {"schema_version": "1.2", "decision_id": "77e2cb0c-931a-433d-adc6-4141c721ddb6", "decision_type": "tool_call", "function_name": "alpha.tool.grep", "inputs": {"source": "alpha", "session_id": "s1", "tool_name": "grep"}, "outputs": {"success": true}, "started_at": "2026-11-22T05:47:14.108363+00:00", "ended_at": "2026-11-22T05:47:14.120363+00:00", "execution_time_ms": 12.0}
 ```
 
-### `briefcase connect` adapter (`briefcase.connect_adapters`)
+### `briefcase-ai connect` adapter (`briefcase.connect_adapters`)
 
 `DATA` holds the keys of an entry of `briefcase/connect/adapters.json`. The rule for built-in
 adapters applies to yours too: only a format confirmed against the tool's documentation may be
 written (`FileEdit`, `Command`); anything else is a `Manual` item, printed and never written.
 
 ```python
-"""briefcase.connect_adapters: `briefcase connect alphatool`."""
+"""briefcase.connect_adapters: `briefcase-ai connect alphatool`."""
 from typing import Any, List
 
 from briefcase.connect.adapters import Adapter, Context
@@ -350,7 +350,7 @@ class AlphaToolAdapter(Adapter):
 ```
 
 ```text
-$ briefcase connect alphatool --dry-run --no-mcp
+$ briefcase-ai connect alphatool --dry-run --no-mcp
 
 == Alpha Tool [print-only] ==
   manual Set in the environment Alpha Tool starts from
@@ -390,14 +390,14 @@ class AlphaCheck(BaseGuardrailEnv):
 The module follows the protocol of the built-in `briefcase/cli/*_commands.py` modules (see
 [README.md](README.md#1-a-command-module)): `register(subparsers)` adds the command named by
 the entry point, handlers are `func(args, store, engine, stack)` and return the exit code, and
-an optional `status()` adds a row to `briefcase status`. It is imported only when
-`briefcase NAME ...` runs (or by `briefcase status` for its `status()` hook). A built-in command
+an optional `status()` adds a row to `briefcase-ai status`. It is imported only when
+`briefcase-ai NAME ...` runs (or by `briefcase-ai status` for its `status()` hook). A built-in command
 name always wins.
 
 ```python
-"""briefcase.cli_commands: `briefcase alpha hello --name you`."""
+"""briefcase.cli_commands: `briefcase-ai alpha hello --name you`."""
 
-GROUP = "review"   # read by `briefcase plugins`; plugin commands are listed under "Plugins"
+GROUP = "review"   # read by `briefcase-ai plugins`; plugin commands are listed under "Plugins"
 BRIEFCASE_PLUGIN_API = 1
 
 
@@ -412,7 +412,7 @@ def register(subparsers) -> None:
 
 def cmd_hello(args, store, engine, stack) -> int:
     print(f"hello, {args.name} (from bc-plugin-alpha)")
-    print("Next: briefcase plugins show alpha")
+    print("Next: briefcase-ai plugins show alpha")
     return 0
 
 
@@ -426,7 +426,7 @@ The same keys as `briefcase/_features/*.json` (see [README.md](README.md#3-a-man
 `docs_path` may be a URL. A built-in feature id always wins.
 
 ```python
-"""briefcase.features: a manifest `briefcase features` lists (same keys as briefcase/_features/*.json)."""
+"""briefcase.features: a manifest `briefcase-ai features` lists (same keys as briefcase/_features/*.json)."""
 
 BRIEFCASE_PLUGIN_API = 1
 
@@ -435,7 +435,7 @@ MANIFEST = {
     "title": "Alpha exporter",
     "verb": "capture",
     "one_line": "Send decision records to Alpha.",
-    "command": "briefcase alpha hello",
+    "command": "briefcase-ai alpha hello",
     "docs_slug": "capture/alpha-export",
     "status": "experimental",
     "requires_extra": None,
@@ -447,7 +447,7 @@ MANIFEST = {
 ### Testing your plugin
 
 Install it into a scratch directory and point `PYTHONPATH` at it, then run
-`briefcase plugins show NAME` and `briefcase doctor --plugins --strict` (exit 1 on any skipped
+`briefcase-ai plugins show NAME` and `briefcase-ai doctor --plugins --strict` (exit 1 on any skipped
 or refused plugin). `tests/plugins/test_plugins.py` does this with `pip install --target`.
 
 ## Troubleshooting
@@ -455,7 +455,7 @@ or refused plugin). `tests/plugins/test_plugins.py` does this with `pip install 
 Real output, from the same temporary `HOME` with `bc-plugin-beta` installed as well:
 
 ```text
-$ briefcase plugins show future
+$ briefcase-ai plugins show future
 briefcase.vcs_providers:future
   Package:     bc-plugin-beta 0.2.0
   Entry point: bc_beta.future:FutureClient
@@ -463,20 +463,20 @@ briefcase.vcs_providers:future
   State:       refused (needs briefcase plugin API 99, but this briefcase-ai supports 1..1; upgrade with: pip install -U briefcase-ai)
   Plugin API:  99; this briefcase-ai supports 1..1
 
-Next: briefcase plugins list
+Next: briefcase-ai plugins list
 
-$ briefcase beta-broken
+$ briefcase-ai beta-broken
 error: plugin command 'beta-broken' cannot run: briefcase.cli_commands:beta-broken from bc-plugin-beta 0.2.0 is skipped: import failed: ImportError: bc_beta needs the 'betasdk' package, which is not installed
-Fix: briefcase plugins show beta-broken
+Fix: briefcase-ai plugins show beta-broken
 ```
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| My plugin is not in `briefcase plugins list` | the package is not installed in the interpreter `briefcase` runs on, or the group name is misspelt | `python -m pip show <package>`; check the `[project.entry-points."briefcase.<group>"]` table |
-| `skipped ... import failed` | the plugin raised while importing (a missing dependency, usually) | `briefcase plugins show NAME` names the error; install what it needs |
+| My plugin is not in `briefcase-ai plugins list` | the package is not installed in the interpreter `briefcase-ai` runs on, or the group name is misspelt | `python -m pip show <package>`; check the `[project.entry-points."briefcase.<group>"]` table |
+| `skipped ... import failed` | the plugin raised while importing (a missing dependency, usually) | `briefcase-ai plugins show NAME` names the error; install what it needs |
 | `refused ... needs briefcase plugin API N` | the plugin is newer than this briefcase-ai | `pip install -U briefcase-ai` |
 | `shadowed ... a built-in ... is used instead` | the name is a built-in's | rename the entry point |
 | `skipped ... also provided by <other package>` | two packages register the same name | uninstall one, or `BRIEFCASE_PLUGINS_DISABLE=<package>` |
-| `observe("acme:...")` raises "cannot be used" | the plugin is skipped, refused or disabled | the message says which; `briefcase plugins show acme` |
-| `briefcase acme` is "invalid choice" | plugins are off, or the command is disabled | unset `BRIEFCASE_PLUGINS` / `BRIEFCASE_PLUGINS_DISABLE` |
+| `observe("acme:...")` raises "cannot be used" | the plugin is skipped, refused or disabled | the message says which; `briefcase-ai plugins show acme` |
+| `briefcase-ai acme` is "invalid choice" | plugins are off, or the command is disabled | unset `BRIEFCASE_PLUGINS` / `BRIEFCASE_PLUGINS_DISABLE` |
 | A plugin misbehaves and you need briefcase without it now | | `BRIEFCASE_PLUGINS_DISABLE=NAME` (or `BRIEFCASE_PLUGINS=off`) |

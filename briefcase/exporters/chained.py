@@ -6,7 +6,7 @@
 Each record becomes one entry of the store's hash chain (``seq``,
 ``prev_hash``, ``entry_hash`` over the RFC 8785 encoding of the record),
 written in one transaction, so it cannot be overwritten or silently deleted
-without ``briefcase verify evidence.db`` noticing. A signed checkpoint is
+without ``briefcase-ai verify evidence.db`` noticing. A signed checkpoint is
 written every ``checkpoint_every`` records and when the exporter closes
 (``briefcase.shutdown()`` or interpreter exit).
 
@@ -53,7 +53,7 @@ class ChainedSqliteExporter(BaseExporter):
     Args:
         path: SQLite file; created owner-only (0600) if missing.
         signing_key: Ed25519 key file (private JWK, hex or raw seed; make one
-            with ``briefcase bundle keygen``) that signs checkpoints. Default:
+            with ``briefcase-ai bundle keygen``) that signs checkpoints. Default:
             ``$BRIEFCASE_SIGNING_KEY``; without a key, checkpoints carry
             hashes only.
         checkpoint_every: records per automatic checkpoint (default

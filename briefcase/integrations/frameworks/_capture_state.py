@@ -32,7 +32,7 @@ logger = get_logger(__name__)
 CAPTURE_CONTENT_MODES = ("full", "hash", "none")
 
 #: What every automatic capture path (framework handlers, provider SDKs,
-#: ``briefcase exec``) records when nobody asked for content.
+#: ``briefcase-ai exec``) records when nobody asked for content.
 DEFAULT_CAPTURE_CONTENT = "none"
 
 DEFAULT_MAX_RECORDS = 10_000

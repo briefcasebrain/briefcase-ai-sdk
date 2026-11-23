@@ -1,10 +1,10 @@
-"""``briefcase status``: one screen answering what is on, what is off, and what to do next.
+"""``briefcase-ai status``: one screen answering what is on, what is off, and what to do next.
 
-    briefcase status
-    briefcase status --json
+    briefcase-ai status
+    briefcase-ai status --json
 
 The screen is made of rows. Four are built in: ``connect`` (coding tools set up by
-``briefcase connect``), ``receive`` (the local receiver), ``mcp`` (the MCP server
+``briefcase-ai connect``), ``receive`` (the local receiver), ``mcp`` (the MCP server
 registration) and ``records`` (where records go). Every other row comes from a command
 module's optional ``status()`` hook; the protocol is documented in
 ``briefcase/cli/_discovery.py`` and ``docs/features/README.md``.
@@ -16,7 +16,7 @@ first ``briefcase.observe()`` in a program would.
 
 It ends with exactly one ``Next:`` line, picked by ``choose_next`` from a fixed priority
 list. ``--json`` prints the same data (``items``, ``summary``, ``next``) and nothing else.
-Exit code is 0 whatever the states are; use ``briefcase doctor --connect --strict`` to gate
+Exit code is 0 whatever the states are; use ``briefcase-ai doctor --connect --strict`` to gate
 a script on problems.
 """
 from __future__ import annotations
@@ -46,7 +46,7 @@ def register(sub) -> None:
         description="One screen: connected coding tools, the receiver, where records go, the MCP "
                     "server, and any feature that reports its own state. Ends with one suggested "
                     "next command. Read-only.",
-        epilog="example:\n  briefcase status --json",
+        epilog="example:\n  briefcase-ai status --json",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     _ux.add_json_flag(p)
@@ -127,7 +127,7 @@ def tools_item(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     if drifted:
         return _item("connect", "attention",
                      f"{_names(drifted)}: settings written by connect are no longer in place",
-                     "briefcase connect " + " ".join(row["tool"] for row in drifted), data)
+                     "briefcase-ai connect " + " ".join(row["tool"] for row in drifted), data)
     if connected:
         detail = f"{_names(connected)} connected"
         if content:
@@ -137,7 +137,7 @@ def tools_item(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         return _item("connect", "on", detail, None, data)
     if detected:
         return _item("connect", "off", f"none connected; detected on this machine: {_names(detected)}",
-                     "briefcase connect", data)
+                     "briefcase-ai connect", data)
     return _item("connect", "off", "none connected; no supported coding tool found on this machine", None, data)
 
 
@@ -167,7 +167,7 @@ def receiver_item(rows: List[Dict[str, Any]], tools: Dict[str, Any]) -> Dict[str
         detail = "not running"
         if tools["state"] != "off":
             detail += "; connected tools have nowhere to send"
-        return _item("receive", "off", detail, "briefcase receive --detach", data)
+        return _item("receive", "off", detail, "briefcase-ai receive --detach", data)
     stats = health.get("stats") or {}
     data.update(stats={key: stats.get(key, 0) for key in ("requests", "records", "rejected")},
                 redaction=health.get("redaction"), protobuf=bool(health.get("protobuf")))
@@ -197,14 +197,14 @@ def mcp_item(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     data = {"registered": [row["tool"] for row in registered], "drifted": [row["tool"] for row in drifted]}
     if drifted:
         return _item("mcp", "attention", f"{_names(drifted)}: the briefcase MCP entry is no longer in place",
-                     "briefcase mcp install " + " ".join(row["tool"] for row in drifted), data)
+                     "briefcase-ai mcp install " + " ".join(row["tool"] for row in drifted), data)
     if registered:
         return _item("mcp", "on", f"registered with {_names(registered)}", None, data)
-    return _item("mcp", "off", "not registered with any tool", "briefcase mcp install" if detected else None, data)
+    return _item("mcp", "off", "not registered with any tool", "briefcase-ai mcp install" if detected else None, data)
 
 
 def sdk_destination(env: Optional[Mapping[str, str]] = None) -> Dict[str, Any]:
-    """Where ``briefcase.observe()`` with no argument (and so ``briefcase exec``) sends records
+    """Where ``briefcase.observe()`` with no argument (and so ``briefcase-ai exec``) sends records
     in this environment: ``{"kind", "target", "kept", "problem"}``.
 
     The answer comes from the SDK's own resolver in ``briefcase/_observe.py``; this function
@@ -335,7 +335,7 @@ def _guarded(identifier: str, build: Callable[[], Dict[str, Any]]) -> Dict[str, 
         if _ux.debug_enabled():
             raise
         return _item(identifier, "attention", f"could not be checked ({type(exc).__name__}: {exc})",
-                     "briefcase --debug status", {})
+                     "briefcase-ai --debug status", {})
 
 
 def collect(modules: Optional[List[_discovery.CommandModule]] = None,
@@ -388,18 +388,18 @@ def collect(modules: Optional[List[_discovery.CommandModule]] = None,
 
 
 def choose_next(items: List[Dict[str, Any]]) -> Dict[str, str]:
-    """The single suggestion `briefcase status` ends with. First match wins:
+    """The single suggestion `briefcase-ai status` ends with. First match wins:
 
-    1. a connected tool lost its settings          -> ``briefcase connect <tool>``
-    2. nothing connected, a tool is installed      -> ``briefcase connect``
-    3. tools connected, the local receiver is down -> ``briefcase receive --detach``
+    1. a connected tool lost its settings          -> ``briefcase-ai connect <tool>``
+    2. nothing connected, a tool is installed      -> ``briefcase-ai connect``
+    3. tools connected, the local receiver is down -> ``briefcase-ai receive --detach``
     4. the receiver cannot decode what tools send  -> install the ``receiver`` extra
-    5. the record destination is misconfigured     -> ``briefcase features exporters``
+    5. the record destination is misconfigured     -> ``briefcase-ai features exporters``
     6. any other row that needs attention          -> that row's ``next``
-    7. tools connected, MCP server not registered  -> ``briefcase mcp install``
-    8. no tool on this machine, nothing kept       -> ``briefcase exec -- python your_app.py``
+    7. tools connected, MCP server not registered  -> ``briefcase-ai mcp install``
+    8. no tool on this machine, nothing kept       -> ``briefcase-ai exec -- python your_app.py``
     9. a feature that is off and names a command   -> that row's ``next``
-    10. everything is on                           -> ``briefcase features``
+    10. everything is on                           -> ``briefcase-ai features``
     """
     by_id = {item["id"]: item for item in items}
     connect, receive = by_id.get("connect", {}), by_id.get("receive", {})
@@ -415,26 +415,26 @@ def choose_next(items: List[Dict[str, Any]]) -> Dict[str, str]:
     if connect.get("state") == "on" and receive.get("state") == "off" and receive.get("next"):
         return suggestion(receive["next"], "tools are connected but nothing is listening")
     if receive.get("state") == "attention" and receive.get("next"):
-        return suggestion(receive["next"], "then restart it: briefcase receive --stop && briefcase receive --detach")
+        return suggestion(receive["next"], "then restart it: briefcase-ai receive --stop && briefcase-ai receive --detach")  # noqa: E501
     if records.get("state") == "attention":
-        return suggestion("briefcase features exporters", "the record destination is misconfigured, see Records above")
+        return suggestion("briefcase-ai features exporters", "the record destination is misconfigured, see Records above")  # noqa: E501
     for item in items:
         if item["state"] == "attention" and item.get("next") and item["id"] not in CORE_IDS:
             return suggestion(item["next"], f"{item['title']} needs attention")
     if connect.get("state") == "on" and mcp.get("state") in ("off", "attention") and mcp.get("next"):
         return suggestion(mcp["next"], "let your coding tools query briefcase")
     if connect.get("state") == "off" and records.get("state") == "off":
-        return suggestion("briefcase exec -- python your_app.py",
+        return suggestion("briefcase-ai exec -- python your_app.py",
                           "no coding tool found here; capture a Python app instead")
     for item in items:
         if item["state"] == "off" and item.get("next") and item["id"] not in CORE_IDS:
             return suggestion(item["next"], f"{item['title']} is off")
-    return suggestion("briefcase features", "see what else briefcase can do")
+    return suggestion("briefcase-ai features", "see what else briefcase can do")
 
 
 def render(report: Dict[str, Any], out: Callable[[str], Any] = print) -> None:
     """Print the human screen for a report from ``collect``."""
-    out(_ux.style("briefcase status", "bold") + f"  (briefcase-ai {report['version']}, state in "
+    out(_ux.style("briefcase-ai status", "bold") + f"  (briefcase-ai {report['version']}, state in "
         f"{_short(report['home'])})")
     headings = {key: heading for key, heading, _ in _discovery.GROUPS}
     width = max((len(item["title"]) for item in report["items"]), default=0)

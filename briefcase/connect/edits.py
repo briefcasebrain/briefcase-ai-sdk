@@ -1,4 +1,4 @@
-"""Key-level config edits for ``briefcase connect``: plan, diff, write, undo.
+"""Key-level config edits for ``briefcase-ai connect``: plan, diff, write, undo.
 
 Nothing here rewrites a file wholesale. JSON files are parsed with the stdlib,
 only the named keys are changed, and unrelated keys keep their order. TOML
@@ -335,7 +335,7 @@ def json_snippet(ops: Sequence[Dict[str, Any]]) -> str:
 def toml_block(body: str) -> str:
     return (
         f"{TOML_BEGIN}\n"
-        "# Managed by `briefcase connect`; remove with `briefcase connect --undo`.\n"
+        "# Managed by `briefcase-ai connect`; remove with `briefcase-ai connect --undo`.\n"
         f"{body.rstrip()}\n"
         f"{TOML_END}\n"
     )

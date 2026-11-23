@@ -13,7 +13,7 @@
   "mcpServers": {
     "briefcase": {
       "command": "uvx",
-      "args": ["--from", "briefcase-ai[mcp]", "briefcase-mcp"]
+      "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]
     }
   }
 }

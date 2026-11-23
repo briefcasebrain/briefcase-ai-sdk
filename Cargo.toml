@@ -15,7 +15,7 @@ edition = "2021"
 # upward unnoticed.
 rust-version = "1.89"
 license = "Apache-2.0"
-description = "Governance infrastructure for AI decisions: enforce controls, record context, replay later"
+description = "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models."
 repository = "https://github.com/briefcasebrain/briefcase-ai-sdk"
 homepage = "https://briefcaseai.io"
 authors = ["Briefcase AI"]

@@ -1,4 +1,4 @@
-"""briefcase.connect_adapters: `briefcase connect alphatool`."""
+"""briefcase.connect_adapters: `briefcase-ai connect alphatool`."""
 from typing import Any, List
 
 from briefcase.connect.adapters import Adapter, Context

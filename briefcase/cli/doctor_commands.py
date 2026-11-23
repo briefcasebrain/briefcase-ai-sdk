@@ -1,4 +1,4 @@
-"""``briefcase doctor``: parser wiring for the preflight in ``briefcase.cli.doctor``."""
+"""``briefcase-ai doctor``: parser wiring for the preflight in ``briefcase.cli.doctor``."""
 from __future__ import annotations
 
 from briefcase.cli import doctor
@@ -13,10 +13,10 @@ def register(sub) -> None:
     doc.add_argument("--strict", action="store_true", help="Treat warnings as failures (for CI).")
     doc.add_argument(
         "--connect", action="store_true",
-        help="Check the `briefcase connect` integrations instead of the evaluation stack.",
+        help="Check the `briefcase-ai connect` integrations instead of the evaluation stack.",
     )
     doc.add_argument(
         "--plugins", action="store_true",
-        help="Load every installed briefcase plugin and report which work (see `briefcase plugins`).",
+        help="Load every installed briefcase plugin and report which work (see `briefcase-ai plugins`).",
     )
     doc.set_defaults(func=doctor.cmd_doctor)

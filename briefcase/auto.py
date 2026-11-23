@@ -162,7 +162,7 @@ def auto(
                          installed SDK now, instrument each one when the
                          application first imports it. Deferred entries are
                          reported as ``True`` in the returned mapping. Used
-                         by ``briefcase exec`` so startup stays fast.
+                         by ``briefcase-ai exec`` so startup stays fast.
         skip:            Only with no name: integration names to leave alone.
         dedupe:          What to do when a framework handler and a provider
                          integration both record the same model call
@@ -325,7 +325,7 @@ def _auto_locked(framework, exporter, context_version, async_capture, kwargs):
         base = dict(active)
         _undo_one(framework)
     elif framework in _PENDING:
-        # A deferred install (auto(lazy=True), briefcase exec) is waiting:
+        # A deferred install (auto(lazy=True), briefcase-ai exec) is waiting:
         # its options are the base the explicit ones are applied on.
         # Taken off the waiting list first: importing the package below
         # must not fire the deferred install a second time.
@@ -700,7 +700,7 @@ def status() -> Dict[str, Any]:
 
 
 def format_status(report: Optional[Dict[str, Any]] = None) -> List[str]:
-    """``status()`` as lines of text (for ``briefcase doctor`` and logs)."""
+    """``status()`` as lines of text (for ``briefcase-ai doctor`` and logs)."""
     report = status() if report is None else report
     lines = [f"auto-instrumentation (dedupe={report.get('dedupe')})"]
     for name, entry in report.get("integrations", {}).items():

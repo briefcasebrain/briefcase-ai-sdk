@@ -3,7 +3,7 @@
   "title": "Environments in the engine",
   "verb": "capture",
   "one_line": "Push, compose and check out environments (needs the engine).",
-  "command": "briefcase env push my-env:latest",
+  "command": "briefcase-ai env push my-env:latest",
   "docs_slug": "capture/env-artifacts",
   "status": "experimental",
   "requires_extra": "engine",

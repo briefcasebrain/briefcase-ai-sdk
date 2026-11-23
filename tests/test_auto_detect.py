@@ -447,7 +447,7 @@ def test_an_import_while_another_thread_holds_the_auto_lock_does_not_deadlock(
 
 
 def test_lazy_auto_imports_no_sdk(tmp_path):
-    """auto(lazy=True) is what `briefcase exec` runs at interpreter start."""
+    """auto(lazy=True) is what `briefcase-ai exec` runs at interpreter start."""
     import subprocess
 
     code = textwrap.dedent("""
@@ -500,7 +500,7 @@ def test_auto_all_applies_changed_common_options_too(installed, fake_install):
 
 
 def test_an_explicit_call_builds_on_a_deferred_installs_options(fake_sdk, mocker, fake_install):
-    """`briefcase exec` defers with capture_content="none"; the program then
+    """`briefcase-ai exec` defers with capture_content="none"; the program then
     calls auto("x", option=...). The environment's choice must survive."""
     _only_fake(mocker)
     auto(lazy=True, capture_content="none", context_version="from-exec")

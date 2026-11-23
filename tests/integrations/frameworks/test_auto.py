@@ -376,7 +376,7 @@ class TestAutoPageIndex:
         assert FakeClient.chat_completions is original
 
     def test_pageindex_records_no_content_by_default(self, mocker, monkeypatch):
-        """Like the providers and ``briefcase exec``, a framework installed by
+        """Like the providers and ``briefcase-ai exec``, a framework installed by
         auto() records no prompt or completion content unless asked."""
         monkeypatch.delenv("BRIEFCASE_CAPTURE_CONTENT", raising=False)
 

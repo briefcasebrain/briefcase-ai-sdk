@@ -21,7 +21,7 @@
         },
         {
           "detail": "exit 0",
-          "name": "briefcase connect --yes",
+          "name": "briefcase-ai connect --yes",
           "ok": true
         },
         {
@@ -51,7 +51,7 @@
         },
         {
           "detail": "exit 0",
-          "name": "briefcase connect --yes",
+          "name": "briefcase-ai connect --yes",
           "ok": true
         },
         {
@@ -95,7 +95,7 @@
         },
         {
           "detail": "exit 0",
-          "name": "briefcase connect --yes",
+          "name": "briefcase-ai connect --yes",
           "ok": true
         },
         {
@@ -134,7 +134,7 @@
         },
         {
           "detail": "exit 0",
-          "name": "briefcase connect --yes",
+          "name": "briefcase-ai connect --yes",
           "ok": true
         },
         {
@@ -181,7 +181,7 @@
         },
         {
           "detail": "exit 0",
-          "name": "briefcase connect --yes",
+          "name": "briefcase-ai connect --yes",
           "ok": true
         },
         {

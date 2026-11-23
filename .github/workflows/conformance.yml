@@ -1,4 +1,4 @@
-# Adapter conformance: does `briefcase connect` / `briefcase receive` still work with the
+# Adapter conformance: does `briefcase-ai connect` / `briefcase-ai receive` still work with the
 # latest release of each coding tool? Early warning only.
 #
 #   - runs nightly and on manual dispatch; it is NOT triggered by pushes or pull requests,

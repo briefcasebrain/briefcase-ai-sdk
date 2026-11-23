@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "briefcase hook codex --enforce --endpoint https://otel.example.com",
+            "command": "briefcase-ai hook codex --enforce --endpoint https://otel.example.com",
             "timeout": 10
           }
         ]

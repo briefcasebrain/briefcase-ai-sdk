@@ -1,4 +1,4 @@
-"""``briefcase exec -- <command...>``: run a program with decision capture
+"""``briefcase-ai exec -- <command...>``: run a program with decision capture
 switched on, without editing it.
 
 The command is run with two additions to its environment:
@@ -203,13 +203,13 @@ def preflight(command: Sequence[str], env: Mapping[str, str],
     reasons = uninstrumentable(command, env)
     if reasons:
         message = (
-            "this command cannot be instrumented: " + "; ".join(reasons) + ". briefcase exec "
+            "this command cannot be instrumented: " + "; ".join(reasons) + ". briefcase-ai exec "
             "works through PYTHONPATH and sitecustomize. Remove the option, or call "
             "briefcase.observe() and briefcase.auto() in the program instead."
         )
         if not allow_uninstrumented:
             return message + " (--allow-uninstrumented runs it anyway, without records.)"
-        print(f"briefcase exec: warning: {message} Running it WITHOUT records.", file=sys.stderr)
+        print(f"briefcase-ai exec: warning: {message} Running it WITHOUT records.", file=sys.stderr)
     return None
 
 
@@ -232,10 +232,10 @@ def _run_child(command: List[str], env: Dict[str, str]) -> int:
     try:
         child = subprocess.Popen(command, env=env)
     except FileNotFoundError:
-        print(f"briefcase exec: command not found: {command[0]}", file=sys.stderr)
+        print(f"briefcase-ai exec: command not found: {command[0]}", file=sys.stderr)
         return EXIT_NOT_FOUND
     except OSError as exc:
-        print(f"briefcase exec: cannot run {command[0]}: {exc}", file=sys.stderr)
+        print(f"briefcase-ai exec: cannot run {command[0]}: {exc}", file=sys.stderr)
         return EXIT_CANNOT_EXECUTE
 
     def forward(signum, _frame):
@@ -289,7 +289,7 @@ def run(
     command = _strip_separator(command)
     if not command:
         print(
-            "briefcase exec: no command given. Usage: briefcase exec -- <command> [args...]",
+            "briefcase-ai exec: no command given. Usage: briefcase-ai exec -- <command> [args...]",
             file=sys.stderr,
         )
         return EXIT_USAGE
@@ -298,10 +298,10 @@ def run(
         problem = preflight(command, child_env, allow_uninstrumented)
     except Exception as exc:  # a broken check must not block the program
         problem = None
-        print(f"briefcase exec: warning: could not check the configuration ({exc})",
+        print(f"briefcase-ai exec: warning: could not check the configuration ({exc})",
               file=sys.stderr)
     if problem:
-        print(f"briefcase exec: {problem}", file=sys.stderr)
+        print(f"briefcase-ai exec: {problem}", file=sys.stderr)
         return EXIT_USAGE
     if replace_process is None:
         replace_process = os.name == "posix"
@@ -316,10 +316,10 @@ def run(
     try:
         os.execvpe(command[0], command, child_env)
     except FileNotFoundError:
-        print(f"briefcase exec: command not found: {command[0]}", file=sys.stderr)
+        print(f"briefcase-ai exec: command not found: {command[0]}", file=sys.stderr)
         return EXIT_NOT_FOUND
     except OSError as exc:
-        print(f"briefcase exec: cannot run {command[0]}: {exc}", file=sys.stderr)
+        print(f"briefcase-ai exec: cannot run {command[0]}: {exc}", file=sys.stderr)
         return EXIT_CANNOT_EXECUTE
     return 0  # pragma: no cover - execvpe does not return on success
 
@@ -375,12 +375,12 @@ def _add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.set_defaults(func=cmd_exec)
 
 
-# Where `briefcase --help` lists this command (see briefcase/cli/_discovery.py).
+# Where `briefcase-ai --help` lists this command (see briefcase/cli/_discovery.py).
 GROUP = "connect"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    """Add the ``exec`` subcommand to the ``briefcase`` CLI's subparsers
+    """Add the ``exec`` subcommand to the ``briefcase-ai`` CLI's subparsers
     (the object returned by ``parser.add_subparsers(...)``)."""
     parser = subparsers.add_parser(
         "exec",

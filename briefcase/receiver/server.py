@@ -1,4 +1,4 @@
-"""The ``briefcase receive`` HTTP server: a small local OTLP/HTTP receiver.
+"""The ``briefcase-ai receive`` HTTP server: a small local OTLP/HTTP receiver.
 
 Standard library only (``ThreadingHTTPServer``). It accepts ``POST /v1/logs``,
 ``/v1/metrics`` and ``/v1/traces`` as OTLP/JSON, or as OTLP/protobuf when
@@ -36,7 +36,7 @@ DEFAULT_HOST = "127.0.0.1"
 MAX_BODY_BYTES = 8 * 1024 * 1024
 OTLP_PATHS = {"/v1/logs": "logs", "/v1/metrics": "metrics", "/v1/traces": "traces"}
 CURSOR_HOOK_PATH = "/v1/hooks/cursor"
-POLICY_PATH = "/v1/policy/decisions"   # decisions from `briefcase hook <tool> --enforce`
+POLICY_PATH = "/v1/policy/decisions"   # decisions from `briefcase-ai hook <tool> --enforce`
 SOURCES_PREFIX = "/v1/sources/"        # + NAME: a `briefcase.receiver_sources` plugin's normaliser
 #: Source names the receiver handles itself; a plugin cannot take one.
 BUILTIN_SOURCES = ("cursor", "otlp", "logs", "metrics", "traces", "policy", "claude_code", "codex",

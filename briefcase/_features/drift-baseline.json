@@ -3,7 +3,7 @@
   "title": "Baseline drift checks",
   "verb": "review",
   "one_line": "Save what normal looked like and flag when latency, errors or outputs shift.",
-  "command": "briefcase drift baseline save prod --from runs.jsonl",
+  "command": "briefcase-ai drift baseline save prod --from runs.jsonl",
   "docs_slug": "review/drift-baseline",
   "status": "experimental",
   "requires_extra": null,

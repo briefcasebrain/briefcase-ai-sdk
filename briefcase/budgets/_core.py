@@ -369,7 +369,7 @@ class Budgets:
         store: Where counters live. Default an in-process
             :class:`~briefcase.budgets.stores.MemoryBudgetStore`.
         unpriced: A call to a model with no price: ``"warn"`` (default; one
-            log line per model naming ``briefcase pricing set``; token limits
+            log line per model naming ``briefcase-ai pricing set``; token limits
             still apply, USD limits cannot), ``"allow"`` (the same, silent) or
             ``"block"`` (raise :class:`BudgetExceeded`).
         default_max_tokens: Output tokens reserved when the request sets no
@@ -467,7 +467,7 @@ class Budgets:
             self._warned_unpriced.add(model)
             logger.warning(
                 "briefcase budgets: model %r has no price, so USD limits cannot count it "
-                "(token limits still do). Add one: briefcase pricing set %s --input USD_PER_MTOK "
+                "(token limits still do). Add one: briefcase-ai pricing set %s --input USD_PER_MTOK "
                 "--output USD_PER_MTOK --context-window N --provider NAME --source-url URL",
                 model, model or "MODEL")
 
@@ -529,7 +529,7 @@ class Budgets:
                     f"> {budget.tokens} token limit")
         message = (f"budget {budget.name!r} ({hold.scope}, window {hold.window}) would be "
                    f"exceeded: {what}; resets {reset}. The request was not sent. Check: "
-                   f"briefcase budget status")
+                   f"briefcase-ai budget status")
         result.reasons.append(message)
         if dry_run:
             return result
@@ -556,7 +556,7 @@ class Budgets:
                 if self.unpriced == "block":
                     message = (f"model {model!r} has no price, and the budget policy blocks "
                                f"unpriced models (unpriced='block'). The request was not sent. "
-                               f"Add a price: briefcase pricing set {model or 'MODEL'} ...")
+                               f"Add a price: briefcase-ai pricing set {model or 'MODEL'} ...")
                     if dry_run:
                         res.effect = "block"
                         res.reasons.append(message)

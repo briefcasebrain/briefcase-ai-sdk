@@ -23,7 +23,7 @@ prompt is used at any point while the record's call is running.
 
 Each distinct (name, version) is also saved, best-effort, under
 ``$BRIEFCASE_HOME/prompts`` (default ``~/.briefcase/prompts``) so
-``briefcase prompt list|show|diff`` can show history. That directory never
+``briefcase-ai prompt list|show|diff`` can show history. That directory never
 leaves the machine. Set ``BRIEFCASE_PROMPT_REGISTRY=off`` to keep templates
 in memory only.
 """

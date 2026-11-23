@@ -3,7 +3,7 @@
   "title": "@capture decorator",
   "verb": "capture",
   "one_line": "Record a function's inputs, outputs, timing and errors with one decorator.",
-  "command": "briefcase features capture-decorator",
+  "command": "briefcase-ai features capture-decorator",
   "docs_slug": "capture/capture-decorator",
   "status": "stable",
   "requires_extra": null,

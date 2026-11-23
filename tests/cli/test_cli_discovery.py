@@ -31,8 +31,8 @@ ALLOWED_ADDITIONS = {
     "exec": ({"--allow-uninstrumented", "--dedupe"}, set(), set()),
     # policy package: `--enforce [--preset]` also installs the enforcement hooks, and
     # `--managed --out DIR [--policy FILE] [--tools ...]` writes an admin rollout pack. All
-    # optional, all off by default, so a bare `briefcase connect` behaves as before.
-    # `briefcase hook claude-code|codex` are the enforcement hook entry points (stdin JSON,
+    # optional, all off by default, so a bare `briefcase-ai connect` behaves as before.
+    # `briefcase-ai hook claude-code|codex` are the enforcement hook entry points (stdin JSON,
     # always exit 0); `hook cursor` is unchanged apart from honouring `--enforce`.
     "hook": (set(), {"claude-code", "codex"}, set()),
     "connect": ({"--enforce", "--preset", "--managed", "--out", "--policy", "--tools"}, set(), set()),
@@ -234,7 +234,7 @@ def test_top_level_help_groups_commands_under_the_flow_verbs(capsys):
     assert listed("Start here:") == ["setup", "status", "features", "doctor", "engine", "completion"]
     assert set(listed("Connect:")) == {"connect", "receive", "exec", "mcp", "hook", "plugins"}
     assert set(listed("Evaluate:")) == {"dataset", "secret", "run", "stack"}
-    assert listed("Capture:") == ["env"] and "briefcase features --verb capture" in section("Capture:")
+    assert listed("Capture:") == ["env"] and "briefcase-ai features --verb capture" in section("Capture:")
     assert "Other" not in text
     assert "Global options:" in text and "--no-input" in text and "--debug" in text
 
@@ -242,7 +242,7 @@ def test_top_level_help_groups_commands_under_the_flow_verbs(capsys):
 def test_unknown_group_is_listed_under_other(plugin_package):
     from briefcase.cli.__main__ import _GroupedParser
 
-    parser = _GroupedParser(prog="briefcase")
+    parser = _GroupedParser(prog="briefcase-ai")
     parser.subparsers = parser.add_subparsers(dest="command", parser_class=argparse.ArgumentParser)
     parser.modules = _discovery.register_all(parser.subparsers, _discovery.discover(plugin_package))
     text = parser.format_commands()
@@ -255,13 +255,13 @@ def test_subcommand_help_is_plain_argparse(capsys):
     with pytest.raises(SystemExit):
         build_parser().parse_args(["connect", "--help"])
     text = capsys.readouterr().out
-    assert text.startswith("usage: briefcase connect") and "Start here" not in text
+    assert text.startswith("usage: briefcase-ai connect") and "Start here" not in text
 
 
 def test_group_without_subcommand_prints_that_groups_help(shell_home, capsys):
     assert main(["run"]) == 2
     captured = capsys.readouterr()
-    assert captured.err.startswith("usage: briefcase run") and captured.out == ""
+    assert captured.err.startswith("usage: briefcase-ai run") and captured.out == ""
 
 
 # --- nothing is created by commands that should not touch the store -----------------
@@ -302,6 +302,6 @@ def test_unexpected_handler_error_is_one_line_unless_debug(shell_home, monkeypat
     monkeypatch.setattr(features_commands, "load_catalog", explode)
     assert main(["features"]) == 1
     err = capsys.readouterr().err
-    assert err == "error: RuntimeError: something broke\nFix: briefcase --debug features   # shows the full traceback\n"
+    assert err == "error: RuntimeError: something broke\nFix: briefcase-ai --debug features   # shows the full traceback\n"  # noqa: E501
     with pytest.raises(RuntimeError):
         main(["--debug", "features"])

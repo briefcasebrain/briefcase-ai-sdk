@@ -3,7 +3,7 @@
   "title": "Local eval runs with a CI gate",
   "verb": "review",
   "one_line": "Score a function against a dataset offline and fail CI on regressions.",
-  "command": "briefcase eval run --dataset NAME --target module:function --fail-under 0.9",
+  "command": "briefcase-ai eval run --dataset NAME --target module:function --fail-under 0.9",
   "docs_slug": "review/eval-run-local",
   "status": "experimental",
   "requires_extra": null,

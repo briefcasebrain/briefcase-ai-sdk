@@ -44,11 +44,11 @@ def test_main_dry_run_end_to_end(tmp_path, monkeypatch, capsys):
 
 
 def test_main_no_command_prints_the_command_list_and_status(shell_home, capsys):
-    # Without a terminal a bare `briefcase` never prompts and never fails a script: it prints
+    # Without a terminal a bare `briefcase-ai` never prompts and never fails a script: it prints
     # the grouped command list and the status screen (see tests/cli/test_cli_shell.py).
     assert main([]) == 0
     out = capsys.readouterr().out
-    assert "Start here:" in out and "briefcase status" in out
+    assert "Start here:" in out and "briefcase-ai status" in out
 
 
 TAGLINE = ("Compliance monitoring, auditing, and evaluating third-party artificial intelligence "
@@ -106,3 +106,9 @@ def test_parsed_output_never_carries_the_banner_even_on_a_terminal(tmp_path, mon
     assert isinstance(json.loads(capsys.readouterr().out), dict)
     assert main(["features", "--json"]) == 0
     json.loads(capsys.readouterr().out)
+
+
+def test_help_description_opens_with_the_owner_sentence_on_its_own_line():
+    lines = build_parser().format_help().splitlines()
+    usage_end = next(i for i, line in enumerate(lines) if not line.strip())
+    assert lines[usage_end + 1] == TAGLINE

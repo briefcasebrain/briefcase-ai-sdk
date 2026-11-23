@@ -25,7 +25,7 @@ def test_manifest(name):
     assert (REPO / data.get("docs_path", f"docs/features/{name}.md")).exists()
     parser = build_parser()
     words = shlex.split(data["command"])
-    assert words[0] == "briefcase"
+    assert words[0] == "briefcase-ai"
     parser.parse_args(words[1:])
     if data.get("status_id"):
         assert data["status_id"] == policy_commands.FEATURE_ID

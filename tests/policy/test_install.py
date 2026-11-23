@@ -1,6 +1,6 @@
 """Installing and removing the enforcement hooks through the connect edit/journal machinery,
 in a temp HOME: idempotency, undo, coexistence with the user's own hooks and with
-`briefcase connect`, and how the installed command behaves when its launcher is gone."""
+`briefcase-ai connect`, and how the installed command behaves when its launcher is gone."""
 
 import json
 import os
@@ -73,7 +73,7 @@ def test_init_writes_policy_and_every_hook_in_the_documented_shape(home):
     assert all(set(e[0]) <= {"command", "timeout", "matcher"} for e in cursor["hooks"].values())
     codex = json.loads(files(home)["codex"].read_text())
     assert codex["hooks"]["PreToolUse"][0]["matcher"] == "^(Bash|apply_patch)$|^mcp__"
-    assert "Next: briefcase policy test" in out
+    assert "Next: briefcase-ai policy test" in out
 
 
 def test_init_twice_changes_nothing_and_off_twice_is_harmless(home, capsys):
@@ -176,7 +176,7 @@ def test_an_invalid_existing_policy_is_never_overwritten_without_force(home, cap
     path.parent.mkdir()
     path.write_text("version = 1\nnonsense = 1\n")
     code, _ = init()
-    assert code == 1 and "briefcase policy init --force" in capsys.readouterr().err
+    assert code == 1 and "briefcase-ai policy init --force" in capsys.readouterr().err
     assert path.read_text() == "version = 1\nnonsense = 1\n"
 
 
@@ -185,7 +185,7 @@ def test_project_scope_writes_project_files_with_the_portable_command(home, proj
     assert code == 0, out
     assert (project / ".briefcase" / "policy.toml").exists()
     handler = json.loads((project / ".claude" / "settings.json").read_text())["hooks"]["PreToolUse"][0]["hooks"][0]
-    assert handler["command"] == "briefcase hook claude-code --enforce"
+    assert handler["command"] == "briefcase-ai hook claude-code --enforce"
     assert (project / ".cursor" / "hooks.json").exists() and (project / ".codex" / "hooks.json").exists()
     assert not (home / ".claude" / "settings.json").exists()
 
@@ -250,11 +250,11 @@ def test_launcher_paths_are_found_in_both_command_forms(monkeypatch):
         parts = shlex.split(install.hook_command("codex", install.HookOptions(fail_closed=fail_closed)))
         assert install._launcher_paths(parts) == ["/opt/x/briefcase/policy/hook_main.py"]
     portable = shlex.split(install.hook_command("codex", install.HookOptions(portable=True)))
-    assert portable[:3] == ["briefcase", "hook", "codex"] and install._launcher_paths(portable) == []
+    assert portable[:3] == ["briefcase-ai", "hook", "codex"] and install._launcher_paths(portable) == []
 
 
 def test_hook_command_flags():
     command = install.hook_command("cursor", install.HookOptions(
         portable=True, capture_content=True, endpoint="https://otel.example.com/"))
-    assert command == "briefcase hook cursor --enforce --capture-content --endpoint https://otel.example.com"
+    assert command == "briefcase-ai hook cursor --enforce --capture-content --endpoint https://otel.example.com"
     assert install.marker("cursor") in command

@@ -13,7 +13,7 @@ from briefcase.connect.edits import Command, FileEdit, Manual
 
 pytestmark = pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX paths")
 
-UVX = {"command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-mcp"]}
+UVX = {"command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]}
 
 
 def plan(tool, **kwargs):
@@ -61,7 +61,7 @@ def test_claude_code_golden_plan(home):
         ("env", "OTEL_EXPORTER_OTLP_ENDPOINT"): "http://127.0.0.1:4318",
     }
     # `claude` is not on PATH: the MCP command is printed, not run.
-    assert items[1].text == "claude mcp add --scope user briefcase -- uvx --from 'briefcase-ai[mcp]' briefcase-mcp"
+    assert items[1].text == "claude mcp add --scope user briefcase -- uvx --from 'briefcase-ai[mcp]' briefcase-ai-mcp"
 
 
 def test_claude_code_content_is_only_enabled_by_capture_content(home):
@@ -81,10 +81,10 @@ def test_claude_code_headers_and_endpoint(home):
 
 def test_claude_code_mcp_is_a_command_when_the_binary_exists(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
-    fake_bin("briefcase-mcp")
+    fake_bin("briefcase-ai-mcp")
     command = plan("claude-code")[1]
     assert isinstance(command, Command)
-    assert command.argv == ["claude", "mcp", "add", "--scope", "user", "briefcase", "--", "briefcase-mcp"]
+    assert command.argv == ["claude", "mcp", "add", "--scope", "user", "briefcase", "--", "briefcase-ai-mcp"]
     assert command.undo_hint == ["claude", "mcp", "remove", "--scope", "user", "briefcase"]
 
 
@@ -154,10 +154,10 @@ def test_codex_capture_content_headers_and_mcp_command(home, fake_bin):
 
 
 def test_cursor_golden_plan(home, fake_bin):
-    fake_bin("briefcase")
+    fake_bin("briefcase-ai")
     hooks, mcp = plan("cursor")
     assert hooks.path == home / ".cursor" / "hooks.json"
-    entry = {"command": "briefcase hook cursor", "timeout": 5}
+    entry = {"command": "briefcase-ai hook cursor", "timeout": 5}
     assert hooks.ops[0] == {"op": "default", "path": ["version"], "value": 1}
     assert [(op["op"], op["path"], op["value"]) for op in hooks.ops[1:]] == [
         ("append", ["hooks", event], entry)

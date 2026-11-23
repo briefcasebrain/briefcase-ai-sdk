@@ -1,6 +1,6 @@
-"""``briefcase connect``: write each coding tool's config so it reports to briefcase.
+"""``briefcase-ai connect``: write each coding tool's config so it reports to briefcase.
 
-The user-facing entry point is the CLI (``briefcase connect``); this package
+The user-facing entry point is the CLI (``briefcase-ai connect``); this package
 holds the adapters, the key-level edit engine and the MCP install payloads.
 """
 

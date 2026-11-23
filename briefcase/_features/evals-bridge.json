@@ -3,7 +3,7 @@
   "title": "Eval run logging",
   "verb": "review",
   "one_line": "Log eval cases as records, or import inspect-ai and lm-eval results.",
-  "command": "briefcase features evals-bridge",
+  "command": "briefcase-ai features evals-bridge",
   "docs_slug": "review/evals-bridge",
   "status": "experimental",
   "requires_extra": "evals",

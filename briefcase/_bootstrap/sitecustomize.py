@@ -1,5 +1,5 @@
 """Zero-code bootstrap: imported by Python at interpreter start when this
-directory is on ``PYTHONPATH`` (``briefcase exec -- <command>`` arranges that).
+directory is on ``PYTHONPATH`` (``briefcase-ai exec -- <command>`` arranges that).
 
 Does nothing unless ``BRIEFCASE_AUTO=1``. When it is set:
 
@@ -20,7 +20,7 @@ Optional variables:
 
 - ``BRIEFCASE_CAPTURE_CONTENT``: ``none`` (default here), ``hash`` or
   ``full``. Applies to frameworks and providers alike, so a program run
-  through ``briefcase exec`` records no prompt or completion text unless
+  through ``briefcase-ai exec`` records no prompt or completion text unless
   this is set.
 - ``BRIEFCASE_AUTO_SKIP``: comma-separated integration names to leave alone
   (for example ``langchain,bedrock``). Unknown names are reported.
@@ -32,7 +32,7 @@ the program starts (``subprocess``, ``multiprocessing`` *spawn*) runs this
 file itself and is instrumented once. A *forked* child (``os.fork``,
 gunicorn, ``multiprocessing`` *fork*) inherits the patches already applied,
 again once. Export in a forked child is handled by the export pipeline
-itself, for every process and not only under ``briefcase exec`` (see the
+itself, for every process and not only under ``briefcase-ai exec`` (see the
 at-fork hooks in ``briefcase._export_mixin``): locks are recreated, the
 worker thread is restarted on the child's first record, and
 ``multiprocessing`` fork children (which leave through ``os._exit``) drain

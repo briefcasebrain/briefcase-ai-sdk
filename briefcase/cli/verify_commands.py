@@ -1,8 +1,8 @@
-"""``briefcase verify PATH``: is this evidence intact? One answer, in plain language.
+"""``briefcase-ai verify PATH``: is this evidence intact? One answer, in plain language.
 
-    briefcase verify evidence.db                         # a chained store
-    briefcase verify evidence-bundle.zip --key KEYID     # an evidence bundle (any version)
-    briefcase verify chain-export.jsonl --json           # records with chain fields
+    briefcase-ai verify evidence.db                         # a chained store
+    briefcase-ai verify evidence-bundle.zip --key KEYID     # an evidence bundle (any version)
+    briefcase-ai verify chain-export.jsonl --json           # records with chain fields
 
 Exit codes: 0 intact, 1 tampered or incomplete, 2 usage (missing file,
 unknown format). Reads only; never writes the evidence.
@@ -39,14 +39,14 @@ def register(sub) -> None:
         description="Checks every hash, link, checkpoint signature and Merkle proof, then says in "
                     "plain language whether the evidence is intact, how much was checked, and what "
                     "exactly is wrong if not. Exit 0 intact, 1 tampered or incomplete, 2 usage.",
-        epilog="example:\n  briefcase verify evidence.db",
+        epilog="example:\n  briefcase-ai verify evidence.db",
         formatter_class=_RAW,
     )
     p.add_argument("path", metavar="PATH", nargs="?",
                    help="Chained SQLite store, chain JSONL, or bundle .zip.")
     p.add_argument("--graph", metavar="REF",
                    help="Instead of a file: have the engine re-hash REF's environment graph and check every "
-                        "segment it references (VcsService.Fsck; needs `briefcase engine install`).")
+                        "segment it references (VcsService.Fsck; needs `briefcase-ai engine install`).")
     p.add_argument("--repo", dest="engine_repo", metavar="REPO", help="Engine repository for --graph.")
     p.add_argument("--against", metavar="CHECKPOINT.json",
                    help="A checkpoint kept outside the store (from --save-checkpoint). The only way to "
@@ -228,19 +228,19 @@ def render(report, path: Path) -> List[str]:
 
 def _next_line(report, path: Path, args, saved: bool = False) -> str:
     if not report.intact:
-        return "Next: briefcase verify %s --json > verify-report.json   (keep the full report)" % path
+        return "Next: briefcase-ai verify %s --json > verify-report.json   (keep the full report)" % path
     if report.format == "bundle":
         if report.signatures_unchecked:
-            return "Next: briefcase bundle verify %s --key kms:KEY_ID --kms   (check the KMS signature)" % path
+            return "Next: briefcase-ai bundle verify %s --key kms:KEY_ID --kms   (check the KMS signature)" % path
         if not args.key and report.key_ids:
-            return "Next: briefcase bundle verify %s%s" % (path, "".join(" --key " + k for k in report.key_ids))
+            return "Next: briefcase-ai bundle verify %s%s" % (path, "".join(" --key " + k for k in report.key_ids))
         return "Next: keep this bundle with the audit file; it verifies offline."
     if report.format == "chained-store" and saved:
-        return "Next: copy %s off this machine; later run: briefcase verify %s --against %s" % (
+        return "Next: copy %s off this machine; later run: briefcase-ai verify %s --against %s" % (
             args.save_checkpoint, path, args.save_checkpoint)
     if report.format == "chained-store" and not report.anchored:
-        return "Next: briefcase verify %s --save-checkpoint anchor.json   (keep it off this machine)" % path
-    return "Next: briefcase bundle create --from %s --out evidence-bundle.zip" % path
+        return "Next: briefcase-ai verify %s --save-checkpoint anchor.json   (keep it off this machine)" % path
+    return "Next: briefcase-ai bundle create --from %s --out evidence-bundle.zip" % path
 
 
 def _save_checkpoint(path: Path, out: Path) -> Optional[str]:
@@ -265,15 +265,15 @@ def cmd_verify(args, store=None, engine=None, stack=None) -> int:
     as_json = bool(getattr(args, "json", False))
     if getattr(args, "graph", None):
         if getattr(args, "path", None):
-            return _usage_error("pass a PATH or --graph REF, not both", "briefcase verify --graph <ref>", as_json)
+            return _usage_error("pass a PATH or --graph REF, not both", "briefcase-ai verify --graph <ref>", as_json)
         from briefcase.cli.commands import cmd_verify_graph
 
         return cmd_verify_graph(args, store, engine, stack)
     if not getattr(args, "path", None):
-        return _usage_error("nothing to verify", "briefcase verify ./evidence.db   # or --graph <ref>", as_json)
+        return _usage_error("nothing to verify", "briefcase-ai verify ./evidence.db   # or --graph <ref>", as_json)
     path = Path(args.path)
     if not path.exists():
-        return _usage_error("%s does not exist" % path, "check the path, e.g. briefcase verify ./evidence.db", as_json)
+        return _usage_error("%s does not exist" % path, "check the path, e.g. briefcase-ai verify ./evidence.db", as_json)  # noqa: E501
     if path.is_dir():
         return _usage_error("%s is a directory" % path, "pass the .db, .jsonl or .zip file itself", as_json)
     against = None
@@ -282,7 +282,7 @@ def cmd_verify(args, store=None, engine=None, stack=None) -> int:
             against = load_checkpoint_file(args.against)
         except (OSError, ValueError) as exc:
             return _usage_error("cannot read --against %s: %s" % (args.against, exc),
-                                "pass a file written by briefcase verify --save-checkpoint", as_json)
+                                "pass a file written by briefcase-ai verify --save-checkpoint", as_json)
     try:
         key_id = resolve_key_id(getattr(args, "key", None))
     except (OSError, KeyFileError, ValueError) as exc:
@@ -331,7 +331,7 @@ def _status_path() -> Optional[Path]:
 
 
 def status() -> Dict[str, Any]:
-    """For ``briefcase status``: is capture going into a chained store?"""
+    """For ``briefcase-ai status``: is capture going into a chained store?"""
     path = _status_path()
     if path is None:
         return {
@@ -339,14 +339,14 @@ def status() -> Dict[str, Any]:
             "state": "off",
             "detail": "records are not written to a tamper-evident chain "
                       "(set BRIEFCASE_EXPORTER=chain:evidence.db)",
-            "next": "briefcase features chained-store",
+            "next": "briefcase-ai features chained-store",
         }
     if not path.exists():
         return {
             "id": "chained-store",
             "state": "on",
             "detail": "chain at %s (no records yet)" % path,
-            "next": "briefcase verify %s" % path,
+            "next": "briefcase-ai verify %s" % path,
         }
     entries = None
     try:
@@ -365,13 +365,13 @@ def status() -> Dict[str, Any]:
             "state": "attention",
             "detail": "chain at %s (%s entries); checkpoints are unsigned"
                       % (path, entries if entries is not None else "?"),
-            "next": "briefcase bundle keygen ~/.briefcase/signing-key.jwk, then set BRIEFCASE_SIGNING_KEY",
+            "next": "briefcase-ai bundle keygen ~/.briefcase/signing-key.jwk, then set BRIEFCASE_SIGNING_KEY",
         }
     return {
         "id": "chained-store",
         "state": "on",
         "detail": "chain at %s (%s entries), signed checkpoints" % (path, entries if entries is not None else "?"),
-        "next": "briefcase verify %s" % path,
+        "next": "briefcase-ai verify %s" % path,
     }
 
 

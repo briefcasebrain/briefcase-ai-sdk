@@ -1,4 +1,4 @@
-"""Command auto-discovery for the ``briefcase`` CLI.
+"""Command auto-discovery for the ``briefcase-ai`` CLI.
 
 Adding a command needs no edit to ``__main__.py``. Drop a module named
 ``briefcase/cli/<name>_commands.py`` next to this file; the CLI imports every such module
@@ -13,38 +13,38 @@ Adding a command needs no edit to ``__main__.py``. Drop a module named
     Keep ``register`` cheap: argparse wiring only, heavy imports inside the handler.
 
 ``GROUP = "connect"`` (optional, default ``"other"``)
-    Where the module's commands are listed in ``briefcase --help``. One of ``"start"``,
+    Where the module's commands are listed in ``briefcase-ai --help``. One of ``"start"``,
     ``"connect"``, ``"capture"``, ``"enforce"``, ``"verify"``, ``"review"``, ``"evaluate"``,
     ``"other"``. An unknown value is listed under "Other".
 
 ``ORDER = 50`` (optional, default 100)
-    Position inside the group in ``briefcase --help``: lower numbers are listed first, ties
+    Position inside the group in ``briefcase-ai --help``: lower numbers are listed first, ties
     keep module-name order.
 
 ``status() -> dict`` (optional)
-    Lets the command appear on ``briefcase status``. Return one dict (or a list of them)::
+    Lets the command appear on ``briefcase-ai status``. Return one dict (or a list of them)::
 
         {"id": "policy",                  # stable, unique, kebab-case
          "state": "on",                   # "on" | "off" | "attention"
          "detail": "3 rules, deny by default",
-         "next": "briefcase policy init"} # command to suggest, or None
+         "next": "briefcase-ai policy init"} # command to suggest, or None
 
     Optional keys: ``"title"`` (label shown instead of the id) and ``"data"`` (extra JSON
-    for ``briefcase status --json``). ``"attention"`` means on but needing action; its
+    for ``briefcase-ai status --json``). ``"attention"`` means on but needing action; its
     ``next`` is offered before any ``"off"`` item's. The hook runs on every
-    ``briefcase status``, so it must be read-only, quick (no network beyond localhost, no
+    ``briefcase-ai status``, so it must be read-only, quick (no network beyond localhost, no
     subprocess that can hang) and must not raise for a fresh machine: return
     ``state: "off"`` instead. A hook that raises or returns something else is left out
     (reported under ``--debug``). Return ``None`` to show nothing.
 
 A module that fails to import or register is skipped: the rest of the CLI keeps working and
-``briefcase --debug ...`` prints one line naming the module and the error.
+``briefcase-ai --debug ...`` prints one line naming the module and the error.
 
 Installed packages add commands the same way through the ``briefcase.cli_commands`` entry
 point group (see :mod:`briefcase.plugins`): the entry point ``acme = "acme_cli.commands"``
 names a module with the same ``register(subparsers)`` protocol that adds the command
-``acme``. Plugin commands are listed under "Plugins" in ``briefcase --help`` without being
-imported; the module is imported only when ``briefcase acme ...`` runs. A built-in command
+``acme``. Plugin commands are listed under "Plugins" in ``briefcase-ai --help`` without being
+imported; the module is imported only when ``briefcase-ai acme ...`` runs. A built-in command
 name always wins over a plugin.
 """
 from __future__ import annotations
@@ -68,7 +68,7 @@ GROUPS = (
     ("verify", "Verify", "prove records are intact and reproducible"),
     ("review", "Review", "look at what happened"),
     ("evaluate", "Evaluate", "datasets, secrets and evaluation runs"),
-    ("plugins", "Plugins", "commands from installed packages (briefcase plugins list)"),
+    ("plugins", "Plugins", "commands from installed packages (briefcase-ai plugins list)"),
     ("other", "Other", ""),
 )
 GROUP_KEYS = tuple(key for key, _, _ in GROUPS)
@@ -208,17 +208,17 @@ def run_plugin_command(args: Any, store: Any, engine: Any, stack: Any) -> int:
     module = plugins.get(PLUGIN_GROUP, name, builtin_command_names())
     if module is None:
         return _ux.fail(f"plugin command {name!r} cannot run: {plugins.explain(PLUGIN_GROUP, name)}",
-                        fix=f"briefcase plugins show {name}")
-    parser = argparse.ArgumentParser(prog="briefcase")
+                        fix=f"briefcase-ai plugins show {name}")
+    parser = argparse.ArgumentParser(prog="briefcase-ai")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     try:
         module.register(sub)
     except Exception as exc:  # noqa: BLE001 - a broken plugin must not crash the CLI
         return _ux.fail(f"plugin command {name!r} failed to register: {_one_line(exc)}",
-                        fix=f"briefcase plugins show {name}")
+                        fix=f"briefcase-ai plugins show {name}")
     if name not in sub.choices:
         return _ux.fail(f"plugin module for {name!r} did not add a {name!r} command",
-                        fix=f"briefcase plugins show {name}")
+                        fix=f"briefcase-ai plugins show {name}")
     inner = parser.parse_args([name] + list(args.plugin_argv))
     for key in _GLOBALS:
         if not hasattr(inner, key) and hasattr(args, key):

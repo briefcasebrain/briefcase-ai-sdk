@@ -138,7 +138,7 @@ def _verify_command(manifest: Dict[str, Any]) -> str:
     keys = list(manifest.get("keys") or [])
     kms = [s["key_id"] for s in manifest.get("signatures") or [] if s.get("type") == "aws-kms"]
     flags = "".join(" --key " + k for k in keys) + "".join(" --key kms:" + k for k in kms)
-    return "    briefcase bundle verify THIS_FILE.zip%s%s" % (flags, " --kms" if kms else "")
+    return "    briefcase-ai bundle verify THIS_FILE.zip%s%s" % (flags, " --kms" if kms else "")
 
 
 def render_readme(manifest: Dict[str, Any], checkpoints: Sequence[Dict[str, Any]]) -> str:
@@ -469,7 +469,7 @@ def verify_bundle(
         if fmt == "briefcase-audit-bundle":
             raise EvidenceFormatError(
                 "%s is a pre-release audit bundle (never shipped in a release); re-create it with "
-                "`briefcase bundle create`" % path
+                "`briefcase-ai bundle create`" % path
             )
         if fmt != FORMAT:
             raise EvidenceFormatError("%s: unknown bundle format %r" % (path, fmt))

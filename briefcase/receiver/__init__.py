@@ -1,6 +1,6 @@
-"""``briefcase receive``: a zero-config local OTLP receiver.
+"""``briefcase-ai receive``: a zero-config local OTLP receiver.
 
-Coding tools configured by ``briefcase connect`` send their OpenTelemetry
+Coding tools configured by ``briefcase-ai connect`` send their OpenTelemetry
 logs, metrics and traces (and Cursor its hook events) here; the receiver turns
 them into briefcase decision records and hands them to an exporter.
 

@@ -1,0 +1,2 @@
+### Breaking
+- The command is `briefcase-ai` (was `briefcase`) and the MCP server command is `briefcase-ai-mcp` (was `briefcase-mcp`), so `uvx briefcase-ai` and `pipx run briefcase-ai` work. The Python import name `briefcase` and the `BRIEFCASE_*` variables are unchanged and there is no alias for the old names. Migration: replace `briefcase` with `briefcase-ai` in scripts and shell aliases, then run `briefcase-ai connect` and `briefcase-ai mcp install` once to replace the commands 4.4 wrote into Claude Code, Cursor and Codex settings.

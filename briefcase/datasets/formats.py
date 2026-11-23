@@ -1,7 +1,7 @@
 """Export a dataset version for other evaluation harnesses.
 
 ``jsonl``   the briefcase format: a header line, then one case per line.
-            Hand-editable; ``briefcase dataset import`` reads it back.
+            Hand-editable; ``briefcase-ai dataset import`` reads it back.
 ``inspect`` one inspect-ai ``Sample`` per line (``input``, ``target``, ``id``,
             ``metadata``), loadable with ``inspect_ai.dataset.json_dataset``.
             Field names checked against inspect-ai 0.3.291

@@ -3,9 +3,9 @@
   "title": "Prompt versions on every record",
   "verb": "review",
   "one_line": "See which prompt version made each call, and whether a new one helped.",
-  "command": "briefcase prompt list",
+  "command": "briefcase-ai prompt list",
   "docs_slug": "review/prompt-versions",
   "status": "experimental",
   "requires_extra": null,
-  "verified_against": "Tagging run for real through @capture (sync, async, nested, with-block) and briefcase prompt list/show/diff in a temp HOME. Provider records share the same record builder but were not exercised against a real provider SDK."
+  "verified_against": "Tagging run for real through @capture (sync, async, nested, with-block) and briefcase-ai prompt list/show/diff in a temp HOME. Provider records share the same record builder but were not exercised against a real provider SDK."
 }

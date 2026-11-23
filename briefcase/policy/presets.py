@@ -2,7 +2,7 @@
 
 A policy file names one with ``preset = "guarded"``; its own ``[[rule]]``
 entries are checked first, then the preset's. ``disable = ["<id>"]`` in the
-user policy switches a preset rule off. ``briefcase policy check`` lists every
+user policy switches a preset rule off. ``briefcase-ai policy check`` lists every
 rule with its id.
 
 - ``observe``: no rules. Every decision is logged and nothing is blocked.
@@ -81,11 +81,11 @@ def protection(settings):
         paths.append(package)       # the hook's own code
     return [
         _rule("self.files", "write", "deny",
-              "This file is part of the briefcase policy or the hook configuration that enforces it, and the "
-              "agent may not change it. Edit it yourself, or turn enforcement off with `briefcase policy off`.",
+              "This file is part of the briefcase-ai policy or the hook configuration that enforces it, and the "
+              "agent may not change it. Edit it yourself, or turn enforcement off with `briefcase-ai policy off`.",
               source="built-in", paths=paths),
         _rule("self.commands", "shell", "deny",
-              "This command would turn off or rewrite the briefcase policy. Run it yourself in a terminal.",
+              "This command would turn off or rewrite the briefcase-ai policy. Run it yourself in a terminal.",
               source="built-in", check="self_command"),
     ]
 
@@ -391,15 +391,16 @@ def git_force(cmd, ctx):
 
 
 def self_command(cmd, ctx):
-    """``briefcase policy off|init`` and ``briefcase connect --undo|--managed``, however briefcase is started."""
+    """``briefcase-ai policy off|init`` and ``briefcase-ai connect --undo|--managed``, however briefcase is started."""
     argv = [a for a, d in zip(cmd.argv, cmd.dyn) if not d]
     name = cmd.name
     rest = None
-    if name in ("briefcase", "briefcase.exe"):
+    # "briefcase" is the pre-4.5 command name; a 4.4 install can still be on PATH.
+    if name in ("briefcase-ai", "briefcase-ai.exe", "briefcase", "briefcase.exe"):
         rest = argv[1:]
     elif name.startswith(("python", "py")) or name in ("uv", "uvx", "pipx"):
         for index, arg in enumerate(argv):
-            if arg in ("briefcase.cli", "briefcase.cli.__main__", "briefcase") and index > 0:
+            if arg in ("briefcase.cli", "briefcase.cli.__main__", "briefcase-ai", "briefcase") and index > 0:
                 rest = argv[index + 1:]
                 break
     if name.startswith("pip") or "pip" in argv[1:3] or name == "uv":
@@ -417,9 +418,9 @@ def self_command(cmd, ctx):
         return None
     words = [a for a in rest if not a.startswith("-")]
     if words[:1] == ["policy"] and len(words) > 1 and words[1] in ("off", "init"):
-        return "briefcase policy " + words[1]
+        return "briefcase-ai policy " + words[1]
     if words[:1] == ["connect"] and ("--undo" in rest or "--enforce" in rest):
-        return "briefcase connect " + ("--undo" if "--undo" in rest else "--enforce")
+        return "briefcase-ai connect " + ("--undo" if "--undo" in rest else "--enforce")
     return None
 
 

@@ -14,19 +14,19 @@ Sleep 1s
 Type "bc_venv && clear" Enter
 Sleep 6s
 Show
-Type "briefcase --version && briefcase --help | head -32" Enter
+Type "briefcase-ai --version && briefcase-ai --help | head -32" Enter
 Sleep 6s
-Type "clear; briefcase status" Enter
+Type "clear; briefcase-ai status" Enter
 Sleep 6s
-Type "clear; briefcase features | head -24" Enter
+Type "clear; briefcase-ai features | head -24" Enter
 Sleep 5s
-Type "clear; briefcase doctor | head -12" Enter
+Type "clear; briefcase-ai doctor | head -12" Enter
 Sleep 5s
-Type "clear; briefcase budget set daily --usd 20 && briefcase budget status" Enter
+Type "clear; briefcase-ai budget set daily --usd 20 && briefcase-ai budget status" Enter
 Sleep 4s
-Type "clear; briefcase guard test --text 'password=hunter22'" Enter
+Type "clear; briefcase-ai guard test --text 'password=hunter22'" Enter
 Sleep 5s
-Type "clear; briefcase setup" Enter
+Type "clear; briefcase-ai setup" Enter
 Sleep 3s
 Type "4" Enter
 Sleep 4s

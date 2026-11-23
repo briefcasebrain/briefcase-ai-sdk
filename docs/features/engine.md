@@ -3,7 +3,7 @@
 The engine stores container environments as a versioned, content-addressed graph and scores
 evaluation runs against them. It is licensed separately: this package holds only its open gRPC
 contract, the client, and the release key it trusts; entitled accounts get the engine itself from
-the gated Briefcase portal, and `briefcase engine install` verifies everything before installing it.
+the gated Briefcase portal, and `briefcase-ai engine install` verifies everything before installing it.
 
 ## The one command
 
@@ -12,14 +12,14 @@ entitled yet, that page has a "Request access" button. If it is, pick a version 
 one-command install from the "Install with one command" box:
 
 ```bash
-briefcase engine install --code bci_...     # single use, valid for 15 minutes
+briefcase-ai engine install --code bci_...     # single use, valid for 15 minutes
 ```
 
 Real output (the CLI against the test fixtures: a local fake platform and a fake `docker`,
 release signed with a throwaway key pinned for the run; `$E` is a temporary directory):
 
 ```text
-$ briefcase engine install --code bci_good --yes
+$ briefcase-ai engine install --code bci_good --yes
 Install the engine from http://127.0.0.1:PORT:
   - POST http://127.0.0.1:PORT/v1/engine/install: redeem the install code (single use)
   - download engine-manifest.json + .sig and verify them against the pinned release key
@@ -36,21 +36,21 @@ engine-images-0.4.0-x86_64.tar verified (signature and sha256)
 loaded 5 images with docker load
 engine 0.4.0 installed in $E/home/.briefcase/engine/0.4.0 (verified with key sha256:e3c42cbf051c1b65a5317f85c31cddc5027bf4cc6bf57fa3be25b8eadfb52c25)
   client: $E/home/.briefcase/engine/0.4.0/bin/oci-bai
-Next: briefcase engine up
+Next: briefcase-ai engine up
 ```
 
 Install codes work once. If anything fails after the code was redeemed, get a new code from the
 portal rather than re-running the same command (verified downloads are reused):
 
 ```text
-$ briefcase engine install --code bci_good --yes
+$ briefcase-ai engine install --code bci_good --yes
 ...
 error: the install code was already used; install codes work once, for 15 minutes
 Fix: Get a new install code at https://observe.briefcasebrain.io/engine
 ```
 
 For automation and CI, use a licence token (platform: Engine page, Licence tokens for CI and servers) instead of a code:
-`BRIEFCASE_LICENSE_TOKEN=bcl_... briefcase engine install --yes [--version X]`.
+`BRIEFCASE_LICENSE_TOKEN=bcl_... briefcase-ai engine install --yes [--version X]`.
 
 ### Offline (air-gapped)
 
@@ -60,12 +60,12 @@ optionally `oci-bai-<version>-<os>-<arch>.tar.gz` and its `.sig`. Copy them into
 the target and run:
 
 ```text
-$ briefcase engine verify $E/downloads/engine-images-0.4.0-x86_64.tar --manifest $E/downloads/engine-manifest.json
+$ briefcase-ai engine verify $E/downloads/engine-images-0.4.0-x86_64.tar --manifest $E/downloads/engine-manifest.json
 verified: engine-images-0.4.0-x86_64.tar (engine 0.4.0)
   key:     sha256:de9422895b1cccf02f33e73c4908584b733c8b5f308e2d10f552a5e764a82c37 (release-de9422895b1cccf0.pub)
   checked: size, sha256, signature
-Next: briefcase engine install --bundle FILE --manifest engine-manifest.json  # install a verified offline bundle
-$ briefcase engine install --bundle $E/downloads/engine-images-0.4.0-x86_64.tar --manifest $E/downloads/engine-manifest.json --yes
+Next: briefcase-ai engine install --bundle FILE --manifest engine-manifest.json  # install a verified offline bundle
+$ briefcase-ai engine install --bundle $E/downloads/engine-images-0.4.0-x86_64.tar --manifest $E/downloads/engine-manifest.json --yes
 Install engine 0.4.0 from the offline bundle:
   - verify $E/downloads/engine-manifest.json and $E/downloads/engine-images-0.4.0-x86_64.tar against the pinned release key (no network)
   - download oci-bai-0.4.0-linux-x86_64.tar.gz, check size, sha256 and signature -> $E/home/.briefcase/engine/0.4.0/bin/oci-bai
@@ -75,7 +75,7 @@ manifest for engine 0.4.0 verified (key sha256:de94...); bundle signature verifi
 oci-bai-0.4.0-linux-x86_64.tar.gz verified (signature and sha256)
 loaded 5 images with docker load
 engine 0.4.0 installed in $E/home/.briefcase/engine/0.4.0 (verified with key sha256:de94...)
-Next: briefcase engine up
+Next: briefcase-ai engine up
 ```
 
 Nothing goes over the network. The binary is picked up next to the manifest (or `--binary FILE`);
@@ -90,13 +90,13 @@ too, matched by image ID.
 
 ### Verifying a download by hand
 
-`briefcase engine verify FILE [--signature FILE.sig] [--manifest engine-manifest.json]` checks any
+`briefcase-ai engine verify FILE [--signature FILE.sig] [--manifest engine-manifest.json]` checks any
 file from the portal against the release key pinned in this SDK and prints the key id; exit 0
 when it verifies, 1 when it does not. The portal shows the same key id.
 
-Then `briefcase engine up`, `briefcase engine status`, and the engine commands:
+Then `briefcase-ai engine up`, `briefcase-ai engine status`, and the engine commands:
 [graph.md](graph.md) (Review) and [env-artifacts.md](env-artifacts.md) (Capture). Runs
-(`briefcase run submit|attach|results`) and `briefcase dataset publish` are below.
+(`briefcase-ai run submit|attach|results`) and `briefcase-ai dataset publish` are below.
 
 | Subcommand | What it does |
 | --- | --- |
@@ -108,8 +108,8 @@ Then `briefcase engine up`, `briefcase engine status`, and the engine commands:
 | `engine upgrade --code C \| --token T [--version X]` | Installs the newest release (or the code's), restarts onto it when the engine is running. Secrets and data volumes are kept. |
 | `engine uninstall [--purge] [--dry-run]` | Stops the stack, removes the images and the version directory; `--purge` also deletes data volumes, secrets and certificates. |
 
-`briefcase stack up|down|status|logs` still works for one release; it prints one line pointing
-at `briefcase engine` and uses the engine install when there is one.
+`briefcase-ai stack up|down|status|logs` still works for one release; it prints one line pointing
+at `briefcase-ai engine` and uses the engine install when there is one.
 
 ## What it writes or sends, and where
 
@@ -147,7 +147,7 @@ engine's security model (oci-jj e89ddbf, 8a52297, be043d9):
 | Setting | Default | Change with |
 | --- | --- | --- |
 | Engine address for `run`, `graph`, `env`, `verify --graph` | the local install (`http://127.0.0.1:50051`) | `--server`, `BRIEFCASE_ENGINE_ADDR`, or `OCI_JJ_SERVER` |
-| Bearer token | the local install's tenant token | `OCI_JJ_AUTH_TOKEN` (also storable with `briefcase secret set OCI_JJ_AUTH_TOKEN`) |
+| Bearer token | the local install's tenant token | `OCI_JJ_AUTH_TOKEN` (also storable with `briefcase-ai secret set OCI_JJ_AUTH_TOKEN`) |
 | TLS | off; plaintext on loopback (`OCI_JJ_ALLOW_PLAINTEXT=1` inside the stack) | `engine install --tls` (self-signed certificate under `~/.briefcase/engine/tls`, needs `openssl`); `OCI_JJ_TLS_CA` for an engine elsewhere |
 | Release | newest (with `--token`); the code's version (with `--code`) | `--version X` with `--token`, or pick it in the portal |
 | Platform | `https://observe.briefcasebrain.io` | `--platform-url`, `BRIEFCASE_PLATFORM_URL` |
@@ -155,26 +155,26 @@ engine's security model (oci-jj e89ddbf, 8a52297, be043d9):
 
 ## How to turn it off or undo it
 
-`briefcase engine down` stops it; `briefcase engine uninstall` removes it;
-`briefcase engine uninstall --purge` also deletes the data. On the platform, revoking the
+`briefcase-ai engine down` stops it; `briefcase-ai engine uninstall` removes it;
+`briefcase-ai engine uninstall --purge` also deletes the data. On the platform, revoking the
 licence token or the account's entitlement stops new installs at once.
 
 ## Without an install
 
-Every engine command is listed in `briefcase --help`, `briefcase features` and
-`briefcase status`, marked "engine not installed — `briefcase engine install`". Running one
+Every engine command is listed in `briefcase-ai --help`, `briefcase-ai features` and
+`briefcase-ai status`, marked "engine not installed — `briefcase-ai engine install`". Running one
 prints exactly that and exits with code **3** (`--json`: `{"error": "engine_not_installed"}`).
 Real output in a fresh HOME:
 
 ```text
-$ briefcase graph log rl-gym-env
-error: engine not installed — `briefcase engine install`
+$ briefcase-ai graph log rl-gym-env
+error: engine not installed — `briefcase-ai engine install`
 $ echo $?
 3
-$ briefcase status | grep -i engine
-  off       Engine (oci-jj)      engine not installed — `briefcase engine install`
-  off       Engine environments  engine not installed — `briefcase engine install`
-  off       Artifact graph       engine not installed — `briefcase engine install`
+$ briefcase-ai status | grep -i engine
+  off       Engine (oci-jj)      engine not installed — `briefcase-ai engine install`
+  off       Engine environments  engine not installed — `briefcase-ai engine install`
+  off       Artifact graph       engine not installed — `briefcase-ai engine install`
 ```
 
 Setting `BRIEFCASE_ENGINE_ADDR` (or `OCI_JJ_SERVER`) to an engine run elsewhere counts as
@@ -200,7 +200,7 @@ uses server reflection instead, for an engine newer than the vendored contract.
 
 What the engine does not have, and what the CLI does about it:
 
-- **No secret channel for runs.** `briefcase secret` stores values locally; only
+- **No secret channel for runs.** `briefcase-ai secret` stores values locally; only
   `OCI_JJ_AUTH_TOKEN` is used (as the bearer token). `secret list` marks every other key as
   kept locally, and `run submit` names the keys it did not send.
 - **Datasets must be tenant-scoped.** The engine accepts only `synthetic://<name>` and
@@ -255,7 +255,7 @@ SDK. Removing a key file in an SDK release stops trusting it. See `briefcase/eng
 This SDK build ships **no** key yet, so install refuses:
 
 ```text
-$ briefcase engine install --code bci_good --yes
+$ briefcase-ai engine install --code bci_good --yes
 error: no trusted release key is bundled in this SDK build; the engine cannot be installed until a release key is published
 Fix: pip install -U 'briefcase-ai[engine]'   # once a release with the engine key is out
 ```
@@ -273,7 +273,7 @@ no oci-bai build for darwin/aarch64 in engine 0.4.0: commands that need it (env 
 Those commands then run `docker run --rm` of the verified server image with `--entrypoint
 /usr/local/bin/oci-bai`, on the stack's network (`briefcase-engine_default`, server
 `oci-jj-server:50051`), with host paths bind-mounted at the same absolute path and the token
-passed by name (`-e OCI_JJ_AUTH_TOKEN`), never in argv. `briefcase env cohort DIR --dry-run`
+passed by name (`-e OCI_JJ_AUTH_TOKEN`), never in argv. `briefcase-ai env cohort DIR --dry-run`
 prints the exact command. Should a macOS build ever ship, it would be unsigned and not notarized:
 after it verifies, the installer removes a `com.apple.quarantine` attribute if one is set (files
 it downloads itself carry none).
@@ -287,7 +287,7 @@ it downloads itself carry none).
 - `tests/cli/test_ocijj_live.py`: the run commands against any running engine. Set
   `BRIEFCASE_OCIJJ_ADDR` (plus `OCI_JJ_AUTH_TOKEN`; `BRIEFCASE_OCIJJ_REPO`, `_CANDIDATE`,
   `_BASELINE`, `_READER_TOKEN` are optional). Push a baseline and a candidate that share a
-  layer first (`briefcase env push`). Each submit queues one real job: use a throwaway database.
+  layer first (`briefcase-ai env push`). Each submit queues one real job: use a throwaway database.
 
 ## Limits and failure modes
 
@@ -330,6 +330,6 @@ it downloads itself carry none).
 | `Docker is not installed or its daemon is not running` | Start Docker, or `--no-images` for the client only |
 | `docker load ... failed` | Update Docker to 25+, or install `skopeo`, then re-run |
 | `an engine image changed since it was verified at install` | Re-install (new code, or the offline bundle) |
-| `engine 0.4.0 installed, not running` in `briefcase status` | `briefcase engine up` |
-| `the engine is not reachable at ...` | `briefcase engine status`, then `briefcase engine logs oci-jj-server` |
-| `... is not available on this engine` | `briefcase engine upgrade --token ...` |
+| `engine 0.4.0 installed, not running` in `briefcase-ai status` | `briefcase-ai engine up` |
+| `the engine is not reachable at ...` | `briefcase-ai engine status`, then `briefcase-ai engine logs oci-jj-server` |
+| `... is not available on this engine` | `briefcase-ai engine upgrade --token ...` |

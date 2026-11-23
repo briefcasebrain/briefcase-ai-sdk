@@ -3,7 +3,7 @@
   "title": "Content guardrails on LLM calls",
   "verb": "enforce",
   "one_line": "Redact PII and secrets, flag prompt injection, block bad completions.",
-  "command": "briefcase guard test --text \"call +44 20 7946 0958, password=hunter22\"",
+  "command": "briefcase-ai guard test --text \"call +44 20 7946 0958, password=hunter22\"",
   "docs_slug": "enforce/content-guardrails",
   "status": "experimental",
   "requires_extra": null,

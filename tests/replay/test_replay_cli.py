@@ -1,4 +1,4 @@
-"""`briefcase replay` command: plan, confirmation, exit codes, report and diff."""
+"""`briefcase-ai replay` command: plan, confirmation, exit codes, report and diff."""
 
 import argparse
 import json
@@ -12,7 +12,7 @@ from tests.replay.test_replay_records import chat_record
 
 
 def cli(argv):
-    parser = argparse.ArgumentParser(prog="briefcase")
+    parser = argparse.ArgumentParser(prog="briefcase-ai")
     sub = parser.add_subparsers(dest="command")
     replay_commands.register(sub)
     args = parser.parse_args(argv)
@@ -58,7 +58,7 @@ def test_group_and_help_example(capsys):
     with pytest.raises(SystemExit):
         cli(["replay", "run", "--help"])
     out = capsys.readouterr().out
-    assert "Example:\n  briefcase replay run" in out
+    assert "Example:\n  briefcase-ai replay run" in out
 
 
 def test_cassette_run_writes_report_and_diff_reads_it(runs, tmp_path, capsys):
@@ -67,7 +67,7 @@ def test_cassette_run_writes_report_and_diff_reads_it(runs, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "no network" in out
     assert "Result: 2 matched, 0 changed, 1 not_replayable, 0 error" in out
-    assert f"Next: briefcase replay diff {report}" in out
+    assert f"Next: briefcase-ai replay diff {report}" in out
     rows = [json.loads(line) for line in report.read_text().splitlines()]
     assert [r["status"] for r in rows] == ["matched", "matched", "not_replayable"]
 

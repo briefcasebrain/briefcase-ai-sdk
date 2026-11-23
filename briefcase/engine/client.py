@@ -91,12 +91,12 @@ class DescriptorTransport(ReflectionTransport):
         if name == "UNAVAILABLE":
             return TransportUnavailable(
                 f"the engine is not reachable at {self.endpoint} ({_rpc_detail(exc)}); "
-                "start it with `briefcase engine up`, or check BRIEFCASE_ENGINE_ADDR"
+                "start it with `briefcase-ai engine up`, or check BRIEFCASE_ENGINE_ADDR"
             )
         if _is_unauthenticated(exc):
             return TransportUnavailable(
                 f"the engine at {self.endpoint} refused the call ({_rpc_detail(exc)}); "
-                "set OCI_JJ_AUTH_TOKEN, or run `briefcase engine status` to check the local install"
+                "set OCI_JJ_AUTH_TOKEN, or run `briefcase-ai engine status` to check the local install"
             )
         return None
 
@@ -211,7 +211,7 @@ class EngineClient:
         detail = _rpc_detail(exc)
         if name == "UNIMPLEMENTED":
             raise EngineError(f"{method} is not available on this engine ({detail}); "
-                              "upgrade with `briefcase engine upgrade`", code=name) from exc
+                              "upgrade with `briefcase-ai engine upgrade`", code=name) from exc
         if name == "PERMISSION_DENIED":
             raise EngineError(f"{method} was refused: {detail}", code=name) from exc
         if name in ("NOT_FOUND", "INVALID_ARGUMENT", "FAILED_PRECONDITION"):

@@ -3,7 +3,7 @@
   "title": "Environment graph history and provenance",
   "verb": "review",
   "one_line": "See environment history, diffs and provenance (needs the engine).",
-  "command": "briefcase graph log rl-gym-env",
+  "command": "briefcase-ai graph log rl-gym-env",
   "docs_slug": "review/graph",
   "status": "experimental",
   "requires_extra": "engine",

@@ -1,7 +1,7 @@
 {
   "name": "@briefcase-ai/controls",
   "version": "4.4.0",
-  "description": "AI invocation controls: gateway, quota, throttle classification, retry, suggestion pipeline, and decision-record exporters.",
+  "description": "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

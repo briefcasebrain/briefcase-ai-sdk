@@ -1,7 +1,7 @@
 {
   "name": "@briefcase-ai/auto",
   "version": "4.4.0",
-  "description": "Zero-code decision capture for Node: one decision record per OpenAI, Anthropic, Google GenAI and Bedrock call, exported to the console, a JSONL file, an HTTP collector or OTLP.",
+  "description": "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

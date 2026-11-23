@@ -1,6 +1,6 @@
-"""briefcase.cli_commands: `briefcase alpha hello --name you`."""
+"""briefcase.cli_commands: `briefcase-ai alpha hello --name you`."""
 
-GROUP = "review"   # read by `briefcase plugins`; plugin commands are listed under "Plugins"
+GROUP = "review"   # read by `briefcase-ai plugins`; plugin commands are listed under "Plugins"
 BRIEFCASE_PLUGIN_API = 1
 
 
@@ -15,7 +15,7 @@ def register(subparsers) -> None:
 
 def cmd_hello(args, store, engine, stack) -> int:
     print(f"hello, {args.name} (from bc-plugin-alpha)")
-    print("Next: briefcase plugins show alpha")
+    print("Next: briefcase-ai plugins show alpha")
     return 0
 
 

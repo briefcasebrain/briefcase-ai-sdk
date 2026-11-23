@@ -2,9 +2,9 @@
 
     python -I -S /path/to/briefcase/policy/hook_main.py claude-code --enforce
 
-``briefcase hook <tool> --enforce`` does the same thing, but starting it
+``briefcase-ai hook <tool> --enforce`` does the same thing, but starting it
 imports the whole SDK (about 0.1 s) before every tool call. This file is what
-``briefcase policy init`` installs instead: it registers ``briefcase`` as an
+``briefcase-ai policy init`` installs instead: it registers ``briefcase`` as an
 empty package, so ``briefcase.policy`` is importable without running
 ``briefcase/__init__.py``, and then runs the same hook code.
 
@@ -38,9 +38,9 @@ def main():
     except BaseException as exc:  # noqa: B036
         if "--fail-closed" in argv:
             sys.stderr.write(
-                f"Blocked by briefcase policy: the hook could not start ({type(exc).__name__}: {exc}) and it was "
-                "installed with --fail-closed. Reinstall with `briefcase policy init`, or turn enforcement off "
-                "with `briefcase policy off`.\n")
+                f"Blocked by briefcase-ai policy: the hook could not start ({type(exc).__name__}: {exc}) and it was "
+                "installed with --fail-closed. Reinstall with `briefcase-ai policy init`, or turn enforcement off "
+                "with `briefcase-ai policy off`.\n")
             return 2
         if argv[:1] == ["cursor"]:
             sys.stdout.write('{"permission": "allow"}\n')   # Cursor blocks on empty output

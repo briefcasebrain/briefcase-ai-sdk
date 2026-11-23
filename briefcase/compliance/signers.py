@@ -118,7 +118,7 @@ def check_signature(signature: Dict[str, Any], message: bytes, pins: Pins) -> Si
 class Ed25519Signer:
     """Ed25519 with a local key (path to a key file, or its bytes / a seed).
 
-    Keys are those of :mod:`briefcase.integrity.keys` (``briefcase bundle
+    Keys are those of :mod:`briefcase.integrity.keys` (``briefcase-ai bundle
     keygen``); the signature covers ``message`` as given.
     """
 

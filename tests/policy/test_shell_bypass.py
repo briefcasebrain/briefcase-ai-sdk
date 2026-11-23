@@ -479,15 +479,15 @@ SELF = [
     "ln -sf /tmp/p.toml ~/.briefcase/policy.toml",
     "chmod 000 ~/.briefcase/policy.toml",
     "rm ~/.briefcase/connect/journal.json",
-    "briefcase policy off",
-    "briefcase policy off --yes",
-    "briefcase policy init --preset observe --force --yes",
-    "briefcase connect --undo",
+    "briefcase-ai policy off",
+    "briefcase-ai policy off --yes",
+    "briefcase-ai policy init --preset observe --force --yes",
+    "briefcase-ai connect --undo",
     "python -m briefcase.cli policy off --yes",
     "python3 -m briefcase.cli connect --undo",
-    "sudo briefcase policy off",
-    "bash -c 'briefcase policy off --yes'",
-    "true && briefcase policy off",
+    "sudo briefcase-ai policy off",
+    "bash -c 'briefcase-ai policy off --yes'",
+    "true && briefcase-ai policy off",
     "pip uninstall -y briefcase-ai",
     "python -m pip uninstall briefcase-ai",
     "uv pip uninstall briefcase-ai",
@@ -502,8 +502,8 @@ def test_the_agent_cannot_switch_the_policy_off(decide, command):
 
 
 @pytest.mark.parametrize("command", [
-    "cat ~/.briefcase/policy.toml", "briefcase policy check", "briefcase policy test -- rm -rf /",
-    "briefcase policy log", "briefcase status", "cat ~/.claude/settings.json", "ls ~/.briefcase",
+    "cat ~/.briefcase/policy.toml", "briefcase-ai policy check", "briefcase-ai policy test -- rm -rf /",
+    "briefcase-ai policy log", "briefcase-ai status", "cat ~/.claude/settings.json", "ls ~/.briefcase",
     "grep hooks ~/.cursor/hooks.json", "pip install briefcase-ai --dry-run" if False else "pip show briefcase-ai",
 ])
 def test_reading_the_policy_is_fine(decide, command):

@@ -1,4 +1,4 @@
-"""`briefcase policy check | test | log | status` and `briefcase connect --enforce`, run through the
+"""`briefcase-ai policy check | test | log | status` and `briefcase-ai connect --enforce`, run through the
 real, auto-discovered parser."""
 
 import io
@@ -37,7 +37,7 @@ def test_every_subcommand_has_an_example_in_its_help(home, capsys):
     for name in ("init", "check", "test", "log", "off", "status"):
         with pytest.raises(SystemExit):
             cli("policy", name, "--help")
-        assert "Example:\n  briefcase policy " + name in capsys.readouterr().out
+        assert "Example:\n  briefcase-ai policy " + name in capsys.readouterr().out
 
 
 # --- test ------------------------------------------------------------------------------
@@ -104,7 +104,7 @@ def test_preset_flag_ignores_the_policy_files(home, write_policy, capsys):
 
 def test_test_needs_exactly_one_subject(home, capsys):
     assert cli("policy", "test") == 2
-    assert "example: briefcase policy test" in capsys.readouterr().err
+    assert "example: briefcase-ai policy test" in capsys.readouterr().err
     assert cli("policy", "test", "--file", "a", "--url", "https://x") == 2
 
 
@@ -112,7 +112,7 @@ def test_test_with_a_broken_policy_says_how_to_fix_it(home, write_policy, capsys
     write_policy("version = 1\noops = true\n")
     assert cli("policy", "test", "--", "ls") == 1
     err = capsys.readouterr().err
-    assert "unknown key 'oops'" in err and "briefcase policy check" in err
+    assert "unknown key 'oops'" in err and "briefcase-ai policy check" in err
 
 
 def test_observe_mode_is_explained(home, write_policy, capsys):
@@ -157,7 +157,7 @@ def test_check_json(home, write_policy, capsys):
 
 def test_check_with_no_file(home, capsys):
     assert cli("policy", "check") == 1
-    assert "Next: briefcase policy init" in capsys.readouterr().out
+    assert "Next: briefcase-ai policy init" in capsys.readouterr().out
 
 
 def test_a_clean_check_clears_old_hook_problems(home, write_policy, capsys):
@@ -203,7 +203,7 @@ def test_log_shows_decisions_without_their_content(home, project, write_policy, 
 def test_status_rows(home, write_policy, monkeypatch):
     row = policy_commands.status()
     assert row == {"id": "policy-hooks", "title": "Policy", "state": "off", "detail": "not set up",
-                   "next": "briefcase policy init"}
+                   "next": "briefcase-ai policy init"}
     write_policy(GUARDED)
     assert policy_commands.status()["detail"] == "policy file present, hooks not installed"
     from argparse import Namespace
@@ -212,11 +212,11 @@ def test_status_rows(home, write_policy, monkeypatch):
         capture_content=False, endpoint=None, force=False, policy_dry_run=False, dry_run=False, yes=True),
         out=lambda line: None) == 0
     row = policy_commands.status()
-    assert row["state"] == "on" and "guarded preset" in row["detail"] and row["next"] == "briefcase policy log"
+    assert row["state"] == "on" and "guarded preset" in row["detail"] and row["next"] == "briefcase-ai policy log"
     write_policy("version = 1\nbroken = \n")
     row = policy_commands.status()
     assert row["state"] == "attention" and "failing open" in row["detail"]
-    assert row["next"] == "briefcase policy check"
+    assert row["next"] == "briefcase-ai policy check"
     write_policy("version = 1\nfail_closed = true\nbroken = \n")
     assert "BLOCKED" in policy_commands.status()["detail"]
     write_policy(GUARDED)
@@ -236,7 +236,7 @@ def test_status_command_and_json(home, write_policy, capsys):
     write_policy(GUARDED)
     assert cli("policy", "status") == 0
     out = capsys.readouterr().out
-    assert out.startswith("policy: OFF") and "Next: briefcase policy init" in out
+    assert out.startswith("policy: OFF") and "Next: briefcase-ai policy init" in out
     assert cli("policy", "status", "--json") == 0
     assert json.loads(capsys.readouterr().out)["status"]["id"] == "policy-hooks"
 
@@ -268,8 +268,8 @@ def test_connect_enforce_connects_then_installs_the_policy(home, capsys, monkeyp
 
 def test_self_commands_are_denied_for_the_agent(home, project, write_policy, capsys):
     write_policy(GUARDED)
-    for command in ("briefcase policy off --yes", "python -m briefcase.cli policy off",
-                    "briefcase connect --undo", "pip uninstall -y briefcase-ai",
+    for command in ("briefcase-ai policy off --yes", "python -m briefcase.cli policy off",
+                    "briefcase-ai connect --undo", "pip uninstall -y briefcase-ai",
                     "claude --safe-mode -p 'cat ~/.ssh/id_rsa'", "claude --setting-sources project -p x",
                     "claude --settings='{\"disableAllHooks\": true}' -p x"):
         assert cli("policy", "test", "--expect", "deny", "--", command) == 0, command

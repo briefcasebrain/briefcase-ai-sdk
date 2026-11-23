@@ -1,11 +1,11 @@
-"""``briefcase replay``: re-run recorded LLM calls and see what changed.
+"""``briefcase-ai replay``: re-run recorded LLM calls and see what changed.
 
-    briefcase replay explain runs.jsonl          # which records can be replayed, and why not
-    briefcase replay run runs.jsonl              # plan, confirm, replay, compare
-    briefcase replay run runs.jsonl --executor cassette     # no network, deterministic
-    briefcase replay diff report.jsonl           # show what changed in a saved report
+    briefcase-ai replay explain runs.jsonl          # which records can be replayed, and why not
+    briefcase-ai replay run runs.jsonl              # plan, confirm, replay, compare
+    briefcase-ai replay run runs.jsonl --executor cassette     # no network, deterministic
+    briefcase-ai replay diff report.jsonl           # show what changed in a saved report
 
-A separate top-level command: ``briefcase run ...`` is the evaluation-job group.
+A separate top-level command: ``briefcase-ai run ...`` is the evaluation-job group.
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 GROUP = "verify"
 
-_RUN_EXAMPLE = "Example:\n  briefcase replay run runs.jsonl --executor cassette --out report.jsonl"
-_EXPLAIN_EXAMPLE = "Example:\n  briefcase replay explain runs.jsonl"
-_DIFF_EXAMPLE = "Example:\n  briefcase replay diff report.jsonl"
+_RUN_EXAMPLE = "Example:\n  briefcase-ai replay run runs.jsonl --executor cassette --out report.jsonl"
+_EXPLAIN_EXAMPLE = "Example:\n  briefcase-ai replay explain runs.jsonl"
+_DIFF_EXAMPLE = "Example:\n  briefcase-ai replay diff report.jsonl"
 _CAPTURE_HINT = (
     "capture calls with content first, e.g. in your app: "
     "briefcase.observe('runs.jsonl'); briefcase.auto(capture_content=True)"
@@ -113,7 +113,7 @@ def register(sub) -> None:
         description="Show what changed in a replay report written by `replay run --out`.",
         epilog=_DIFF_EXAMPLE, formatter_class=fmt,
     )
-    diff.add_argument("report", help="Report JSONL written by `briefcase replay run --out`.")
+    diff.add_argument("report", help="Report JSONL written by `briefcase-ai replay run --out`.")
     diff.add_argument("--all", action="store_true", help="Also list matched calls.")
     diff.add_argument("--json", action="store_true", help="Machine-readable output.")
     diff.set_defaults(func=cmd_replay_diff)
@@ -201,7 +201,7 @@ def _save_state(summary: Dict[str, Any], source: str, executor: str) -> None:
 
 def _rerun(args) -> str:
     """The same `replay run` command without --plan-only."""
-    parts = ["briefcase replay run", shlex.quote(args.file)]
+    parts = ["briefcase-ai replay run", shlex.quote(args.file)]
     if args.executor != "auto":
         parts.append(f"--executor {args.executor}")
     if args.model:
@@ -220,7 +220,7 @@ def _print_plan(plan: Dict[str, Any]) -> None:
     print(f"  records in file      {plan['records']}")
     print(f"  replayable           {plan['replayable']}"
           + (f"  ({plan['not_replayable']} not replayable: "
-             "see `briefcase replay explain`)" if plan["not_replayable"] else ""))
+             "see `briefcase-ai replay explain`)" if plan["not_replayable"] else ""))
     if plan["blocked_by_executor"]:
         print(f"  blocked by executor  {plan['blocked_by_executor']}")
         for reason, count in plan["blocked_reasons"].items():
@@ -270,13 +270,13 @@ def cmd_replay_run(args, store=None, engine=None, stack=None) -> int:
         scorer = _load_scorer(args.scorer)
         prices = json.loads(Path(args.prices).read_text()) if args.prices else None
     except (ValueError, ImportError, AttributeError, OSError) as exc:
-        return _err(str(exc), "briefcase replay run --help")
+        return _err(str(exc), "briefcase-ai replay run --help")
 
     run_id = f"replay-{uuid.uuid4().hex[:12]}"
     if args.executor == "cassette":
         if args.cassette and not Path(args.cassette).is_file():
             return _err(f"cassette {args.cassette} not found",
-                        f"briefcase replay run {args.file} --save-cassette {args.cassette} --yes")
+                        f"briefcase-ai replay run {args.file} --save-cassette {args.cassette} --yes")
         executor: Any = rr.CassetteExecutor(args.cassette)
     else:
         executor = rr.AutoExecutor(max_retries=args.max_retries, run_id=run_id)
@@ -296,13 +296,13 @@ def cmd_replay_run(args, store=None, engine=None, stack=None) -> int:
     if plan.live and len(plan.to_run) > args.max_calls:
         return _err(
             f"the plan has {len(plan.to_run)} live calls, over --max-calls {args.max_calls}",
-            f"briefcase replay run {args.file} --limit {args.max_calls}",
+            f"briefcase-ai replay run {args.file} --limit {args.max_calls}",
         )
     if plan.live and plan.to_run and not args.yes:
         answer = _confirm(f"Make {len(plan.to_run)} live call(s) with your credentials?", ASK)
         if answer is None:
             return _err("live replay needs confirmation and there is no terminal to ask",
-                        f"briefcase replay run {args.file} --yes   (or --executor cassette)")
+                        f"briefcase-ai replay run {args.file} --yes   (or --executor cassette)")
         if not answer:
             print("Nothing was called.")
             return 1
@@ -335,9 +335,9 @@ def cmd_replay_run(args, store=None, engine=None, stack=None) -> int:
             print(f"  cost delta             {summary['cost_usd_delta']:+.6f} USD")
         if args.out:
             print(f"Report: {args.out}")
-            print(f"Next: briefcase replay diff {args.out}")
+            print(f"Next: briefcase-ai replay diff {args.out}")
         else:
-            print(f"Next: briefcase replay run {args.file} --out report.jsonl")
+            print(f"Next: briefcase-ai replay run {args.file} --out report.jsonl")
     failed = summary["status"]["error"] > 0 or (
         args.fail_on_change and summary["status"]["changed"] > 0)
     return 1 if failed else 0
@@ -373,7 +373,7 @@ def cmd_replay_explain(args, store=None, engine=None, stack=None) -> int:
     for warning, indexes in notes.items():
         print(f"note ({', '.join(f'#{i}' for i in indexes)}): {warning}")
     if replayable:
-        print(f"Next: briefcase replay run {args.file} --plan-only")
+        print(f"Next: briefcase-ai replay run {args.file} --plan-only")
     else:
         print(f"Next: {_CAPTURE_HINT}")
     return 0
@@ -385,11 +385,11 @@ def cmd_replay_diff(args, store=None, engine=None, stack=None) -> int:
     from briefcase.replay._recorded.runner import RESULT_TYPE
 
     if not Path(args.report).is_file():
-        return _err(f"{args.report} not found", "briefcase replay run FILE --out report.jsonl")
+        return _err(f"{args.report} not found", "briefcase-ai replay run FILE --out report.jsonl")
     rows = [r for r in iter_jsonl(args.report) if r.get("record_type") == RESULT_TYPE]
     if not rows:
         return _err(f"{args.report} holds no replay results",
-                    "briefcase replay run FILE --out report.jsonl")
+                    "briefcase-ai replay run FILE --out report.jsonl")
     summary = rr.summarize(rows)
     if args.json:
         shown = rows if args.all else [r for r in rows if r["status"] != "matched"]
@@ -422,20 +422,20 @@ def cmd_replay_diff(args, store=None, engine=None, stack=None) -> int:
         elif status == "not_replayable":
             for reason in row.get("reasons") or []:
                 print(f"  - {reason}")
-    print("\nNext: briefcase replay explain FILE   (why records were not replayable)"
+    print("\nNext: briefcase-ai replay explain FILE   (why records were not replayable)"
           if counts["not_replayable"] else
-          "\nNext: briefcase drift check NAME --from FILE   (watch production for the same change)")
+          "\nNext: briefcase-ai drift check NAME --from FILE   (watch production for the same change)")
     return 0
 
 
 def status() -> Dict[str, Any]:
-    """Last replay run, for ``briefcase status`` (content-free)."""
+    """Last replay run, for ``briefcase-ai status`` (content-free)."""
     try:
         data = json.loads(_state_path().read_text())
     except (OSError, ValueError):
         return {"feature": "replay-recorded", "state": "off",
                 "summary": "no replay run yet",
-                "next": "briefcase replay explain runs.jsonl"}
+                "next": "briefcase-ai replay explain runs.jsonl"}
     counts = (data.get("summary") or {}).get("status") or {}
     attention = counts.get("changed", 0) or counts.get("error", 0)
     return {
@@ -444,7 +444,7 @@ def status() -> Dict[str, Any]:
         "summary": f"last replay {data.get('at')} ({data.get('executor')}, {data.get('file')}): "
                    + ", ".join(f"{counts.get(s, 0)} {s}" for s in
                                ("matched", "changed", "not_replayable", "error")),
-        "next": "briefcase replay diff report.jsonl" if attention else "briefcase replay run FILE",
+        "next": "briefcase-ai replay diff report.jsonl" if attention else "briefcase-ai replay run FILE",
     }
 
 

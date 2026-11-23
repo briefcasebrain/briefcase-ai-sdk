@@ -3,7 +3,7 @@
   "title": "Spending budgets for LLM calls",
   "verb": "enforce",
   "one_line": "Hard and soft spend limits per app, model or tenant, checked before each call.",
-  "command": "briefcase budget set daily --usd 20",
+  "command": "briefcase-ai budget set daily --usd 20",
   "docs_slug": "enforce/budgets",
   "status": "experimental",
   "requires_extra": null,

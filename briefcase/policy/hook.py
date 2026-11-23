@@ -1,4 +1,4 @@
-"""The enforcement hook: ``briefcase hook <tool> --enforce``.
+"""The enforcement hook: ``briefcase-ai hook <tool> --enforce``.
 
 The tool runs this before every tool call with the call as JSON on stdin and
 waits for it, so the whole path is: read stdin, load the policy, decide in
@@ -11,8 +11,8 @@ Failure semantics
     Default is fail OPEN: if the policy file is invalid, the payload is not
     understood, or this code raises, the call is allowed. That is never
     silent: the problem is written to ``~/.briefcase/policy/health.json``
-    (shown by ``briefcase policy status``, ``briefcase status`` and
-    ``briefcase doctor --connect``), logged, and shown in the tool as a
+    (shown by ``briefcase-ai policy status``, ``briefcase-ai status`` and
+    ``briefcase-ai doctor --connect``), logged, and shown in the tool as a
     warning where the tool has a channel for one.
 
     ``fail_closed = true`` in a policy, or ``--fail-closed`` on the hook
@@ -38,7 +38,7 @@ DEFAULT_ENDPOINT = "http://127.0.0.1:4318"
 REPORT_PATH = "/v1/policy/decisions"
 WARN_EVERY_SECONDS = 600
 LOG_MAX_BYTES = 5 * 1024 * 1024
-FIX = "Fix it with `briefcase policy check`, or turn enforcement off with `briefcase policy off`."
+FIX = "Fix it with `briefcase-ai policy check`, or turn enforcement off with `briefcase-ai policy off`."
 
 
 class Options(object):
@@ -270,13 +270,13 @@ def decide(options, payload):
     if problem is not None:
         entry["error"] = problem
         if record_problem(problem, tool, fail_closed):
-            warning = (f"briefcase policy: {problem}. "
+            warning = (f"briefcase-ai policy: {problem}. "
                        + ("Tool calls are blocked until it is fixed. " if fail_closed else
                           ("Enforcement is OFF until it is fixed. " if loaded.policy is None else
                            "The rest of the policy is still enforced. "))
                        + FIX)
         if fail_closed:
-            text = f"Blocked by briefcase policy: {problem}. The policy is fail_closed, so nothing runs. {FIX}"
+            text = f"Blocked by briefcase-ai policy: {problem}. The policy is fail_closed, so nothing runs. {FIX}"
             entry.update(effect="deny", would="deny", rule="fail_closed", source="setting")
             entry["ms"] = round((time.perf_counter() - started) * 1000, 2)
             return tools.respond(tool, event, "deny", text), entry
@@ -356,13 +356,13 @@ def _failed(tool, options, exc, out):
     try:
         if fail_closed and tool in tools.TOOLS:
             event = "beforeShellExecution" if tool == "cursor" else "PreToolUse"
-            text = (f"Blocked by briefcase policy: {problem}. The hook was installed with --fail-closed, "
+            text = (f"Blocked by briefcase-ai policy: {problem}. The hook was installed with --fail-closed, "
                     f"so nothing runs. {FIX}")
             out.write(tools.respond(tool, event, "deny", text) + "\n")
         else:
             text = tools.fail_open_output(tool)
             if not text and warn and tool in tools.TOOLS:
-                text = json.dumps({"systemMessage": f"briefcase policy: {problem}. This call was allowed. {FIX}"})
+                text = json.dumps({"systemMessage": f"briefcase-ai policy: {problem}. This call was allowed. {FIX}"})
             if text:
                 out.write(text + "\n")
         out.flush()

@@ -1,7 +1,7 @@
-"""``briefcase stack`` — DEPRECATED alias of ``briefcase engine up|down|status|logs`` (kept one release).
+"""``briefcase-ai stack`` — DEPRECATED alias of ``briefcase-ai engine up|down|status|logs`` (kept one release).
 
-Each subcommand prints one line pointing at ``briefcase engine`` and then behaves as before. With a
-``briefcase engine install`` present it drives that install's compose file (digest-pinned, generated
+Each subcommand prints one line pointing at ``briefcase-ai engine`` and then behaves as before. With a
+``briefcase-ai engine install`` present it drives that install's compose file (digest-pinned, generated
 secrets); otherwise the bundled compose below, as in earlier releases.
 
 The compose invocation goes through an injected ``runner`` (default ``subprocess.run``), mirroring
@@ -29,7 +29,7 @@ class Stack:
     def _compose(self, *args, env=None):
         merged = {**os.environ, **(env or {})}
         # Honor $BRIEFCASE_OCIJJ_COMPOSE as an override (existing checkout-based users); then a
-        # `briefcase engine install`; otherwise the bundled, pinned compose shipped in the wheel.
+        # `briefcase-ai engine install`; otherwise the bundled, pinned compose shipped in the wheel.
         override = os.environ.get("BRIEFCASE_OCIJJ_COMPOSE")
         if override:
             return self.runner(["docker", "compose", "-f", override, *args], env=merged)
@@ -86,7 +86,7 @@ def _rc(result) -> int:
     return getattr(result, "returncode", 0)
 
 
-DEPRECATION = ("note: `briefcase stack` is deprecated; use `briefcase engine {sub}` "
+DEPRECATION = ("note: `briefcase-ai stack` is deprecated; use `briefcase-ai engine {sub}` "
                "(same behaviour, digest-pinned install)")
 
 
@@ -103,7 +103,7 @@ def cmd_stack_up(args, store, engine, stack=None) -> int:
         # Most likely the private verdict-worker image couldn't be pulled. Bring up everything else so
         # runs still enqueue (just unscored), and tell the user exactly how to enable scoring.
         print("could not start the verdict-worker scorer (private image).", file=sys.stderr)
-        print("  install the engine with your licence token: briefcase engine install", file=sys.stderr)
+        print("  install the engine with your licence token: briefcase-ai engine install", file=sys.stderr)
         print("  starting the rest of the stack without scoring (runs enqueue but are not scored)...",
               file=sys.stderr)
         rc = _rc(stack.up(scorer=False))
@@ -130,7 +130,7 @@ def cmd_stack_logs(args, store, engine, stack=None) -> int:
 
 def register(sub) -> None:
     # Bring up the bundled, pinned engine images (no oci-jj checkout, no Rust).
-    st = sub.add_parser("stack", help="Deprecated: use `briefcase engine up|down|status|logs`.").add_subparsers(
+    st = sub.add_parser("stack", help="Deprecated: use `briefcase-ai engine up|down|status|logs`.").add_subparsers(
         dest="sub"
     )
     st_up = st.add_parser("up", help="Pull and start the pinned engine images.")

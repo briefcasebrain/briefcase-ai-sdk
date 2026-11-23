@@ -189,11 +189,11 @@ def message(decision, effect, downgraded=False):
     """The text the person sees in the tool."""
     rule = decision.rule_id or "?"
     reason = decision.reason or "No reason was given for this rule."
-    head = "Blocked by briefcase policy" if effect == "deny" else "briefcase policy asks you to confirm"
+    head = "Blocked by briefcase-ai policy" if effect == "deny" else "briefcase-ai policy asks you to confirm"
     text = f"{head} (rule {rule}): {reason}"
     if downgraded:
         text += " The rule says ask; this tool cannot ask from a hook, so the policy's ask_fallback applies."
-    return text + " Details: briefcase policy log -n 1"
+    return text + " Details: briefcase-ai policy log -n 1"
 
 
 def respond(tool, event, effect, text="", warning=None):

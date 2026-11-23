@@ -10,12 +10,12 @@ Flow: **Review**. Feature id: `mcp-records`. Status: experimental.
 ## The one command
 
 ```bash
-briefcase mcp install
+briefcase-ai mcp install
 ```
 
-It registers the `briefcase-mcp` server with the coding tools on this machine (needs
+It registers the `briefcase-ai-mcp` server with the coding tools on this machine (needs
 `pip install 'briefcase-ai[mcp]'`). Then ask your assistant things like "what did my agents
-spend yesterday, by model?" or "why was that rm command blocked?". `briefcase mcp link <tool>`
+spend yesterday, by model?" or "why was that rm command blocked?". `briefcase-ai mcp link <tool>`
 prints the install payload for one tool instead. Both now end with the list of tools.
 
 ## The tools
@@ -28,8 +28,8 @@ prints the install payload for one tool instead. Both now end with the list of t
 | `summarize_usage` | Count, errors, tokens and cost by model, tool, day, type or agent; recorded costs and costs estimated from `briefcase.pricing` are kept apart, unpriced models listed. |
 | `explain_policy_decision` | For a `policy.tool_call` record: which rule fired, from which policy file, why, in which mode; and what the policy on this machine says today. |
 | `verify_records` | Recompute a hash chain (and, given the records file, each record's payload hash) and say plainly whether anything was edited, removed or reordered. Also checks the per-row content hashes of a bitemporal SQLite store. |
-| `replay_plan` | What `briefcase replay run` would do: replayable or not and why, models, token estimate. **Plans only; never calls a model.** |
-| `drift_check` | Recent records against a baseline saved with `briefcase drift baseline save`. |
+| `replay_plan` | What `briefcase-ai replay run` would do: replayable or not and why, models, token estimate. **Plans only; never calls a model.** |
+| `drift_check` | Recent records against a baseline saved with `briefcase-ai drift baseline save`. |
 
 The four older tools (`sanitize_text`, `estimate_cost`, `analyze_drift`, `how_to`) and the
 `briefcase://llms-full.txt` resource are unchanged.
@@ -40,7 +40,7 @@ Read-only, local files only:
 
 | Source | Path |
 | --- | --- |
-| The receiver's records (`briefcase receive --detach`) | `~/.briefcase/receiver/records.jsonl` (`$BRIEFCASE_HOME/receiver/records.jsonl`) |
+| The receiver's records (`briefcase-ai receive --detach`) | `~/.briefcase/receiver/records.jsonl` (`$BRIEFCASE_HOME/receiver/records.jsonl`) |
 | Your app's records | `BRIEFCASE_EXPORTER` when it names a `.jsonl` file |
 | More files | `BRIEFCASE_MCP_RECORDS=a.jsonl:b.jsonl` (`os.pathsep`-separated) |
 | Per call | the `path` argument: a records `.jsonl`, a hash-chain `.jsonl`, a bitemporal `.db`/`.sqlite`, or a baseline `.json` |
@@ -69,12 +69,12 @@ Only lines that look like decision records (a `decision_id`, `decision_type` or
 
 ## How to turn it off or undo
 
-`briefcase connect --undo` removes the server registration `briefcase mcp install` wrote (it
+`briefcase-ai connect --undo` removes the server registration `briefcase-ai mcp install` wrote (it
 shares `connect`'s journal). The tools themselves change nothing, so there is nothing else to undo.
 
 ## Real tool calls
 
-Captured on 2026-11-22: `briefcase-mcp` run over **stdio** by an `mcp` 2.3.0 client, in a
+Captured on 2026-11-22: `briefcase-ai-mcp` run over **stdio** by an `mcp` 2.3.0 client, in a
 temporary `HOME` holding (1) receiver records made by the receiver from the captured Claude Code
 2.1.330 OTLP payload in `tests/receiver/fixtures/real/`, the synthetic Claude Code payloads in
 `tests/receiver/payloads.py` and three policy decisions posted to `/v1/policy/decisions`, (2)
@@ -453,7 +453,7 @@ counted once:
       ]
     }
   ],
-  "cost_note": "cost_estimated_usd comes from briefcase.pricing (packaged rates are unverified; `briefcase pricing check`), not from the records",
+  "cost_note": "cost_estimated_usd comes from briefcase.pricing (packaged rates are unverified; `briefcase-ai pricing check`), not from the records",
   "sources": [
     {
       "path": "~/app/runs.jsonl",
@@ -531,7 +531,7 @@ Usage by model, with estimated and unpriced costs kept apart:
     "made-up-model-9": "model not in the pricing table"
   },
   "deduplicated_model_calls": 1,
-  "cost_note": "cost_recorded_usd is what the records carry; cost_estimated_usd is computed here from token counts with briefcase.pricing (packaged rates are unverified unless `briefcase pricing check` says otherwise); unpriced calls are counted in `unpriced` and add nothing",
+  "cost_note": "cost_recorded_usd is what the records carry; cost_estimated_usd is computed here from token counts with briefcase.pricing (packaged rates are unverified unless `briefcase-ai pricing check` says otherwise); unpriced calls are counted in `unpriced` and add nothing",
   "sources": [
     {
       "path": "~/app/runs.jsonl",
@@ -663,7 +663,7 @@ A replay plan (nothing runs):
     }
   ],
   "missing_ids": [],
-  "note": "plan only: nothing was replayed and no model was called. To run it yourself: `briefcase replay run ~/app/runs.jsonl` (it asks before spending money)",
+  "note": "plan only: nothing was replayed and no model was called. To run it yourself: `briefcase-ai replay run ~/app/runs.jsonl` (it asks before spending money)",
   "sources": [
     {
       "path": "~/app/runs.jsonl",
@@ -694,7 +694,7 @@ Error executing tool search_decisions: '/etc/passwd.jsonl' is outside your home 
   a keyed hash of it is recorded.
 - Costs: `cost_recorded_usd` is what a record carries (Claude Code reports it);
   `cost_estimated_usd` is computed from token counts with `briefcase.pricing`, whose packaged
-  rates are unverified unless `briefcase pricing check` says otherwise; prompt-cache tokens and
+  rates are unverified unless `briefcase-ai pricing check` says otherwise; prompt-cache tokens and
   long-context tiers are left unpriced rather than guessed.
 - The cursor is a position (`started_at`, id), so new records appended between pages do not
   shift a page; edits to a file between pages can.
@@ -705,10 +705,10 @@ Error executing tool search_decisions: '/etc/passwd.jsonl' is outside your home 
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| The assistant says it has no briefcase tools | the server is not registered with that tool | `briefcase mcp install` (then restart the tool) |
-| `search_decisions` returns nothing and a note "no record files found" | no receiver records and no `.jsonl` exporter | `briefcase receive --detach`, or `BRIEFCASE_EXPORTER=runs.jsonl` in your app |
+| The assistant says it has no briefcase tools | the server is not registered with that tool | `briefcase-ai mcp install` (then restart the tool) |
+| `search_decisions` returns nothing and a note "no record files found" | no receiver records and no `.jsonl` exporter | `briefcase-ai receive --detach`, or `BRIEFCASE_EXPORTER=runs.jsonl` in your app |
 | "... is outside your home directory ... refused" | the path is outside the allowed roots (or a symlink out of them) | move the file, or set `BRIEFCASE_MCP_ROOTS` for the server |
 | `get_decision` says no content was captured | content capture was off when the record was written (the default) | re-capture with content on (`briefcase.auto(capture_content=True)`, receiver `--keep-content`) if you need it |
-| Costs show up as `unpriced` | the model is not in the pricing table | `briefcase pricing set MODEL ...`, then ask again |
+| Costs show up as `unpriced` | the model is not in the pricing table | `briefcase-ai pricing set MODEL ...`, then ask again |
 | `verify_records` says "decision records, not hash-chain entries" | you passed the records file | pass the chain file as `path` and the records file as `records_path` |
-| `drift_check` says "no saved baseline" | none saved under that name | `briefcase drift baseline save NAME --from FILE` |
+| `drift_check` says "no saved baseline" | none saved under that name | `briefcase-ai drift baseline save NAME --from FILE` |

@@ -112,7 +112,7 @@ describe.skipIf(!pythonOk)("against the Python implementation", () => {
     expect(BigInt(span["endTimeUnixNano"]!)).toBe(BigInt(py["end"] as string));
   });
 
-  it("briefcase receive's OTLP/JSON parser accepts our trace body", async () => {
+  it("briefcase-ai receive's OTLP/JSON parser accepts our trace body", async () => {
     const [ok] = await tsRecords();
     const body = otlpTracesBody([ok!], "svc");
     const py = await python({ op: "otlp_parse", body });

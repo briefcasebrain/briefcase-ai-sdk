@@ -1,4 +1,4 @@
-"""briefcase doctor: ordered preflight checks via an injected runner + reflection probe, and the
+"""briefcase-ai doctor: ordered preflight checks via an injected runner + reflection probe, and the
 severity -> exit-code mapping. No Docker, no live server."""
 from argparse import Namespace
 

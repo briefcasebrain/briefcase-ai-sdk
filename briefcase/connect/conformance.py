@@ -2,7 +2,7 @@
 
 ``conformance-report.json`` ships with the package: for each tool, the level reached
 (``docs-only`` < ``config-accepted`` < ``telemetry-verified``), the tool version it was
-run against and the date. ``briefcase doctor --connect`` compares that with the version
+run against and the date. ``briefcase-ai doctor --connect`` compares that with the version
 installed here. The harness that produces the report lives in ``scripts/conformance``.
 """
 

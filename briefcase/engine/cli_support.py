@@ -51,9 +51,9 @@ def run(args: Any, engine: Any, body: Callable[[Any], int]) -> int:
     try:
         return body(client)
     except EngineError as exc:
-        fix = {"unavailable": "briefcase engine status",
-               "UNIMPLEMENTED": "briefcase engine upgrade",
-               "UNAUTHENTICATED": "briefcase engine status"}.get(exc.code)
+        fix = {"unavailable": "briefcase-ai engine status",
+               "UNIMPLEMENTED": "briefcase-ai engine upgrade",
+               "UNAUTHENTICATED": "briefcase-ai engine status"}.get(exc.code)
         return _ux.fail(str(exc), fix=fix)
     finally:
         try:
@@ -73,7 +73,7 @@ def needs_newer_engine(args: Any, engine: Any, what: str, missing: str) -> int:
     if getattr(args, "json", False):
         _ux.print_json({"error": "requires_newer_engine", "message": message})
         return 1
-    return _ux.fail(message, fix="briefcase engine upgrade   # once a release adds it")
+    return _ux.fail(message, fix="briefcase-ai engine upgrade   # once a release adds it")
 
 
 def short(value: Any, n: int = 12) -> str:

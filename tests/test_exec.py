@@ -1,4 +1,4 @@
-"""``briefcase exec`` and the interpreter-start bootstrap.
+"""``briefcase-ai exec`` and the interpreter-start bootstrap.
 
 The end-to-end tests run real child interpreters: a script that knows
 nothing about exporters is started through
@@ -88,7 +88,7 @@ def test_bootstrap_directory_holds_sitecustomize_and_no_pth_file():
 
 
 def test_register_adds_an_exec_subcommand_like_the_other_modules():
-    parser = argparse.ArgumentParser(prog="briefcase")
+    parser = argparse.ArgumentParser(prog="briefcase-ai")
     sub = parser.add_subparsers(dest="command")
     exec_commands.register(sub)
 

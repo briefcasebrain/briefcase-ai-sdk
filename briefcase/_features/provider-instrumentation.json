@@ -3,7 +3,7 @@
   "title": "Model provider capture",
   "verb": "capture",
   "one_line": "One record per OpenAI, Anthropic, Gemini or Bedrock call: tokens and latency.",
-  "command": "briefcase exec -- python app.py",
+  "command": "briefcase-ai exec -- python app.py",
   "docs_slug": "capture/provider-instrumentation",
   "status": "experimental",
   "requires_extra": null,

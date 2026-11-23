@@ -3,7 +3,7 @@
   "title": "Budget and quota gateway",
   "verb": "enforce",
   "one_line": "Cap spend and request rates per tenant before a model call goes out.",
-  "command": "briefcase features controls-gateway",
+  "command": "briefcase-ai features controls-gateway",
   "docs_slug": "enforce/controls-gateway",
   "status": "experimental",
   "requires_extra": null,

@@ -3,8 +3,8 @@
 Each record is produced by the real provider instrumentation (content on)
 from a response body generated from that provider's spec (OpenAI chat,
 Anthropic Messages, Bedrock Converse), so the records have exactly the
-shape production records have. Then ``briefcase dataset from-records`` turns
-them into a dataset and ``briefcase eval run`` scores a deterministic target
+shape production records have. Then ``briefcase-ai dataset from-records`` turns
+them into a dataset and ``briefcase-ai eval run`` scores a deterministic target
 against it with the ``exact`` and ``json`` scorers. No model is involved.
 """
 

@@ -1,4 +1,4 @@
-"""Tries to replace the built-in `briefcase status`; the built-in wins."""
+"""Tries to replace the built-in `briefcase-ai status`; the built-in wins."""
 
 
 def register(subparsers) -> None:

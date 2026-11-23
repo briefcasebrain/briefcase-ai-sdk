@@ -1,10 +1,10 @@
-"""Install and remove the enforcement hooks through the ``briefcase connect`` machinery.
+"""Install and remove the enforcement hooks through the ``briefcase-ai connect`` machinery.
 
 Every write is a :class:`~briefcase.connect.edits.FileEdit`: key-level, with a
 diff, one confirmation, a timestamped backup and a journal entry, exactly like
-``briefcase connect``. The entries are journalled under ``policy:<tool>`` so
-``briefcase policy off`` removes the hooks and nothing else, while
-``briefcase connect --undo`` (no tool named) still removes everything.
+``briefcase-ai connect``. The entries are journalled under ``policy:<tool>`` so
+``briefcase-ai policy off`` removes the hooks and nothing else, while
+``briefcase-ai connect --undo`` (no tool named) still removes everything.
 
 The entry written to each tool's file is described under ``enforce`` in
 ``briefcase/connect/adapters.json`` with its documentation URL.
@@ -46,9 +46,9 @@ def hook_command(tool: str, options: HookOptions) -> str:
     """The command a tool runs before each tool call.
 
     The default form names this Python and the launcher file by absolute path:
-    it starts in about a quarter of the time of ``briefcase hook``, which has
+    it starts in about a quarter of the time of ``briefcase-ai hook``, which has
     to import the SDK first. ``portable`` gives the form that works on any
-    machine with ``briefcase`` on PATH, for files that are shared.
+    machine with ``briefcase-ai`` on PATH, for files that are shared.
 
     How the command fails when the launcher file is gone (briefcase upgraded
     into another environment, a virtualenv deleted) matters, because Python
@@ -61,10 +61,10 @@ def hook_command(tool: str, options: HookOptions) -> str:
     - fail closed: the launcher is passed as the script, so a missing file is
       exit code 2 and blocks, even in Codex, which has no fail-closed setting.
 
-    Checked against Claude Code 2.1.330 (``briefcase policy`` E2E run, 2026-11-22)."""
+    Checked against Claude Code 2.1.330 (``briefcase-ai policy`` E2E run, 2026-11-22)."""
     flags_py = ["-I"] + (["-S"] if sys.version_info >= (3, 11) else [])
     if options.portable:
-        base = ["briefcase", "hook", tool]
+        base = ["briefcase-ai", "hook", tool]
     elif options.fail_closed:
         base = [sys.executable] + flags_py + [launcher_path(), tool]
     else:
@@ -131,8 +131,8 @@ class PolicyAdapter(Adapter):
         command = hook_command(self.tool, self.options)
         project = ctx.scope == "project"
         notes: List[str] = []
-        if self.options.portable and not shutil.which("briefcase"):
-            notes.append("`briefcase` is not on PATH here; the hook will fail open until it is")
+        if self.options.portable and not shutil.which("briefcase-ai"):
+            notes.append("`briefcase-ai` is not on PATH here; the hook will fail open until it is")
         if self.tool == "claude-code":
             path = ctx.project_dir / ".claude" / "settings.json" if project else self.path("user_settings")
             field = self.enforce["fail_closed_field"]
@@ -151,7 +151,7 @@ class PolicyAdapter(Adapter):
             entry = claude_entry(command, self.enforce, self.options.fail_closed, supports)
             notes.append("a denied or asked call shows the rule's reason in Claude Code; allowed calls go through "
                          "Claude Code's normal permission prompts")
-            return [FileEdit(self.id, path, "json", "Run the briefcase policy before each tool call (PreToolUse)",
+            return [FileEdit(self.id, path, "json", "Run the briefcase-ai policy before each tool call (PreToolUse)",
                              ops=[{"op": "append", "path": ["hooks", "PreToolUse"], "value": entry,
                                    "owned_by": marker(self.tool)}], notes=notes)]
         if self.tool == "cursor":
@@ -164,7 +164,7 @@ class PolicyAdapter(Adapter):
                       "Cursor can ask only for shell commands and MCP tools; for file reads and writes an "
                       "`ask` rule becomes the policy's ask_fallback"]
             return [FileEdit(self.id, path, "json",
-                             "Run the briefcase policy before shell commands, MCP tools, file reads and writes",
+                             "Run the briefcase-ai policy before shell commands, MCP tools, file reads and writes",
                              ops=ops, notes=notes)]
         if self.tool == "codex":
             if project:
@@ -174,7 +174,7 @@ class PolicyAdapter(Adapter):
             notes += ["experimental: taken from Codex's documentation, never run against Codex",
                       "Codex skips a new hook until you trust it: open /hooks in Codex once after this",
                       "Codex cannot ask from a hook, so an `ask` rule becomes the policy's ask_fallback"]
-            return [FileEdit(self.id, path, "json", "Run the briefcase policy before each tool call (PreToolUse)",
+            return [FileEdit(self.id, path, "json", "Run the briefcase-ai policy before each tool call (PreToolUse)",
                              ops=[{"op": "append", "path": ["hooks", "PreToolUse"],
                                    "value": codex_entry(command, self.enforce), "owned_by": marker(self.tool)}],
                              notes=notes)]

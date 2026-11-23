@@ -22,7 +22,7 @@ INCLUDE_LINE = '"briefcase/_features/*.json",'
 GOOD = {
     "id": "policy-hooks", "title": "Policy for coding tools", "verb": "enforce",
     "one_line": "Allow, ask or deny what Claude Code and Cursor may run.",
-    "command": "briefcase policy init", "docs_slug": "enforce/policy-hooks",
+    "command": "briefcase-ai policy init", "docs_slug": "enforce/policy-hooks",
     "status": "experimental", "requires_extra": None,
     "verified_against": "Claude Code 2.1.330 (real install); Cursor (docs only)",
 }
@@ -148,7 +148,7 @@ def test_shipped_manifest(path):
         assert words[0] in ("node", "npx", "npm"), feature.command
     else:
         assert feature.runtime in (None, "python")
-        assert words[0] == "briefcase", "a non-briefcase command needs an explicit runtime in its manifest"
+        assert words[0] == "briefcase-ai", "a non-briefcase command needs an explicit runtime in its manifest"
         parser = build_parser()
         assert words[1] in parser.subparsers.choices, feature.command
         if "--" not in words and "<" not in feature.command:
@@ -170,7 +170,7 @@ def test_docs_catalog_page_is_generated_from_the_manifests():
     page = REPO / "docs" / "features" / "catalog.md"
     assert page.read_text(encoding="utf-8") == render_markdown(load_catalog()), (
         "docs/features/catalog.md is stale. Regenerate it with:\n"
-        "    briefcase features --markdown > docs/features/catalog.md"
+        "    briefcase-ai features --markdown > docs/features/catalog.md"
     )
     for target in re.findall(r"\]\(([^)#]+)", page.read_text(encoding="utf-8")):
         assert (page.parent / target).resolve().exists(), target

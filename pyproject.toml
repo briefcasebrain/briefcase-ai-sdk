@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "briefcase-ai"
 version = "4.4.0"
-description = "Governance infrastructure for AI decisions: enforce controls, record context, replay later"
+description = "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.9"
@@ -107,18 +107,18 @@ pageindex = ["pageindex>=0.1"]
 openai-agents = ["openai-agents>=0.1"]
 # briefcase.mcp imports FastMCP (mcp 1.x) or its 2.x rename MCPServer; verified on 1.30 and 2.3.
 mcp = ["mcp>=1.2,<3"]
-# The `briefcase` evaluation-run CLI talks to oci-jj-server over gRPC, discovering the schema via
+# The `briefcase-ai` evaluation-run CLI talks to oci-jj-server over gRPC, discovering the schema via
 # server reflection (no generated stubs). grpcio-reflection is the PyPI wheel; the import is
 # grpc_reflection.v1alpha. The subprocess oci-jj fallback (BRIEFCASE_ENGINE=cli) needs none of these.
 run = ["grpcio>=1.60,<2", "grpcio-reflection>=1.60,<2", "protobuf>=4.25"]
-# `briefcase engine` / `graph` / `env`: the gRPC client for the Briefcase engine (oci-jj), built from
+# `briefcase-ai engine` / `graph` / `env`: the gRPC client for the Briefcase engine (oci-jj), built from
 # the vendored Apache-2.0 contract in briefcase/engine/_proto (no reflection needed). The engine
-# itself is proprietary and is NOT a dependency: `briefcase engine install` gets it from the gated
+# itself is proprietary and is NOT a dependency: `briefcase-ai engine install` gets it from the gated
 # portal and verifies its ECDSA P-256 release signatures with `cryptography` (without it, the
 # installer needs `cosign` on PATH instead).
 engine = ["grpcio>=1.60,<2", "protobuf>=4.25", "cryptography>=42"]
-# `briefcase receive` decodes OTLP/JSON with the stdlib. This extra adds OTLP/protobuf decoding,
-# which Codex and Copilot send; Claude Code is configured for http/json by `briefcase connect`
+# `briefcase-ai receive` decodes OTLP/JSON with the stdlib. This extra adds OTLP/protobuf decoding,
+# which Codex and Copilot send; Claude Code is configured for http/json by `briefcase-ai connect`
 # and needs nothing extra.
 receiver = ["opentelemetry-proto>=1.20"]
 # Shared budget stores for `briefcase.budgets`; the in-memory and SQLite stores need no extra.
@@ -142,8 +142,8 @@ dev = [
 all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,rag-chroma,rag-pinecone,rag-weaviate,correlation,external,events,kafka,webhook,gcp-logging,routing,opa,lakefs,vcs,vcs-dvc,vcs-pachyderm,vcs-ducklake,vcs-iceberg,gym,evals,bitemporal,bitemporal-iceberg,bitemporal-glue,compliance,compliance-kms,controls,integrity,langchain,crewai,llamaindex,autogen,ag2,pageindex,openai-agents,mcp,run,engine,receiver,budgets-redis,budgets-postgres,budgets-mysql]"]
 
 [project.scripts]
-briefcase-mcp = "briefcase.mcp.__main__:main"
-briefcase = "briefcase.cli.__main__:main"
+briefcase-ai-mcp = "briefcase.mcp.__main__:main"
+briefcase-ai = "briefcase.cli.__main__:main"
 
 [tool.pytest.ini_options]
 # `tests/` mocks briefcase._native process-wide, so it cannot share an
@@ -239,7 +239,7 @@ python-source = "."
 # `License-File: LICENSE` in the metadata, so the file must be present or PyPI
 # rejects the upload with a 400.
 #
-# The `briefcase stack` command and `briefcase doctor` read these data files at runtime via
+# The `briefcase-ai stack` command and `briefcase-ai doctor` read these data files at runtime via
 # importlib.resources; maturin only ships non-.py files that are listed here, so they MUST be
 # enumerated explicitly (a missing entry silently drops them from the wheel — see check_imports.py).
 include = [
@@ -263,6 +263,6 @@ include = [
     # repo-root llms-full.txt (tests/test_mcp_guide.py keeps them identical),
     # because a file outside the package cannot ship inside it.
     "briefcase/mcp/llms-full.txt",
-    # Per-tool paths, keys and documentation provenance for `briefcase connect`.
+    # Per-tool paths, keys and documentation provenance for `briefcase-ai connect`.
     "briefcase/connect/adapters.json",
 ]

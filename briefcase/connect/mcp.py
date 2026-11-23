@@ -1,4 +1,4 @@
-"""Install payloads for the SDK's own MCP server (``briefcase-mcp``).
+"""Install payloads for the SDK's own MCP server (``briefcase-ai-mcp``).
 
 One server config, rendered into each tool's install mechanism: a Cursor
 deeplink, ``claude mcp add`` / ``add-json``, ``codex mcp add``,
@@ -16,15 +16,15 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 SERVER_NAME = "briefcase"
 CURSOR_DEEPLINK = "cursor://anysphere.cursor-deeplink/mcp/install"
-UVX_CONFIG = {"command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-mcp"]}
+UVX_CONFIG = {"command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]}
 
 
 def server_config(which: Optional[Callable[[str], Optional[str]]] = None) -> Dict[str, Any]:
-    """``briefcase-mcp`` when it is on PATH, else a ``uvx`` one-liner that
+    """``briefcase-ai-mcp`` when it is on PATH, else a ``uvx`` one-liner that
     needs nothing installed beforehand."""
     which = which or shutil.which
-    if which("briefcase-mcp"):
-        return {"command": "briefcase-mcp"}
+    if which("briefcase-ai-mcp"):
+        return {"command": "briefcase-ai-mcp"}
     return {"command": UVX_CONFIG["command"], "args": list(UVX_CONFIG["args"])}
 
 

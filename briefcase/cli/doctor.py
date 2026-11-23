@@ -1,4 +1,4 @@
-"""``briefcase doctor`` — an install/compat preflight for the evaluation-run stack.
+"""``briefcase-ai doctor`` — an install/compat preflight for the evaluation-run stack.
 
 Runs ordered checks (Docker → bundled compose → compat → image pull access → server reflection + the
 structural API floor) and prints the resolved compatibility matrix. Docker calls go through an injected
@@ -85,7 +85,7 @@ class Doctor:
             if res is not None and getattr(res, "returncode", 1) == 0:
                 out.append((OK, "image", ref))
             elif private:
-                out.append((WARN, "image", f"{ref} private — installed by: briefcase engine install"))
+                out.append((WARN, "image", f"{ref} private — installed by: briefcase-ai engine install"))
             else:
                 out.append((WARN, "image", f"{ref} not pullable yet"))
 
@@ -96,7 +96,7 @@ class Doctor:
             if res is not None and getattr(res, "returncode", 1) == 0:
                 out.append((OK, "scorer image", ref))
             else:
-                out.append((WARN, "scorer image", f"{ref} private (scoring) — installed by: briefcase engine install"))
+                out.append((WARN, "scorer image", f"{ref} private (scoring) — installed by: briefcase-ai engine install"))  # noqa: E501
 
         floor = compat.get("oci_jj_api_min", "v1")
         try:
@@ -110,7 +110,7 @@ class Doctor:
                 # Reachable but secured (oci-jj OCI_JJ_AUTH_TOKENS): not a "stack down" problem.
                 out.append((FAIL, "server", f"{server} requires a bearer token; set OCI_JJ_AUTH_TOKEN"))
             else:
-                out.append((WARN, "server", f"unreachable at {server}; is the engine running? (briefcase engine up)"))
+                out.append((WARN, "server", f"unreachable at {server}; is the engine running? (briefcase-ai engine up)"))  # noqa: E501
 
         return out
 
@@ -134,7 +134,7 @@ def connect_checks(adapters=None, probe=None):
     from briefcase.receiver import daemon
 
     results = connect_engine.doctor_checks(adapters, probe=probe or daemon.probe)
-    try:  # the enforcement hooks, when `briefcase policy` is in use
+    try:  # the enforcement hooks, when `briefcase-ai policy` is in use
         from briefcase.cli import policy_commands
         results = list(results) + list(policy_commands.doctor_checks())
     except Exception as exc:
@@ -157,7 +157,7 @@ def conformance_checks(adapters=None, report=None):
 
 def cmd_doctor_connect(args) -> int:
     results = connect_checks()
-    print("briefcase connect integrations:")
+    print("briefcase-ai connect integrations:")
     for sev, label, detail in results:
         print(f"{_MARK[sev]} {label}: {detail}" if detail else f"{_MARK[sev]} {label}")
     rc = summarize(results, strict=getattr(args, "strict", False))
@@ -195,7 +195,7 @@ def cmd_doctor_plugins(args) -> int:
     from briefcase import plugins
 
     results = plugin_checks()
-    print(f"briefcase plugins (plugin API {plugins.PLUGIN_API_VERSION}):")
+    print(f"briefcase-ai plugins (plugin API {plugins.PLUGIN_API_VERSION}):")
     if not plugins.enabled():
         print(f"  turned off by {plugins.ENV_SWITCH}=off")
     if not results:
@@ -223,7 +223,7 @@ def cmd_doctor(args, store, engine, stack=None) -> int:
         for key in ("briefcase_ai", "oci_jj_api_min", "oci_jj_image_tag", "verdictml"):
             print(f"  {key}: {compat.get(key)}")
         if compat.get("private_preview"):
-            print("  engine images: private — get them with `briefcase engine install` "
+            print("  engine images: private — get them with `briefcase-ai engine install` "
                   "(https://observe.briefcasebrain.io/engine)")
     except Exception:
         pass

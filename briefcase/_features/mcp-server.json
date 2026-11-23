@@ -3,7 +3,7 @@
   "title": "MCP server",
   "verb": "review",
   "one_line": "Let your coding assistant redact text, price a call or check drift itself.",
-  "command": "briefcase mcp install",
+  "command": "briefcase-ai mcp install",
   "docs_slug": "review/mcp-server",
   "status": "experimental",
   "requires_extra": "mcp",

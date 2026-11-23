@@ -141,7 +141,7 @@ def test_clean_env_drops_ambient_identity(monkeypatch, tmp_path):
 
 
 def test_tee_forwards_real_payloads_to_a_real_receiver_and_records_appear():
-    """The corpus capture is posted through the Tee into `briefcase receive`: same path the harness uses."""
+    """The corpus capture is posted through the Tee into `briefcase-ai receive`: same path the harness uses."""
     source = os.path.join(FIXTURES, "claude-code")
     versions = [d for d in os.listdir(source)] if os.path.isdir(source) else []
     if not versions:

@@ -372,7 +372,7 @@ class ReflectionTransport(Transport):
                 ) from e
             raise TransportUnavailable(
                 f"oci-jj-server reflection unreachable at {self.endpoint} ({e}); "
-                f"is the engine running? try 'briefcase engine up', or set BRIEFCASE_ENGINE=cli."
+                f"is the engine running? try 'briefcase-ai engine up', or set BRIEFCASE_ENGINE=cli."
             ) from e
 
     def _info(self, **kw):
@@ -460,7 +460,7 @@ class GrpcEngine:
     API_FLOOR = "oci_jj.v1"
 
     def __init__(self, server=None, repo=None, transport=None) -> None:
-        # --server, then BRIEFCASE_ENGINE_ADDR / OCI_JJ_SERVER, then a local `briefcase engine
+        # --server, then BRIEFCASE_ENGINE_ADDR / OCI_JJ_SERVER, then a local `briefcase-ai engine
         # install`, then the default; see briefcase.engine.client_settings.
         from briefcase.engine import client_settings
 
@@ -541,7 +541,7 @@ class GrpcEngine:
     def exec(self, call, env=None):
         # ``env`` mirrors OciJJEngine.exec. oci-jj has no RPC field that carries run secrets or env
         # vars to the verdict worker, so the only key that has an effect over gRPC is the client's
-        # own OCI_JJ_AUTH_TOKEN (e.g. stored with `briefcase secret set`). Say so instead of
+        # own OCI_JJ_AUTH_TOKEN (e.g. stored with `briefcase-ai secret set`). Say so instead of
         # dropping the rest silently.
         env = env or {}
         token = env.get(TOKEN_ENV)

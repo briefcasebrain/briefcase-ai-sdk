@@ -1,4 +1,4 @@
-"""briefcase stack: docker-compose invocation via an injected runner (RecordingRunner style), the
+"""briefcase-ai stack: docker-compose invocation via an injected runner (RecordingRunner style), the
 scorer-profile gating + tag pinning, the retry-without-scorer fallback, run-logs delegation, and that
 the bundled compose + compat.json actually ship and are image-based."""
 from argparse import Namespace

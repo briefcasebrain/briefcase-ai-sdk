@@ -60,7 +60,7 @@ being rounded. Python `int` and Rust `i64`/`u64` follow the same rule.
 ### Evidence bundles
 
 `verifyBundle(zipBytes, { expectedKeyIds })` checks a briefcase evidence bundle
-(format 2, written by the Python SDK's `briefcase bundle create`): every file
+(format 2, written by the Python SDK's `briefcase-ai bundle create`): every file
 against the sealed manifest, the manifest's RFC 8785 `content_hash`, Ed25519
 signatures (via `node:crypto`), checkpoint hashes, signatures and chaining, and
 each chained record's entry hash and Merkle inclusion proof. AWS KMS signatures

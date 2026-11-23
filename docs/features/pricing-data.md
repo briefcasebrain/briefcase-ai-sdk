@@ -14,7 +14,7 @@ top-level `notice`. Many current models are not priced (see `briefcase/data/pric
 ## The one command
 
 ```bash
-briefcase pricing check --records runs.jsonl
+briefcase-ai pricing check --records runs.jsonl
 ```
 
 Validates every pricing layer, flags unverified or old data, and lists the models in your records that
@@ -22,12 +22,12 @@ have no price, each with the exact command that adds one.
 
 ## Output (real run in a temp HOME)
 
-Captured with the command module driven directly from a throwaway `HOME`; `briefcase pricing ...`
+Captured with the command module driven directly from a throwaway `HOME`; `briefcase-ai pricing ...`
 becomes available once the CLI shell auto-discovers `briefcase/cli/*_commands.py`. `o3` is a known
 model with no shipped price; `acme-large` is a made-up model and its prices are placeholders, not real.
 
 ```text
-$ briefcase pricing check --records runs.jsonl
+$ briefcase-ai pricing check --records runs.jsonl
 ok  packaged   39 models  packaged
 warn 39 of 39 models have no provenance (source_url/verified_on are null): prices are unverified
 warn 2 model(s) in your records have no price
@@ -35,16 +35,16 @@ warn 2 model(s) in your records have no price
 Records: 5 read from runs.jsonl (4 distinct models)
 Models in your records with NO price:
   o3  (2 records)  [known model, no price shipped]
-      briefcase pricing set o3 --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL
+      briefcase-ai pricing set o3 --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL
   acme-large  (1 records)
-      briefcase pricing set acme-large --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL
-Next: briefcase pricing set o3 --input ... --output ... --source-url URL
+      briefcase-ai pricing set acme-large --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL
+Next: briefcase-ai pricing set o3 --input ... --output ... --source-url URL
 
-$ briefcase pricing set acme-large --input 1 --output 2 --source-url https://acme.example/pricing
+$ briefcase-ai pricing set acme-large --input 1 --output 2 --source-url https://acme.example/pricing
 'acme-large' is not in the table, so --context-window N and --provider NAME is required. Run:
-  briefcase pricing set acme-large --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL
+  briefcase-ai pricing set acme-large --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL
 
-$ briefcase pricing set acme-large --input 1 --output 2 --context-window 128000 --provider acme --source-url https://acme.example/pricing --yes
+$ briefcase-ai pricing set acme-large --input 1 --output 2 --context-window 128000 --provider acme --source-url https://acme.example/pricing --yes
 Set acme-large: input $1/MTok, output $2/MTok
 
 --- ~/.briefcase/pricing.json (current)
@@ -64,15 +64,15 @@ Set acme-large: input $1/MTok, output $2/MTok
 +      "source_url": "https://acme.example/pricing",
 +      "effective_from": null,
 +      "verified_on": "2026-11-21",
-+      "origin": "user:briefcase pricing set"
++      "origin": "user:briefcase-ai pricing set"
 +    }
 +  ]
 +}
 
 Wrote ~/.briefcase/pricing.json
-Next: briefcase pricing show acme-large
+Next: briefcase-ai pricing show acme-large
 
-$ briefcase pricing check --records runs.jsonl
+$ briefcase-ai pricing check --records runs.jsonl
 ok  packaged   39 models  packaged
 ok  user        1 models  ~/.briefcase/pricing.json
 warn 39 of 40 models have no provenance (source_url/verified_on are null): prices are unverified
@@ -81,10 +81,10 @@ warn 1 model(s) in your records have no price
 Records: 5 read from runs.jsonl (4 distinct models)
 Models in your records with NO price:
   o3  (2 records)  [known model, no price shipped]
-      briefcase pricing set o3 --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL
-Next: briefcase pricing set o3 --input ... --output ... --source-url URL
+      briefcase-ai pricing set o3 --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL
+Next: briefcase-ai pricing set o3 --input ... --output ... --source-url URL
 
-$ briefcase pricing show claude-sonnet-4-5-20250929
+$ briefcase-ai pricing show claude-sonnet-4-5-20250929
 claude-sonnet-4-5  (anthropic)   [claude-sonnet-4-5-20250929 matched by normalized]
   input   $3 per million tokens
   output  $15 per million tokens
@@ -96,13 +96,13 @@ claude-sonnet-4-5  (anthropic)   [claude-sonnet-4-5-20250929 matched by normaliz
   extras  cache/long-context/fast-mode rates exist for this built-in; the pure-Python estimate refuses them (native extension needed)
   note    this price has not been checked against a provider page
 
-Next: briefcase pricing check --records FILE
+Next: briefcase-ai pricing check --records FILE
 
-$ briefcase pricing show gpt-5
+$ briefcase-ai pricing show gpt-5
 No price for 'gpt-5'.
-It is a known model with no price shipped (provider openai); add one with `briefcase pricing set`.
+It is a known model with no price shipped (provider openai); add one with `briefcase-ai pricing set`.
 Closest priced ids: gpt-5.5, gpt-5.4, gpt-4
-Add it:  briefcase pricing set gpt-5 --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL
+Add it:  briefcase-ai pricing set gpt-5 --input USD_PER_MTOK --output USD_PER_MTOK --context-window N --provider NAME --source-url URL
 ```
 
 ## What it writes or sends, and where
@@ -149,7 +149,7 @@ identical built-ins would make native pricing worse.
 
 ## Turn it off or undo
 
-`briefcase pricing unset MODEL` removes one entry; deleting `~/.briefcase/pricing.json` removes the user layer.
+`briefcase-ai pricing unset MODEL` removes one entry; deleting `~/.briefcase/pricing.json` removes the user layer.
 The packaged file is read-only data.
 
 ## Limits and failure modes
@@ -165,8 +165,8 @@ The packaged file is read-only data.
 
 | Symptom | Do this |
 |---|---|
-| `Pricing files are invalid:` with `path:line:` lines | Edit that line, or move the file aside; `briefcase pricing check` shows every layer |
-| A model shows `cost 0` or "unknown model" | `briefcase pricing check --records FILE`, then run the `pricing set` it prints |
+| `Pricing files are invalid:` with `path:line:` lines | Edit that line, or move the file aside; `briefcase-ai pricing check` shows every layer |
+| A model shows `cost 0` or "unknown model" | `briefcase-ai pricing check --records FILE`, then run the `pricing set` it prints |
 | `pricing set` says `--context-window N and --provider NAME is required` | The model is not in the table; pass both |
 | `Not writing without confirmation` | No terminal to ask on; add `--yes` (or `--dry-run` to preview) |
 | `needs native extension` from `estimate` | Install the native wheel (`pip install briefcase-ai`); the case is not flat per-token |

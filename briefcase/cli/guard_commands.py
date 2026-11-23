@@ -1,8 +1,8 @@
-"""``briefcase guard``: see what the content guardrails find in a text, and why.
+"""``briefcase-ai guard``: see what the content guardrails find in a text, and why.
 
-    briefcase guard test --text "call me on +44 20 7946 0958, password=hunter22"
-    briefcase guard test --file prompt.txt --source tool        # as a tool result
-    briefcase guard init                                         # write ~/.briefcase/guard.toml
+    briefcase-ai guard test --text "call me on +44 20 7946 0958, password=hunter22"
+    briefcase-ai guard test --file prompt.txt --source tool        # as a tool result
+    briefcase-ai guard init                                         # write ~/.briefcase/guard.toml
 
 Checks come from ~/.briefcase/guard.toml ($BRIEFCASE_GUARD_FILE) or the defaults
 (PII: redact in prompts, warn in completions; prompt-injection heuristics on tool and
@@ -21,7 +21,7 @@ from briefcase.cli import _ux
 GROUP = "enforce"
 ORDER = 45
 
-TEST_EXAMPLE = 'example: briefcase guard test --text "call +44 20 7946 0958, password=hunter22"'
+TEST_EXAMPLE = 'example: briefcase-ai guard test --text "call +44 20 7946 0958, password=hunter22"'
 
 #: Why a finding kind fires, for ``guard test``.
 WHY = {
@@ -98,12 +98,12 @@ def register(sub) -> None:
     sp.set_defaults(func=cmd_test)
 
     sp = gs.add_parser("show", help="The checks in effect (guard.toml or the defaults).",
-                       epilog="example: briefcase guard show --json", formatter_class=fmt)
+                       epilog="example: briefcase-ai guard show --json", formatter_class=fmt)
     _ux.add_json_flag(sp)
     sp.set_defaults(func=cmd_show)
 
     sp = gs.add_parser("init", help="Write a starting guard.toml (the defaults, commented).",
-                       epilog="example: briefcase guard init --dry-run", formatter_class=fmt)
+                       epilog="example: briefcase-ai guard init --dry-run", formatter_class=fmt)
     sp.add_argument("--dry-run", dest="guard_dry_run", action="store_true")
     sp.add_argument("--yes", "-y", action="store_true")
     sp.set_defaults(func=cmd_init)
@@ -119,7 +119,7 @@ def _guard() -> Any:
 
 def cmd_guard(args, store=None, engine=None, stack=None) -> int:
     args.guard_parser.print_help()
-    _ux.print_next('briefcase guard test --text "call +44 20 7946 0958"')
+    _ux.print_next('briefcase-ai guard test --text "call +44 20 7946 0958"')
     return 0
 
 
@@ -140,7 +140,7 @@ def cmd_test(args, store=None, engine=None, stack=None) -> int:
     try:
         guard, from_file = _guard()
     except ValueError as exc:
-        return _ux.fail(str(exc), fix=f"briefcase guard init --yes  # or edit {content.config_path()}")
+        return _ux.fail(str(exc), fix=f"briefcase-ai guard init --yes  # or edit {content.config_path()}")
     if args.all_sources:
         import copy
 
@@ -177,7 +177,7 @@ def cmd_test(args, store=None, engine=None, stack=None) -> int:
               "(--source tool, or --all-sources)")
     if not decision.findings and not decision.errors:
         print("nothing found -> allow")
-        _ux.print_next("briefcase guard show", "see which checks ran")
+        _ux.print_next("briefcase-ai guard show", "see which checks ran")
         return 0
     for item in spans:
         where = f"chars {item['start']}-{item['end']}" if item["start"] >= 0 else "whole text"
@@ -190,7 +190,7 @@ def cmd_test(args, store=None, engine=None, stack=None) -> int:
     if result["redacted"] is not None:
         print("after redaction:")
         print("  " + redacted.replace("\n", "\n  "))
-    _ux.print_next("briefcase guard show", "see every check and its effect")
+    _ux.print_next("briefcase-ai guard show", "see every check and its effect")
     return 0
 
 
@@ -236,7 +236,7 @@ def cmd_show(args, store=None, engine=None, stack=None) -> int:
               f"(on error: {check['on_error']}{sources})")
     print(f"streams: {'re-check every ' + str(guard.chunk_check_chars) + ' chars' if guard.chunk_check_chars else 'final text only'}; "  # noqa: E501
           f"unredactable paths: {guard.unredactable}")
-    _ux.print_next('briefcase guard test --text "password=hunter22"')
+    _ux.print_next('briefcase-ai guard test --text "password=hunter22"')
     return 0
 
 
@@ -246,7 +246,7 @@ def cmd_init(args, store=None, engine=None, stack=None) -> int:
     path = content.config_path()
     if path.exists():
         print(f"{path} exists; leaving it as it is.")
-        _ux.print_next("briefcase guard show")
+        _ux.print_next("briefcase-ai guard show")
         return 0
     diff = "".join(difflib.unified_diff([], DEFAULT_TOML.splitlines(True), "/dev/null", str(path)))
     print(diff, end="")
@@ -264,12 +264,12 @@ def cmd_init(args, store=None, engine=None, stack=None) -> int:
         answer = _ux.confirm(f"Write {path}?", assume_yes=args.yes)
         if not answer:
             return _ux.fail(f"{path} is outside ~/.briefcase; not written",
-                            fix="briefcase guard init --yes")
+                            fix="briefcase-ai guard init --yes")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(DEFAULT_TOML, encoding="utf-8")
     print(f"Wrote {path} (undo: delete it). Apps enforce it after "
           "briefcase.guardrails.content.enable().")
-    _ux.print_next('briefcase guard test --text "password=hunter22"')
+    _ux.print_next('briefcase-ai guard test --text "password=hunter22"')
     return 0
 
 
@@ -280,12 +280,12 @@ def status() -> Optional[Dict[str, Any]]:
     if not path.exists():
         return {"id": "content-guardrails", "title": "Content guardrails", "state": "off",
                 "detail": "no guard.toml (apps may still call content.guard() in code)",
-                "next": "briefcase guard init"}
+                "next": "briefcase-ai guard init"}
     try:
         guard = content.load(path)
     except ValueError as exc:
         return {"id": "content-guardrails", "title": "Content guardrails", "state": "attention",
-                "detail": f"guard.toml is invalid: {str(exc)[:120]}", "next": "briefcase guard show"}
+                "detail": f"guard.toml is invalid: {str(exc)[:120]}", "next": "briefcase-ai guard show"}
     count = len(guard.checks) if guard else 0
     native = content.native_available()
     detail = (f"{count} check{'s' if count != 1 else ''} in guard.toml; enforced in apps that call "

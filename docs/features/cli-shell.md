@@ -1,19 +1,19 @@
 # Guided setup, status and the feature catalog
 
-`briefcase` has many commands. These are the three places to start from, so you never have
+`briefcase-ai` has many commands. These are the three places to start from, so you never have
 to read source to find one: a guided setup, a status screen, and a catalog of every feature.
 
 ## The one command
 
 ```bash
-briefcase
+briefcase-ai
 ```
 
 The first time you run it on a terminal it asks one question and walks you through two or
 three steps for your answer. Here is the "AI coding tools" path, start to finish:
 
 ```text
-briefcase setup
+briefcase-ai setup
 One question, then two or three steps. Nothing is written without asking first.
 
 What are you setting up?
@@ -24,8 +24,8 @@ What are you setting up?
 Choice [1/2/3/4]: 1
 
 Step 1 of 2 · Connect your coding tools
-This is `briefcase connect`: it lists every file it would change, shows the diff and
-asks once. Prompt and tool content stays off. Undo any time: briefcase connect --undo
+This is `briefcase-ai connect`: it lists every file it would change, shows the diff and
+asks once. Prompt and tool content stays off. Undo any time: briefcase-ai connect --undo
 Detected: Claude Code
 
 == Claude Code ==
@@ -43,14 +43,14 @@ Detected: Claude Code
     +    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318"
     +  }
     +}
-  run    claude mcp add --scope user briefcase -- uvx --from 'briefcase-ai[mcp]' briefcase-mcp
+  run    claude mcp add --scope user briefcase -- uvx --from 'briefcase-ai[mcp]' briefcase-ai-mcp
          Register the briefcase MCP server with Claude Code
 
 Write 1 file(s) and run 1 command(s)? [Y/n] y
   wrote  ~/.claude/settings.json
-  ran    claude mcp add --scope user briefcase -- uvx --from 'briefcase-ai[mcp]' briefcase-mcp
+  ran    claude mcp add --scope user briefcase -- uvx --from 'briefcase-ai[mcp]' briefcase-ai-mcp
 
-Undo any time with: briefcase connect --undo
+Undo any time with: briefcase-ai connect --undo
 
 Step 2 of 2 · Start the receiver
 The receiver listens on 127.0.0.1:4318 and turns what the tools send into records in
@@ -60,10 +60,10 @@ Start it in the background now? [Y/n] y
 receiver started (pid 10202) on http://127.0.0.1:4318
   records: ~/.briefcase/receiver/records.jsonl
   log:     ~/.briefcase/receiver/receiver.log
-  stop:    briefcase receive --stop
+  stop:    briefcase-ai receive --stop
 Restart the connected tools so they pick up the new settings.
 
-briefcase status  (briefcase-ai 4.4.0, state in ~/.briefcase)
+briefcase-ai status  (briefcase-ai 4.4.0, state in ~/.briefcase)
 
 Connect
   on        Coding tools  Claude Code connected
@@ -74,25 +74,25 @@ Capture
   on        Records       coding tools -> ~/.briefcase/receiver/records.jsonl; Python apps -> the console (stderr), not kept
 
 4 on · 0 off · 0 need attention
-Next: briefcase features  # see what else briefcase can do
+Next: briefcase-ai features  # see what else briefcase can do
 ```
 
-After that first run, a bare `briefcase` prints the command list and the status screen
-instead of the guide. `briefcase setup` runs the guide again whenever you want it.
+After that first run, a bare `briefcase-ai` prints the command list and the status screen
+instead of the guide. `briefcase-ai setup` runs the guide again whenever you want it.
 
 The other two answers:
 
-- **"I'm building an app that calls LLMs"** shows `briefcase exec -- python your_app.py`
+- **"I'm building an app that calls LLMs"** shows `briefcase-ai exec -- python your_app.py`
   and offers a dry run on a five-line program, which prints one record and writes nothing:
 
 ```text
 Step 1 of 2 · Capture a Python app without changing it
-  briefcase exec -- python your_app.py
+  briefcase-ai exec -- python your_app.py
 Each OpenAI, Anthropic, Gemini and Bedrock call, and each LangChain, LlamaIndex, CrewAI
 or AutoGen run, becomes one record: model, tokens, latency, status. Prompt and response
 text is not recorded unless you add --capture-content.
 
-A dry run starts this 5-line program through `briefcase exec` and prints its one record
+A dry run starts this 5-line program through `briefcase-ai exec` and prints its one record
 to the terminal. Nothing is written and nothing leaves this machine:
     import briefcase
 
@@ -109,14 +109,14 @@ The JSON line above is the decision record for greet('world').
 
 Step 2 of 2 · Keep the records
 Records print to stderr until you choose a destination:
-  briefcase exec --to runs.jsonl -- python your_app.py     # a file
+  briefcase-ai exec --to runs.jsonl -- python your_app.py     # a file
   export BRIEFCASE_EXPORTER=https://collector.example.com/v1/decisions   # your endpoint
   export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318  # an OTLP collector
-To record your own functions as well, see: briefcase features capture-decorator
+To record your own functions as well, see: briefcase-ai features capture-decorator
 ```
 
 - **"I run a team or platform"** prints the receiver commands, then offers the rollout pack
-  (`briefcase connect --managed`) and policy (`briefcase policy init`) as real steps. Each asks
+  (`briefcase-ai connect --managed`) and policy (`briefcase-ai policy init`) as real steps. Each asks
   first (default no) and `policy init` shows its plan and asks again before writing. A step whose
   command is not in the version you installed says "Coming" instead:
 
@@ -125,39 +125,39 @@ Step 1 only prints commands. The steps after it offer to run the real command;
 each one shows what it would write and asks first.
 
 Step 1 of 4 · Collect records in one place
-  On a shared host:   briefcase receive --host 0.0.0.0 --token <secret> --to <destination>
-  On each machine:    briefcase connect --endpoint https://<your-receiver-host> \
+  On a shared host:   briefcase-ai receive --host 0.0.0.0 --token <secret> --to <destination>
+  On each machine:    briefcase-ai connect --endpoint https://<your-receiver-host> \
                           --headers "Authorization=Bearer <secret>"
   Docs: docs/integrations/README.md (The receiver)
 
 Step 2 of 4 · Roll out to every developer machine
-  briefcase connect --managed --out ./briefcase-rollout --endpoint https://<your-receiver-host>
+  briefcase-ai connect --managed --out ./briefcase-rollout --endpoint https://<your-receiver-host>
   Docs: docs/features/managed-rollout.md
 Writes the files your device management deploys (managed settings, hooks) into one
 directory. Nothing outside it is touched, and nothing is installed on this machine.
 Write a rollout pack to ./briefcase-rollout now? [y/N]
 
 Step 3 of 4 · Decide what coding tools may run
-  briefcase policy init
+  briefcase-ai policy init
   Docs: docs/features/policy-hooks.md
 Writes ~/.briefcase/policy.toml and a hook in each coding tool. It lists every file and
-asks before writing; undo with `briefcase policy off`. This affects this machine only.
+asks before writing; undo with `briefcase-ai policy off`. This affects this machine only.
 Set up policy on this machine now? [y/N]
 
 Step 4 of 4 · Cap spend
   Coming: there is no command for this in the version installed here.
-  Today:  briefcase features controls-gateway   # the in-app spend and quota gate that ships today
+  Today:  briefcase-ai features controls-gateway   # the in-app spend and quota gate that ships today
 
-Everything that limits or stops things: briefcase features --verb enforce
+Everything that limits or stops things: briefcase-ai features --verb enforce
 ```
 
-### `briefcase status`
+### `briefcase-ai status`
 
 One screen: what is on, what is off, and one suggested next command.
 
 ```text
-$ briefcase status
-briefcase status  (briefcase-ai 4.4.0, state in ~/.briefcase)
+$ briefcase-ai status
+briefcase-ai status  (briefcase-ai 4.4.0, state in ~/.briefcase)
 
 Connect
   on        Coding tools  Claude Code connected
@@ -168,14 +168,14 @@ Capture
   on        Records       coding tools -> ~/.briefcase/receiver/records.jsonl; Python apps -> the console (stderr), not kept
 
 4 on · 0 off · 0 need attention
-Next: briefcase features  # see what else briefcase can do
+Next: briefcase-ai features  # see what else briefcase can do
 ```
 
 On a machine where nothing is set up yet:
 
 ```text
-$ briefcase status
-briefcase status  (briefcase-ai 4.4.0, state in ~/.briefcase)
+$ briefcase-ai status
+briefcase-ai status  (briefcase-ai 4.4.0, state in ~/.briefcase)
 
 Connect
   off       Coding tools  none connected; detected on this machine: Claude Code
@@ -186,13 +186,13 @@ Capture
   off       Records       Python apps -> the console (stderr), not kept
 
 0 on · 4 off · 0 need attention
-Next: briefcase connect  # a coding tool is installed but not connected
+Next: briefcase-ai connect  # a coding tool is installed but not connected
 ```
 
 `--json` prints the same data for scripts (first row shown, the rest cut):
 
 ```text
-$ briefcase status --json
+$ briefcase-ai status --json
 {
   "schema_version": 1,
   "version": "4.4.0",
@@ -226,63 +226,63 @@ $ briefcase status --json
     "attention": 0
   },
   "next": {
-    "command": "briefcase features",
+    "command": "briefcase-ai features",
     "reason": "see what else briefcase can do"
   },
   "problems": []
 }
 ```
 
-### `briefcase features`
+### `briefcase-ai features`
 
 Every feature, grouped by Connect, Capture, Enforce, Verify and Review, with the first
 command to run. `--verb` shows one group, `--json` is for scripts:
 
 ```text
-$ briefcase features --verb enforce
-briefcase features · 2 features · 1 group
+$ briefcase-ai features --verb enforce
+briefcase-ai features · 2 features · 1 group
 
 Enforce (2)
   Budget and quota gateway  [experimental]  id: controls-gateway
       Cap spend and request rates per tenant before a model call goes out.
-      $ briefcase features controls-gateway
+      $ briefcase-ai features controls-gateway
   Guardrail checks  [experimental]  id: guardrails
       Decide allow or deny for an agent action, and fail closed on errors.
-      $ briefcase features guardrails
+      $ briefcase-ai features guardrails
 
-Next: briefcase features <id>  # details, docs link and whether it is on here
+Next: briefcase-ai features <id>  # details, docs link and whether it is on here
 ```
 
 Name a feature to see its documentation link and whether it is on for you right now:
 
 ```text
-$ briefcase features receive
+$ briefcase-ai features receive
 Local receiver  [experimental]  Connect
 Turn what your coding tools send into decision records on your own machine.
 
-  Start with:    briefcase receive --detach
+  Start with:    briefcase-ai receive --detach
   Needs:         pip install 'briefcase-ai[receiver]'
   Active here:   yes (running on http://127.0.0.1:4318 (pid 10202); 0 requests, 0 records, 0 rejected)
   Docs:          docs/integrations/README.md#the-receiver
                  https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/docs/integrations/README.md#the-receiver
   Verified with: Real HTTP server exercised over loopback in tests, with synthetic OTLP payloads built from the tools' documented event names. No capture from a real tool session was replayed.
 
-Next: briefcase status  # see what is on across this machine
+Next: briefcase-ai status  # see what is on across this machine
 ```
 
 The same catalog as a page: [catalog.md](catalog.md).
 
-### `briefcase --help`
+### `briefcase-ai --help`
 
 Commands are listed under the same five verbs:
 
 ```text
-$ briefcase --help
+$ briefcase-ai --help
 usage: briefcase [-h] [--server SERVER] [--repo REPO] [--dry-run] [--debug] [--no-input]
                  <command> ...
 
 Briefcase: record what AI coding tools and LLM apps do, limit it, and prove the records are
-intact. Run `briefcase` with no arguments for a guided setup.
+intact. Run `briefcase-ai` with no arguments for a guided setup.
 
 Start here: find your way around
   setup       Guided setup: say what you are doing, get the two or three steps for it.
@@ -296,22 +296,22 @@ Connect: wire tools, apps and destinations
   connect     Configure coding tools (Claude Code, Codex, Cursor, Copilot, ...) to report to
               briefcase.
   exec        Run a command with decision capture enabled (no code changes).
-  hook        Tool hook entry points (installed by `briefcase connect`).
+  hook        Tool hook entry points (installed by `briefcase-ai connect`).
   mcp         Install the briefcase MCP server into coding tools.
   receive     Run a local OTLP receiver that turns coding-tool telemetry into decision records.
-  (6 features in this group: briefcase features --verb connect)
+  (6 features in this group: briefcase-ai features --verb connect)
 
 Capture: what gets recorded
-  (7 features in this group: briefcase features --verb capture)
+  (7 features in this group: briefcase-ai features --verb capture)
 
 Enforce: stop or limit things
-  (2 features in this group: briefcase features --verb enforce)
+  (2 features in this group: briefcase-ai features --verb enforce)
 
 Verify: prove records are intact and reproducible
-  (5 features in this group: briefcase features --verb verify)
+  (5 features in this group: briefcase-ai features --verb verify)
 
 Review: look at what happened
-  (4 features in this group: briefcase features --verb review)
+  (4 features in this group: briefcase-ai features --verb review)
 
 Evaluate: datasets, secrets and evaluation runs
   dataset     Register and list datasets.
@@ -326,45 +326,45 @@ Global options:
   --dry-run        Print the resolved oci-jj command for a run submit instead of executing it.
   --debug          Show tracebacks and name any command module that failed to load (or set
                    BRIEFCASE_DEBUG=1).
-  --no-input       Never prompt; a bare `briefcase` prints status and this list (or set
+  --no-input       Never prompt; a bare `briefcase-ai` prints status and this list (or set
                    BRIEFCASE_NO_INPUT=1).
 
-Run `briefcase <command> --help` for one command, `briefcase status` to see where you are,
-and `briefcase features` for everything briefcase can do.
+Run `briefcase-ai <command> --help` for one command, `briefcase-ai status` to see where you are,
+and `briefcase-ai features` for everything briefcase can do.
 ```
 
-### `briefcase completion`
+### `briefcase-ai completion`
 
 ```bash
-eval "$(briefcase completion bash)"                               # this shell only
-briefcase completion zsh > ~/.zfunc/_briefcase                    # then: fpath+=(~/.zfunc); compinit
-briefcase completion fish > ~/.config/fish/completions/briefcase.fish
+eval "$(briefcase-ai completion bash)"                               # this shell only
+briefcase-ai completion zsh > ~/.zfunc/_briefcase_ai                 # then: fpath+=(~/.zfunc); compinit
+briefcase-ai completion fish > ~/.config/fish/completions/briefcase-ai.fish
 ```
 
 ```text
-$ briefcase completion bash | head -n 12
-# bash completion for briefcase. Generated by `briefcase completion bash`.
-# Load it in this shell with:  eval "$(briefcase completion bash)"
-_briefcase() {
+$ briefcase-ai completion bash | head -n 12
+# bash completion for briefcase-ai. Generated by `briefcase-ai completion bash`.
+# Load it in this shell with:  eval "$(briefcase-ai completion bash)"
+_briefcase_ai() {
     local cur prev ctx word i words
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev=""
     if (( COMP_CWORD > 0 )); then prev="${COMP_WORDS[COMP_CWORD-1]}"; fi
-    ctx="briefcase"
+    ctx="briefcase-ai"
     for (( i = 1; i < COMP_CWORD; i++ )); do
         word="${COMP_WORDS[i]}"
-        # after a literal -- the rest belongs to another program (briefcase exec -- ...)
+        # after a literal -- the rest belongs to another program (briefcase-ai exec -- ...)
 ```
 
 ## What it writes or sends, and where
 
 | Command | Writes | Sends |
 | --- | --- | --- |
-| `briefcase status`, `briefcase features`, `briefcase --help`, `briefcase completion` | nothing | nothing; `status` asks `http://127.0.0.1:4318/healthz` (or the endpoint your tools were connected to) whether a receiver is up |
-| `briefcase` / `briefcase setup`, once you finished or skipped the guide | `~/.briefcase/setup.json` | nothing |
-| the guide's connect step | exactly what `briefcase connect` writes, after its own diff and confirmation | nothing |
-| the guide's receiver step | exactly what `briefcase receive --detach` writes under `~/.briefcase/receiver/` | nothing |
+| `briefcase-ai status`, `briefcase-ai features`, `briefcase-ai --help`, `briefcase-ai completion` | nothing | nothing; `status` asks `http://127.0.0.1:4318/healthz` (or the endpoint your tools were connected to) whether a receiver is up |
+| `briefcase-ai` / `briefcase-ai setup`, once you finished or skipped the guide | `~/.briefcase/setup.json` | nothing |
+| the guide's connect step | exactly what `briefcase-ai connect` writes, after its own diff and confirmation | nothing |
+| the guide's receiver step | exactly what `briefcase-ai receive --detach` writes under `~/.briefcase/receiver/` | nothing |
 | the guide's dry run | nothing; one record is printed to the terminal | nothing |
 
 `setup.json` holds only the answer and a timestamp:
@@ -386,21 +386,21 @@ pressing Ctrl-C part-way leaves no file, so the guide is offered again next time
 
 | Default | Change it with |
 | --- | --- |
-| The guide runs on a bare `briefcase` the first time, on a terminal | `briefcase --no-input`, or `BRIEFCASE_NO_INPUT=1`, never prompts |
+| The guide runs on a bare `briefcase-ai` the first time, on a terminal | `briefcase-ai --no-input`, or `BRIEFCASE_NO_INPUT=1`, never prompts |
 | State lives in `~/.briefcase` | `BRIEFCASE_HOME=/some/dir` |
 | Colour on a terminal | `NO_COLOR=1` turns it off; output that is piped is never coloured |
-| Errors are one line plus a `Fix:` line | `briefcase --debug <command>` (or `BRIEFCASE_DEBUG=1`) shows the traceback |
-| `status` exits 0 whatever it finds | use `briefcase doctor --connect --strict` to fail a script on problems |
+| Errors are one line plus a `Fix:` line | `briefcase-ai --debug <command>` (or `BRIEFCASE_DEBUG=1`) shows the traceback |
+| `status` exits 0 whatever it finds | use `briefcase-ai doctor --connect --strict` to fail a script on problems |
 
-Without a terminal (CI, a pipe, a script) a bare `briefcase` never asks anything. It prints
+Without a terminal (CI, a pipe, a script) a bare `briefcase-ai` never asks anything. It prints
 the command list and the status screen and exits 0:
 
 ```text
-$ briefcase < /dev/null
+$ briefcase-ai < /dev/null
 Start here: find your way around
   setup       Guided setup: say what you are doing, get the two or three steps for it.
 ...
-briefcase status  (briefcase-ai 4.4.0, state in ~/.briefcase)
+briefcase-ai status  (briefcase-ai 4.4.0, state in ~/.briefcase)
 
 Connect
   off       Coding tools  none connected; no supported coding tool found on this machine
@@ -411,18 +411,18 @@ Capture
   off       Records       Python apps -> the console (stderr), not kept
 
 0 on · 4 off · 0 need attention
-Next: briefcase exec -- python your_app.py  # no coding tool found here; capture a Python app instead
+Next: briefcase-ai exec -- python your_app.py  # no coding tool found here; capture a Python app instead
 [exit 0]
 ```
 
 ## How to turn it off or undo
 
 - Skip the guide: answer `4` (or `s`), or pass `--no-input`.
-- See the guide again on a bare `briefcase`: `rm ~/.briefcase/setup.json`.
+- See the guide again on a bare `briefcase-ai`: `rm ~/.briefcase/setup.json`.
 - Undo what the guide's steps did with the commands they came from:
 
 ```text
-$ briefcase connect --undo
+$ briefcase-ai connect --undo
 Undoing:
   ~/.claude/settings.json: removed env.OTEL_EXPORTER_OTLP_ENDPOINT
   ~/.claude/settings.json: removed env.OTEL_EXPORTER_OTLP_PROTOCOL
@@ -432,11 +432,11 @@ Undoing:
   ~/.claude/settings.json: deleted (briefcase created it and nothing else is in it)
   to remove the MCP registration, run: claude mcp remove --scope user briefcase
 Done. Backups of every file connect touched are next to it (*.briefcase-bak-*).
-$ briefcase receive --stop
+$ briefcase-ai receive --stop
 receiver stopped (pid 10202)
 $ rm ~/.briefcase/setup.json
-$ briefcase status
-briefcase status  (briefcase-ai 4.4.0, state in ~/.briefcase)
+$ briefcase-ai status
+briefcase-ai status  (briefcase-ai 4.4.0, state in ~/.briefcase)
 
 Connect
   off       Coding tools  none connected; detected on this machine: Claude Code
@@ -447,7 +447,7 @@ Capture
   off       Records       Python apps -> the console (stderr), not kept
 
 0 on · 4 off · 0 need attention
-Next: briefcase connect  # a coding tool is installed but not connected
+Next: briefcase-ai connect  # a coding tool is installed but not connected
 ```
 
 - Remove completion: delete the file you wrote, or the `eval` line from your shell profile.
@@ -456,7 +456,7 @@ Next: briefcase connect  # a coding tool is installed but not connected
 
 - `status` reports what briefcase itself set up and recorded in `~/.briefcase`. A tool you
   configured by hand shows as "detected", not "connected", and an MCP server removed inside
-  the tool still shows as registered until `briefcase connect --undo`.
+  the tool still shows as registered until `briefcase-ai connect --undo`.
 - The "Records" row describes the destination a Python program would get from the
   environment `status` runs in (`BRIEFCASE_EXPORTER`, `OTEL_EXPORTER_OTLP_*`). A program
   started with a different environment, or one that calls `briefcase.observe("...")` itself,
@@ -464,14 +464,14 @@ Next: briefcase connect  # a coding tool is installed but not connected
   (`briefcase.export_stats()`) live inside that program and are not shown.
 - With `BRIEFCASE_EXPORTER=<dir>/runs.jsonl`, `status` creates `<dir>` if it is missing,
   because it asks the SDK's own resolver, which does so.
-- A feature shows "not tracked by `briefcase status`" when nothing reports its state. That
+- A feature shows "not tracked by `briefcase-ai status`" when nothing reports its state. That
   covers the features you use from Python.
 - A command module that fails to load is skipped so the rest keeps working; `--debug` names it:
 
 ```text
-$ briefcase --debug status   # with a deliberately broken briefcase/cli/zz_broken_commands.py
+$ briefcase-ai --debug status   # with a deliberately broken briefcase/cli/zz_broken_commands.py
 warning: skipped briefcase/cli/zz_broken_commands.py (import failed: RuntimeError: boom)
-briefcase status  (briefcase-ai 4.4.0, state in ~/.briefcase)
+briefcase-ai status  (briefcase-ai 4.4.0, state in ~/.briefcase)
 ```
 
 - Completion scripts are generated when you run the command. Re-run it after upgrading.
@@ -485,23 +485,23 @@ briefcase status  (briefcase-ai 4.4.0, state in ~/.briefcase)
 
 | Symptom | What to do |
 | --- | --- |
-| `briefcase` prints status instead of the guide | The guide already ran. Run `briefcase setup`. |
-| `briefcase` asks nothing in CI and you expected it to | That is intended without a terminal. Run the steps directly: `briefcase connect --yes`, `briefcase receive --detach`. |
-| "Coding tools: none connected; no supported coding tool found" but the tool is installed | Run `briefcase connect list` to see what was looked for, then `briefcase connect <tool>`. |
-| "Coding tools" shows `attention` | A setting connect wrote is gone. Run the command on the `Next:` line (`briefcase connect <tool>`). |
-| "Receiver: not running; connected tools have nowhere to send" | `briefcase receive --detach` |
-| Records never arrive | `briefcase status`, then `briefcase doctor --connect` for the per-tool checks. |
+| `briefcase-ai` prints status instead of the guide | The guide already ran. Run `briefcase-ai setup`. |
+| `briefcase-ai` asks nothing in CI and you expected it to | That is intended without a terminal. Run the steps directly: `briefcase-ai connect --yes`, `briefcase-ai receive --detach`. |
+| "Coding tools: none connected; no supported coding tool found" but the tool is installed | Run `briefcase-ai connect list` to see what was looked for, then `briefcase-ai connect <tool>`. |
+| "Coding tools" shows `attention` | A setting connect wrote is gone. Run the command on the `Next:` line (`briefcase-ai connect <tool>`). |
+| "Receiver: not running; connected tools have nowhere to send" | `briefcase-ai receive --detach` |
+| Records never arrive | `briefcase-ai status`, then `briefcase-ai doctor --connect` for the per-tool checks. |
 | "Records" shows `attention` | `BRIEFCASE_EXPORTER` has a value briefcase cannot use; the row says which values work. |
-| A command is missing from `briefcase --help` | `briefcase --debug --help` names any command module that failed to load, and why. |
-| `error: no feature with id ...` | The `Fix:` line has the closest id; `briefcase features` lists them all. |
-| Tab completion offers old commands | Re-generate: `eval "$(briefcase completion bash)"`. |
+| A command is missing from `briefcase-ai --help` | `briefcase-ai --debug --help` names any command module that failed to load, and why. |
+| `error: no feature with id ...` | The `Fix:` line has the closest id; `briefcase-ai features` lists them all. |
+| Tab completion offers old commands | Re-generate: `eval "$(briefcase-ai completion bash)"`. |
 
 An error always has this shape, with the command that fixes it:
 
 ```text
-$ briefcase features recieve
+$ briefcase-ai features recieve
 error: no feature with id 'recieve'
-Fix: briefcase features receive
+Fix: briefcase-ai features receive
 [exit 2]
 ```
 

@@ -1,7 +1,7 @@
 """Local servers used by the telemetry step.
 
 ``Tee`` stands in for the vendor's model API (a canned reply, so no credentials and no model
-call are needed) and sits in front of ``briefcase receive`` on the OTLP paths: every telemetry
+call are needed) and sits in front of ``briefcase-ai receive`` on the OTLP paths: every telemetry
 request the REAL tool sends is saved verbatim and forwarded to the real receiver. Nothing in
 the telemetry is invented by the harness; only the model's answer is canned.
 """
@@ -89,7 +89,7 @@ class Tee:
 
 
 class ReceiverProcess:
-    """``briefcase receive`` on an ephemeral port, writing records to a JSONL file."""
+    """``briefcase-ai receive`` on an ephemeral port, writing records to a JSONL file."""
 
     def __init__(self, sandbox: Sandbox, env: Dict[str, str]) -> None:
         self.port = free_port()
@@ -135,7 +135,7 @@ class ReceiverProcess:
         if not self.start():
             self.stop()
             tail = self.log.read_text()[-500:] if self.log.exists() else ""
-            raise RuntimeError(f"briefcase receive did not come up on {self.url}: {tail}")
+            raise RuntimeError(f"briefcase-ai receive did not come up on {self.url}: {tail}")
         return self
 
     def __exit__(self, *exc: Any) -> None:

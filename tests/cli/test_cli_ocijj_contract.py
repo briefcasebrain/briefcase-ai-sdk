@@ -87,7 +87,7 @@ def test_unavailable_bench_reason_is_printed_once(store, capsys):
 
 def test_grpc_exec_uses_auth_token_from_secrets_and_warns_about_the_rest(capsys):
     """Over gRPC nothing carries run secrets to oci-jj; only the client's own OCI_JJ_AUTH_TOKEN
-    (e.g. from `briefcase secret set`) has an effect. The rest used to vanish silently."""
+    (e.g. from `briefcase-ai secret set`) has an effect. The rest used to vanish silently."""
     t = _Transport()
     engine = GrpcEngine(server="http://x", repo="R", transport=t)
     engine.exec(engine.call_provenance("cand"), env={"OCI_JJ_AUTH_TOKEN": "tok", "HF_TOKEN": "v"})

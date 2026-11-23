@@ -9,7 +9,7 @@ synthetic payloads used by the other receiver tests live in `tests/receiver/payl
 
 | Tool | Version | Captured | How |
 | --- | --- | --- | --- |
-| Claude Code | 2.1.330 | 2026-11-21 | Real `claude -p` (npm `@anthropic-ai/claude-code@latest`) in a temp HOME configured by `briefcase connect claude-code`. No account or credentials: the model API was a local stub (`ANTHROPIC_BASE_URL`, dummy key) that returns a canned "ok". OTLP/JSON requests from the tool were recorded verbatim by a tee in front of `briefcase receive`. |
+| Claude Code | 2.1.330 | 2026-11-21 | Real `claude -p` (npm `@anthropic-ai/claude-code@latest`) in a temp HOME configured by `briefcase-ai connect claude-code`. No account or credentials: the model API was a local stub (`ANTHROPIC_BASE_URL`, dummy key) that returns a canned "ok". OTLP/JSON requests from the tool were recorded verbatim by a tee in front of `briefcase-ai receive`. |
 
 What this does and does not show:
 

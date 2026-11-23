@@ -1252,8 +1252,8 @@ def suffixes(cmd):
     yield cmd
     if cmd.name in TEXT_ONLY or not cmd.argv:
         return
-    if cmd.name == "briefcase" and cmd.argv[1:3] == ["policy", "test"]:
-        return      # `briefcase policy test -- rm -rf /` explains a command; it does not run it
+    if cmd.name in ("briefcase-ai", "briefcase") and cmd.argv[1:3] == ["policy", "test"]:
+        return      # `briefcase-ai policy test -- rm -rf /` explains a command; it does not run it
     for start in range(1, len(cmd.argv)):
         if cmd.dyn[start] or cmd.argv[start].startswith("-"):
             continue
@@ -1272,7 +1272,7 @@ def pattern_matches(pattern, cmd, anywhere):
     stages = pattern.stages
     last = stages[-1]
     spread = anywhere and cmd.name not in TEXT_ONLY and not (
-        cmd.name == "briefcase" and cmd.argv[1:3] == ["policy", "test"])
+        cmd.name in ("briefcase-ai", "briefcase") and cmd.argv[1:3] == ["policy", "test"])
     if not any(stage_matches(cmd, last, start) for start in (range(len(cmd.argv)) if spread else (0,))):
         return False
     if len(stages) == 1:

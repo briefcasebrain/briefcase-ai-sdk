@@ -1,9 +1,9 @@
 {
   "id": "audit-bundle",
-  "title": "Evidence bundles and briefcase verify",
+  "title": "Evidence bundles and briefcase-ai verify",
   "verb": "verify",
   "one_line": "Hand an auditor one file that proves which decisions were recorded, unaltered.",
-  "command": "briefcase bundle create --from evidence.db --out evidence-bundle.zip",
+  "command": "briefcase-ai bundle create --from evidence.db --out evidence-bundle.zip",
   "docs_slug": "verify/audit-bundle",
   "status": "experimental",
   "requires_extra": null,

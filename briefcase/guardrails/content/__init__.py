@@ -165,7 +165,7 @@ def _escalate(decision: Decision, guard: ContentGuard) -> None:
 
 
 def _warn(decision: Decision, where: str) -> None:
-    logger.warning("briefcase guard: %s: %s", where, decision.summary())
+    logger.warning("briefcase-ai guard: %s: %s", where, decision.summary())
 
 
 class GuardHook:
@@ -395,7 +395,7 @@ def enable(path: Optional[Union[str, Path]] = None) -> ContentGuard:
 
 def check_text(text: str, *, direction: str = "input", source: str = "user",
                checks: Optional[Sequence[Check]] = None) -> Dict[str, Any]:
-    """Run checks on one text without a call (what ``briefcase guard test``
+    """Run checks on one text without a call (what ``briefcase-ai guard test``
     does). Returns ``{"effect", "findings", "errors", "redacted",
     "elapsed_ms"}``."""
     use = ContentGuard(list(checks)) if checks is not None else (_guard or ContentGuard(

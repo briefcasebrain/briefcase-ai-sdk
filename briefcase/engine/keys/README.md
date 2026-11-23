@@ -1,6 +1,6 @@
 # Engine release keys (the SDK's trust root)
 
-`briefcase engine install` and `briefcase engine verify` trust an engine release only when
+`briefcase-ai engine install` and `briefcase-ai engine verify` trust an engine release only when
 its manifest is signed by a public key in this directory. Nothing else can add a key: no flag,
 no environment variable, no platform response. A key is added by shipping it in an SDK release.
 
@@ -24,7 +24,7 @@ the id, rename the file, and commit it here. The portal shows the same key and k
 
 ## No key yet
 
-This build ships no key, so `briefcase engine install` refuses with "no trusted release key is
+This build ships no key, so `briefcase-ai engine install` refuses with "no trusted release key is
 bundled in this SDK build". That is intended: there is no way to install an unverified engine.
 
 ## Rotation

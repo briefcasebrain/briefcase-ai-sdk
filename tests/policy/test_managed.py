@@ -1,4 +1,4 @@
-"""`briefcase connect --managed --out DIR`: golden files for the rollout pack, plus the rules that
+"""`briefcase-ai connect --managed --out DIR`: golden files for the rollout pack, plus the rules that
 nothing is ever written to a system path and unverified outputs are labelled templates.
 
 Regenerate the golden files after an intended change with:
@@ -69,7 +69,7 @@ def test_every_unconfirmed_output_is_a_labelled_template(home, tmp_path):
     readme = (out / "README.md").read_text()
     for entry in manifest["files"]:
         assert f"`{entry['file']}`" in readme
-    assert "briefcase doctor --connect" in readme
+    assert "briefcase-ai doctor --connect" in readme
 
 
 def test_generated_files_parse_in_their_formats(home, tmp_path):
@@ -77,7 +77,7 @@ def test_generated_files_parse_in_their_formats(home, tmp_path):
     settings = json.loads((out / "claude-code/managed-settings.d/10-briefcase.json").read_text())
     assert settings["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == ENDPOINT
     handler = settings["hooks"]["PreToolUse"][0]["hooks"][0]
-    assert handler["command"] == f"briefcase hook claude-code --enforce --endpoint {ENDPOINT}"
+    assert handler["command"] == f"briefcase-ai hook claude-code --enforce --endpoint {ENDPOINT}"
     # Only keys the managed-settings documentation lists; no lock settings are added silently.
     assert set(settings) == {"env", "hooks"}
     profile = plistlib.loads((out / "claude-code/macos/briefcase-claude-code.mobileconfig").read_bytes())

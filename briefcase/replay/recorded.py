@@ -14,7 +14,7 @@ answer compared with the recorded one::
     rows = run(plan, CassetteExecutor())
     print(summarize(rows))
 
-or from the shell: ``briefcase replay run runs.jsonl``.
+or from the shell: ``briefcase-ai replay run runs.jsonl``.
 
 Pure Python; needs no compiled core. Live executors import the provider SDK
 only when a record needs it. See ``docs/features/replay-recorded.md``.

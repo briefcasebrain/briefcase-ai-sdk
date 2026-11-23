@@ -12,7 +12,7 @@ URL = "https://acme.example/pricing"
 
 
 def run(*argv):
-    p = argparse.ArgumentParser(prog="briefcase")
+    p = argparse.ArgumentParser(prog="briefcase-ai")
     pc.register(p.add_subparsers(dest="command"))
     args = p.parse_args(["pricing", *argv])
     return args.func(args, None, None, None)
@@ -44,7 +44,7 @@ def test_show_known_alias_and_unknown(home, capsys):
     assert "builtin-table@" in out and "layer   packaged" in out
     assert run("show", "gpt-5") == 1
     err = capsys.readouterr().err
-    assert "known model with no price shipped" in err and "briefcase pricing set gpt-5 --input" in err
+    assert "known model with no price shipped" in err and "briefcase-ai pricing set gpt-5 --input" in err
     assert run("show", "gpt-4oo", "--json") == 1
     info = json.loads(capsys.readouterr().out)
     assert "gpt-4o" in info["closest"] and info["known_unpriced"] is False
@@ -67,7 +67,7 @@ def test_set_requires_source_url_and_shows_diff_then_writes(home, capsys):
     assert run("set", "acme-large", "--input", "2.5", "--output", "10", "--context-window", "128000",
                "--provider", "acme", "--source-url", URL, "--cached-input", "1.25", "--yes",
                ) == 0
-    assert "Next: briefcase pricing show acme-large" in capsys.readouterr().out
+    assert "Next: briefcase-ai pricing show acme-large" in capsys.readouterr().out
     entry = json.loads(f.read_text())["models"][0]
     assert entry["input_cost_per_1k_tokens"] == 2.5 / 1000.0 and entry["source_url"] == URL
     assert entry["verified_on"] and entry["rate_card_extras"]["cache_rates"]["read_per_mtok"] == 1.25
@@ -122,8 +122,8 @@ def test_check_records_reports_unpriced_models(home, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "o3  (3 records)  [known model, no price shipped]" in out
     assert "mystery-1  (1 records)" in out and "gpt-4o  (" not in out
-    assert "briefcase pricing set o3 --input" in out
-    assert "39 of 39 models have no provenance" in out and "Next: briefcase pricing set o3" in out
+    assert "briefcase-ai pricing set o3 --input" in out
+    assert "39 of 39 models have no provenance" in out and "Next: briefcase-ai pricing set o3" in out
     assert run("check", "--records", str(rec), "--strict") == 1
     capsys.readouterr()
     assert run("check", "--records", str(rec), "--json") == 0

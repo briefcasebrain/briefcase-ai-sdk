@@ -192,7 +192,7 @@ export function verifyBundle(
 ): BundleVerification {
   const files = input instanceof Uint8Array ? readZip(input) : new Map(input);
   const manifestBytes = files.get("manifest.json");
-  if (!manifestBytes) throw new BundleFormatError("no manifest.json: not a briefcase bundle");
+  if (!manifestBytes) throw new BundleFormatError("no manifest.json: not a briefcase-ai bundle");
   const manifest = JSON.parse(Buffer.from(manifestBytes).toString("utf8")) as Json;
   if (manifest.format !== BUNDLE_FORMAT) throw new BundleFormatError(`unknown bundle format ${String(manifest.format)}`);
   if (manifest.format_version !== BUNDLE_FORMAT_VERSION) {

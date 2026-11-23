@@ -1,6 +1,6 @@
 # briefcase-ai — full usage guide for LLMs
 
-Governance infrastructure for AI decisions: enforce controls, record context,
+Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models. Enforce controls, record context,
 replay later. This file is a copy-paste recipe book. Every snippet is runnable
 as written. Package import name is `briefcase`.
 
@@ -147,7 +147,7 @@ def triage(ticket): ...                     # so args and return value are recor
 briefcase.auto()                            # frameworks + provider SDKs: NO content
 briefcase.auto("langchain", capture_content="full")   # opt in ("hash" = digests;
                                             # True/False also accepted)
-# or BRIEFCASE_CAPTURE_CONTENT=full|hash|none, or `briefcase exec --capture-content full`
+# or BRIEFCASE_CAPTURE_CONTENT=full|hash|none, or `briefcase-ai exec --capture-content full`
 ```
 
 `connect` (`--capture-content`), `receive` (`--keep-content`) and eval records
@@ -252,10 +252,10 @@ Needs an extra (third-party deps):
 - `pip install briefcase-ai[compliance-kms]`     # KMS-signed bundles (boto3)
 - `pip install briefcase-ai[integrity]`          # Ed25519 signing (pynacl)
 - `pip install briefcase-ai[langchain]`          # also `crewai`, `llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`
-- `pip install briefcase-ai[mcp]`                # MCP server (briefcase-mcp)
+- `pip install briefcase-ai[mcp]`                # MCP server (briefcase-ai-mcp)
 - `pip install briefcase-ai[run]`                # gRPC client for the eval-run CLI
-- `pip install briefcase-ai[engine]`             # gRPC client for `briefcase engine`/`graph`/`env` (engine itself: `briefcase engine install`)
-- `pip install briefcase-ai[receiver]`           # OTLP/protobuf for `briefcase receive`
+- `pip install briefcase-ai[engine]`             # gRPC client for `briefcase-ai engine`/`graph`/`env` (engine itself: `briefcase-ai engine install`)
+- `pip install briefcase-ai[receiver]`           # OTLP/protobuf for `briefcase-ai receive`
 - `pip install briefcase-ai[budgets-redis]`     # shared budget store; also `budgets-postgres`, `budgets-mysql`
 - `pip install briefcase-ai[all]`                # everything above except kdb
 
@@ -351,17 +351,17 @@ forking; cross-host writers need a shared store enforcing the same CAS.
 Do not hand-write a coding tool's telemetry or MCP config; the CLI does it.
 
 ```bash
-briefcase connect                    # detect tools, show plan + diff, ask once, write
-briefcase connect claude-code cursor # only these tools
-briefcase connect --dry-run          # look, write nothing
-briefcase connect --undo             # remove exactly what connect wrote
-briefcase connect list | status
-briefcase receive                    # OTLP receiver on 127.0.0.1:4318, records to the console
-briefcase receive --detach           # background, records to ~/.briefcase/receiver/records.jsonl
-briefcase receive --to runs.jsonl    # or https://..., or otlp
-briefcase mcp install                # register briefcase-mcp with detected tools
-briefcase mcp link cursor            # one-click deeplink + copy-paste payloads
-briefcase doctor --connect           # keys still present, tool version, receiver reachable
+briefcase-ai connect                    # detect tools, show plan + diff, ask once, write
+briefcase-ai connect claude-code cursor # only these tools
+briefcase-ai connect --dry-run          # look, write nothing
+briefcase-ai connect --undo             # remove exactly what connect wrote
+briefcase-ai connect list | status
+briefcase-ai receive                    # OTLP receiver on 127.0.0.1:4318, records to the console
+briefcase-ai receive --detach           # background, records to ~/.briefcase/receiver/records.jsonl
+briefcase-ai receive --to runs.jsonl    # or https://..., or otlp
+briefcase-ai mcp install                # register briefcase-ai-mcp with detected tools
+briefcase-ai mcp link cursor            # one-click deeplink + copy-paste payloads
+briefcase-ai doctor --connect           # keys still present, tool version, receiver reachable
 ```
 
 - Automatic: Claude Code (`~/.claude/settings.json` env, OTLP http/json), Codex

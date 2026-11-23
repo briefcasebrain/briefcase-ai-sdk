@@ -3,7 +3,7 @@
   "title": "Tamper-evident decision store",
   "verb": "verify",
   "one_line": "Records that cannot be edited, reordered or deleted without detection.",
-  "command": "briefcase verify evidence.db",
+  "command": "briefcase-ai verify evidence.db",
   "docs_slug": "verify/chained-store",
   "status": "experimental",
   "requires_extra": null,

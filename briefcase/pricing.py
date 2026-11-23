@@ -4,7 +4,7 @@ Layers, lowest to highest precedence (a higher layer replaces a model's whole en
 
 1. the packaged ``briefcase/data/pricing/v1.json`` (copied from the Rust core's built-in table,
    unverified; see its ``notice``),
-2. ``~/.briefcase/pricing.json`` (``$BRIEFCASE_HOME/pricing.json``), written by ``briefcase pricing set``,
+2. ``~/.briefcase/pricing.json`` (``$BRIEFCASE_HOME/pricing.json``), written by ``briefcase-ai pricing set``,
 3. the file named by ``$BRIEFCASE_PRICING_FILE``,
 4. an explicit ``path`` argument.
 

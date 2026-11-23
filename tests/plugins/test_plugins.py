@@ -212,7 +212,7 @@ def test_cli_command_plugin(site, tmp_path):
 def test_cli_plugin_that_fails_to_import_exits_1_with_a_fix(site, tmp_path):
     done = _cli(site, "beta-broken", home=tmp_path)
     assert done.returncode == 1
-    assert "import failed" in done.stderr and "Fix: briefcase plugins show beta-broken" in done.stderr
+    assert "import failed" in done.stderr and "Fix: briefcase-ai plugins show beta-broken" in done.stderr
     assert "Traceback" not in done.stderr
 
 
@@ -349,7 +349,7 @@ def test_plugins_list_and_show(site, tmp_path):
     assert done.returncode == 0
     assert "State:       refused (needs briefcase plugin API 99" in done.stdout
     done = _cli(site, "plugins", "show", "nope", home=tmp_path)
-    assert done.returncode == 2 and "Fix: briefcase plugins list" in done.stderr
+    assert done.returncode == 2 and "Fix: briefcase-ai plugins list" in done.stderr
 
 
 def test_doctor_plugins_section(site, tmp_path):

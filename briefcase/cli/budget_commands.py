@@ -1,9 +1,9 @@
-"""``briefcase budget``: hard and soft spending limits on the LLM calls your app makes.
+"""``briefcase-ai budget``: hard and soft spending limits on the LLM calls your app makes.
 
-    briefcase budget set daily --usd 20 --soft-usd 15      # write ~/.briefcase/budgets.toml
-    briefcase budget test --model gpt-4o --input-tokens 2000 --max-tokens 500
-    briefcase budget status                                 # spend vs limit, time left
-    briefcase budget unset daily                            # undo
+    briefcase-ai budget set daily --usd 20 --soft-usd 15      # write ~/.briefcase/budgets.toml
+    briefcase-ai budget test --model gpt-4o --input-tokens 2000 --max-tokens 500
+    briefcase-ai budget status                                 # spend vs limit, time left
+    briefcase-ai budget unset daily                            # undo
 
 Budgets are enforced inside your app (``briefcase.budgets.enable()`` reads the file).
 ``$BRIEFCASE_BUDGETS_FILE`` points at another file; ``$BRIEFCASE_HOME`` moves ~/.briefcase.
@@ -22,8 +22,8 @@ from briefcase.cli import _ux
 GROUP = "enforce"
 ORDER = 40
 
-SET_EXAMPLE = "example: briefcase budget set daily --usd 20 --soft-usd 15 --window day"
-TEST_EXAMPLE = "example: briefcase budget test --model gpt-4o --input-tokens 2000 --max-tokens 500"
+SET_EXAMPLE = "example: briefcase-ai budget set daily --usd 20 --soft-usd 15 --window day"
+TEST_EXAMPLE = "example: briefcase-ai budget test --model gpt-4o --input-tokens 2000 --max-tokens 500"
 
 
 def register(sub) -> None:
@@ -67,14 +67,14 @@ def register(sub) -> None:
     sp.set_defaults(func=cmd_set)
 
     sp = bs.add_parser("unset", help="Remove one budget from budgets.toml (undo for set).",
-                       epilog="example: briefcase budget unset daily", formatter_class=fmt)
+                       epilog="example: briefcase-ai budget unset daily", formatter_class=fmt)
     sp.add_argument("name")
     sp.add_argument("--dry-run", dest="budget_dry_run", action="store_true")
     sp.add_argument("--yes", "-y", action="store_true")
     sp.set_defaults(func=cmd_unset)
 
     sp = bs.add_parser("show", help="The budgets and settings in budgets.toml.",
-                       epilog="example: briefcase budget show --json", formatter_class=fmt)
+                       epilog="example: briefcase-ai budget show --json", formatter_class=fmt)
     _ux.add_json_flag(sp)
     sp.set_defaults(func=cmd_show)
 
@@ -82,7 +82,7 @@ def register(sub) -> None:
                        description="Reads the counters from the store named in budgets.toml. "
                                    "With the default in-process store, spend is only visible "
                                    "inside the app (briefcase.budgets.status()).",
-                       epilog="example: briefcase budget status", formatter_class=fmt)
+                       epilog="example: briefcase-ai budget status", formatter_class=fmt)
     _ux.add_json_flag(sp)
     sp.set_defaults(func=cmd_status)
 
@@ -114,7 +114,7 @@ def _read() -> Any:
         return config.read(), None
     except config.ConfigError as exc:
         return None, _ux.fail(str(exc), fix=f"edit {config.default_path()} or "
-                                            "briefcase budget unset NAME")
+                                            "briefcase-ai budget unset NAME")
 
 
 def _pairs(items: Optional[List[str]], flag: str) -> Optional[Dict[str, str]]:
@@ -170,7 +170,7 @@ def _write(data: Dict[str, Any], args: Any, verb: str) -> int:
 
 def cmd_budget(args, store=None, engine=None, stack=None) -> int:
     args.budget_parser.print_help()
-    _ux.print_next("briefcase budget set daily --usd 20", "add a first budget")
+    _ux.print_next("briefcase-ai budget set daily --usd 20", "add a first budget")
     return 0
 
 
@@ -201,7 +201,7 @@ def cmd_set(args, store=None, engine=None, stack=None) -> int:
     code = _write(data, args, "Wrote")
     if code == 0 and not args.budget_dry_run:
         print("Apps enforce it after calling briefcase.budgets.enable() (and briefcase.auto()).")
-        _ux.print_next("briefcase budget test --model gpt-4o --input-tokens 1000 --max-tokens 500",
+        _ux.print_next("briefcase-ai budget test --model gpt-4o --input-tokens 1000 --max-tokens 500",
                        "see what a call would do")
     return code
 
@@ -214,12 +214,12 @@ def cmd_unset(args, store=None, engine=None, stack=None) -> int:
     if args.name not in budgets:
         names = ", ".join(budgets) or "none"
         return _ux.fail(f"no budget named {args.name!r} (budgets: {names})",
-                        fix="briefcase budget show")
+                        fix="briefcase-ai budget show")
     budgets.pop(args.name)
     data = dict(data, budgets=budgets)
     code = _write(data, args, "Updated")
     if code == 0 and not args.budget_dry_run:
-        _ux.print_next("briefcase budget show")
+        _ux.print_next("briefcase-ai budget show")
     return code
 
 
@@ -232,13 +232,13 @@ def cmd_show(args, store=None, engine=None, stack=None) -> int:
         return _ux.print_json({"path": str(path), "exists": path.exists(), **data})
     if not data.get("budgets"):
         print(f"No budgets ({path} {'has none' if path.exists() else 'does not exist'}).")
-        _ux.print_next("briefcase budget set daily --usd 20", "add a first budget")
+        _ux.print_next("briefcase-ai budget set daily --usd 20", "add a first budget")
         return 0
     print(f"{path}")
     print(f"store: {data.get('store', 'memory')}   unpriced models: {data.get('unpriced', 'warn')}")
     for name, spec in data["budgets"].items():
         print(f"  {name}: {_describe(spec)}")
-    _ux.print_next("briefcase budget status")
+    _ux.print_next("briefcase-ai budget status")
     return 0
 
 
@@ -307,21 +307,21 @@ def cmd_status(args, store=None, engine=None, stack=None) -> int:
         if args.json:
             return _ux.print_json({"budgets": [], "store": data.get("store", "memory")})
         print("No budgets are configured.")
-        _ux.print_next("briefcase budget set daily --usd 20", "add a first budget")
+        _ux.print_next("briefcase-ai budget set daily --usd 20", "add a first budget")
         return 0
     try:
         eng, url = _engine(data)
         rows = eng.status()
     except Exception as exc:
         return _ux.fail(f"could not read the budget store {data.get('store')!r}: "
-                        f"{type(exc).__name__}: {exc}", fix="briefcase budget show")
+                        f"{type(exc).__name__}: {exc}", fix="briefcase-ai budget show")
     memory = url == "memory"
     if args.json:
         return _ux.print_json({"store": url, "process_local": memory, "budgets": rows})
     if memory:
         print("store: memory - counters live inside each app process, so this shows the limits "
               "only. In the app: briefcase.budgets.status(). For a shared view: "
-              "briefcase budget set NAME --store sqlite:///$HOME/.briefcase/budgets.db")
+              "briefcase-ai budget set NAME --store sqlite:///$HOME/.briefcase/budgets.db")
     else:
         print(f"store: {eng.store.describe()}")
     print(f"{'BUDGET':<16} {'SCOPE':<22} {'WINDOW':<12} {'SPENT':>22} {'%':>6}  RESETS")
@@ -340,10 +340,10 @@ def cmd_status(args, store=None, engine=None, stack=None) -> int:
             print(f"{'':<16} in flight: ${row['inflight_usd']:.4f} reserved by calls not yet settled")
     over = [r for r in rows if r["percent"] is not None and r["percent"] >= 80 and not memory]
     if over:
-        _ux.print_next("briefcase budget show",
+        _ux.print_next("briefcase-ai budget show",
                        f"{len(over)} budget(s) at 80% or more: raise a limit with budget set")
     else:
-        _ux.print_next("briefcase budget test --model gpt-4o --input-tokens 1000 --max-tokens 500")
+        _ux.print_next("briefcase-ai budget test --model gpt-4o --input-tokens 1000 --max-tokens 500")
     return 0
 
 
@@ -363,7 +363,7 @@ def cmd_test(args, store=None, engine=None, stack=None) -> int:
                           dry_run=True)
     except Exception as exc:
         return _ux.fail(f"could not evaluate: {type(exc).__name__}: {exc}",
-                        fix="briefcase budget show")
+                        fix="briefcase-ai budget show")
     from briefcase.budgets._core import reserve_cost
 
     entry = eng.price_entry(args.model)
@@ -423,7 +423,7 @@ def cmd_test(args, store=None, engine=None, stack=None) -> int:
               + (f" (reserve ${reserve:.6f})" if reserve is not None else ""))
     else:
         print(f"decision: {decision.upper()}")
-    _ux.print_next("briefcase budget status")
+    _ux.print_next("briefcase-ai budget status")
     return 0
 
 
@@ -444,16 +444,16 @@ def status() -> Optional[Dict[str, Any]]:
     path = config.default_path()
     if not path.exists():
         return {"id": "budgets", "title": "Budgets", "state": "off",
-                "detail": "no spending limits set", "next": "briefcase budget set daily --usd 20"}
+                "detail": "no spending limits set", "next": "briefcase-ai budget set daily --usd 20"}
     try:
         data = config.read(path)
     except config.ConfigError as exc:
         return {"id": "budgets", "title": "Budgets", "state": "attention",
-                "detail": f"budgets.toml is invalid: {str(exc)[:120]}", "next": "briefcase budget show"}
+                "detail": f"budgets.toml is invalid: {str(exc)[:120]}", "next": "briefcase-ai budget show"}
     count = len(data.get("budgets") or {})
     if not count:
         return {"id": "budgets", "title": "Budgets", "state": "off",
-                "detail": "budgets.toml has no budget", "next": "briefcase budget set daily --usd 20"}
+                "detail": "budgets.toml has no budget", "next": "briefcase-ai budget set daily --usd 20"}
     url = str(data.get("store") or "memory")
     detail = f"{count} budget{'s' if count != 1 else ''}, {url.split(':')[0]} store; " \
              "enforced in apps that call briefcase.budgets.enable()"
@@ -470,7 +470,7 @@ def status() -> Optional[Dict[str, Any]]:
         return {"id": "budgets", "title": "Budgets", "state": "attention",
                 "detail": f"{worst['budget']} ({worst['scope']}) at {worst['percent']:.1f}% of its "
                           f"limit; {len(over)} over 80%",
-                "next": "briefcase budget status", "data": {"over_80": over}}
+                "next": "briefcase-ai budget status", "data": {"over_80": over}}
     return {"id": "budgets", "title": "Budgets", "state": "on", "detail": detail, "next": None}
 
 

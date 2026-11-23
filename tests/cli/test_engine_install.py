@@ -1,4 +1,4 @@
-"""`briefcase engine install|verify|up|down|status|logs|doctor|uninstall|upgrade`, offline.
+"""`briefcase-ai engine install|verify|up|down|status|logs|doctor|uninstall|upgrade`, offline.
 
 A throwaway P-256 key signs a fixture release exactly like `cosign sign-blob` (base64 DER over
 SHA-256); the test pins it by pointing `trust.KEYS_DIR` at a temp directory. A fake platform
@@ -68,7 +68,7 @@ def _docker(env):
 def test_install_with_code_downloads_verifies_loads_the_bundle_and_records(env, capsys):
     assert _install("--code", "bci_good") == 0
     out = capsys.readouterr().out
-    assert f"engine {VERSION} installed" in out and "Next: briefcase engine up" in out
+    assert f"engine {VERSION} installed" in out and "Next: briefcase-ai engine up" in out
     assert f"verified with key {env['key'].key_id}" in out
 
     post = env["platform"].posts()[0]
@@ -301,7 +301,7 @@ def test_default_platform_is_the_portal(shell_home, capsys, pinned, monkeypatch)
 def test_dry_run_with_a_code_does_not_redeem_it(env, capsys):
     assert main(["engine", "install", "--code", "bci_good", "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "the install code was not redeemed" in out and "Next: briefcase engine install --code bci_good --yes" in out
+    assert "the install code was not redeemed" in out and "Next: briefcase-ai engine install --code bci_good --yes" in out  # noqa: E501
     assert env["platform"].posts() == [] and not (env["home"] / "engine").exists()
 
 
@@ -607,7 +607,7 @@ def test_status_shows_key_and_newer_version(env, capsys, monkeypatch, key):
                                                                  "update_available": True}
     assert state["services"] == [{"service": "oci-jj-server", "state": "running", "health": "healthy"}]
     assert main(["engine", "status"]) == 0
-    assert "Next: briefcase engine upgrade" in capsys.readouterr().out
+    assert "Next: briefcase-ai engine upgrade" in capsys.readouterr().out
     env["platform"].index["index.json"] = env["platform"].index["index.json"].replace(b"0.5.0", b"9.9.9")
     assert main(["engine", "status", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["update"]["checked"] is False  # bad signature: not trusted
@@ -687,7 +687,7 @@ def test_stack_alias_prints_one_line_and_uses_the_install(env, capsys):
     env["log"].unlink()
     assert main(["stack", "status"]) == 0
     err = capsys.readouterr().err
-    assert err.count("\n") == 1 and "use `briefcase engine status`" in err
+    assert err.count("\n") == 1 and "use `briefcase-ai engine status`" in err
     assert _docker(env)[0][:3] == ["compose", "--project-name", "briefcase-engine"]
 
 
@@ -766,7 +766,7 @@ def test_engine_commands_without_an_install_exit_3(shell_home, capsys, monkeypat
     assert main(argv) == 3
     captured = capsys.readouterr()
     text = captured.err + captured.out
-    assert "engine not installed — `briefcase engine install`" in text and "Traceback" not in text
+    assert "engine not installed — `briefcase-ai engine install`" in text and "Traceback" not in text
 
 
 def test_engine_status_json_without_an_install_exits_3(shell_home, capsys, monkeypatch):
@@ -798,7 +798,7 @@ def test_help_status_and_features_mark_the_engine(shell_home, capsys, monkeypatc
     for help_text in ("Install and run the Briefcase engine (oci-jj) locally.",
                       "Engine artifact graph: history, diffs, provenance, search.",
                       "Engine environments: push, compose, check out, bookmark, undo."):
-        assert f"{help_text} (engine not installed — `briefcase engine install`)" in flat
+        assert f"{help_text} (engine not installed — `briefcase-ai engine install`)" in flat
     assert main(["status", "--json"]) == 0
     items = {i["id"]: i for i in json.loads(capsys.readouterr().out)["items"]}
     for ident in ("engine", "graph", "env-artifacts"):
@@ -813,7 +813,7 @@ def test_install_help_has_one_example(shell_home, capsys):
     with pytest.raises(SystemExit):
         main(["engine", "install", "--help"])
     out = capsys.readouterr().out
-    assert "briefcase engine install --code bci_..." in out and "https://observe.briefcasebrain.io/engine" in out
+    assert "briefcase-ai engine install --code bci_..." in out and "https://observe.briefcasebrain.io/engine" in out
     assert "--insecure" not in out  # there is no way to skip verification
 
 

@@ -1,4 +1,4 @@
-"""Policy decisions posted by ``briefcase hook <tool> --enforce`` -> decision records.
+"""Policy decisions posted by ``briefcase-ai hook <tool> --enforce`` -> decision records.
 
 ``POST /v1/policy/decisions`` takes the JSON the hook writes to its local log
 and returns a record with ``decision_type = "policy.tool_call"``.

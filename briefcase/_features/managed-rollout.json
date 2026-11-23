@@ -3,7 +3,7 @@
   "title": "Managed rollout for a team",
   "verb": "connect",
   "one_line": "Generate the files an admin deploys to set up briefcase on every machine.",
-  "command": "briefcase connect --managed --out ./briefcase-rollout",
+  "command": "briefcase-ai connect --managed --out ./briefcase-rollout",
   "docs_slug": "connect/managed-rollout",
   "status": "experimental",
   "requires_extra": null,

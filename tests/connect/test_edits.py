@@ -165,6 +165,20 @@ def test_cursor_hook_is_replaced_not_duplicated_when_flags_change(home):
     assert not (home / ".cursor" / "hooks.json").exists()
 
 
+def test_a_4_4_cursor_config_naming_the_old_commands_is_repaired(home, fake_bin):
+    fake_bin("briefcase-ai")
+    cursor = home / ".cursor"
+    cursor.mkdir()
+    old_hook = {"command": "briefcase hook cursor", "timeout": 5}
+    (cursor / "hooks.json").write_text(json.dumps({"version": 1, "hooks": {"stop": [old_hook]}}))
+    (cursor / "mcp.json").write_text(json.dumps({"mcpServers": {"briefcase": {"command": "briefcase-mcp"}}}))
+    connect(["cursor"])
+    hooks = json.loads((cursor / "hooks.json").read_text())["hooks"]
+    assert [entry["command"] for entry in hooks["stop"]] == ["briefcase-ai hook cursor"]
+    servers = json.loads((cursor / "mcp.json").read_text())["mcpServers"]
+    assert "briefcase-mcp" not in json.dumps(servers) and "briefcase-ai-mcp" in json.dumps(servers)
+
+
 @pytest.mark.parametrize("body, why", [
     ('{"env": {"A": "1",}', "not valid JSON"),
     ('{\n  // my settings\n  "env": {"A": "1"}\n}\n', "comments or trailing commas"),
@@ -237,7 +251,7 @@ def test_commands_run_once_as_argument_lists_and_are_journalled(home, fake_bin):
     plan, out, failures = connect(["claude-code"], runner=runner)
     assert failures == 0
     assert calls == [["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
-                      "uvx", "--from", "briefcase-ai[mcp]", "briefcase-mcp"]]
+                      "uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]]
     plan, _, _ = connect(["claude-code"], runner=runner)
     assert len(calls) == 1 and plan.commands == [] and len(plan.done_commands) == 1
     out = []
@@ -304,7 +318,7 @@ def test_diff_masks_secret_looking_values(home):
 
 def test_status_and_doctor_checks_report_drift(home, fake_bin):
     assert engine.doctor_checks(probe=lambda e: None) == [
-        ("warn", "connect", "no tools connected yet; run: briefcase connect")]
+        ("warn", "connect", "no tools connected yet; run: briefcase-ai connect")]
     fake_bin("claude", "2.1.330 (Claude Code)")
     connect(["claude-code", "codex"], mcp=False)
     rows = {row["tool"]: row for row in engine.status()}

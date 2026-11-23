@@ -3,7 +3,7 @@
 The engine is proprietary and is NOT part of this package. What ships here is the open part:
 the gRPC contract (``briefcase/engine/_proto``, Apache-2.0, vendored from oci-jj ``proto/``),
 the client, the release keys this SDK trusts (``briefcase/engine/keys``) and the installer that
-gets the engine from the gated Briefcase portal and verifies it (``briefcase engine install``).
+gets the engine from the gated Briefcase portal and verifies it (``briefcase-ai engine install``).
 Nothing in this package contains engine binaries, images, source or credentials.
 
 Install state lives under ``~/.briefcase/engine`` (``$BRIEFCASE_HOME/engine``)::
@@ -30,8 +30,8 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
 
 EXIT_NOT_INSTALLED = 3
-NOT_INSTALLED = "engine not installed — `briefcase engine install`"
-HELP_SUFFIX = " (engine not installed — `briefcase engine install`)"
+NOT_INSTALLED = "engine not installed — `briefcase-ai engine install`"
+HELP_SUFFIX = " (engine not installed — `briefcase-ai engine install`)"
 
 ENV_ADDR = "BRIEFCASE_ENGINE_ADDR"
 ENV_LICENSE = "BRIEFCASE_LICENSE_TOKEN"
@@ -149,7 +149,7 @@ def gateway_address(env: Optional[Mapping[str, str]] = None) -> str:
 
 
 def help_text(text: str, env: Optional[Mapping[str, str]] = None) -> str:
-    """Command help, marked when the engine is not installed (shown in ``briefcase --help``)."""
+    """Command help, marked when the engine is not installed (shown in ``briefcase-ai --help``)."""
     try:
         return text if available(env) else text + HELP_SUFFIX
     except Exception:  # noqa: BLE001 - help must always render
@@ -160,7 +160,7 @@ def not_installed(as_json: bool = False) -> int:
     """Print the not-installed line and return :data:`EXIT_NOT_INSTALLED`."""
     if as_json:
         print(json.dumps({"error": "engine_not_installed", "message": NOT_INSTALLED,
-                          "fix": "briefcase engine install"}))
+                          "fix": "briefcase-ai engine install"}))
     else:
         print(f"error: {NOT_INSTALLED}", file=sys.stderr)
     return EXIT_NOT_INSTALLED
@@ -180,8 +180,8 @@ def gate(args: Any = None, engine: Any = None) -> Optional[int]:
 
 
 def status_row(feature_id: str, title: str, detail_on: str,
-               next_off: str = "briefcase engine install") -> Dict[str, Any]:
-    """A ``briefcase status`` row for a feature that needs the engine."""
+               next_off: str = "briefcase-ai engine install") -> Dict[str, Any]:
+    """A ``briefcase-ai status`` row for a feature that needs the engine."""
     if available():
         return {"id": feature_id, "title": title, "state": "on", "detail": detail_on, "next": None}
     return {"id": feature_id, "title": title, "state": "off", "detail": NOT_INSTALLED, "next": next_off}

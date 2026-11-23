@@ -122,7 +122,7 @@ def _key(key: str) -> str:
 
 
 def dumps(data: Mapping[str, Any]) -> str:
-    lines = ["# briefcase budgets (written by `briefcase budget set`; edit freely).",
+    lines = ["# briefcase budgets (written by `briefcase-ai budget set`; edit freely).",
              "# Enforced in apps that call briefcase.budgets.enable(). Docs: docs/features/budgets.md"]
     for key in TOP_KEYS:
         if key in data:

@@ -3,7 +3,7 @@
   "title": "Bitemporal evidence store",
   "verb": "verify",
   "one_line": "Reconstruct what your system knew on the day a decision was made.",
-  "command": "briefcase features bitemporal-store",
+  "command": "briefcase-ai features bitemporal-store",
   "docs_slug": "verify/bitemporal-store",
   "status": "experimental",
   "requires_extra": null,

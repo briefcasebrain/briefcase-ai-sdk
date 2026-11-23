@@ -2,7 +2,7 @@
 
 Lets MCP-capable tools (Cursor, Claude Code, Codex, Replit, …) use briefcase
 directly: sanitize PII, estimate model cost, analyze output drift, and read the
-usage guide. Run with ``briefcase-mcp`` or ``python -m briefcase.mcp``.
+usage guide. Run with ``briefcase-ai-mcp`` or ``python -m briefcase.mcp``.
 
 It also answers questions about the user's own recorded decisions, read-only
 (``briefcase.mcp.records``): search_decisions, get_decision, get_trace,
@@ -304,7 +304,7 @@ def _register_record_tools(server: Any) -> None:
         decision_id: Annotated[str, Field(description="Id of a policy.tool_call record.")],
         path: Path_ = None,
     ) -> Dict[str, Any]:
-        """Why a coding tool's call was allowed, asked about or denied by `briefcase policy`.
+        """Why a coding tool's call was allowed, asked about or denied by `briefcase-ai policy`.
 
         Says which rule fired, from which policy file, its reason, and the mode (observe only
         logs). Compares with the policy on this machine today: whether the rule still exists and,
@@ -342,7 +342,7 @@ def _register_record_tools(server: Any) -> None:
 
         For each record: replayable or not and why; for the plan: call count, models and an
         estimate of the tokens a live replay would use. Nothing is executed and no model is
-        called; the user runs `briefcase replay run` themselves.
+        called; the user runs `briefcase-ai replay run` themselves.
         """
         with _caller_errors():
             return R.replay_plan(path, decision_ids=decision_ids, limit=limit)
@@ -350,13 +350,13 @@ def _register_record_tools(server: Any) -> None:
     @server.tool()
     def drift_check(
         baseline: Annotated[str, Field(
-            description="Name of a saved baseline (briefcase drift baselines) or a profile .json path.")],
+            description="Name of a saved baseline (briefcase-ai drift baselines) or a profile .json path.")],
         since: Since = None,
         until: Until = None,
         last: Annotated[Optional[int], Field(description="Only the last N records.", ge=1)] = None,
         path: Path_ = None,
     ) -> Dict[str, Any]:
-        """Compare recent records with a saved baseline profile (briefcase drift).
+        """Compare recent records with a saved baseline profile (briefcase-ai drift).
 
         Returns each signal (latency, tokens, cost, error and refusal rates, model mix, ...) with
         its state (ok, attention, insufficient_data, unavailable) and a plain reading.
@@ -366,7 +366,7 @@ def _register_record_tools(server: Any) -> None:
 
 
 def main() -> None:
-    """Entry point for the ``briefcase-mcp`` console script (stdio transport)."""
+    """Entry point for the ``briefcase-ai-mcp`` console script (stdio transport)."""
     build_server().run()
 
 

@@ -1,7 +1,7 @@
 # Tamper-evident decision store
 
 Record decisions into a SQLite file where every record is hash-chained to the one before it,
-so nothing can be edited, reordered, inserted or deleted afterwards without `briefcase verify`
+so nothing can be edited, reordered, inserted or deleted afterwards without `briefcase-ai verify`
 saying so. Signed checkpoints let you prove one record was in the log without handing over the
 whole log.
 
@@ -15,13 +15,13 @@ briefcase.observe("chain:evidence.db")       # every @capture record goes into t
 ```
 
 ```bash
-briefcase verify evidence.db
+briefcase-ai verify evidence.db
 ```
 
 Sign checkpoints (recommended): create a key once and point `BRIEFCASE_SIGNING_KEY` at it.
 
 ```bash
-briefcase bundle keygen ~/.briefcase/signing-key.jwk
+briefcase-ai bundle keygen ~/.briefcase/signing-key.jwk
 export BRIEFCASE_SIGNING_KEY=~/.briefcase/signing-key.jwk
 ```
 
@@ -35,11 +35,11 @@ Captured on 2026-11-22 in a temporary `HOME` (its path is shown as `$HOME`). `ca
 calls `briefcase.observe("chain:evidence.db")`, captures four synthetic `score_claim` decisions
 in two `briefcase.correlation` workflows, and calls `briefcase.shutdown()`. `tamper.py` plays
 the attacker: it opens the file with Python's `sqlite3`, drops the guard triggers and runs the
-SQL shown. The `briefcase ...` commands were run through the command modules' `register()`
+SQL shown. The `briefcase-ai ...` commands were run through the command modules' `register()`
 (what the CLI's command discovery does; discovery itself belongs to another work package).
 
 ```text
-$ briefcase bundle keygen $HOME/.briefcase/signing-key.jwk
+$ briefcase-ai bundle keygen $HOME/.briefcase/signing-key.jwk
 Wrote private key $HOME/.briefcase/signing-key.jwk (mode 0600). Keep it private; back it up.
   Key id (publish this so verifiers can pin it): 9807a955e02e27829dce8bb6f4fa98cce0b73c0b12c83469fc3be5aeaf58f2c2
   Public key: {"kty": "OKP", "crv": "Ed25519", "x": "OZW9V2fGoFuq9H_xu6Wwh07IOGW6l0f0l7suwN9yFh8"}
@@ -49,28 +49,28 @@ Next: export BRIEFCASE_SIGNING_KEY=$HOME/.briefcase/signing-key.jwk   (then brie
 $ BRIEFCASE_SIGNING_KEY=~/.briefcase/signing-key.jwk python capture.py
 [exit 0]
 
-$ briefcase verify evidence.db
+$ briefcase-ai verify evidence.db
 INTACT: evidence.db (chained store)
   Checked 4 entries (seq 1-4) and 1 checkpoint.
   Signatures: 1 verified (key 9807a955e02e).
   Every entry links to the one before it and matches its record.
   Note: Removal of the newest entries after the last checkpoint cannot be detected from the database alone; verify against a checkpoint kept outside it (--against FILE).
-Next: briefcase verify evidence.db --save-checkpoint anchor.json   (keep it off this machine)
+Next: briefcase-ai verify evidence.db --save-checkpoint anchor.json   (keep it off this machine)
 [exit 0]
 
-$ briefcase verify evidence.db --save-checkpoint anchor.json
+$ briefcase-ai verify evidence.db --save-checkpoint anchor.json
 INTACT: evidence.db (chained store)
   Checked 4 entries (seq 1-4) and 1 checkpoint.
   Signatures: 1 verified (key 9807a955e02e).
   Every entry links to the one before it and matches its record.
   Note: Removal of the newest entries after the last checkpoint cannot be detected from the database alone; verify against a checkpoint kept outside it (--against FILE).
   Saved the latest checkpoint to anchor.json. Keep a copy where the writer of evidence.db cannot change it.
-Next: copy anchor.json off this machine; later run: briefcase verify evidence.db --against anchor.json
+Next: copy anchor.json off this machine; later run: briefcase-ai verify evidence.db --against anchor.json
 [exit 0]
 
 $ python tamper.py evidence.db "UPDATE chain_entries SET record_json = replace(record_json, 'False', 'True') WHERE seq = 4"
 
-$ briefcase verify evidence.db
+$ briefcase-ai verify evidence.db
 TAMPERED: evidence.db (chained store)
   Checked 4 entries (seq 1-4) and 1 checkpoint.
   Signatures: 1 verified (key 9807a955e02e).
@@ -78,27 +78,27 @@ TAMPERED: evidence.db (chained store)
     - entry 4 (record 2871002c-ed11-45da-ae9c-55cc2c8bce6e) was changed after it was written
   First broken entry: 4; changed: 4.
   Note: Removal of the newest entries after the last checkpoint cannot be detected from the database alone; verify against a checkpoint kept outside it (--against FILE).
-Next: briefcase verify evidence.db --json > verify-report.json   (keep the full report)
+Next: briefcase-ai verify evidence.db --json > verify-report.json   (keep the full report)
 [exit 1]
 
 $ python tamper.py cut.db "DELETE FROM chain_entries WHERE seq = 4" "DELETE FROM chain_checkpoints"
 
-$ briefcase verify cut.db
+$ briefcase-ai verify cut.db
 INTACT: cut.db (chained store)
   Checked 3 entries (seq 1-3) and 0 checkpoints.
   Every entry links to the one before it and matches its record.
   3 entries are chained but not yet covered by a checkpoint.
   Note: Removal of the newest entries after the last checkpoint cannot be detected from the database alone; verify against a checkpoint kept outside it (--against FILE).
-Next: briefcase verify cut.db --save-checkpoint anchor.json   (keep it off this machine)
+Next: briefcase-ai verify cut.db --save-checkpoint anchor.json   (keep it off this machine)
 [exit 0]
 
-$ briefcase verify cut.db --against anchor.json
+$ briefcase-ai verify cut.db --against anchor.json
 INCOMPLETE: cut.db (chained store)
   Checked 3 entries (seq 1-3) and 0 checkpoints.
   Signatures: 1 verified (key 9807a955e02e).
   1 problem:
     - the log ends at entry 3 but the anchored checkpoint 1 covers up to entry 4: entry 4 was removed
-Next: briefcase verify cut.db --json > verify-report.json   (keep the full report)
+Next: briefcase-ai verify cut.db --json > verify-report.json   (keep the full report)
 [exit 1]
 ```
 
@@ -129,7 +129,7 @@ Records are stored exactly as captured: redaction or hashing applied by `@captur
 chain holds. Nothing is sent anywhere.
 
 Keys use the format of `briefcase.integrity.signing`: a 32-byte Ed25519 seed, stored by
-`briefcase bundle keygen` as a private RFC 8037 JWK; public keys are OKP JWKs named by their
+`briefcase-ai bundle keygen` as a private RFC 8037 JWK; public keys are OKP JWKs named by their
 RFC 7638 thumbprint (the "key id"). A key made in Python signs in Rust and the other way round
 (tested both ways; Ed25519 is deterministic, so both produce the same signature bytes).
 
@@ -157,13 +157,13 @@ first); they are provably unaltered only from that moment on.
 ## How to turn it off or undo
 
 Stop using `chain:` (or `chained=True`). The file stays a normal SQLite database that plain
-handles can read; they can also write around the chain, and `briefcase verify` reports those
+handles can read; they can also write around the chain, and `briefcase-ai verify` reports those
 rows as `unchained_record`. There is no way to "unchain" entries: that would defeat the point.
 Delete the file to discard it.
 
 ## Threat model
 
-Detected by `briefcase verify` (or `SqliteBackend.verify()`, which runs the same checks in Rust):
+Detected by `briefcase-ai verify` (or `SqliteBackend.verify()`, which runs the same checks in Rust):
 
 | Attack | How it shows |
 |---|---|
@@ -191,7 +191,7 @@ Not detected:
 - Values RFC 8785 cannot represent exactly (NaN, Infinity, integers beyond 2^53 a double cannot
   hold) are refused: the exporter logs a warning naming the record and counts it as failed in
   `briefcase.export_stats()`. Encode such values as strings.
-- Needs the compiled core to write (`briefcase._native`, part of the wheel). `briefcase verify`
+- Needs the compiled core to write (`briefcase._native`, part of the wheel). `briefcase-ai verify`
   reads the file with Python's `sqlite3` and works without it.
 - One writer lock per database: very high write rates from many processes serialize.
 - Not tested on network filesystems (SQLite locking is unreliable there) or Windows.
@@ -200,9 +200,9 @@ Not detected:
 
 | Symptom | Fix |
 |---|---|
-| `briefcase verify` says "SQLite database without a hash chain" | The file was written without the chain. Use `briefcase.observe("chain:evidence.db")` or `SqliteBackend(path, chained=True)`. |
-| `Signatures: none (checkpoints are not signed)` | `briefcase bundle keygen ~/.briefcase/signing-key.jwk` and `export BRIEFCASE_SIGNING_KEY=...` before capturing. |
-| Records never appear in the chain | Run `briefcase status`; check `briefcase.export_stats()` for failures and the log for "not added to the evidence chain". |
+| `briefcase-ai verify` says "SQLite database without a hash chain" | The file was written without the chain. Use `briefcase.observe("chain:evidence.db")` or `SqliteBackend(path, chained=True)`. |
+| `Signatures: none (checkpoints are not signed)` | `briefcase-ai bundle keygen ~/.briefcase/signing-key.jwk` and `export BRIEFCASE_SIGNING_KEY=...` before capturing. |
+| Records never appear in the chain | Run `briefcase-ai status`; check `briefcase.export_stats()` for failures and the log for "not added to the evidence chain". |
 | `ValueError: ... encode it as a string` | A record holds NaN or a huge integer; convert it to a string before capture. |
 | `FileExistsError` on save | Chained stores never overwrite: save under a new id. |
 | `unchained_record` after mixing old code | Some process writes without `chained=True`; switch it to the chained store. |

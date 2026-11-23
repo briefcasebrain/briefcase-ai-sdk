@@ -95,8 +95,8 @@ def test_connect_happy_path_detects_writes_and_tells_you_how_to_undo(home, capsy
     assert "Detected: Claude Code, Cursor" in out
     assert "+++ " + str(home / ".claude" / "settings.json") in out  # the diff was shown
     assert "wrote  " + str(home / ".claude" / "settings.json") in out
-    assert "Undo any time with: briefcase connect --undo" in out
-    assert "briefcase receive --detach" in out
+    assert "Undo any time with: briefcase-ai connect --undo" in out
+    assert "briefcase-ai receive --detach" in out
     assert "briefcase-ai[receiver]" not in out  # neither tool needs protobuf
     env = json.loads((home / ".claude" / "settings.json").read_text())["env"]
     assert env["OTEL_EXPORTER_OTLP_PROTOCOL"] == "http/json" and "OTEL_LOG_USER_PROMPTS" not in env
@@ -209,7 +209,7 @@ def test_connect_runs_mcp_commands_through_the_runner_only_after_confirmation(ho
     assert calls == [] and "run    claude mcp add --scope user briefcase" in capsys.readouterr().out
     assert main(["connect", "claude-code", "--yes"]) == 0
     assert calls == [["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
-                      "uvx", "--from", "briefcase-ai[mcp]", "briefcase-mcp"]]
+                      "uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]]
 
 
 def test_connect_bad_input(home, capsys):
@@ -273,16 +273,16 @@ def test_mcp_install_writes_only_mcp_config(home, tmp_path, capsys):
     assert json.loads((project / ".vscode" / "mcp.json").read_text()) == {
         "servers": {"briefcase": {"type": "stdio", **payloads.UVX_CONFIG}}}
     assert not (home / ".claude").exists() and not (project / ".cursor" / "hooks.json").exists()
-    assert "briefcase receive" not in capsys.readouterr().out  # no receiver talk for MCP-only installs
+    assert "briefcase-ai receive" not in capsys.readouterr().out  # no receiver talk for MCP-only installs
     assert main(["connect", "--undo"]) == 0
     assert not (project / ".mcp.json").exists()
 
 
 def test_mcp_install_uses_the_installed_script_when_on_path(home, tmp_path):
-    fake_bin(tmp_path, "briefcase-mcp", "")
+    fake_bin(tmp_path, "briefcase-ai-mcp", "")
     assert main(["mcp", "install", "cursor", "--yes"]) == 0
     assert json.loads((home / ".cursor" / "mcp.json").read_text()) == {
-        "mcpServers": {"briefcase": {"type": "stdio", "command": "briefcase-mcp"}}}
+        "mcpServers": {"briefcase": {"type": "stdio", "command": "briefcase-ai-mcp"}}}
 
 
 # --- doctor --connect -----------------------------------------------------------

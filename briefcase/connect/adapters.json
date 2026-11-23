@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "notes": "Data for `briefcase connect`. Formats come from each tool's public documentation on verified_on. min_tested/max_tested are the tool versions the adapter was actually run against (null: never run against the real tool, documentation only). `supported` is a documentation-derived range; a detected version outside it falls back to print-only (override with --force). Entries under `unverified` are never written automatically. An `enforce` block describes the tool's blocking hook, used by `briefcase policy` and `briefcase hook <tool> --enforce`: the event, how a hook denies or asks, and what the tool does when the hook itself fails, each from the page in `docs_url` on `verified_on`.",
+  "notes": "Data for `briefcase-ai connect`. Formats come from each tool's public documentation on verified_on. min_tested/max_tested are the tool versions the adapter was actually run against (null: never run against the real tool, documentation only). `supported` is a documentation-derived range; a detected version outside it falls back to print-only (override with --force). Entries under `unverified` are never written automatically. An `enforce` block describes the tool's blocking hook, used by `briefcase-ai policy` and `briefcase-ai hook <tool> --enforce`: the event, how a hook denies or asks, and what the tool does when the hook itself fails, each from the page in `docs_url` on `verified_on`.",
   "default_endpoint": "http://127.0.0.1:4318",
   "tools": {
     "claude-code": {
@@ -49,7 +49,7 @@
           "min_version": "2.1.295"
         },
         "timeout_seconds": 10,
-        "tested": "Claude Code 2.1.330 run with `claude -p` against a local stub model API on 2026-11-22: the installed hook denied Bash and Read calls with the rule's reason, an ask became a denial in -p (nobody to answer), allowed calls ran, a broken policy failed open, fail_closed blocked, a missing launcher blocked with onFailure \"block\" and was allowed without it (fail-open command form), and `briefcase policy off` removed the entry",
+        "tested": "Claude Code 2.1.330 run with `claude -p` against a local stub model API on 2026-11-22: the installed hook denied Bash and Read calls with the rule's reason, an ask became a denial in -p (nobody to answer), allowed calls ran, a broken policy failed open, fail_closed blocked, a missing launcher blocked with onFailure \"block\" and was allowed without it (fail-open command form), and `briefcase-ai policy off` removed the entry",
         "unverified": []
       }
     },

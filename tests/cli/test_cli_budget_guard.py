@@ -1,4 +1,4 @@
-"""``briefcase budget`` and ``briefcase guard`` in a temp HOME, and their
+"""``briefcase-ai budget`` and ``briefcase-ai guard`` in a temp HOME, and their
 status hooks."""
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def test_budget_set_show_test_status_unset(shell_home, capsys):
     assert budget_commands.status()["state"] == "off"
     assert main(["budget", "set", "daily", "--usd", "20", "--soft-usd", "15"]) == 0
     out = capsys.readouterr().out
-    assert "+[budgets.daily]" in out and "Next: briefcase budget test" in out
+    assert "+[budgets.daily]" in out and "Next: briefcase-ai budget test" in out
     assert path.exists()
     assert main(["budget", "set", "per-tenant", "--usd", "0.01", "--per", "tenant",
                  "--window", "month", "--on-exceed", "degrade", "--degrade-to", "gpt-4o-mini",
@@ -92,7 +92,7 @@ def test_budget_status_hook_attention_over_80_percent(shell_home, capsys):
     enable().reserve("gpt-4o", 1000, 900)   # $0.0185 of $0.02
     row = budget_commands.status()
     assert row["state"] == "attention" and "at 92.5% of its limit" in row["detail"]
-    assert row["next"] == "briefcase budget status"
+    assert row["next"] == "briefcase-ai budget status"
     assert main(["budget", "status"]) == 0
     assert "$0.0185/$0.02" in capsys.readouterr().out
 

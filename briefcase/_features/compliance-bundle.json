@@ -3,7 +3,7 @@
   "title": "Examiner bundle",
   "verb": "verify",
   "one_line": "Package a decision, its evidence and its policy version for an auditor.",
-  "command": "briefcase features compliance-bundle",
+  "command": "briefcase-ai features compliance-bundle",
   "docs_slug": "verify/compliance-bundle",
   "status": "experimental",
   "requires_extra": null,

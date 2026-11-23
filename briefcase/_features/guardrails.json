@@ -3,7 +3,7 @@
   "title": "Guardrail checks",
   "verb": "enforce",
   "one_line": "Decide allow or deny for an agent action, and fail closed on errors.",
-  "command": "briefcase features guardrails",
+  "command": "briefcase-ai features guardrails",
   "docs_slug": "enforce/guardrails",
   "status": "experimental",
   "requires_extra": null,

@@ -10,7 +10,7 @@
  *   inherited `NODE_OPTIONS` does nothing without `BRIEFCASE_AUTO=1`:
  *   `NODE_OPTIONS` reaches every Node process started below it (npm, tsc,
  *   test runners, editors), and those should not start exporting records.
- *   `briefcase exec` sets `BRIEFCASE_AUTO=1` itself.
+ *   `briefcase-ai exec` sets `BRIEFCASE_AUTO=1` itself.
  *
  * It runs on the main thread and in worker threads (a worker inherits the
  * parent's `execArgv` and environment, so the same rule applies there; a

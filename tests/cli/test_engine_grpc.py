@@ -1,4 +1,4 @@
-"""`briefcase graph`, `env`, `verify --graph`, `run attach` against an in-process gRPC server.
+"""`briefcase-ai graph`, `env`, `verify --graph`, `run attach` against an in-process gRPC server.
 
 The server implements the VcsService methods these commands call, with message classes built
 from the SDK's own vendored descriptor set (briefcase/engine/_proto/oci_jj_v1.binpb), so the test
@@ -142,7 +142,7 @@ def _req(fake, name):
 def test_graph_log_text_and_json(engine, capsys):
     assert main(["graph", "log", "rl-gym-env", "--limit", "5"]) == 0
     out = capsys.readouterr().out
-    assert "c0ffee00" in out and "add torch" in out and "Next: briefcase graph show rl-gym-env" in out
+    assert "c0ffee00" in out and "add torch" in out and "Next: briefcase-ai graph show rl-gym-env" in out
     (req,) = _req(engine, "Log")
     assert req.repo == "rl-gym-env" and req.ref == "rl-gym-env" and req.limit == 5
     assert main(["graph", "log", "rl-gym-env", "--json"]) == 0
@@ -257,7 +257,7 @@ def test_unimplemented_rpc_says_upgrade(engine, capsys):
     engine.unimplemented.add("Fsck")
     assert main(["verify", "--graph", "cand"]) == 1
     err = capsys.readouterr().err
-    assert "not available on this engine" in err and "Fix: briefcase engine upgrade" in err
+    assert "not available on this engine" in err and "Fix: briefcase-ai engine upgrade" in err
 
 
 def test_wrong_token_is_explained(engine, capsys, monkeypatch):
@@ -272,7 +272,7 @@ def test_engine_down_is_explained(shell_home, capsys, monkeypatch):
     monkeypatch.setenv("BRIEFCASE_ENGINE_ADDR", "http://127.0.0.1:1")
     assert main(["graph", "log", "x"]) == 1
     err = capsys.readouterr().err
-    assert "not reachable" in err and "Fix: briefcase engine status" in err
+    assert "not reachable" in err and "Fix: briefcase-ai engine status" in err
 
 
 def test_grpc_engine_run_submit_uses_vendored_contract(engine, capsys, monkeypatch):

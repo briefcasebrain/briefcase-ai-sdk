@@ -1,14 +1,14 @@
-"""``briefcase engine``: install and run the Briefcase engine (oci-jj) on this machine.
+"""``briefcase-ai engine``: install and run the Briefcase engine (oci-jj) on this machine.
 
-    briefcase engine install --code bci_...     # the one command the portal shows you
-    briefcase engine up
-    briefcase engine status
+    briefcase-ai engine install --code bci_...     # the one command the portal shows you
+    briefcase-ai engine up
+    briefcase-ai engine status
 
 The engine is proprietary and is not in this package. Entitled accounts get it from the gated
 portal (https://observe.briefcasebrain.io/engine): either the one-command install with a
 single-use install code, a licence token for automation, or an offline bundle. Everything is
 verified against the release key pinned in this SDK (``briefcase/engine/keys``) before it is
-installed. Every other subcommand works on that local install. ``briefcase stack`` is the
+installed. Every other subcommand works on that local install. ``briefcase-ai stack`` is the
 deprecated name for ``up``/``down``/``status``/``logs``.
 
 Exit codes: 0 ok, 1 failed, 2 usage, 3 engine not installed.
@@ -53,25 +53,25 @@ def register(sub) -> None:
         help=_engine.help_text("Install and run the Briefcase engine (oci-jj) locally."),
         description="Install the engine from the Briefcase portal (one-command install code, licence "
                     "token or offline bundle), verify it, then start, check and upgrade it. "
-                    "Replaces `briefcase stack`.",
-        epilog="example:\n  briefcase engine install --code bci_...   "
+                    "Replaces `briefcase-ai stack`.",
+        epilog="example:\n  briefcase-ai engine install --code bci_...   "
                "# from https://observe.briefcasebrain.io/engine\n\n" + ENV_HELP,
         formatter_class=_RAW,
     )
     sp = p.add_subparsers(dest="engine_sub", metavar="<subcommand>")
 
     inst = _sub(sp, "install", "Install the engine: one-command code, licence token, or offline bundle.",
-                "briefcase engine install --code bci_...   # copy it from https://observe.briefcasebrain.io/engine")
+                "briefcase-ai engine install --code bci_...   # copy it from https://observe.briefcasebrain.io/engine")
     _install_flags(inst)
     inst.set_defaults(func=cmd_install)
 
     upg = _sub(sp, "upgrade", "Install the newest engine release and restart onto it.",
-               "briefcase engine upgrade --token bcl_...")
+               "briefcase-ai engine upgrade --token bcl_...")
     _install_flags(upg)
     upg.set_defaults(func=cmd_upgrade)
 
     ver = _sub(sp, "verify", "Verify a downloaded engine file against the release key pinned in this SDK.",
-               "briefcase engine verify engine-images-0.4.0-x86_64.tar --manifest engine-manifest.json")
+               "briefcase-ai engine verify engine-images-0.4.0-x86_64.tar --manifest engine-manifest.json")
     ver.add_argument("file", help="The downloaded file (binary, bundle, engine-manifest.json or index.json).")
     ver.add_argument("--signature", metavar="FILE", help="Its signature (default FILE.sig).")
     ver.add_argument("--manifest", metavar="FILE",
@@ -79,35 +79,35 @@ def register(sub) -> None:
     _ux.add_json_flag(ver)
     ver.set_defaults(func=cmd_verify)
 
-    up = _sub(sp, "up", "Start the installed engine (docker compose up).", "briefcase engine up")
+    up = _sub(sp, "up", "Start the installed engine (docker compose up).", "briefcase-ai engine up")
     up.add_argument("--wait", action="store_true", help="Wait until every service is healthy.")
     up.set_defaults(func=cmd_up)
 
-    down = _sub(sp, "down", "Stop the engine. Data is kept unless --volumes.", "briefcase engine down")
+    down = _sub(sp, "down", "Stop the engine. Data is kept unless --volumes.", "briefcase-ai engine down")
     down.add_argument("--volumes", action="store_true", help="Also delete the engine's data (asks first).")
     down.add_argument("--yes", "-y", action="store_true", help="Do not ask for confirmation.")
     down.set_defaults(func=cmd_down)
 
     st = _sub(sp, "status", "Show what is installed, the key it was verified with, and whether it runs.",
-              "briefcase engine status --json")
+              "briefcase-ai engine status --json")
     st.add_argument("--token", metavar="T",
                     help="Licence token to check for a newer release (default $BRIEFCASE_LICENSE_TOKEN).")
     _ux.add_json_flag(st)
     st.set_defaults(func=cmd_status)
 
-    logs = _sub(sp, "logs", "Show engine service logs.", "briefcase engine logs oci-jj-server -f")
+    logs = _sub(sp, "logs", "Show engine service logs.", "briefcase-ai engine logs oci-jj-server -f")
     logs.add_argument("service", nargs="?", help="One service (default: all).")
     logs.add_argument("-f", "--follow", action="store_true", help="Stream logs.")
     logs.add_argument("--tail", default="200", help="Lines per service (default 200).")
     logs.set_defaults(func=cmd_logs)
 
     doc = _sub(sp, "doctor", "Check Docker, the install, its signature, the images and the gRPC endpoint.",
-               "briefcase engine doctor")
+               "briefcase-ai engine doctor")
     _ux.add_json_flag(doc)
     doc.set_defaults(func=cmd_doctor)
 
     un = _sub(sp, "uninstall", "Remove the engine install (and with --purge, its data and secrets).",
-              "briefcase engine uninstall --dry-run")
+              "briefcase-ai engine uninstall --dry-run")
     un.add_argument("--purge", action="store_true", help="Also delete data volumes, secrets and certificates.")
     un.add_argument("--dry-run", dest="engine_dry_run", action="store_true", help="Show the plan; change nothing.")
     un.add_argument("--yes", "-y", action="store_true", help="Do not ask for confirmation.")
@@ -215,18 +215,18 @@ def _options(args):
     if bundle or manifest:
         if not (bundle and manifest):
             raise _Usage("an offline install needs both --bundle and --manifest",
-                         "briefcase engine install --bundle engine-images-<version>-<arch>.tar "
+                         "briefcase-ai engine install --bundle engine-images-<version>-<arch>.tar "
                          "--manifest engine-manifest.json")
         if code or token_flag:
             raise _Usage("--bundle installs offline; it takes no --code or --token",
-                         "briefcase engine install --bundle FILE --manifest FILE")
+                         "briefcase-ai engine install --bundle FILE --manifest FILE")
         return _inst.InstallOptions(platform_url=platform, bundle=Path(bundle), manifest=Path(manifest),
                                     signature=Path(args.signature) if getattr(args, "signature", None) else None,
                                     binary=Path(args.binary) if getattr(args, "binary", None) else None,
                                     tls=bool(getattr(args, "tls", False)),
                                     skip_images=bool(getattr(args, "no_images", False)))
     if code and token_flag:
-        raise _Usage("give either --code or --token, not both", "briefcase engine install --code bci_...")
+        raise _Usage("give either --code or --token, not both", "briefcase-ai engine install --code bci_...")
     if code:
         if not code.startswith("bci_"):
             hint = " (that looks like a licence token: use --token)" if code.startswith("bcl_") else ""
@@ -239,10 +239,10 @@ def _options(args):
         token = token_flag or os.environ.get(_engine.ENV_LICENSE)
         if not token:
             raise _Usage("no install code, licence token or offline bundle given",
-                         PORTAL_HINT.format(portal=portal) + " (briefcase engine install --code bci_...)")
+                         PORTAL_HINT.format(portal=portal) + " (briefcase-ai engine install --code bci_...)")
         if token.startswith("bci_"):
             raise _Usage("that is an install code, not a licence token",
-                         f"briefcase engine install --code {token[:8]}...")
+                         f"briefcase-ai engine install --code {token[:8]}...")
     return _inst.InstallOptions(platform_url=platform, code=code, token=token, version=version,
                                 tls=bool(getattr(args, "tls", False)),
                                 skip_images=bool(getattr(args, "no_images", False)))
@@ -350,9 +350,9 @@ def _install(args, upgrading: bool) -> int:
     except errors as exc:
         fix = exc.fix
         if opts.mode == "token" and fix is None:
-            fix = "briefcase engine install --token ...   # re-run; verified downloads are reused"
+            fix = "briefcase-ai engine install --token ...   # re-run; verified downloads are reused"
         elif opts.mode == "bundle" and fix is None:
-            fix = "briefcase engine verify " + str(opts.bundle) + " --manifest " + str(opts.manifest)
+            fix = "briefcase-ai engine verify " + str(opts.bundle) + " --manifest " + str(opts.manifest)
         return _ux.fail(str(exc), fix=fix)
     except RuntimeError as exc:  # --tls without openssl
         return _ux.fail(str(exc), fix="install openssl, or install without --tls")
@@ -361,23 +361,23 @@ def _install(args, upgrading: bool) -> int:
         log(f"restarting onto {record['version']} (data volumes are kept)...")
         rc = _rc(_run(_compose(record, "up", "-d", "--remove-orphans")))
         if rc != 0:
-            return _ux.fail("the new engine did not start", fix="briefcase engine logs")
+            return _ux.fail("the new engine did not start", fix="briefcase-ai engine logs")
     if as_json:
         return _ux.print_json({"installed": record})
     where = Path(record["compose"]).parent if record.get("compose") else Path(record["manifest"]).parent
     print(f"engine {record['version']} installed in {where} (verified with key {record['key_id']})")
     if record.get("binary"):
         print(f"  client: {record['binary']}")
-    _ux.print_next("briefcase engine status" if upgrading else "briefcase engine up")
+    _ux.print_next("briefcase-ai engine status" if upgrading else "briefcase-ai engine up")
     return 0
 
 
 def _rerun(opts) -> str:
     if opts.mode == "bundle":
-        return f"briefcase engine install --bundle {opts.bundle} --manifest {opts.manifest} --yes"
+        return f"briefcase-ai engine install --bundle {opts.bundle} --manifest {opts.manifest} --yes"
     if opts.mode == "code":
-        return f"briefcase engine install --code {opts.code} --yes"
-    return "briefcase engine install --yes   # with BRIEFCASE_LICENSE_TOKEN set"
+        return f"briefcase-ai engine install --code {opts.code} --yes"
+    return "briefcase-ai engine install --yes   # with BRIEFCASE_LICENSE_TOKEN set"
 
 
 def cmd_install(args, store, engine, stack) -> int:
@@ -400,7 +400,7 @@ def cmd_verify(args, store, engine, stack) -> int:
     as_json = bool(getattr(args, "json", False))
     path = Path(args.file)
     if not path.is_file():
-        return _ux.fail(f"{path} does not exist", fix="briefcase engine verify PATH/TO/FILE", code=2)
+        return _ux.fail(f"{path} does not exist", fix="briefcase-ai engine verify PATH/TO/FILE", code=2)
     result: Dict[str, Any] = {"file": str(path), "ok": False}
     try:
         keys = _trust.require_keys()
@@ -432,7 +432,7 @@ def cmd_verify(args, store, engine, stack) -> int:
         else:
             if not sig_path.is_file():
                 return _ux.fail(f"no signature for {path.name} ({sig_path} does not exist)",
-                                fix=f"briefcase engine verify {path} --signature FILE.sig   "
+                                fix=f"briefcase-ai engine verify {path} --signature FILE.sig   "
                                     "# or --manifest engine-manifest.json", code=2)
             raw_sig = sig_path.read_bytes()
             looks_manifest = path.stat().st_size <= _trust.MAX_MANIFEST_BYTES and path.suffix == ".json"
@@ -464,7 +464,7 @@ def cmd_verify(args, store, engine, stack) -> int:
     print(f"verified: {path.name}{version}")
     print(f"  key:     {result['key_id']} ({result['key_file']})")
     print(f"  checked: {', '.join(result['checked'])}")
-    _ux.print_next("briefcase engine install --bundle FILE --manifest engine-manifest.json",
+    _ux.print_next("briefcase-ai engine install --bundle FILE --manifest engine-manifest.json",
                    "install a verified offline bundle")
     return 0
 
@@ -481,7 +481,7 @@ def _require_stack(args) -> Optional[Dict[str, Any]]:
     record = _require_local(args)
     if record is not None and not record.get("compose"):
         _ux.fail(f"engine {record['version']} was installed without images (--no-images); there is no "
-                 "local stack to run", fix="briefcase engine install --code bci_...   # without --no-images")
+                 "local stack to run", fix="briefcase-ai engine install --code bci_...   # without --no-images")
         return None
     return record
 
@@ -505,9 +505,9 @@ def image_drift(record: Dict[str, Any], docker=None) -> List[str]:
 
 def _reinstall_fix(record: Dict[str, Any]) -> str:
     if record.get("source") == "bundle":
-        return "briefcase engine install --bundle FILE --manifest engine-manifest.json --yes"
+        return "briefcase-ai engine install --bundle FILE --manifest engine-manifest.json --yes"
     if record.get("source") == "token":
-        return "briefcase engine install --yes   # with BRIEFCASE_LICENSE_TOKEN set"
+        return "briefcase-ai engine install --yes   # with BRIEFCASE_LICENSE_TOKEN set"
     portal = (record.get("platform_url") or "https://observe.briefcasebrain.io").rstrip("/") + "/engine"
     return f"get a new install code at {portal} and run the command it shows"
 
@@ -527,9 +527,9 @@ def cmd_up(args, store, engine, stack) -> int:
         argv += ["--wait", "--wait-timeout", "300"]
     rc = _rc(_run(argv))
     if rc != 0:
-        return _ux.fail("docker compose up failed (see above)", fix="briefcase engine doctor")
+        return _ux.fail("docker compose up failed (see above)", fix="briefcase-ai engine doctor")
     print(f"engine {record['version']} started: gRPC {record['grpc_addr']}, registry gateway {record['gateway']}")
-    _ux.print_next("briefcase engine status")
+    _ux.print_next("briefcase-ai engine status")
     return 0
 
 
@@ -542,13 +542,13 @@ def cmd_down(args, store, engine, stack) -> int:
         answer = _ux.confirm("Delete the engine's data volumes (database, blobs, registry)?", default=False,
                              assume_yes=bool(getattr(args, "yes", False)))
         if not answer:
-            return _ux.fail("not deleting data without confirmation", fix="briefcase engine down --volumes --yes",
+            return _ux.fail("not deleting data without confirmation", fix="briefcase-ai engine down --volumes --yes",
                             code=2 if answer is None else 1)
         argv.append("-v")
     rc = _rc(_run(_compose(record, *argv)))
     if rc != 0:
-        return _ux.fail("docker compose down failed (see above)", fix="briefcase engine doctor")
-    _ux.print_next("briefcase engine up", "to start it again")
+        return _ux.fail("docker compose down failed (see above)", fix="briefcase-ai engine doctor")
+    _ux.print_next("briefcase-ai engine up", "to start it again")
     return 0
 
 
@@ -668,11 +668,11 @@ def cmd_status(args, store, engine, stack) -> int:
     print(f"  gRPC:          {state['addr']} ({state['addr_source']}) "
           f"{'reachable' if state['reachable'] else 'not reachable'}")
     if record is not None and (state.get("update") or {}).get("update_available"):
-        _ux.print_next("briefcase engine upgrade", "a newer engine release is available")
+        _ux.print_next("briefcase-ai engine upgrade", "a newer engine release is available")
     elif record is not None and record.get("compose") and not state["reachable"]:
-        _ux.print_next("briefcase engine up")
+        _ux.print_next("briefcase-ai engine up")
     else:
-        _ux.print_next("briefcase graph log <ref>", "look at what the engine has recorded")
+        _ux.print_next("briefcase-ai graph log <ref>", "look at what the engine has recorded")
     return 0
 
 
@@ -716,11 +716,11 @@ def doctor_checks(record: Optional[Dict[str, Any]], client_factory=None) -> List
         else:
             out.append((OK, "client binary", str(binary)) if record.get("binary") and binary.exists()
                        and os.access(binary, os.X_OK)
-                       else (FAIL, "client binary", f"missing: {binary} (re-run briefcase engine install)"))
+                       else (FAIL, "client binary", f"missing: {binary} (re-run briefcase-ai engine install)"))
         env_file = Path(record.get("env_file", ""))
         if record.get("compose"):
             if not env_file.exists():
-                out.append((FAIL, "secrets", f"missing: {env_file} (re-run briefcase engine install)"))
+                out.append((FAIL, "secrets", f"missing: {env_file} (re-run briefcase-ai engine install)"))
             elif os.name == "posix" and env_file.stat().st_mode & 0o077:
                 out.append((WARN, "secrets", f"{env_file} is readable by others; chmod 600 it"))
             else:
@@ -739,7 +739,7 @@ def doctor_checks(record: Optional[Dict[str, Any]], client_factory=None) -> List
                     out.append((OK, f"image {name}", f"{ref} {digest[:19]}"))
     settings = _engine.client_settings()
     if not port_open(settings["addr"]):
-        out.append((WARN, "gRPC", f"{settings['addr']} not reachable (briefcase engine up)"))
+        out.append((WARN, "gRPC", f"{settings['addr']} not reachable (briefcase-ai engine up)"))
         return out
     try:
         from briefcase.engine.client import EngineClient, EngineError
@@ -777,7 +777,7 @@ def cmd_doctor(args, store, engine, stack) -> int:
         print(f"{_MARK[sev]} {label}: {detail}")
     rc = summarize(results)
     if rc == 0:
-        _ux.print_next("briefcase engine status")
+        _ux.print_next("briefcase-ai engine status")
     return rc
 
 
@@ -809,7 +809,7 @@ def cmd_uninstall(args, store, engine, stack) -> int:
         return 0
     answer = _ux.confirm("Go ahead?", default=False, assume_yes=bool(getattr(args, "yes", False)))
     if not answer:
-        return _ux.fail("not uninstalling without confirmation", fix="briefcase engine uninstall --yes",
+        return _ux.fail("not uninstalling without confirmation", fix="briefcase-ai engine uninstall --yes",
                         code=2 if answer is None else 1)
     if record.get("compose"):
         _run(_compose(record, "down", *(["-v"] if purge else [])))
@@ -836,7 +836,7 @@ def cmd_uninstall(args, store, engine, stack) -> int:
         except FileNotFoundError:
             pass
     print(f"engine {record['version']} removed.")
-    _ux.print_next("briefcase engine install", "to install it again")
+    _ux.print_next("briefcase-ai engine install", "to install it again")
     return 0
 
 
@@ -844,9 +844,9 @@ def cmd_uninstall(args, store, engine, stack) -> int:
 
 
 def status_row() -> Dict[str, Any]:
-    """The engine's ``briefcase status`` row. Reads installed.json and probes the local gRPC port
+    """The engine's ``briefcase-ai status`` row. Reads installed.json and probes the local gRPC port
     (100 ms). Reported by ``env_commands.status()`` so it is listed under Capture: a hook row in
-    the "start" group would sort ahead of the core rows that ``briefcase status --json`` promises
+    the "start" group would sort ahead of the core rows that ``briefcase-ai status --json`` promises
     come first."""
     from briefcase import engine as _engine
 
@@ -862,10 +862,10 @@ def status_row() -> Dict[str, Any]:
     if record is not None and not reachable and not remote:
         return {"id": "engine", "title": "Engine (oci-jj)", "state": "attention",
                 "detail": f"engine {record['version']} installed, not running",
-                "next": "briefcase engine up", "data": {"version": record["version"], "addr": addr}}
+                "next": "briefcase-ai engine up", "data": {"version": record["version"], "addr": addr}}
     detail = (f"engine {record['version']} at {addr}" if record and not remote else f"using the engine at {addr}")
     if not reachable:
         detail += " (not reachable)"
     return {"id": "engine", "title": "Engine (oci-jj)", "state": "on" if reachable else "attention",
-            "detail": detail, "next": None if reachable else "briefcase engine doctor",
+            "detail": detail, "next": None if reachable else "briefcase-ai engine doctor",
             "data": {"version": (record or {}).get("version"), "addr": addr}}

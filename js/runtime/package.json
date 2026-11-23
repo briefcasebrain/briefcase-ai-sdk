@@ -1,7 +1,7 @@
 {
   "name": "@briefcase-ai/runtime",
   "version": "4.4.0",
-  "description": "Governance runtime primitives for integrity, lakeFS, connectors, and agent traces.",
+  "description": "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

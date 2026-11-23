@@ -3,7 +3,7 @@
   "title": "Evaluation datasets from captured records",
   "verb": "review",
   "one_line": "Turn real production calls into versioned test sets you can re-run.",
-  "command": "briefcase dataset from-records runs.jsonl --name NAME",
+  "command": "briefcase-ai dataset from-records runs.jsonl --name NAME",
   "docs_slug": "review/datasets-from-records",
   "status": "experimental",
   "requires_extra": null,

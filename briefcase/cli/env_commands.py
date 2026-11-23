@@ -1,13 +1,13 @@
-"""``briefcase env``: put environments into the engine and work with them.
+"""``briefcase-ai env``: put environments into the engine and work with them.
 
-    briefcase env push my-env:latest
-    briefcase env compose --runtime python311 --model llama --tag stack-v1
-    briefcase env checkout cand --paths /app
+    briefcase-ai env push my-env:latest
+    briefcase-ai env compose --runtime python311 --model llama --tag stack-v1
+    briefcase-ai env checkout cand --paths /app
 
 Most subcommands are one ``oci_jj.v1.VcsService`` call over gRPC (named in their ``--help``).
 Two do heavy work on this machine instead: ``push`` (``docker push`` through the engine's
 registry gateway, which records the commit) and ``cohort`` (the ``oci-bai`` client chunks the
-images locally and uploads only new segments). Needs the engine (``briefcase engine install``).
+images locally and uploads only new segments). Needs the engine (``briefcase-ai engine install``).
 """
 from __future__ import annotations
 
@@ -30,13 +30,13 @@ def register(sub) -> None:
         help=_engine.help_text("Engine environments: push, compose, check out, bookmark, undo."),
         description="Capture container environments in the engine and work with them: push images "
                     "and cohorts, compose stacks, plan checkouts and mounts, move bookmarks, undo.",
-        epilog="example:\n  briefcase env push my-env:latest\n\n" + cs.FOOTER,
+        epilog="example:\n  briefcase-ai env push my-env:latest\n\n" + cs.FOOTER,
         formatter_class=cs.RAW,
     )
     sp = p.add_subparsers(dest="env_sub", metavar="<subcommand>")
 
     q = cs.sub(sp, "push", "Push a local Docker image into the engine (via its registry gateway).",
-               "briefcase env push my-env:latest", "docker push to the gateway, which calls VcsService.Push")
+               "briefcase-ai env push my-env:latest", "docker push to the gateway, which calls VcsService.Push")
     q.add_argument("image", help="A local image, e.g. my-env:latest.")
     q.add_argument("--as", dest="target", metavar="NAME:TAG",
                    help="Name in the engine (default: <your tenant>/<the image's name>:<tag>).")
@@ -44,13 +44,13 @@ def register(sub) -> None:
     q.set_defaults(func=cmd_push)
 
     q = cs.sub(sp, "cohort", "Push N sibling images atomically, deduplicated on this machine.",
-               "briefcase env cohort ./cohort-dir", "oci-bai cohort push (chunks locally, then VcsService.CohortPush)")
+               "briefcase-ai env cohort ./cohort-dir", "oci-bai cohort push (chunks locally, then VcsService.CohortPush)")  # noqa: E501
     q.add_argument("dir", help="Directory with cohort.json (see the oci-bai docs for its format).")
     q.add_argument("--dry-run", dest="env_dry_run", action="store_true", help="Print the oci-bai command only.")
     q.set_defaults(func=cmd_cohort)
 
     q = cs.sub(sp, "compose", "Assemble an environment from existing refs (runtime, model, app...).",
-               "briefcase env compose --runtime python311 --app my-app --tag stack-v1", "VcsService.Compose")
+               "briefcase-ai env compose --runtime python311 --app my-app --tag stack-v1", "VcsService.Compose")
     for flag in ("runtime", "toolchain", "model", "dataset", "benchmark", "requires", "provides"):
         q.add_argument(f"--{flag}", action="append", default=[], metavar="REF",
                        help=f"A {flag} domain ref (repeatable).")
@@ -60,26 +60,26 @@ def register(sub) -> None:
     q.set_defaults(func=cmd_compose)
 
     q = cs.sub(sp, "checkout", "Plan a sparse checkout: which files and segments a ref's paths need.",
-               "briefcase env checkout cand --paths /app,/etc", "VcsService.CheckoutPlan")
+               "briefcase-ai env checkout cand --paths /app,/etc", "VcsService.CheckoutPlan")
     q.add_argument("ref")
     q.add_argument("--paths", default="", help="Comma-separated path prefixes (default: whole tree).")
     q.add_argument("--dest", help="Write the files here (needs a newer engine; see --help).")
     q.set_defaults(func=cmd_checkout)
 
     q = cs.sub(sp, "mount", "Plan a lazy mount: the segment fetch order for a ref.",
-               "briefcase env mount cand", "VcsService.MountPlan")
+               "briefcase-ai env mount cand", "VcsService.MountPlan")
     q.add_argument("ref")
     q.add_argument("target", nargs="?", help="Where a real mount would attach (shown, not mounted).")
     q.set_defaults(func=cmd_mount)
 
     bm = sp.add_parser("bookmark", help="List or move bookmarks and tags.",
                        description="List refs (ListRefs) or move one (SetRef).",
-                       epilog="example:\n  briefcase env bookmark set prod cand\n\n" + cs.FOOTER,
+                       epilog="example:\n  briefcase-ai env bookmark set prod cand\n\n" + cs.FOOTER,
                        formatter_class=cs.RAW)
     bsp = bm.add_subparsers(dest="bookmark_sub", metavar="<subcommand>")
-    q = cs.sub(bsp, "list", "List refs and divergent heads.", "briefcase env bookmark list", "VcsService.ListRefs")
+    q = cs.sub(bsp, "list", "List refs and divergent heads.", "briefcase-ai env bookmark list", "VcsService.ListRefs")
     q.set_defaults(func=cmd_bookmark_list)
-    q = cs.sub(bsp, "set", "Point a bookmark (or tag) at a ref or commit.", "briefcase env bookmark set prod cand",
+    q = cs.sub(bsp, "set", "Point a bookmark (or tag) at a ref or commit.", "briefcase-ai env bookmark set prod cand",
                "VcsService.SetRef")
     q.add_argument("name")
     q.add_argument("target")
@@ -87,13 +87,13 @@ def register(sub) -> None:
     q.set_defaults(func=cmd_bookmark_set)
 
     q = cs.sub(sp, "undo", "Invert an operation (default: the newest, after asking). History is never rewritten.",
-               "briefcase env undo --op 41", "VcsService.OpLog (to show it) + VcsService.Undo")
+               "briefcase-ai env undo --op 41", "VcsService.OpLog (to show it) + VcsService.Undo")
     q.add_argument("--op", default="", help="Operation id to invert (default: the newest one, shown first).")
     q.add_argument("--yes", "-y", action="store_true", help="Do not ask for confirmation.")
     q.set_defaults(func=cmd_undo)
 
     q = cs.sub(sp, "gc", "Garbage collection: runs inside the engine; this explains when.",
-               "briefcase env gc", "none (no tenant-plane GC RPC in oci_jj.v1)")
+               "briefcase-ai env gc", "none (no tenant-plane GC RPC in oci_jj.v1)")
     q.add_argument("--now", action="store_true", help="Start a collection now (needs a newer engine).")
     q.set_defaults(func=cmd_gc)
 
@@ -137,7 +137,7 @@ def cmd_push(args, store, engine, stack) -> int:
         # The gateway only accepts repositories under the caller's namespace: "<tenant>/<image>".
         namespace = _namespace(args)
         if not namespace:
-            return _ux.fail("cannot tell your registry namespace", fix=f"briefcase env push {args.image} "
+            return _ux.fail("cannot tell your registry namespace", fix=f"briefcase-ai env push {args.image} "
                             "--as <tenant>/<image>:<tag>", code=2)
         name = f"{namespace}/{name}"
     remote = f"{gateway}/{name}"
@@ -158,20 +158,20 @@ def cmd_push(args, store, engine, stack) -> int:
         return _ux.fail("docker is not installed", fix="install Docker, then re-run")
     if login.returncode != 0:
         return _ux.fail(f"docker login {gateway} failed: {(login.stderr or '').strip()[:200]}",
-                        fix="briefcase engine status   # is the gateway up, is the token right?")
+                        fix="briefcase-ai engine status   # is the gateway up, is the token right?")
     try:
         for argv in plan[1:3]:
             code = _run(argv)
             if code != 0:
                 return _ux.fail(f"{' '.join(argv[:2])} failed (exit {code})",
-                                fix="briefcase engine logs gateway")
+                                fix="briefcase-ai engine logs gateway")
     finally:
         try:
             subprocess.run(plan[3], capture_output=True)
         except FileNotFoundError:
             pass
     print(f"pushed {args.image} -> {remote}; the gateway recorded it as a commit")
-    _ux.print_next(f"briefcase graph log {name.split(':')[0]}")
+    _ux.print_next(f"briefcase-ai graph log {name.split(':')[0]}")
     return 0
 
 
@@ -195,11 +195,11 @@ def cmd_cohort(args, store, engine, stack) -> int:
         result = sub.exec(argv)
     except FileNotFoundError:
         return _ux.fail(f"the oci-bai client ({'docker' if sub.container else sub.binary}) is not installed",
-                        fix="briefcase engine install   # installs it under ~/.briefcase/engine")
+                        fix="briefcase-ai engine install   # installs it under ~/.briefcase/engine")
     code = getattr(result, "returncode", 1)
     if code != 0:
-        return _ux.fail(f"oci-bai cohort push failed (exit {code})", fix="briefcase engine doctor")
-    _ux.print_next("briefcase graph log " + sub.repo)
+        return _ux.fail(f"oci-bai cohort push failed (exit {code})", fix="briefcase-ai engine doctor")
+    _ux.print_next("briefcase-ai graph log " + sub.repo)
     return 0
 
 
@@ -218,7 +218,7 @@ def cmd_compose(args, store, engine, stack) -> int:
               f"{resp.get('exportability') or 'unknown'}")
         for warning in resp.get("warnings") or []:
             print(f"  warning: {warning}")
-        _ux.print_next(f"briefcase graph show {args.tag or resp.get('commit_id')}")
+        _ux.print_next(f"briefcase-ai graph show {args.tag or resp.get('commit_id')}")
         return 0
     return cs.run(args, engine, body)
 
@@ -247,7 +247,7 @@ def cmd_checkout(args, store, engine, stack) -> int:
         for missing in resp.get("unmatched_paths") or []:
             print(f"  warning: {missing} selected nothing")
         print("This is the plan; nothing was written.")
-        _ux.print_next(f"briefcase env mount {args.ref}")
+        _ux.print_next(f"briefcase-ai env mount {args.ref}")
         return 0
     return cs.run(args, engine, body)
 
@@ -261,11 +261,11 @@ def cmd_mount(args, store, engine, stack) -> int:
               f"{resp.get('total_bytes', 0)} bytes in {resp.get('segment_count', 0)} segments")
         unresolved = resp.get("unresolved") or []
         if unresolved:
-            print(f"  {len(unresolved)} segments are referenced but missing: run briefcase verify --graph {args.ref}")
+            print(f"  {len(unresolved)} segments are referenced but missing: run briefcase-ai verify --graph {args.ref}")  # noqa: E501
         where = f" at {args.target}" if args.target else ""
         print(f"This is the fetch plan a lazy mount{where} would serve; the mount itself needs the engine's "
               "snapshotter (Linux, FUSE) and is not started from here.")
-        _ux.print_next(f"briefcase verify --graph {args.ref}")
+        _ux.print_next(f"briefcase-ai verify --graph {args.ref}")
         return 0
     return cs.run(args, engine, body)
 
@@ -277,14 +277,14 @@ def cmd_bookmark_list(args, store, engine, stack) -> int:
             return _ux.print_json(resp)
         refs = resp.get("refs") or []
         if not refs:
-            print(f"no refs in {client.repo}. Push an image first: briefcase env push IMAGE")
+            print(f"no refs in {client.repo}. Push an image first: briefcase-ai env push IMAGE")
             return 0
         for ref in refs:
             head = "  head" if ref.get("is_head") else ""
             print(f"{ref.get('kind'):<9} {ref.get('name'):<24} {cs.short(ref.get('commit_id'), 8)}{head}")
         if resp.get("head_count", 0) > 1:
             print(f"{resp['head_count']} divergent heads")
-        _ux.print_next("briefcase env bookmark set NAME REF")
+        _ux.print_next("briefcase-ai env bookmark set NAME REF")
         return 0
     return cs.run(args, engine, body)
 
@@ -298,7 +298,7 @@ def cmd_bookmark_set(args, store, engine, stack) -> int:
         print(f"{args.kind} {args.name} -> {resp.get('commit_id')} (op {resp.get('op_id')})")
         if resp.get("protected_warning"):
             print(f"  warning: {args.name} is a protected name; {resp.get('message') or ''}".rstrip())
-        _ux.print_next("briefcase env undo", "if that was a mistake")
+        _ux.print_next("briefcase-ai env undo", "if that was a mistake")
         return 0
     return cs.run(args, engine, body)
 
@@ -310,21 +310,21 @@ def cmd_undo(args, store, engine, stack) -> int:
             # Name the operation explicitly: the engine's own "last" is not always the newest op id.
             ops = client.stream("OpLog", {"after_op_id": 0, "limit": 0})
             if not ops:
-                return _ux.fail("there is no operation to undo", fix="briefcase env bookmark list")
+                return _ux.fail("there is no operation to undo", fix="briefcase-ai env bookmark list")
             newest = max(ops, key=lambda op: int(op.get("op_id") or 0))
             payload = (newest.get("payload_json") or "")[:120]
             print(f"newest operation: {newest.get('op_id')} {newest.get('op_kind')} {payload}")
             answer = _ux.confirm(f"Invert operation {newest.get('op_id')}?", default=False,
                                  assume_yes=bool(getattr(args, "yes", False)))
             if not answer:
-                return _ux.fail("nothing was undone", fix=f"briefcase env undo --op {newest.get('op_id')}",
+                return _ux.fail("nothing was undone", fix=f"briefcase-ai env undo --op {newest.get('op_id')}",
                                 code=2 if answer is None else 1)
             op_ref = str(newest.get("op_id"))
         resp = client.call("Undo", {"op_ref": op_ref})
         if getattr(args, "json", False):
             return _ux.print_json({"op": op_ref, **resp})
         print(f"inverted operation {op_ref}; new op {resp.get('inverse_op_id')} (history is kept)")
-        _ux.print_next("briefcase env bookmark list")
+        _ux.print_next("briefcase-ai env bookmark list")
         return 0
     return cs.run(args, engine, body)
 
@@ -343,7 +343,7 @@ def cmd_gc(args, store, engine, stack) -> int:
     if getattr(args, "json", False):
         return _ux.print_json({"automatic": True, "message": message})
     print(message)
-    _ux.print_next("briefcase engine logs workers")
+    _ux.print_next("briefcase-ai engine logs workers")
     return 0
 
 

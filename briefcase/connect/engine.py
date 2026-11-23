@@ -1,4 +1,4 @@
-"""Plan, apply, undo and verify for ``briefcase connect``.
+"""Plan, apply, undo and verify for ``briefcase-ai connect``.
 
 Pure orchestration over :mod:`briefcase.connect.adapters` and
 :mod:`briefcase.connect.edits`. Printing and prompting are injected so the CLI
@@ -213,12 +213,12 @@ def status(adapters: Optional[Dict[str, Adapter]] = None) -> List[Dict[str, Any]
 
 def doctor_checks(adapters: Optional[Dict[str, Adapter]] = None,
                   probe: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None) -> List[Tuple[str, str, str]]:
-    """``(severity, label, detail)`` rows for ``briefcase doctor --connect``."""
+    """``(severity, label, detail)`` rows for ``briefcase-ai doctor --connect``."""
     adapters = adapters or registry()
     out: List[Tuple[str, str, str]] = []
     rows = [row for row in status(adapters) if row["connected"]]
     if not rows:
-        return [("warn", "connect", "no tools connected yet; run: briefcase connect")]
+        return [("warn", "connect", "no tools connected yet; run: briefcase-ai connect")]
     endpoints = set()
     for row in rows:
         adapter = adapters[row["tool"]]
@@ -226,7 +226,7 @@ def doctor_checks(adapters: Optional[Dict[str, Adapter]] = None,
         missing = [what for ok, what in row["checks"] if not ok]
         if missing:
             out.append(("fail", label, "keys no longer present: " + "; ".join(missing)
-                        + " (run: briefcase connect " + row["tool"] + ")"))
+                        + " (run: briefcase-ai connect " + row["tool"] + ")"))
         else:
             out.append(("ok", label, f"{len(row['checks'])} key(s) present"
                         + (f", {len(row['commands'])} command(s) run" if row["commands"] else "")))
@@ -259,7 +259,7 @@ def doctor_checks(adapters: Optional[Dict[str, Adapter]] = None,
             health = probe(endpoint)
             if health is None:
                 out.append(("warn", "receiver",
-                            f"not reachable at {endpoint}; start it with: briefcase receive --detach"))
+                            f"not reachable at {endpoint}; start it with: briefcase-ai receive --detach"))
                 continue
             out.append(("ok", "receiver", f"reachable at {endpoint}"))
             needy = [adapters[r["tool"]].name for r in rows if adapters[r["tool"]].needs_protobuf

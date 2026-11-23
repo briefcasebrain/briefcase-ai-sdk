@@ -1,4 +1,4 @@
-"""The briefcase-mcp tools over recorded decisions.
+"""The briefcase-ai-mcp tools over recorded decisions.
 
 Fixture records are produced by the real code paths where one exists: the receiver turns the
 captured Claude Code 2.1.330 OTLP payload and the synthetic coding-tool payloads into records,
@@ -403,7 +403,7 @@ def test_no_sources_says_how_to_get_some(tmp_path, monkeypatch):
     monkeypatch.delenv("BRIEFCASE_EXPORTER", raising=False)
     monkeypatch.delenv("BRIEFCASE_MCP_RECORDS", raising=False)
     result = R.search_decisions()
-    assert result["count"] == 0 and "briefcase receive --detach" in result["notes"][0]
+    assert result["count"] == 0 and "briefcase-ai receive --detach" in result["notes"][0]
 
 
 def test_tools_do_not_write(home):

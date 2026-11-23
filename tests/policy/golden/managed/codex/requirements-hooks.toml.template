@@ -11,6 +11,6 @@ matcher = "^(Bash|apply_patch)$|^mcp__"
 
 [[hooks.PreToolUse.hooks]]
 type = "command"
-command = "briefcase hook codex --enforce --endpoint https://otel.example.com"
+command = "briefcase-ai hook codex --enforce --endpoint https://otel.example.com"
 timeout = 10
 statusMessage = "Checking briefcase policy"

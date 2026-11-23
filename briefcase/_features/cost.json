@@ -3,7 +3,7 @@
   "title": "Cost estimates",
   "verb": "review",
   "one_line": "Estimate what a model call costs and check it against a budget.",
-  "command": "briefcase features cost",
+  "command": "briefcase-ai features cost",
   "docs_slug": "review/cost",
   "status": "experimental",
   "requires_extra": null,

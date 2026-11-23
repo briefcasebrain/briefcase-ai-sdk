@@ -6,7 +6,7 @@ parallel branches never conflict. Name it after the change
 
 ```markdown
 ### Added
-- `briefcase thing --flag`: what it does, in one or two sentences.
+- `briefcase-ai thing --flag`: what it does, in one or two sentences.
 
 ### Fixed
 - What was wrong and what happens now.

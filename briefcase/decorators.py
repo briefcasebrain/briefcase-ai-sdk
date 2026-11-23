@@ -185,7 +185,7 @@ def capture(
                          "full" is the default here, and only here: decorating
                          your own function is the explicit choice to record it,
                          whereas automatic capture (``briefcase.auto``,
-                         ``briefcase exec``, the receiver) records no content
+                         ``briefcase-ai exec``, the receiver) records no content
                          unless asked.
         redact:          Optional str -> str hook applied to the bounded
                          inputs/outputs/error text in "full" mode. Ignored in

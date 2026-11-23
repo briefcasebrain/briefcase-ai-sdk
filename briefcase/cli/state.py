@@ -1,4 +1,4 @@
-"""Local registries for the ``briefcase`` evaluation-run CLI.
+"""Local registries for the ``briefcase-ai`` evaluation-run CLI.
 
 ``Store`` is the durable, oci-jj-agnostic state behind the run lifecycle: the datasets you
 ``register``, the secrets you ``set``, and the runs you ``submit``. Everything is plain JSON written

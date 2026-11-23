@@ -10,7 +10,7 @@ The strongest file that exists is the *base*: its rules and settings apply as
 written. Every weaker file is *restrict-only*: it can add ``ask``/``deny``
 rules and move a setting to a stricter value, and nothing else. Its ``allow``
 rules, its ``disable`` list and any setting that would loosen the base are
-ignored and reported by ``briefcase policy check``.
+ignored and reported by ``briefcase-ai policy check``.
 
 A file is applied whole or not at all. One unknown key, one bad pattern, and
 the file is rejected: a typo must never quietly switch a rule off.

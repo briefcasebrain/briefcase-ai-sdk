@@ -1,4 +1,4 @@
-"""`briefcase dataset publish`: into the local engine's tenant-scoped dataset bucket.
+"""`briefcase-ai dataset publish`: into the local engine's tenant-scoped dataset bucket.
 
 oci-jj (e89ddbf, dataset.rs) accepts only synthetic:// and s3://<dataset bucket>/tenants/<tenant>/...;
 the upload pipes the file into `mc` inside the MinIO container, so the fake docker records the
@@ -38,7 +38,7 @@ def test_publish_pipes_into_the_tenant_prefix_and_registers_the_s3_uri(local_eng
     assert main(["dataset", "publish", "churn", str(data)]) == 0
     uri = f"s3://oci-jj-datasets/tenants/local/datasets/{digest}/churn-data.csv"
     out = capsys.readouterr().out
-    assert uri in out and "Next: briefcase run submit" in out
+    assert uri in out and "Next: briefcase-ai run submit" in out
     (call,) = [c for c in docker_calls(local_engine) if "exec" in c["argv"]]
     argv = call["argv"]
     assert argv[:3] == ["compose", "--project-name", "briefcase-engine"]
@@ -62,7 +62,7 @@ def test_publish_reports_a_stopped_engine(local_engine, tmp_path, capsys, monkey
     data.write_text("x,target\n1,0\n")
     assert main(["dataset", "publish", "d", str(data)]) == 1
     err = capsys.readouterr().err
-    assert "minio" in err and "Fix: briefcase engine up" in err
+    assert "minio" in err and "Fix: briefcase-ai engine up" in err
     assert Store().get_dataset("d") is None
 
 
@@ -71,7 +71,7 @@ def test_publish_to_an_engine_elsewhere_explains_the_manual_path(shell_home, tmp
     data = tmp_path / "d.parquet"
     data.write_bytes(b"PAR1")
     assert main(["dataset", "publish", "d", str(data)]) == 1
-    assert "briefcase dataset register d --uri s3://" in capsys.readouterr().err
+    assert "briefcase-ai dataset register d --uri s3://" in capsys.readouterr().err
 
 
 def test_object_keys_stay_in_the_engine_charset():

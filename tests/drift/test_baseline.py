@@ -144,7 +144,7 @@ def test_profile_storage_round_trip(home):
 # -- CLI ---------------------------------------------------------------------
 
 def cli(argv):
-    parser = argparse.ArgumentParser(prog="briefcase")
+    parser = argparse.ArgumentParser(prog="briefcase-ai")
     sub = parser.add_subparsers(dest="command")
     drift_commands.register(sub)
     args = parser.parse_args(argv)
@@ -166,7 +166,7 @@ def test_cli_gate_exit_codes(tmp_path, capsys):
     assert drift_commands.status()["state"] == "off"
     assert cli(["drift", "baseline", "save", "prod", "--from", base]) == 0
     out = capsys.readouterr().out
-    assert "Saved baseline 'prod': 300 records" in out and "Next: briefcase drift check" in out
+    assert "Saved baseline 'prod': 300 records" in out and "Next: briefcase-ai drift check" in out
 
     assert cli(["drift", "check", "prod", "--from", same, "--fail-on", "attention"]) == 0
     assert cli(["drift", "check", "prod", "--from", drifted, "--fail-on", "attention"]) == 1

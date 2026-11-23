@@ -3,7 +3,7 @@
   "title": "Provider API contract checks",
   "verb": "verify",
   "one_line": "Provider capture, replay and budgets checked against published API specs.",
-  "command": "briefcase features provider-contracts",
+  "command": "briefcase-ai features provider-contracts",
   "docs_slug": "verify/provider-contracts",
   "status": "experimental",
   "requires_extra": null,

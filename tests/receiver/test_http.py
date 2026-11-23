@@ -243,7 +243,7 @@ def test_cursor_hook_endpoint(running):
         assert sentinel not in blob
 
 
-# --- briefcase hook cursor ----------------------------------------------------
+# --- briefcase-ai hook cursor ----------------------------------------------------
 
 def test_hook_scrub_drops_email_and_content_unless_capturing():
     payload = p.cursor_hooks()[1]

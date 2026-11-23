@@ -1,4 +1,4 @@
-"""Shared output helpers for ``briefcase`` commands. Use these instead of ad-hoc prints so
+"""Shared output helpers for ``briefcase-ai`` commands. Use these instead of ad-hoc prints so
 every command reads the same way.
 
     from briefcase.cli import _ux
@@ -11,11 +11,11 @@ every command reads the same way.
     def cmd_budget(args, store, engine, stack):
         state = load()
         if state is None:
-            return _ux.fail("no budget is configured", fix="briefcase budget set 20")
+            return _ux.fail("no budget is configured", fix="briefcase-ai budget set 20")
         if args.json:
             return _ux.print_json(state)
         print(f"budget: {state['limit']} USD")
-        _ux.print_next("briefcase status", "see everything that is on")
+        _ux.print_next("briefcase-ai status", "see everything that is on")
         return 0
 
 What is here:
@@ -147,7 +147,7 @@ def print_next(command: str, reason: Optional[str] = None, out: Callable[[str], 
 def fail(message: str, fix: Optional[str] = None, code: int = EXIT_FAILED) -> int:
     """Print what went wrong and the command that fixes it; return the exit code.
 
-    ``return _ux.fail("the receiver is not running", fix="briefcase receive --detach")``
+    ``return _ux.fail("the receiver is not running", fix="briefcase-ai receive --detach")``
     """
     print(f"error: {message}", file=sys.stderr)
     if fix:

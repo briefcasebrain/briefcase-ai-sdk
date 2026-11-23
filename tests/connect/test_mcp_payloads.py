@@ -1,4 +1,4 @@
-"""MCP install payloads for briefcase-mcp."""
+"""MCP install payloads for briefcase-ai-mcp."""
 
 import base64
 import json
@@ -8,15 +8,15 @@ import pytest
 
 from briefcase.connect import mcp
 
-UVX = {"command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-mcp"]}
+UVX = {"command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]}
 
 
 def test_server_config_prefers_the_installed_script():
-    assert mcp.server_config(lambda name: "/usr/bin/briefcase-mcp") == {"command": "briefcase-mcp"}
+    assert mcp.server_config(lambda name: "/usr/bin/briefcase-mcp") == {"command": "briefcase-ai-mcp"}
     assert mcp.server_config(lambda name: None) == UVX
 
 
-@pytest.mark.parametrize("config", [UVX, {"command": "briefcase-mcp"},
+@pytest.mark.parametrize("config", [UVX, {"command": "briefcase-ai-mcp"},
                                     {"command": "c m d", "args": ["a&b", "x=y+z/?"], "env": {"K": "v"}}])
 def test_cursor_deeplink_round_trip(config):
     url = mcp.cursor_deeplink(config)
@@ -37,15 +37,15 @@ def test_decode_rejects_other_links():
 def test_cli_payloads_are_argument_lists():
     assert mcp.claude_add_argv(UVX) == [
         "claude", "mcp", "add", "--scope", "user", "briefcase", "--",
-        "uvx", "--from", "briefcase-ai[mcp]", "briefcase-mcp"]
+        "uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]
     argv = mcp.claude_add_json_argv(UVX)
     assert argv[:4] == ["claude", "mcp", "add-json", "briefcase"]
     assert json.loads(argv[4]) == {"type": "stdio", **UVX}
-    assert mcp.codex_add_argv({"command": "briefcase-mcp"}) == [
-        "codex", "mcp", "add", "briefcase", "--", "briefcase-mcp"]
-    code = mcp.vscode_add_argv({"command": "briefcase-mcp"})
+    assert mcp.codex_add_argv({"command": "briefcase-ai-mcp"}) == [
+        "codex", "mcp", "add", "briefcase", "--", "briefcase-ai-mcp"]
+    code = mcp.vscode_add_argv({"command": "briefcase-ai-mcp"})
     assert code[:2] == ["code", "--add-mcp"]
-    assert json.loads(code[2]) == {"name": "briefcase", "type": "stdio", "command": "briefcase-mcp"}
+    assert json.loads(code[2]) == {"name": "briefcase", "type": "stdio", "command": "briefcase-ai-mcp"}
     # Rendered for copy-paste, the JSON survives a shell round trip.
     assert shlex.split(mcp.shell(code)) == code
 

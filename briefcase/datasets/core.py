@@ -34,7 +34,7 @@ _STREAM_KEYS = frozenset({"chunk_count", "stream_completed"})
 RECAPTURE_HINT = (
     "re-capture with content: briefcase.auto(\"<provider or framework>\", "
     "capture_content=\"full\") or BRIEFCASE_CAPTURE_CONTENT=full, "
-    "`briefcase exec --capture-content full -- <command>`, or "
+    "`briefcase-ai exec --capture-content full -- <command>`, or "
     "@briefcase.capture(capture_content=\"full\")"
 )
 
@@ -622,7 +622,7 @@ class DatasetStore:
             raise DatasetError(
                 f"{ref} was modified after it was created (content hash mismatch in {path}); versions "
                 f"are immutable. Restore the file, or save your edit as a new version: "
-                f"briefcase dataset import {path} --name {name}"
+                f"briefcase-ai dataset import {path} --name {name}"
             )
         return DatasetVersion(name, number, header, cases, path)
 
@@ -634,7 +634,7 @@ class DatasetStore:
             hint = f" Known: {', '.join(known)}." if known else ""
             raise DatasetError(
                 f"no dataset named {name!r}.{hint} Create one: "
-                f"briefcase dataset from-records runs.jsonl --name {name}"
+                f"briefcase-ai dataset from-records runs.jsonl --name {name}"
             )
         if version is None or version == "latest":
             return self._load(name, numbers[-1])
@@ -647,7 +647,7 @@ class DatasetStore:
                 return hits[0]
         tags = ", ".join(f"v{n}" for n in numbers)
         raise DatasetError(f"{name} has no version {version!r} (versions: {tags}). "
-                           f"Run `briefcase dataset show {name}`.")
+                           f"Run `briefcase-ai dataset show {name}`.")
 
     # writing
     def save(self, name: str, cases: List[dict], metadata: dict) -> Tuple[DatasetVersion, bool]:

@@ -324,7 +324,7 @@ class ContentGuard:
             if item.metadata.get("error"):
                 message = f"{stage.name}: {item.metadata.get('exception_type')}"
                 decision.errors.append(message)
-                logger.warning("briefcase guard: check %s raised %s; on_error=%s", stage.name,
+                logger.warning("briefcase-ai guard: check %s raised %s; on_error=%s", stage.name,
                                item.metadata.get("exception_type"), stage.on_error)
                 if stage.on_error == "allow":
                     continue
