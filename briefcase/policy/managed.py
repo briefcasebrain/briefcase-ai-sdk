@@ -406,11 +406,35 @@ def readme(pack: Pack, tools: List[str], ctx: Context, enforce: bool, fail_close
     return "\n".join(lines)
 
 
+class UnsafeDestination(Exception):
+    """A pack file would land outside the output directory or in a system location."""
+
+
+def _checked_target(out_dir: Path, root: Path, relative: str) -> Path:
+    """``out_dir/relative``, refusing a symlinked component or a resolved path that leaves ``root``
+    or is a system path."""
+    current = out_dir
+    for part in Path(relative).parts:
+        current = current / part
+        if current.is_symlink():
+            raise UnsafeDestination(f"{current} is a symlink; refusing to write through it")
+    resolved = current.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        raise UnsafeDestination(f"{current} resolves outside {root}")
+    if edits.is_system_path(resolved):
+        raise UnsafeDestination(f"{resolved} is a system path")
+    return current
+
+
 def write(pack: Pack, out_dir: Path) -> List[Path]:
+    root = out_dir.resolve()
+    targets = [(_checked_target(out_dir, root, relative), text) for relative, text in sorted(pack.files.items())]
     written = []
-    for relative, text in sorted(pack.files.items()):
-        target = out_dir / relative
+    for target, text in targets:
         target.parent.mkdir(parents=True, exist_ok=True)
+        _checked_target(out_dir, root, str(target.relative_to(out_dir)))  # again after the directories exist
         target.write_text(text, encoding="utf-8")
         written.append(target)
     return written
@@ -484,7 +508,11 @@ def cmd_managed(args, out=print) -> int:
     if dry:
         out(f"\nDry run: {len(pack.files)} file(s) would be written to {out_dir}. Nothing was changed.")
         return 0
-    write(pack, out_dir)
+    try:
+        write(pack, out_dir)
+    except UnsafeDestination as exc:
+        print(f"error: {exc}. Choose a new, empty directory.", file=sys.stderr)
+        return 1
     out(f"\nWrote {len(pack.files)} file(s) to {out_dir}. Nothing outside that directory was touched.")
     out(f"Next: read {out_dir / 'README.md'}")
     return 0

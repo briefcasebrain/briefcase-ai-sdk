@@ -135,20 +135,31 @@ class Resolved:
 # --- path safety --------------------------------------------------------------
 
 def _system_prefixes() -> Tuple[str, ...]:
-    """The prefixes plus where they really live (macOS: ``/etc`` is ``/private/etc``), so a path
-    that was already resolved is still recognised. ``/var`` is left out: on macOS its real
-    location holds each user's temp directory."""
-    real = tuple(os.path.realpath(p) for p in _SYSTEM_PREFIXES if p.startswith("/") and p != "/var")
+    """The prefixes plus where they really live (macOS: ``/etc`` is ``/private/etc``, ``/var`` is
+    ``/private/var``), so a path that was already resolved is still recognised."""
+    real = tuple(os.path.realpath(p) for p in _SYSTEM_PREFIXES if p.startswith("/"))
     return _SYSTEM_PREFIXES + tuple(p for p in real if p not in _SYSTEM_PREFIXES)
 
 
+def _temp_roots() -> Tuple[str, ...]:
+    """The current user's own temp directory (macOS keeps it under ``/private/var/folders``)."""
+    import tempfile
+
+    names = {tempfile.gettempdir(), os.environ.get("TMPDIR", "")}
+    return tuple(sorted({os.path.realpath(n) for n in names if n}))
+
+
+def _under(text: str, prefix: str) -> bool:
+    lowered, base = text.lower(), prefix.lower().rstrip("/\\")
+    return lowered == base or lowered.startswith(base + os.sep)
+
+
 def is_system_path(path: Path) -> bool:
+    """Under a managed/system prefix, except inside the user's own temp directory."""
     text = str(path)
-    lowered = text.lower()
-    for prefix in _system_prefixes():
-        if lowered == prefix.lower() or lowered.startswith(prefix.lower().rstrip("/\\") + os.sep):
-            return True
-    return False
+    if not any(_under(text, prefix) for prefix in _system_prefixes()):
+        return False
+    return not any(_under(os.path.realpath(text), root) for root in _temp_roots())
 
 
 def _inside(path: Path, parent: Path) -> bool:
@@ -173,7 +184,10 @@ def _target_for(path: Path) -> Tuple[Path, List[str]]:
     except OSError as exc:
         raise EditRefused(f"cannot resolve {path}: {exc}")
     real_home = home().resolve()
-    linked = path.is_symlink() or any(p.is_symlink() for p in path.parents if _inside(p, home()))
+    try:
+        linked = path.is_symlink() or any(p.is_symlink() for p in path.parents if _inside(p, home()))
+    except OSError as exc:
+        raise EditRefused(f"cannot inspect {path}: {exc}")
     if linked and resolved != path:
         target = resolved
         if not _inside(resolved, real_home):
@@ -183,11 +197,9 @@ def _target_for(path: Path) -> Tuple[Path, List[str]]:
             )
         else:
             warnings.append(f"{path} is a symlink to {resolved}")
-    # Checked on the resolved path, with temp dirs (tests, CI homes) exempt
-    # only when they are the user's actual home or working tree.
-    if is_system_path(resolved) and not (
-        _inside(resolved, real_home) or _inside(resolved, Path.cwd().resolve())
-    ):
+    # Checked on the resolved path; only the user's own home is exempt (the temp directory is
+    # exempted inside is_system_path).
+    if is_system_path(resolved) and not _inside(resolved, real_home):
         raise EditRefused(f"{resolved} is a managed/system path; briefcase never writes there")
     return target, warnings
 
@@ -364,11 +376,33 @@ def _toml_has_table(doc: Dict[str, Any], dotted: str) -> bool:
     return True
 
 
+_TABLE_HEADER = re.compile(r"^\[([^\]\n]+)\]\s*$", re.MULTILINE)
+
+
+def _kept_tables(old_block: str, replaced: Tuple[str, ...]) -> str:
+    """Tables of the existing managed block that this edit does not define (``[otel]`` when only the MCP
+    server is being registered), so a partial edit never drops settings an earlier connect wrote."""
+    inner = old_block.split("\n", 2)[2] if old_block.count("\n") >= 2 else ""
+    inner = inner.rsplit(TOML_END, 1)[0]
+    chunks = []
+    headers = list(_TABLE_HEADER.finditer(inner))
+    for index, header in enumerate(headers):
+        end = headers[index + 1].start() if index + 1 < len(headers) else len(inner)
+        if header.group(1).strip() not in replaced:
+            chunks.append(inner[header.start():end].strip("\n"))
+    return "\n\n".join(chunks)
+
+
 def _resolve_toml(edit: FileEdit, old: str) -> Tuple[str, str]:
     if _toml is None:
         raise EditRefused("no TOML parser is available on this Python (needs 3.11+ or `pip install tomli`)")
-    block = toml_block(edit.toml_body)
     match = _BLOCK_RE.search(old)
+    body = edit.toml_body
+    if match:
+        kept = _kept_tables(match.group(0), edit.toml_tables)
+        if kept:
+            body = body.rstrip() + "\n\n" + kept
+    block = toml_block(body)
     outside = old[:match.start()] + old[match.end():] if match else old
     try:
         parsed = _toml.loads(outside)

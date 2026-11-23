@@ -4,6 +4,7 @@ import json
 import os
 import stat
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -180,20 +181,32 @@ def test_a_4_4_cursor_config_naming_the_old_commands_is_repaired(home, fake_bin)
 
 
 class FakeClaudeMcp:
-    """Behaves like `claude mcp add|remove` (2.1.330, checked with a throwaway HOME): add of an
-    existing name exits 1 with "already exists"; remove of a missing name exits 1."""
+    """Behaves like `claude mcp add|remove|get` (2.1.330, checked with a throwaway HOME): add of an
+    existing name exits 1 with "already exists"; remove of a missing name exits 1; get prints the
+    command and args. ``fail_add`` makes the next add of the new launcher fail."""
 
-    def __init__(self, servers):
+    def __init__(self, servers, fail_new_add=False):
         self.servers = dict(servers)
         self.calls = []
+        self.fail_new_add = fail_new_add
 
     def __call__(self, argv):
         self.calls.append(argv)
-        verb, name = argv[2], argv[5]
+        verb = argv[2]
+        if verb == "get":
+            name = argv[3]
+            if name not in self.servers:
+                return 1, f'No MCP server found with name: "{name}"'
+            command = self.servers[name]
+            return 0, f"{name}:\n  Type: stdio\n  Command: {command[0]}\n  Args: {' '.join(command[1:])}\n"
+        name = argv[5]
         if verb == "add":
             if name in self.servers:
                 return 1, f"MCP server {name} already exists in user config"
-            self.servers[name] = argv[argv.index("--") + 1:]
+            tail = argv[argv.index("--") + 1:]
+            if self.fail_new_add and tail[-1] == "briefcase-ai-mcp":
+                return 1, "simulated failure"
+            self.servers[name] = tail
             return 0, ""
         if name not in self.servers:
             return 1, f'No MCP server named "{name}" in user scope'
@@ -213,6 +226,25 @@ def test_a_4_4_claude_code_mcp_entry_is_replaced_not_refused(home, fake_bin):
     assert failures == 0, out
     assert claude.servers["briefcase"][-1] == "briefcase-ai-mcp"
     assert [c for c in edits.load_journal()["commands"] if c["argv"] == old_argv] == []
+
+
+def test_a_user_managed_server_named_briefcase_is_left_alone(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    claude = FakeClaudeMcp({"briefcase": ["my-own-server", "--flag"]})
+    plan, out, failures = connect(["claude-code"], runner=claude)
+    assert failures == 0
+    assert claude.servers["briefcase"] == ["my-own-server", "--flag"]
+    assert not any(call[2] == "remove" for call in claude.calls)
+    assert any("not created by briefcase" in line for line in out), out
+
+
+def test_a_failed_re_add_restores_the_previous_registration(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    old = ["uvx", "--from", "briefcase-ai[mcp]", "briefcase-mcp"]
+    claude = FakeClaudeMcp({"briefcase": old}, fail_new_add=True)
+    plan, out, failures = connect(["claude-code"], runner=claude)
+    assert failures == 1
+    assert claude.servers["briefcase"] == old  # put back, not left missing
 
 
 def test_claude_code_mcp_first_install_does_not_remove_anything(home, fake_bin):
@@ -345,6 +377,31 @@ def test_system_paths_are_never_written(home, path):
     resolved = edits.resolve(FileEdit("claude-code", Path(path), "json", "x",
                                       ops=[{"op": "set", "path": ["env", "A"], "value": "1"}]))
     assert resolved.status == REFUSED and "managed/system path" in resolved.reason
+
+
+@pytest.mark.parametrize("path", ["/var/db/briefcase-test.json", "/var/root/briefcase-test.json"])
+def test_var_system_locations_are_refused_even_where_var_is_a_symlink(home, path):
+    from pathlib import Path
+
+    resolved = edits.resolve(FileEdit("claude-code", Path(path), "json", "x",
+                                      ops=[{"op": "set", "path": ["env", "A"], "value": "1"}]))
+    assert resolved.status == REFUSED, resolved.reason
+
+
+def test_the_working_directory_does_not_exempt_a_system_path(home, monkeypatch):
+    from pathlib import Path
+
+    monkeypatch.chdir("/etc")
+    resolved = edits.resolve(FileEdit("claude-code", Path("/etc/claude-code/managed-settings.json"), "json", "x",
+                                      ops=[{"op": "set", "path": ["env", "A"], "value": "1"}]))
+    assert resolved.status == REFUSED
+
+
+def test_only_the_users_own_temp_directory_is_exempt(tmp_path):
+    assert not edits.is_system_path(tmp_path / "x.json")
+    assert edits.is_system_path(Path("/etc/x.json"))
+    assert edits.is_system_path(Path("/var/db/x.json"))
+    assert not edits.is_system_path(Path.home() / ".claude" / "settings.json")
 
 
 def test_diff_masks_secret_looking_values(home):

@@ -148,6 +148,17 @@ def test_refusals(home, tmp_path, capsys):
     assert "not empty" in capsys.readouterr().err
 
 
+def test_a_symlinked_child_of_the_output_directory_is_never_written_through(home, tmp_path, capsys):
+    out = tmp_path / "pack"
+    elsewhere = tmp_path / "elsewhere"
+    out.mkdir()
+    elsewhere.mkdir()
+    (out / "claude-code").symlink_to(elsewhere)
+    assert managed.cmd_managed(args(out, force=True)) == 1
+    assert "symlink" in capsys.readouterr().err
+    assert list(elsewhere.iterdir()) == []
+
+
 def test_dry_run_writes_nothing(home, tmp_path):
     out = tmp_path / "dry"
     lines = []
