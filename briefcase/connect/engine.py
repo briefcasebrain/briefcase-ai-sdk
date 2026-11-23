@@ -134,8 +134,11 @@ def _journalled(journal: Dict[str, Any], tool: str, argv: List[str]) -> bool:
 
 
 def apply_plan(plan: Plan, ctx: Any, out: Printer,
-               runner: Optional[Callable[[List[str]], Tuple[int, str]]] = None) -> int:
-    """Write the plan. Returns the number of failures."""
+               runner: Optional[Callable[[List[str]], Tuple[int, str]]] = None,
+               skipped_is_failure: bool = False) -> int:
+    """Write the plan. Returns the number of failures. An MCP registration that someone else made is skipped
+    (not a failure) unless ``skipped_is_failure`` is set, as for ``mcp install``, whose whole job is that
+    registration."""
     runner = runner or run_command
     journal = edits.load_journal()
     failures = 0
@@ -159,8 +162,9 @@ def apply_plan(plan: Plan, ctx: Any, out: Printer,
                     code, output = runner(command.argv)
             else:
                 # Someone else's entry: never touched, never printed (its args and env may hold credentials).
-                failures += 1
-                out(f"  failed an MCP server named {name!r} is already registered in {scope} scope and was not "
+                failures += 1 if skipped_is_failure else 0
+                out(f"  {'failed' if skipped_is_failure else 'skip  '} an MCP server named {name!r} is already "
+                    f"registered in {scope} scope and was not "
                     f"registered by briefcase, so it was left as it is; to use briefcase-ai-mcp, run "
                     f"`{mcp_payloads.shell(command.undo_hint)}` and then `{mcp_payloads.shell(command.argv)}`")
                 continue

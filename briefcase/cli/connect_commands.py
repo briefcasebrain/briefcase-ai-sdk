@@ -163,7 +163,7 @@ def _dry_run(args) -> bool:
 
 
 def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: bool = True,
-                ask: Optional[Callable[[str], str]] = None, runner: Any = None) -> int:
+                ask: Optional[Callable[[str], str]] = None, runner: Any = None, mcp_only: bool = False) -> int:
     try:
         headers = _parse_headers(getattr(args, "headers", []) or [])
         named = resolve_names(args.tools)
@@ -234,7 +234,7 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
         if not answer:
             out("Aborted; nothing was changed.")
             return 1
-        failures = engine.apply_plan(plan, ctxs, out, runner=runner)
+        failures = engine.apply_plan(plan, ctxs, out, runner=runner, skipped_is_failure=mcp_only)
         if failures:
             out(f"\n{failures} step(s) failed; the rest were applied. Run `briefcase-ai connect status`.")
         out("\nUndo any time with: briefcase-ai connect --undo")

@@ -218,17 +218,32 @@ def test_a_registration_we_journalled_is_replaced_in_its_scope(home, fake_bin):
     assert [c for c in edits.load_journal()["commands"] if c["argv"][-1] == "old"] == []
 
 
-def test_an_unjournalled_registration_is_left_untouched_and_nothing_secret_is_printed(home, fake_bin):
+def test_an_unjournalled_registration_is_skipped_untouched_silent_and_not_a_failure(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
     claude = FakeClaude([(None, "user", None)])
     claude.registered[(None, "user", None)] = ["node", "server.js", "--token=SECRET-VALUE"]
     plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 1 and not claude.removed()
+    assert failures == 0 and not claude.removed()
     assert claude.registered[(None, "user", None)] == ["node", "server.js", "--token=SECRET-VALUE"]
     text = "\n".join(out)
     assert "SECRET-VALUE" not in text and "server.js" not in text
     assert "'briefcase'" in text and "user scope" in text and "claude mcp remove --scope user briefcase" in text
     assert "claude mcp add --scope user briefcase" in text and text.count("not registered by briefcase") == 1
+    assert "skip" in text and "failed" not in text
+
+
+def test_mcp_install_still_fails_when_it_cannot_register(home, fake_bin, monkeypatch, capsys):
+    from argparse import Namespace
+
+    from briefcase.cli import mcp_commands
+
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    claude = FakeClaude([(None, "user", None)])
+    monkeypatch.setattr(engine, "run_command", claude)
+    args = Namespace(tools=["claude-code"], scope="user", yes=True, connect_dry_run=False, dry_run=False,
+                     force=False, headers=[])
+    assert mcp_commands.cmd_mcp_install(args) == 1
+    assert "claude mcp remove --scope user briefcase" in capsys.readouterr().out
 
 
 def test_a_registration_journalled_for_another_profile_is_not_ours_here(home, fake_bin, monkeypatch, tmp_path):
@@ -238,7 +253,7 @@ def test_a_registration_journalled_for_another_profile_is_not_ours_here(home, fa
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", profile_b)
     claude = FakeClaude([(profile_b, "user", None)])
     plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 1 and not claude.removed()
+    assert failures == 0 and not claude.removed() and claude.registered[(profile_b, "user", None)] == ["old-command"]
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", profile_a)
     claude = FakeClaude([(profile_a, "user", None)])
     plan, out, failures = connect(["claude-code"], runner=claude)
@@ -346,7 +361,7 @@ def test_commands_run_once_as_argument_lists_and_are_journalled(home, fake_bin):
 def test_a_failing_command_is_reported_and_not_journalled(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
     plan, out, failures = connect(["claude-code"], runner=lambda argv: (1, "already exists"))
-    assert failures == 1 and any("already registered" in line for line in out)
+    assert failures == 0 and any("already registered" in line for line in out)
     assert edits.load_journal()["commands"] == []
 
 

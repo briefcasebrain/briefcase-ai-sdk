@@ -106,7 +106,7 @@ def cmd_mcp_install(args, store=None, engine=None, stack=None) -> int:
     args.headers = []
     args.capture_content = False
     args.start = False
-    code = connect_commands.run_connect(args, registry(), offer_receiver=False)
+    code = connect_commands.run_connect(args, registry(), offer_receiver=False, mcp_only=True)
     if code == 0:
         print("")
         print(tools_text())
