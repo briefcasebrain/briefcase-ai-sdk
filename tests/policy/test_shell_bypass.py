@@ -188,7 +188,6 @@ UNDECIDABLE = [
     "echo 'unterminated",
     'echo "unterminated',
     "echo $(unterminated",
-    "/bin/r? -rf /",
     "${CMD} -rf /",
     "a=$(echo rm); $a -rf /",
 ]
@@ -200,6 +199,16 @@ def test_what_cannot_be_analysed_is_never_allowed(decide, command):
     assert result.would != "allow", (command, result.to_dict())
     assert result.problems, command
     assert "on_unparseable" in {m.rule_id for m in result.matches}
+
+
+def test_a_glob_that_matches_several_programs_is_never_allowed(decide, tmp_path):
+    """Which program `r?` runs is unknown when it matches more than one file, whatever the OS's /bin holds."""
+    for name in ("ra", "rb"):
+        (tmp_path / name).write_text("")
+    command = f"{tmp_path}/r? -rf /"
+    result = decide(command)
+    assert result.would != "allow", result.to_dict()
+    assert result.problems and "on_unparseable" in {m.rule_id for m in result.matches}
 
 
 def test_on_unparseable_setting_decides(home, project):

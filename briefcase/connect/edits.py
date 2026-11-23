@@ -134,10 +134,18 @@ class Resolved:
 
 # --- path safety --------------------------------------------------------------
 
+def _system_prefixes() -> Tuple[str, ...]:
+    """The prefixes plus where they really live (macOS: ``/etc`` is ``/private/etc``), so a path
+    that was already resolved is still recognised. ``/var`` is left out: on macOS its real
+    location holds each user's temp directory."""
+    real = tuple(os.path.realpath(p) for p in _SYSTEM_PREFIXES if p.startswith("/") and p != "/var")
+    return _SYSTEM_PREFIXES + tuple(p for p in real if p not in _SYSTEM_PREFIXES)
+
+
 def is_system_path(path: Path) -> bool:
     text = str(path)
     lowered = text.lower()
-    for prefix in _SYSTEM_PREFIXES:
+    for prefix in _system_prefixes():
         if lowered == prefix.lower() or lowered.startswith(prefix.lower().rstrip("/\\") + os.sep):
             return True
     return False

@@ -16,8 +16,8 @@ Sleep 6s
 Show
 Type "briefcase-ai engine --help | head -30" Enter
 Sleep 5s
-Type "clear; briefcase-ai engine install --code bci_demo --yes; echo exit=$?" Enter
-Sleep 5s
+Type "clear; uv pip install -q cryptography && briefcase-ai engine install --code bci_demo --yes --platform-url http://127.0.0.1:9; echo exit=$?" Enter
+Sleep 8s
 Type "echo '{}' > engine-manifest.json; briefcase-ai engine verify engine-manifest.json; echo exit=$?" Enter
 Sleep 5s
 Type "clear; briefcase-ai engine status; echo exit=$?" Enter

@@ -108,9 +108,6 @@ Then `briefcase-ai engine up`, `briefcase-ai engine status`, and the engine comm
 | `engine upgrade --code C \| --token T [--version X]` | Installs the newest release (or the code's), restarts onto it when the engine is running. Secrets and data volumes are kept. |
 | `engine uninstall [--purge] [--dry-run]` | Stops the stack, removes the images and the version directory; `--purge` also deletes data volumes, secrets and certificates. |
 
-`briefcase-ai stack up|down|status|logs` still works for one release; it prints one line pointing
-at `briefcase-ai engine` and uses the engine install when there is one.
-
 ## What it writes or sends, and where
 
 | What | Where |
@@ -291,7 +288,7 @@ it downloads itself carry none).
 
 ## Limits and failure modes
 
-- No release key ships in this SDK build yet: install refuses until one is published.
+- Install trusts only the release key shipped in `briefcase/engine/keys/`; with none there, it refuses.
 - Presigned download links last 5 minutes; an install code lasts 15 minutes and works once.
 - `engine install` needs Docker unless `--no-images` (client binary only).
 - Third-party images (`minio`, `registry:2`) come from Docker Hub at the first `engine up` unless

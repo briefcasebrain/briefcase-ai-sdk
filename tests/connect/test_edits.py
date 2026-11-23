@@ -179,6 +179,49 @@ def test_a_4_4_cursor_config_naming_the_old_commands_is_repaired(home, fake_bin)
     assert "briefcase-mcp" not in json.dumps(servers) and "briefcase-ai-mcp" in json.dumps(servers)
 
 
+class FakeClaudeMcp:
+    """Behaves like `claude mcp add|remove` (2.1.330, checked with a throwaway HOME): add of an
+    existing name exits 1 with "already exists"; remove of a missing name exits 1."""
+
+    def __init__(self, servers):
+        self.servers = dict(servers)
+        self.calls = []
+
+    def __call__(self, argv):
+        self.calls.append(argv)
+        verb, name = argv[2], argv[5]
+        if verb == "add":
+            if name in self.servers:
+                return 1, f"MCP server {name} already exists in user config"
+            self.servers[name] = argv[argv.index("--") + 1:]
+            return 0, ""
+        if name not in self.servers:
+            return 1, f'No MCP server named "{name}" in user scope'
+        del self.servers[name]
+        return 0, ""
+
+
+def test_a_4_4_claude_code_mcp_entry_is_replaced_not_refused(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    old_argv = ["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
+                "uvx", "--from", "briefcase-ai[mcp]", "briefcase-mcp"]
+    journal = edits.load_journal()
+    journal["commands"].append({"tool": "claude-code", "argv": old_argv, "undo_hint": None, "at": "2026-08-01"})
+    edits.save_journal(journal)
+    claude = FakeClaudeMcp({"briefcase": old_argv[7:]})
+    plan, out, failures = connect(["claude-code"], runner=claude)
+    assert failures == 0, out
+    assert claude.servers["briefcase"][-1] == "briefcase-ai-mcp"
+    assert [c for c in edits.load_journal()["commands"] if c["argv"] == old_argv] == []
+
+
+def test_claude_code_mcp_first_install_does_not_remove_anything(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    claude = FakeClaudeMcp({})
+    connect(["claude-code"], runner=claude)
+    assert [c[2] for c in claude.calls] == ["add"]
+
+
 @pytest.mark.parametrize("body, why", [
     ('{"env": {"A": "1",}', "not valid JSON"),
     ('{\n  // my settings\n  "env": {"A": "1"}\n}\n', "comments or trailing commas"),

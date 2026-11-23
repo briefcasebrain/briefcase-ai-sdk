@@ -482,7 +482,9 @@ def test_setup_app_dry_run_for_real(at_terminal, shell_home, monkeypatch, capfd)
     records = [json.loads(line) for line in captured.err.splitlines() if line.startswith("{")]
     assert len(records) == 1 and records[0]["function_name"] == "greet"
     assert records[0]["outputs"] == {"result": "'hello world'"}
-    assert files_under(shell_home) == [".briefcase/setup.json"]
+    # Apple's Python writes bytecode caches under ~/Library/Caches; they are not the SDK's files.
+    written = [f for f in files_under(shell_home) if not f.startswith("Library/Caches/com.apple.python")]
+    assert written == [".briefcase/setup.json"]
 
 
 def test_setup_team_path_offers_real_steps_when_policy_is_discovered(at_terminal, shell_home, capsys):
@@ -581,7 +583,7 @@ def test_bash_completion_is_valid_and_completes(shell_home, tmp_path):
         assert result.returncode == 0, result.stderr
         return result.stdout.split()
 
-    assert set(complete("briefcase-ai", "st")) == {"status", "stack"}
+    assert set(complete("briefcase-ai", "st")) == {"status"}
     assert set(complete("briefcase-ai", "run", "s")) == {"submit", "stop"}
     assert complete("briefcase-ai", "connect", "--sc") == ["--scope"]
     assert complete("briefcase-ai", "connect", "--scope", '""') == ["user", "project"]

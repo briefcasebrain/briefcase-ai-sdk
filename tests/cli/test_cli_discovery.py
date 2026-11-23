@@ -85,8 +85,6 @@ def test_every_pre_existing_command_keeps_its_names_flags_and_handlers():
      "--metric", "f1", "--mode", "hunt", "--secret", "T=1", "--env", "K=V", "--revision", "abc"],
     ["run", "list"], ["run", "inspect", "demo"], ["run", "logs", "demo", "-f"],
     ["run", "results", "demo"], ["run", "stop", "demo"], ["run", "delete", "demo"],
-    ["stack", "up", "--no-scorer"], ["stack", "down", "--volumes"], ["stack", "status"],
-    ["stack", "logs", "server", "--follow"],
     ["doctor", "--strict"], ["doctor", "--connect"],
     ["connect", "claude-code", "--scope", "project", "--endpoint", "http://h:1", "--headers", "A=b",
      "--no-mcp", "--capture-content", "--dry-run", "--yes", "--force", "--start"],
@@ -107,7 +105,7 @@ def test_old_argv_still_parses_to_a_handler(argv):
 
 
 def test_handlers_are_the_same_functions_as_before():
-    from briefcase.cli import commands, connect_commands, doctor, exec_commands, stack_commands
+    from briefcase.cli import commands, connect_commands, doctor, exec_commands
 
     from briefcase.cli import dataset_versions
 
@@ -117,7 +115,6 @@ def test_handlers_are_the_same_functions_as_before():
     assert parser.parse_args(["dataset", "list"]).func is dataset_versions.cmd_list
     assert commands.cmd_dataset_list is not None
     assert parser.parse_args(["run", "logs", "x"]).func is commands.cmd_run_logs
-    assert parser.parse_args(["stack", "up"]).func is stack_commands.cmd_stack_up
     assert parser.parse_args(["doctor"]).func is doctor.cmd_doctor
     assert parser.parse_args(["connect"]).func is connect_commands.cmd_connect
     assert parser.parse_args(["exec", "--", "true"]).func is exec_commands.cmd_exec
@@ -233,7 +230,7 @@ def test_top_level_help_groups_commands_under_the_flow_verbs(capsys):
 
     assert listed("Start here:") == ["setup", "status", "features", "doctor", "engine", "completion"]
     assert set(listed("Connect:")) == {"connect", "receive", "exec", "mcp", "hook", "plugins"}
-    assert set(listed("Evaluate:")) == {"dataset", "secret", "run", "stack"}
+    assert set(listed("Evaluate:")) == {"dataset", "secret", "run"}
     assert listed("Capture:") == ["env"] and "briefcase-ai features --verb capture" in section("Capture:")
     assert "Other" not in text
     assert "Global options:" in text and "--no-input" in text and "--debug" in text

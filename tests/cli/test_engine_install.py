@@ -254,9 +254,11 @@ def test_key_loader_accepts_any_release_pub_and_ignores_others(key, tmp_path):
     assert [k.key_id for k in loaded] == [key.key_id] and loaded[0].label == "release-anything.pub"
 
 
-def test_shipped_key_directory_has_readme_and_no_key():
+def test_shipped_key_directory_has_readme_and_only_the_pinned_release_key():
     assert (trust.KEYS_DIR / "README.md").is_file()
-    assert trust.load_keys(trust.KEYS_DIR) == []
+    keys = trust.load_keys(trust.KEYS_DIR)
+    assert [k.key_id for k in keys] == [
+        "sha256:2c2303bdef3d97b33ca998f9eb397a8bf3de61465a0cb4fe955767e8b5470111"]
 
 
 @pytest.mark.parametrize("argv, message, fix", [
@@ -681,14 +683,29 @@ def test_upgrade_needs_a_code_or_token_and_restarts_a_running_engine(env, capsys
     assert ups and "0.5.0" in ups[-1][ups[-1].index("-f") + 1]
 
 
-def test_stack_alias_prints_one_line_and_uses_the_install(env, capsys):
+def test_run_logs_reads_the_verdict_worker_logs_of_the_installed_engine(env, capsys):
+    from types import SimpleNamespace
+
+    from briefcase.cli import commands
+
     assert _install("--code", "bci_good") == 0
-    capsys.readouterr()
     env["log"].unlink()
-    assert main(["stack", "status"]) == 0
-    err = capsys.readouterr().err
-    assert err.count("\n") == 1 and "use `briefcase-ai engine status`" in err
-    assert _docker(env)[0][:3] == ["compose", "--project-name", "briefcase-engine"]
+    store = SimpleNamespace(get_run=lambda run_id: {"id": run_id})
+    assert commands.cmd_run_logs(SimpleNamespace(id="demo", follow=True), store, None) == 0
+    argv = _docker(env)[-1]
+    assert argv[:3] == ["compose", "--project-name", "briefcase-engine"]
+    assert argv[argv.index("logs"):] == ["logs", "--tail", "200", "-f", "verdict-worker"]
+
+
+def test_run_logs_without_an_engine_says_to_install_it(shell_home, capsys, monkeypatch):
+    from types import SimpleNamespace
+
+    from briefcase.cli import commands
+
+    monkeypatch.delenv("OCI_JJ_SERVER", raising=False)
+    store = SimpleNamespace(get_run=lambda run_id: {"id": run_id})
+    assert commands.cmd_run_logs(SimpleNamespace(id="demo", follow=False), store, None) == 3
+    assert "briefcase-ai engine install" in capsys.readouterr().err
 
 
 # --------------------------------------------------------------------------- compose

@@ -209,10 +209,6 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
     # `connect --dry-run`, `mcp link` and friends must not do.
     store = store or _LazyEngine(Store)
     engine = engine or _LazyEngine(lambda: make_engine(args))
-    if stack is None:
-        from briefcase.cli import stack_commands
-
-        stack = stack_commands.Stack()
     return _run(lambda: args.func(args, store, engine, stack), argv)
 
 

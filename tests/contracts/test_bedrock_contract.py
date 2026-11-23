@@ -85,6 +85,11 @@ def test_recorded_parameters_are_inference_config_members():
 
 
 def test_installed_executor_reads_the_same_members_as_the_pinned_model():
+    import botocore
+
+    installed = tuple(int(part) for part in botocore.__version__.split(".")[:3])
+    if installed < (1, 44, 9):  # the pinned model is from 1.44.9; an older botocore lacks its members
+        pytest.skip(f"botocore {botocore.__version__} predates the pinned service model")
     top, inference = BedrockExecutor._members()
     assert top == set(shape("Converse").members)
     assert inference == set(shape("Converse").members["inferenceConfig"].members)

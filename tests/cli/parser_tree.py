@@ -35,7 +35,8 @@ def _action(action) -> dict:
         "default": _plain(action.default),
         "type": _plain(action.type),
         "choices": None if action.choices is None else sorted(map(str, action.choices)),
-        "required": bool(action.required),
+        # Python 3.10 and 3.11 mark a positional with nargs "*" or REMAINDER as required; later versions do not.
+        "required": bool(action.required) and not (not action.option_strings and action.nargs in ("*", "?", "...")),
         "metavar": _plain(action.metavar),
     }
 

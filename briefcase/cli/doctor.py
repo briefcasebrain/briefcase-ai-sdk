@@ -1,7 +1,8 @@
-"""``briefcase-ai doctor`` — an install/compat preflight for the evaluation-run stack.
+"""``briefcase-ai doctor`` — a preflight for the evaluation-run engine.
 
-Runs ordered checks (Docker → bundled compose → compat → image pull access → server reflection + the
-structural API floor) and prints the resolved compatibility matrix. Docker calls go through an injected
+Runs ordered checks (Docker → server reflection + the structural API floor) and prints the
+compatibility matrix. Engine images come from ``briefcase-ai engine install`` and are checked by
+``briefcase-ai engine doctor``. Docker calls go through an injected
 ``runner`` and reflection through an injected ``probe`` so the whole thing unit-tests with fakes — no
 Docker, no live server. Exit 0 on ok/expected-warn, 1 on a broken install / floor violation; ``--strict``
 escalates warnings to a non-zero exit for CI.
@@ -12,7 +13,8 @@ import os
 import subprocess
 import sys
 
-from briefcase.cli.stack import compose_path, load_compat
+
+OCI_JJ_API_MIN = "v1"  # the lowest oci_jj.<version> gRPC service the SDK speaks
 
 OK, WARN, FAIL = "ok", "warn", "fail"
 _RANK = {OK: 0, WARN: 1, FAIL: 2}
@@ -32,15 +34,9 @@ def _default_probe(server):
 
 
 class Doctor:
-    def __init__(self, runner=None, compat=None, probe=None) -> None:
+    def __init__(self, runner=None, probe=None) -> None:
         self.runner = runner or subprocess.run
-        self._compat = compat
         self._probe = probe if probe is not None else _default_probe
-
-    def compat(self) -> dict:
-        if self._compat is None:
-            self._compat = load_compat()
-        return self._compat
 
     def _run(self, argv):
         try:
@@ -60,45 +56,7 @@ class Doctor:
         else:
             out.append((OK, "docker", (getattr(res, "stdout", "") or "").strip()))
 
-        try:
-            with compose_path() as p:
-                text = p.read_text()
-            if "image: ghcr.io/briefcasebrain/oci-jj-server" in text and "\n    build:" not in text:
-                out.append((OK, "bundled compose", "pinned, image-based"))
-            else:
-                out.append((FAIL, "bundled compose", "not image-based"))
-        except Exception as e:
-            out.append((FAIL, "bundled compose", f"unreadable ({e})"))
-
-        try:
-            compat = self.compat()
-            out.append((OK, "compat.json", f"briefcase_ai {compat.get('briefcase_ai')}"))
-        except Exception as e:
-            out.append((FAIL, "compat.json", str(e)))
-            compat = {}
-
-        tag = compat.get("oci_jj_image_tag", "")
-        private = compat.get("private_preview", False)
-        for img in compat.get("oci_jj_images", []):
-            ref = f"{img}:{tag}"
-            res = self._run(["docker", "manifest", "inspect", ref])
-            if res is not None and getattr(res, "returncode", 1) == 0:
-                out.append((OK, "image", ref))
-            elif private:
-                out.append((WARN, "image", f"{ref} private — installed by: briefcase-ai engine install"))
-            else:
-                out.append((WARN, "image", f"{ref} not pullable yet"))
-
-        scorer = compat.get("oci_jj_scorer_image")
-        if scorer:
-            ref = f"{scorer}:{tag}"
-            res = self._run(["docker", "manifest", "inspect", ref])
-            if res is not None and getattr(res, "returncode", 1) == 0:
-                out.append((OK, "scorer image", ref))
-            else:
-                out.append((WARN, "scorer image", f"{ref} private (scoring) — installed by: briefcase-ai engine install"))  # noqa: E501
-
-        floor = compat.get("oci_jj_api_min", "v1")
+        floor = OCI_JJ_API_MIN
         try:
             services = self._probe(server)
             if any(s.startswith(f"oci_jj.{floor}.") for s in services):
@@ -217,16 +175,13 @@ def cmd_doctor(args, store, engine, stack=None) -> int:
     results = doctor.checks(server=server)
     for sev, label, detail in results:
         print(f"{_MARK[sev]} {label}: {detail}" if detail else f"{_MARK[sev]} {label}")
-    try:
-        compat = load_compat()
-        print("\nresolved compatibility matrix:")
-        for key in ("briefcase_ai", "oci_jj_api_min", "oci_jj_image_tag", "verdictml"):
-            print(f"  {key}: {compat.get(key)}")
-        if compat.get("private_preview"):
-            print("  engine images: private — get them with `briefcase-ai engine install` "
-                  "(https://observe.briefcasebrain.io/engine)")
-    except Exception:
-        pass
+    from briefcase import __version__
+
+    print("\nresolved compatibility matrix:")
+    print(f"  briefcase_ai: {__version__}")
+    print(f"  oci_jj_api_min: {OCI_JJ_API_MIN}")
+    print("  engine images: installed by `briefcase-ai engine install` "
+          "(https://observe.briefcasebrain.io/engine); check them with `briefcase-ai engine doctor`")
     # The plugins section appears only when a package declares a briefcase plugin, so the
     # output above is unchanged on a machine without plugins.
     try:

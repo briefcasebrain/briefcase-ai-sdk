@@ -52,7 +52,10 @@ def default_path(environ: Optional[Mapping[str, str]] = None) -> Path:
 def read(path: Optional[Union[str, os.PathLike]] = None) -> Dict[str, Any]:
     """The parsed file (``{}`` when it does not exist). Raises
     :class:`ConfigError` naming the file and the problem."""
-    import tomllib
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python < 3.11: the `tomli` dependency
+        import tomli as tomllib  # type: ignore[no-redef]
 
     target = Path(path) if path is not None else default_path()
     if not target.exists():

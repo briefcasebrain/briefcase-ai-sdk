@@ -344,7 +344,10 @@ def load(path: Optional[Union[str, Path]] = None) -> Optional[ContentGuard]:
         [stream]
         chunk_check_chars = 0
     """
-    import tomllib
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python < 3.11: the `tomli` dependency
+        import tomli as tomllib  # type: ignore[no-redef]
 
     target = Path(path) if path is not None else config_path()
     if not target.exists():

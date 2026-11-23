@@ -133,6 +133,12 @@ def cmd_secret_list(args, store, engine, stack=None) -> int:
 
         print(_json.dumps([{"key": k, "used_by_engine": k in ENGINE_SECRET_KEYS} for k in keys], indent=2))
         return 0
+    if not keys:
+        from briefcase.cli import _ux
+
+        if _ux.is_tty(sys.stdout):
+            print("no secrets stored")
+        return 0
     for key in keys:
         print(key if key in ENGINE_SECRET_KEYS else f"{key}\t(kept locally; the engine has no secret channel for runs)")
     return 0
@@ -224,15 +230,14 @@ def cmd_run_logs(args, store, engine, stack=None) -> int:
     if run is None:
         print(f"unknown run {args.id!r}", file=sys.stderr)
         return 2
-    # oci-jj has no per-job log RPC; surface the verdict-worker container logs via the bundled stack
-    # (one compose source of truth; still honors $BRIEFCASE_OCIJJ_COMPOSE inside Stack for checkouts).
-    from briefcase.cli.stack_commands import Stack
+    # oci-jj has no per-job log RPC; surface the verdict-worker container logs of the installed engine.
+    from argparse import Namespace
 
-    stack = stack or Stack()
-    return getattr(
-        stack.logs(service="verdict-worker", follow=getattr(args, "follow", False)),
-        "returncode", 0,
-    )
+    from briefcase.cli import engine_commands
+
+    return engine_commands.cmd_logs(
+        Namespace(service="verdict-worker", follow=getattr(args, "follow", False), tail="200"),
+        store, engine, None)
 
 
 def cmd_run_results(args, store, engine, stack=None) -> int:

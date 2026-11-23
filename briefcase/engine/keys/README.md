@@ -22,10 +22,12 @@ DER ECDSA signature over the SHA-256 of the file (what `openssl dgst -sha256 -si
 writes). Take the public key as PEM (`openssl pkey -in key.pem -pubout -out release.pub`), compute
 the id, rename the file, and commit it here. The portal shows the same key and key id.
 
-## No key yet
+## Keys shipped
 
-This build ships no key, so `briefcase-ai engine install` refuses with "no trusted release key is
-bundled in this SDK build". That is intended: there is no way to install an unverified engine.
+`release-2c2303bdef3d97b3.pub` is the release operator's ECDSA P-256 key
+(`sha256:2c2303bdef3d97b33ca998f9eb397a8bf3de61465a0cb4fe955767e8b5470111`). With no key in this
+directory, `briefcase-ai engine install` refuses with "no trusted release key is bundled in this SDK
+build": there is no way to install an unverified engine.
 
 ## Rotation
 

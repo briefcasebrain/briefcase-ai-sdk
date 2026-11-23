@@ -223,6 +223,7 @@ module = [
     "cryptography.*",
     "pytest.*",
     "tomllib",
+    "tomli",
 ]
 ignore_missing_imports = true
 # Do not analyze inside third-party packages: several ship py.typed and use
@@ -239,9 +240,9 @@ python-source = "."
 # `License-File: LICENSE` in the metadata, so the file must be present or PyPI
 # rejects the upload with a 400.
 #
-# The `briefcase-ai stack` command and `briefcase-ai doctor` read these data files at runtime via
-# importlib.resources; maturin only ships non-.py files that are listed here, so they MUST be
-# enumerated explicitly (a missing entry silently drops them from the wheel — see check_imports.py).
+# Data files read at runtime via importlib.resources; maturin only ships non-.py files that are
+# listed here, so they MUST be enumerated explicitly (a missing entry silently drops them from the
+# wheel — see check_imports.py).
 include = [
     "briefcase/connect/conformance.json",
     "briefcase/connect/conformance-report.json",
@@ -250,8 +251,6 @@ include = [
     "briefcase/data/pricing/unpriced.json",
     "LICENSE",
     "NOTICE",
-    "briefcase/cli/stack/docker-compose.yml",
-    "briefcase/cli/stack/compat.json",
     # The engine's public gRPC contract (Apache-2.0, vendored from oci-jj proto/) and the
     # descriptor set briefcase.engine.client builds its messages from.
     "briefcase/engine/_proto/oci_jj_v1.binpb",

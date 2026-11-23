@@ -21,6 +21,9 @@ pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX paths")
 GUARDED = 'version = 1\npreset = "guarded"\n'
 LAUNCHER = install.launcher_path()
 
+# The flags `briefcase.policy.install` puts in front of the launcher: -S needs tomllib in the stdlib.
+ISOLATED = ["-I"] + (["-S"] if sys.version_info >= (3, 11) else [])
+
 
 def run(tool, payload, *flags):
     """Run the hook in-process. Returns ``(exit code, parsed stdout or None, raw stdout)``."""
@@ -464,7 +467,7 @@ def subprocess_env(home):
 
 
 def run_launcher(home, tool, payload, *flags, timeout=30):
-    done = subprocess.run([sys.executable, "-I", "-S", LAUNCHER, tool, "--enforce", *flags],
+    done = subprocess.run([sys.executable, *ISOLATED, LAUNCHER, tool, "--enforce", *flags],
                           input=json.dumps(payload).encode(), capture_output=True, timeout=timeout,
                           env=subprocess_env(home))
     return done
@@ -532,7 +535,7 @@ def test_launcher_runs_without_importing_the_sdk(home, project, write_policy):
         "         'briefcase.guardrails', 'argparse', 'subprocess', 'logging', 'asyncio', 'urllib.request')]\n"
         "print('HEAVY', heavy, file=sys.stderr)\n"
     )
-    done = subprocess.run([sys.executable, "-I", "-S", "-c", code], capture_output=True, env=subprocess_env(home),
+    done = subprocess.run([sys.executable, *ISOLATED, "-c", code], capture_output=True, env=subprocess_env(home),
                           timeout=30)
     assert done.returncode == 0, done.stderr
     assert b"HEAVY []" in done.stderr, done.stderr
@@ -547,7 +550,7 @@ def test_launcher_fails_open_when_the_package_is_broken(home, tmp_path):
     (broken / "hook.py").write_text("raise RuntimeError('half-installed')\n")
 
     def launch(*argv):
-        return subprocess.run([sys.executable, "-I", "-S", str(broken / "hook_main.py"), *argv], input=b"{}",
+        return subprocess.run([sys.executable, *ISOLATED, str(broken / "hook_main.py"), *argv], input=b"{}",
                               capture_output=True, env=subprocess_env(home), timeout=30)
 
     done = launch("claude-code", "--enforce")

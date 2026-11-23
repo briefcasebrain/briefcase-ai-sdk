@@ -8,8 +8,7 @@ The engine is proprietary and is not in this package. Entitled accounts get it f
 portal (https://observe.briefcasebrain.io/engine): either the one-command install with a
 single-use install code, a licence token for automation, or an offline bundle. Everything is
 verified against the release key pinned in this SDK (``briefcase/engine/keys``) before it is
-installed. Every other subcommand works on that local install. ``briefcase-ai stack`` is the
-deprecated name for ``up``/``down``/``status``/``logs``.
+installed. Every other subcommand works on that local install.
 
 Exit codes: 0 ok, 1 failed, 2 usage, 3 engine not installed.
 """
@@ -52,8 +51,7 @@ def register(sub) -> None:
         "engine",
         help=_engine.help_text("Install and run the Briefcase engine (oci-jj) locally."),
         description="Install the engine from the Briefcase portal (one-command install code, licence "
-                    "token or offline bundle), verify it, then start, check and upgrade it. "
-                    "Replaces `briefcase-ai stack`.",
+                    "token or offline bundle), verify it, then start, check and upgrade it.",
         epilog="example:\n  briefcase-ai engine install --code bci_...   "
                "# from https://observe.briefcasebrain.io/engine\n\n" + ENV_HELP,
         formatter_class=_RAW,

@@ -54,6 +54,9 @@ def test_file_payloads():
     assert json.loads(mcp.mcp_servers_json(UVX)) == {"mcpServers": {"briefcase": UVX}}
     assert json.loads(mcp.mcp_servers_json(UVX, key="servers", typed=True)) == {
         "servers": {"briefcase": {"type": "stdio", **UVX}}}
-    import tomllib
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python < 3.11
+        import tomli as tomllib
 
     assert tomllib.loads(mcp.codex_toml(UVX)) == {"mcp_servers": {"briefcase": UVX}}

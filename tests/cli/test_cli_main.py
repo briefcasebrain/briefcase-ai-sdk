@@ -112,3 +112,21 @@ def test_help_description_opens_with_the_owner_sentence_on_its_own_line():
     lines = build_parser().format_help().splitlines()
     usage_end = next(i for i, line in enumerate(lines) if not line.strip())
     assert lines[usage_end + 1] == TAGLINE
+
+
+def test_secret_list_says_so_on_a_terminal_when_nothing_is_stored(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("BRIEFCASE_HOME", str(tmp_path))
+    _tty(monkeypatch)
+    assert main(["secret", "list"]) == 0
+    assert capsys.readouterr().out == "no secrets stored\n"
+
+
+def test_secret_list_output_is_unchanged_when_piped_or_json(tmp_path, monkeypatch, capsys):
+    import json
+
+    monkeypatch.setenv("BRIEFCASE_HOME", str(tmp_path))
+    assert main(["secret", "list"]) == 0
+    assert capsys.readouterr().out == ""
+    _tty(monkeypatch)
+    assert main(["secret", "list", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == []

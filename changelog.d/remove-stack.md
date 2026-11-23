@@ -1,0 +1,2 @@
+### Breaking
+- `briefcase-ai stack up|down|status|logs` is removed, with the bundled GHCR compose file and `compat.json`: the engine is installed from a signed bundle with `briefcase-ai engine install` and run with `briefcase-ai engine up|down|status|logs`. `briefcase-ai doctor` no longer lists registry images (`briefcase-ai engine doctor` checks the installed ones), and `briefcase-ai run logs` reads the installed engine's verdict-worker logs.

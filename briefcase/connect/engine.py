@@ -133,11 +133,18 @@ def apply_plan(plan: Plan, ctx: Context, out: Printer,
         out(f"  wrote  {resolved.target}" + (f" (backup: {backup})" if backup else ""))
     for command in plan.commands:
         code, output = runner(command.argv)
+        if code != 0 and command.undo_hint and "already exists" in output:
+            # An entry from an earlier SDK (different command, same server name): remove it, add again.
+            out(f"  replace {mcp_payloads.shell(command.undo_hint)}")
+            if runner(command.undo_hint)[0] == 0:
+                code, output = runner(command.argv)
         if code != 0:
             failures += 1
             out(f"  failed {mcp_payloads.shell(command.argv)}: {output or f'exit {code}'}")
             continue
         out(f"  ran    {mcp_payloads.shell(command.argv)}")
+        journal["commands"] = [c for c in journal["commands"] if not (
+            c["tool"] == command.tool and c["argv"][:6] == command.argv[:6])]  # same registration, older command
         journal["commands"].append({
             "tool": command.tool, "argv": command.argv, "undo_hint": command.undo_hint,
             "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),

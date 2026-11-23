@@ -55,8 +55,7 @@
    "mcp",
    "receive",
    "run",
-   "secret",
-   "stack"
+   "secret"
   ]
  },
  "connect": {
@@ -1025,107 +1024,6 @@
   ],
   "defaults": {
    "func": "briefcase.cli.commands.cmd_secret_set"
-  },
-  "subcommands": []
- },
- "stack": {
-  "add_help": true,
-  "arguments": [],
-  "defaults": {},
-  "subcommands": [
-   "down",
-   "logs",
-   "status",
-   "up"
-  ]
- },
- "stack down": {
-  "add_help": true,
-  "arguments": [
-   {
-    "action": "_StoreTrueAction",
-    "choices": null,
-    "const": true,
-    "default": false,
-    "dest": "volumes",
-    "flags": [
-     "--volumes"
-    ],
-    "metavar": null,
-    "nargs": 0,
-    "required": false,
-    "type": null
-   }
-  ],
-  "defaults": {
-   "func": "briefcase.cli.stack_commands.cmd_stack_down"
-  },
-  "subcommands": []
- },
- "stack logs": {
-  "add_help": true,
-  "arguments": [
-   {
-    "action": "_StoreAction",
-    "choices": null,
-    "const": null,
-    "default": null,
-    "dest": "service",
-    "flags": [],
-    "metavar": null,
-    "nargs": "?",
-    "required": false,
-    "type": null
-   },
-   {
-    "action": "_StoreTrueAction",
-    "choices": null,
-    "const": true,
-    "default": false,
-    "dest": "follow",
-    "flags": [
-     "-f",
-     "--follow"
-    ],
-    "metavar": null,
-    "nargs": 0,
-    "required": false,
-    "type": null
-   }
-  ],
-  "defaults": {
-   "func": "briefcase.cli.stack_commands.cmd_stack_logs"
-  },
-  "subcommands": []
- },
- "stack status": {
-  "add_help": true,
-  "arguments": [],
-  "defaults": {
-   "func": "briefcase.cli.stack_commands.cmd_stack_status"
-  },
-  "subcommands": []
- },
- "stack up": {
-  "add_help": true,
-  "arguments": [
-   {
-    "action": "_StoreTrueAction",
-    "choices": null,
-    "const": true,
-    "default": false,
-    "dest": "no_scorer",
-    "flags": [
-     "--no-scorer"
-    ],
-    "metavar": null,
-    "nargs": 0,
-    "required": false,
-    "type": null
-   }
-  ],
-  "defaults": {
-   "func": "briefcase.cli.stack_commands.cmd_stack_up"
   },
   "subcommands": []
  }

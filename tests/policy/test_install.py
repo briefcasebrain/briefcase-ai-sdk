@@ -116,6 +116,21 @@ def test_reinstall_with_fail_closed_replaces_our_entry_in_place(home, capsys, fa
     assert not files(home)["claude"].exists()
 
 
+def test_a_4_4_hook_naming_the_old_command_is_replaced_by_policy_init(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    settings = files(home)["claude"]
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    old = {"matcher": "^(Bash|Write)$", "hooks": [
+        {"type": "command", "command": "briefcase hook claude-code --enforce", "timeout": 10}]}
+    mine = {"matcher": "Read", "hooks": [{"type": "command", "command": "my-own-hook", "timeout": 5}]}
+    settings.write_text(json.dumps({"hooks": {"PreToolUse": [mine, old]}}))
+    assert init(tools=["claude-code"], portable=True)[0] == 0
+    entries = json.loads(settings.read_text())["hooks"]["PreToolUse"]
+    commands = [h["command"] for e in entries for h in e["hooks"]]
+    assert "my-own-hook" in commands and "briefcase hook claude-code --enforce" not in commands
+    assert [c for c in commands if c.endswith("--enforce")] == ["briefcase-ai hook claude-code --enforce"]
+
+
 def test_fail_closed_field_is_left_out_for_claude_code_older_than_documented(home, fake_bin):
     fake_bin("claude", "2.1.200 (Claude Code)")
     code, out = init(tools=["claude-code"], fail_closed=True)
