@@ -93,5 +93,17 @@
       "source": "https://support.claude.com/",
       "note": "Steps for a person, not a file to deploy."
     }
-  ]
+  ],
+  "files_sha256": {
+    "README.md": "451f891242ac7f5845a309451c3f2fb67e2e3c7a68d4649b06e7526b3f7c1265",
+    "briefcase/policy.toml": "bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
+    "claude-code/macos/briefcase-claude-code.mobileconfig": "10c916fd71fa0eab25ffd2d38e83970166bd410cdaa08a0cc2c4a4c2ef24ce8a",
+    "claude-code/managed-settings.d/10-briefcase.json": "ba1a1c11001b445af3348a426bbf4df26497512e6da5a22291dcb97eda3da6c7",
+    "claude-code/windows/claude-code-policy.reg.template": "6873ed66f01a922cf39c5aba0158edd834ded1af2d7da490b3ff8665521fe65f",
+    "codex/config-otel.toml.template": "ebdc908debe3682f021cbd309136febcc940fb4d88d6ac9094d117f966e7d03a",
+    "codex/hooks.json": "87c5741159a2c21399d42083f65a82d6c3d0e1b6f1e99c6dd5eba4dbc6bb7305",
+    "codex/requirements-hooks.toml.template": "fdfe22c9a0c582c8eecf8bef0fdc2b0c47956d4ea3ef315813c85b405658c280",
+    "cowork/CHECKLIST.md": "1db78c9a2e62694651a32b723a0356f4aed77f06fd00d0172e7f5480390c7944",
+    "cursor/hooks.json": "8e293b743f604f0fbc53c7c4216f5f6773d62c073767179cb38371cb6ceaf934"
+  }
 }

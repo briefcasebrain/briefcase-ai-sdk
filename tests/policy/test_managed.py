@@ -145,7 +145,7 @@ def test_refusals(home, tmp_path, capsys):
     full.mkdir()
     (full / "keep.txt").write_text("x")
     assert managed.cmd_managed(args(full)) == 1
-    assert "not empty" in capsys.readouterr().err
+    assert "did not write" in capsys.readouterr().err and (full / "keep.txt").read_text() == "x"
 
 
 def test_a_symlinked_child_of_the_output_directory_is_never_written_through(home, tmp_path, capsys):
@@ -173,3 +173,31 @@ def test_connect_managed_through_the_cli(home, tmp_path, capsys):
     assert (out / "README.md").exists() and (out / "cursor" / "hooks.json").exists()
     assert not (home / ".cursor").exists() and not (home / ".briefcase" / "connect").exists()
     assert "Next: read" in capsys.readouterr().out
+
+
+def test_a_pack_directory_is_only_replaced_when_every_file_in_it_is_one_a_pack_wrote(home, tmp_path, capsys):
+    out = tmp_path / "pack"
+    assert managed.cmd_managed(args(out)) == 0
+    assert managed.cmd_managed(args(out)) == 1 and "earlier rollout pack" in capsys.readouterr().err
+    assert managed.cmd_managed(args(out, force=True)) == 0  # every file is ours by hash
+    (out / "README.md").write_text("mine now")  # edited: no longer ours
+    assert managed.cmd_managed(args(out, force=True)) == 1
+    assert (out / "README.md").read_text() == "mine now"
+    assert managed.cmd_managed(args(out, force=True, connect_dry_run=True)) == 1  # a dry run says the same
+    here = tmp_path / "here"
+    here.mkdir()
+    (here / "README.md").write_text("unrelated")
+    (here / "manifest.json").write_text("{}")
+    assert managed.cmd_managed(args(here, force=True)) == 1
+    assert (here / "README.md").read_text() == "unrelated" and (here / "manifest.json").read_text() == "{}"
+
+
+def test_pack_files_with_supplied_credentials_are_private_and_the_endpoint_is_shell_quoted(home, tmp_path):
+    out = tmp_path / "pack"
+    hostile = "http://x.example.com/$(touch pwned)'"
+    assert managed.cmd_managed(args(out, headers=["Authorization=Bearer SUPPLIED"], endpoint=hostile)) == 0
+    modes = {p.name: p.stat().st_mode & 0o777 for p in out.rglob("*") if p.is_file()}
+    assert set(modes.values()) == {0o600}
+    command = json.loads((out / "cursor" / "hooks.json").read_text())["hooks"]["sessionStart"][0]["command"]
+    import shlex
+    assert shlex.split(command)[-1] == hostile  # one argument: nothing in it is interpreted

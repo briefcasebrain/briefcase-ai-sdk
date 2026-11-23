@@ -75,8 +75,7 @@ def hook_command(tool: str, options: HookOptions) -> str:
         flags.append("--fail-closed")
     if options.capture_content:
         flags.append("--capture-content")
-    if options.endpoint and options.endpoint.rstrip("/") != DEFAULT_ENDPOINT:
-        flags += ["--endpoint", options.endpoint.rstrip("/")]
+    flags += ["--endpoint", (options.endpoint or DEFAULT_ENDPOINT).rstrip("/")]  # always explicit
     return " ".join(shlex.quote(part) for part in base + flags)
 
 

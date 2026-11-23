@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -306,6 +307,42 @@ def _confirm(question: str, assume_yes: bool, ask: Optional[Callable[[str], str]
     return confirm(question, assume_yes, ask=ask)
 
 
+def _read_or_none(path: Path) -> Optional[str]:
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def _sha(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _policy_file_is_ours(path: Path) -> bool:
+    """Is the policy file at ``path`` exactly what an earlier `policy init` wrote (by hash)?"""
+    from briefcase.connect import edits
+
+    text = _read_or_none(path)
+    try:
+        journal = edits.load_journal()
+    except edits.LegacyJournal:
+        return False
+    rec = journal["targets"].get(f"policy|policy-file|{path.resolve()}")
+    return bool(rec and text is not None and rec.get("hash") == _sha(text))
+
+
+def _record_policy_file(path: Path, text: str) -> None:
+    from briefcase.connect import edits
+
+    journal = edits.load_journal()
+    journal["targets"][f"policy|policy-file|{path.resolve()}"] = {
+        "tool": "policy", "kind": "policy-file", "scope": "user", "target": str(path.resolve()),
+        "hash": _sha(text), "at": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+    edits.save_journal(journal)
+
+
 def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[str], str]] = None) -> int:
     from briefcase.connect import edits
     from briefcase.connect import engine as connect_engine
@@ -328,6 +365,11 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
     # 1. The policy file: keep a valid one, never overwrite silently.
     write_policy = None
     fail_closed = bool(getattr(args, "fail_closed", False))
+    if policy_path.exists() and force and not _policy_file_is_ours(policy_path):
+        _error(f"{_tilde(policy_path)} was not written by `briefcase-ai policy init` (or was edited since), so --force "
+               "will not replace it: its restrictions would stop applying. Move it aside yourself, or edit it "
+               "(`briefcase-ai policy check` validates it), then run `briefcase-ai policy init` again.")
+        return 1
     if policy_path.exists() and not force:
         try:
             layer = model.load_layer(str(policy_path), source)
@@ -381,8 +423,10 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
         _error(str(exc))
         return 1
     connect_engine.render_plan(plan, adapters, out)  # type: ignore[arg-type]
-    if plan.differs:
-        out("\nNothing was changed: a hook is installed with other settings.")
+    if plan.blocked:
+        out("\nNothing was changed, and enforcement is NOT in place for the tool(s) above: " + (
+            "a hook is installed with other settings." if plan.differs else
+            "a hook entry is missing, edited, or not ours (see above)."))
         return 1
 
     if dry:
@@ -408,9 +452,15 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
         policy_path.parent.mkdir(parents=True, exist_ok=True)
         if policy_path.exists():
             backup = edits.backup_path(policy_path)
-            policy_path.replace(backup)
+            shutil.copy2(str(policy_path), str(backup))
             out(f"  backup {_tilde(backup)}")
-        edits._atomic_write(policy_path, write_policy, 0o600 if not project else 0o644)
+        try:
+            edits.write_checked(policy_path, write_policy, _read_or_none(policy_path) if policy_path.exists() else None,
+                                0o600 if not project else 0o644)
+        except edits.EditRefused as exc:
+            _error(str(exc))
+            return 1
+        _record_policy_file(policy_path, write_policy)
         out(f"  wrote  {_tilde(policy_path)}")
     failures = connect_engine.apply_plan(plan, ctx, out, capture_warning=False) if plan.has_work else 0
     if failures:
@@ -454,10 +504,17 @@ def cmd_off(args, store=None, engine=None, stack=None) -> int:
             print("Aborted; nothing was changed.")
             return 1
     print("Would remove:" if dry else "Removing:")
-    connect_engine.undo(owners, print, dry_run=dry)
-    if not dry:
-        print(f"Enforcement is off. The policy file is kept: {_tilde(model.user_policy_path())}")
-        print("Next: briefcase-ai policy init   (to turn it back on)")
+    connect_engine.undo(owners, print, dry_run=dry, keep_unremoved=True)
+    if dry:
+        return 0
+    still = [row["tool"] for row in install.installed() if install.PREFIX + row["tool"] in owners]
+    if still:
+        print(f"Enforcement is still ON for {', '.join(still)}: the hook entry was changed after it was installed, "
+              "so it was not removed and its record was kept. Remove the entry yourself (it runs "
+              "`... hook <tool> --enforce`), then run `briefcase-ai policy off` again.", file=sys.stderr)
+        return 1
+    print(f"Enforcement is off. The policy file is kept: {_tilde(model.user_policy_path())}")
+    print("Next: briefcase-ai policy init   (to turn it back on)")
     return 0
 
 

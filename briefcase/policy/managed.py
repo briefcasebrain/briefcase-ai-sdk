@@ -22,7 +22,9 @@ installed on a managed machine by this project.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import shlex
 import sys
 import uuid
 from pathlib import Path
@@ -118,8 +120,8 @@ def reg_template(settings: Dict[str, Any]) -> str:
 
 
 def cursor_hooks(ctx: Context, enforce: bool, fail_closed: bool, data: Dict[str, Any]) -> Dict[str, Any]:
-    endpoint = ["--endpoint", ctx.endpoint] if ctx.endpoint != DEFAULT_ENDPOINT else []
-    observe = " ".join(["briefcase-ai", "hook", "cursor"] + endpoint)
+    endpoint = ["--endpoint", ctx.endpoint]  # always explicit, and quoted: it is shell text
+    observe = " ".join(shlex.quote(part) for part in ["briefcase-ai", "hook", "cursor"] + endpoint)
     hooks: Dict[str, List[Dict[str, Any]]] = {
         event: [{"command": observe, "timeout": data["hook_timeout_seconds"]}] for event in data["hook_events"]}
     if enforce:
@@ -253,6 +255,9 @@ def build(tools: List[str], ctx: Context, policy_text: Optional[str] = None) -> 
     pack.files["manifest.json"] = _json({
         "generated_by": "briefcase-ai connect --managed", "endpoint": ctx.endpoint, "tools": tools,
         "policy": enforce, "fail_closed": fail_closed, "files": pack.entries,
+        # What this pack wrote, by hash: a later run may replace these files and no others.
+        "files_sha256": {name: hashlib.sha256(text.encode("utf-8")).hexdigest()
+                         for name, text in sorted(pack.files.items())},
     })
     return pack
 
@@ -428,14 +433,55 @@ def _checked_target(out_dir: Path, root: Path, relative: str) -> Path:
     return current
 
 
-def write(pack: Pack, out_dir: Path) -> List[Path]:
+def existing_files(out_dir: Path) -> List[Path]:
+    return sorted(p for p in out_dir.rglob("*") if not p.is_dir()) if out_dir.is_dir() else []
+
+
+def ownership(out_dir: Path) -> Tuple[List[str], Dict[str, str]]:
+    """``(foreign, ours)`` for the files already under ``out_dir``: ``ours`` maps each file a previous pack wrote
+    (named in its manifest, with the exact hash it recorded) to its current text; ``foreign`` lists every other
+    file, whose contents are not read."""
+    manifest: Dict[str, str] = {}
+    try:
+        doc = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+        if isinstance(doc, dict) and doc.get("generated_by") == "briefcase-ai connect --managed":
+            manifest = {str(k): str(v) for k, v in (doc.get("files_sha256") or {}).items()}
+    except (OSError, ValueError, UnicodeDecodeError):
+        pass
+    foreign: List[str] = []
+    ours: Dict[str, str] = {}
+    for path in existing_files(out_dir):
+        relative = str(path.relative_to(out_dir))
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            foreign.append(relative)
+            continue
+        if relative == "manifest.json" and manifest:
+            ours[relative] = text
+        elif manifest.get(relative) == hashlib.sha256(text.encode("utf-8")).hexdigest():
+            ours[relative] = text
+        else:
+            foreign.append(relative)
+    return foreign, ours
+
+
+def write(pack: Pack, out_dir: Path, private: bool = False, replace: Optional[Dict[str, str]] = None) -> List[Path]:
+    """Write the pack. A file is created exclusively, or replaced only while it still holds exactly the text a
+    previous pack wrote (``replace``); anything else is refused. ``private`` makes the files 0600 (they hold
+    supplied credentials)."""
+    replace = replace or {}
     root = out_dir.resolve()
-    targets = [(_checked_target(out_dir, root, relative), text) for relative, text in sorted(pack.files.items())]
+    targets = [(_checked_target(out_dir, root, relative), relative, text)
+               for relative, text in sorted(pack.files.items())]
     written = []
-    for target, text in targets:
+    for target, relative, text in targets:
         target.parent.mkdir(parents=True, exist_ok=True)
         _checked_target(out_dir, root, str(target.relative_to(out_dir)))  # again after the directories exist
-        target.write_text(text, encoding="utf-8")
+        try:
+            edits.write_checked(target, text, replace.get(relative), 0o600 if private else 0o644)
+        except edits.EditRefused as exc:
+            raise UnsafeDestination(str(exc))
         written.append(target)
     return written
 
@@ -492,10 +538,19 @@ def cmd_managed(args, out=print) -> int:
                   capture_content=bool(getattr(args, "capture_content", False)), mcp=False)
     pack = build(tools, ctx, policy_text)
     dry = bool(getattr(args, "connect_dry_run", False) or getattr(args, "dry_run", False))
-    if out_dir.exists() and any(out_dir.iterdir()) and not getattr(args, "force", False) and not dry:
-        print(f"error: {out_dir} is not empty; choose a new directory or pass --force to overwrite files in it.",
-              file=sys.stderr)
-        return 1
+    replace: Dict[str, str] = {}
+    if existing_files(out_dir):
+        foreign, ours = ownership(out_dir)
+        if foreign:
+            print(f"error: {out_dir} holds files that briefcase-ai did not write ({', '.join(foreign[:5])}"
+                  f"{', ...' if len(foreign) > 5 else ''}); none of them is touched, with or without --force. "
+                  "Choose a new, empty directory.", file=sys.stderr)
+            return 1
+        if not getattr(args, "force", False):
+            print(f"error: {out_dir} holds an earlier rollout pack; choose a new directory, or pass --force to "
+                  "replace the files that pack wrote.", file=sys.stderr)
+            return 1
+        replace = ours
     out(f"Rollout pack for: {', '.join(tools)}" + ("" if policy_text is None else " (with policy enforcement)"))
     for entry in pack.entries:
         out(f"  {'ready   ' if entry['kind'] == 'ready' else 'TEMPLATE'} {entry['file']}")
@@ -509,7 +564,7 @@ def cmd_managed(args, out=print) -> int:
         out(f"\nDry run: {len(pack.files)} file(s) would be written to {out_dir}. Nothing was changed.")
         return 0
     try:
-        write(pack, out_dir)
+        write(pack, out_dir, private=bool(headers), replace=replace)
     except UnsafeDestination as exc:
         print(f"error: {exc}. Choose a new, empty directory.", file=sys.stderr)
         return 1

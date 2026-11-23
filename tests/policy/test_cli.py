@@ -260,7 +260,7 @@ def test_connect_enforce_connects_then_installs_the_policy(home, capsys, monkeyp
     assert "== Policy ==" in out
     settings = json.loads((home / ".claude" / "settings.json").read_text())
     assert "OTEL_EXPORTER_OTLP_ENDPOINT" in json.dumps(settings["env"])
-    assert settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"].endswith("claude-code --enforce")
+    assert settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"].count("claude-code --enforce") == 1
     assert (home / ".briefcase" / "policy.toml").exists()
     assert main(["connect", "--undo", "--yes"]) == 0
     assert not (home / ".claude" / "settings.json").exists()

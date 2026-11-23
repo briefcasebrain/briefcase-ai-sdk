@@ -40,7 +40,8 @@ def init(**overrides):
 def off(capsys, **overrides):
     from briefcase.cli import policy_commands
     code = policy_commands.cmd_off(off_args(**overrides))
-    return code, capsys.readouterr().out
+    captured = capsys.readouterr()
+    return code, captured.out + captured.err
 
 
 def files(home):
@@ -65,7 +66,7 @@ def test_init_writes_policy_and_every_hook_in_the_documented_shape(home):
     assert entry["matcher"].startswith("^(Bash|")
     (handler,) = entry["hooks"]
     assert set(handler) == {"type", "command", "timeout"} and handler["type"] == "command"
-    assert handler["command"].endswith(" claude-code --enforce")
+    assert " claude-code --enforce" in handler["command"]
     cursor = json.loads(files(home)["cursor"].read_text())
     assert cursor["version"] == 1
     assert set(cursor["hooks"]) == {"beforeShellExecution", "beforeMCPExecution", "beforeReadFile", "preToolUse"}
@@ -117,7 +118,7 @@ def test_reinstall_with_other_settings_changes_nothing_until_off(home, capsys, f
     assert init(tools=["claude-code"], fail_closed=True, force=True)[0] == 0
     (entry,) = json.loads(files(home)["claude"].read_text())["hooks"]["PreToolUse"]
     handler = entry["hooks"][0]
-    assert handler["onFailure"] == "block" and handler["command"].endswith("--enforce --fail-closed")
+    assert handler["onFailure"] == "block" and "--enforce --fail-closed" in handler["command"]
     assert "fail_closed = true" in (home / ".briefcase" / "policy.toml").read_text()
 
 
@@ -129,7 +130,9 @@ def test_fail_closed_field_is_left_out_for_claude_code_older_than_documented(hom
     assert "onFailure" not in handler and "older than 2.1.295" in out
 
 
-def test_off_leaves_an_entry_that_was_edited_after_install(home, capsys):
+def test_off_that_cannot_remove_a_hook_says_enforcement_is_still_on_and_keeps_the_record(home, capsys):
+    from briefcase.policy import install
+
     assert init(tools=["claude-code"])[0] == 0
     settings = files(home)["claude"]
     doc = json.loads(settings.read_text())
@@ -137,8 +140,9 @@ def test_off_leaves_an_entry_that_was_edited_after_install(home, capsys):
     settings.write_text(json.dumps(doc))
     edited = settings.read_text()
     code, out = off(capsys)
-    assert code == 0 and "changed or removed after connect; left as it is" in out
-    assert settings.read_text() == edited
+    assert code == 1 and "Enforcement is still ON" in out
+    assert "Enforcement is off" not in out
+    assert settings.read_text() == edited and [r["tool"] for r in install.installed()] == ["claude-code"]
 
 
 def test_policy_off_leaves_connect_telemetry_and_connect_undo_removes_everything(home, capsys):
@@ -191,7 +195,7 @@ def test_project_scope_writes_project_files_with_the_portable_command(home, proj
     assert code == 0, out
     assert (project / ".briefcase" / "policy.toml").exists()
     handler = json.loads((project / ".claude" / "settings.json").read_text())["hooks"]["PreToolUse"][0]["hooks"][0]
-    assert handler["command"] == "briefcase-ai hook claude-code --enforce"
+    assert handler["command"] == "briefcase-ai hook claude-code --enforce --endpoint http://127.0.0.1:4318"
     assert (project / ".cursor" / "hooks.json").exists() and (project / ".codex" / "hooks.json").exists()
     assert not (home / ".claude" / "settings.json").exists()
 
