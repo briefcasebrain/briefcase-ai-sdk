@@ -39,6 +39,8 @@ def command_lock(enabled: bool = True) -> Iterator[None]:
             _held.depth -= 1
         return
     path = edits.journal_path().parent / ".command.lock"
+    created = [p for p in (path.parent.parent, path.parent) if not p.exists()]  # directories only we will make
+    existed = path.exists()
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     with open(path, "a+b") as handle:
         if fcntl is not None:
@@ -63,3 +65,11 @@ def command_lock(enabled: bool = True) -> Iterator[None]:
             else:  # pragma: no cover
                 handle.seek(0)
                 msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+    if not existed and not edits.journal_path().exists():
+        # A command that wrote nothing leaves nothing behind (not even its lock file).
+        try:
+            path.unlink()
+            for directory in reversed(created):
+                directory.rmdir()
+        except OSError:
+            pass
