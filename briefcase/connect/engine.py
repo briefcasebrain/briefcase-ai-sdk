@@ -501,7 +501,7 @@ def status(adapters: Optional[Dict[str, Adapter]] = None) -> List[Dict[str, Any]
         commands = [c for c in journal["commands"] if c["tool"] == name]
         for c in commands:  # a deleted or replaced registration is not "connected" because the journal remembers it
             if (c.get("profile") or None) == (_registry.current_profile(c["argv"]) or None):
-                checks.append((_registry.owned(c["argv"], run_command) == _registry.OURS,
+                checks.append((_registry.owned(c["argv"], run_command) not in (_registry.ABSENT, _registry.DIFFERS),
                                f"{c['argv'][0]} mcp registration: {_registry.server_name(c['argv'])}"))
         targets = [t for t in journal["targets"].values() if t["tool"] == name]
         telemetry = [t for t in targets if t["kind"] == "telemetry"]
