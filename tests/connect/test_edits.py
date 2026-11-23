@@ -254,13 +254,12 @@ def test_an_unjournalled_registration_is_skipped_untouched_silent_and_not_a_fail
     claude = FakeClaude([(None, "user", None)])
     claude.registered[(None, "user", None)] = ["node", "server.js", "--token=SECRET-VALUE"]
     plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 0 and not claude.removed()
+    assert failures == 0 and not claude.removed() and not claude.added()  # looked first, never ran the add
     assert claude.registered[(None, "user", None)] == ["node", "server.js", "--token=SECRET-VALUE"]
-    text = "\n".join(out)
+    text = "\n".join(out + [b.text for b in plan.blocked])
     assert "SECRET-VALUE" not in text and "server.js" not in text
-    assert "'briefcase'" in text and "user scope" in text and "claude mcp remove --scope user briefcase" in text
-    assert "claude mcp add --scope user briefcase" in text and text.count("did not write it") == 1
-    assert "skip" in text and "failed" not in text
+    assert "'briefcase'" in text and "did not write it" in text
+    assert [b.blocker for b in plan.blocked if b.kind == "mcp"] == ["foreign"]
 
 
 def test_mcp_install_still_fails_when_it_cannot_register(home, fake_bin, monkeypatch, capsys):
@@ -274,7 +273,7 @@ def test_mcp_install_still_fails_when_it_cannot_register(home, fake_bin, monkeyp
     args = Namespace(tools=["claude-code"], scope="user", yes=True, connect_dry_run=False, dry_run=False,
                      force=False, headers=[])
     assert mcp_commands.cmd_mcp_install(args) == 1
-    assert "claude mcp remove --scope user briefcase" in capsys.readouterr().out
+    assert "did not write it" in capsys.readouterr().out and not claude.added()
 
 
 def test_a_registration_journalled_for_another_profile_is_not_ours_here(home, fake_bin, monkeypatch, tmp_path):
@@ -284,9 +283,10 @@ def test_a_registration_journalled_for_another_profile_is_not_ours_here(home, fa
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", profile_b)
     claude = FakeClaude([(profile_b, "user", None)])
     plan, out, failures = connect(["claude-code"], runner=claude)
-    # Profile B holds an entry nobody journalled for it: skipped, untouched.
-    assert failures == 0 and not claude.removed() and claude.registered[(profile_b, "user", None)] == ["old-command"]
-    assert "did not write it" in "\n".join(out)
+    # Profile B holds an entry nobody journalled for it: skipped, untouched, and no add was attempted.
+    assert failures == 0 and not claude.removed() and not claude.added()
+    assert claude.registered[(profile_b, "user", None)] == ["old-command"]
+    assert [b.blocker for b in plan.blocked if b.kind == "mcp"] == ["foreign"]
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", profile_a)
     claude = FakeClaude([(profile_a, "user", None)])
     plan, out, failures = connect(["claude-code"], runner=claude)
@@ -297,7 +297,7 @@ def test_claude_code_mcp_first_install_does_not_remove_anything(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
     claude = FakeClaude([])
     connect(["claude-code"], runner=claude)
-    assert [c[2] for c in claude.calls] == ["add"]
+    assert [c[2] for c in claude.calls if c[2] != "get"] == ["add"]
     entry = [c for c in edits.load_journal()["commands"] if c["tool"] == "claude-code"][0]
     assert entry["profile"] is None and entry["cwd"] is None
 
@@ -338,19 +338,23 @@ def test_toml_block_is_appended_once_and_never_rewritten(home):
     assert config.read_text() == 'model = "gpt-5"\n\n[profiles.fast]\nmodel = "mini"\n'
 
 
-@pytest.mark.parametrize("body, why", [
-    ('[otel]\nenvironment = "prod"\n', "already defines [otel] outside the briefcase block"),
-    ('[mcp_servers.briefcase]\ncommand = "x"\n', "already defines [mcp_servers.briefcase]"),
-    ('model = \n', "not valid TOML"),
-])
-def test_toml_refuses_existing_table_or_malformed_file(home, body, why):
+@pytest.mark.parametrize("body", ['[otel]\nenvironment = "prod"\n', '[mcp_servers.briefcase]\ncommand = "x"\n'])
+def test_toml_tables_the_user_already_defined_are_foreign_untouched_and_unprinted(home, body):
     config = home / ".codex" / "config.toml"
     config.parent.mkdir()
     config.write_text(body)
+    plan, out, failures = connect(["codex"])
+    assert [b.blocker for b in plan.blocked] == ["foreign"] and not plan.changes
+    assert config.read_text() == body and "prod" not in "\n".join(b.text for b in plan.blocked)
+
+
+def test_malformed_toml_is_refused_and_the_snippet_is_offered(home):
+    config = home / ".codex" / "config.toml"
+    config.parent.mkdir()
+    config.write_text("model = \n")
     plan, _, _ = connect(["codex"])
-    assert plan.resolved[0].status == REFUSED and why in plan.resolved[0].reason
-    assert config.read_text() == body
-    assert "[otel]" in plan.manual[0].text
+    assert plan.resolved[0].status == REFUSED and "not valid TOML" in plan.resolved[0].reason
+    assert config.read_text() == "model = \n" and "[otel]" in plan.manual[0].text
 
 
 def test_commands_run_once_as_argument_lists_and_are_journalled(home, fake_bin):
@@ -359,16 +363,21 @@ def test_commands_run_once_as_argument_lists_and_are_journalled(home, fake_bin):
 
     def runner(argv):
         calls.append(argv)
-        return 0, "uvx --from briefcase-ai[mcp] briefcase-ai-mcp" if argv[2] == "get" else ""
+        if argv[2] == "get":
+            if not any(c[2] == "add" for c in calls):
+                return 1, 'No MCP server found with name: "briefcase"'
+            return 0, "briefcase:\n  Command: uvx\n  Args: --from briefcase-ai[mcp] briefcase-ai-mcp"
+        return 0, ""
 
     plan, out, failures = connect(["claude-code"], runner=runner)
     assert failures == 0
-    assert calls == [["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
-                      "uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]]
+    add = ["claude", "mcp", "add", "--scope", "user", "briefcase", "--", "uvx", "--from", "briefcase-ai[mcp]",
+           "briefcase-ai-mcp"]
+    assert [c for c in calls if c[2] != "get"] == [add]
     plan, _, _ = connect(["claude-code"], runner=runner)
-    assert [c for c in calls if c[2] == "add"] == calls[:1] and plan.commands == [] and len(plan.done_commands) == 1
+    assert len([c for c in calls if c[2] == "add"]) == 1 and plan.commands == [] and len(plan.done_commands) == 1
     out = []
-    engine.undo(None, out.append)
+    engine.undo(None, out.append, runner=runner)
     assert any("claude mcp remove --scope user briefcase" in line for line in out)
     assert edits.load_journal()["commands"] == []
 
@@ -389,7 +398,7 @@ def test_file_changed_between_plan_and_apply_is_not_overwritten(home):
     settings.write_text('{"a": 2}\n')
     out = []
     assert engine.apply_plan(plan, ctx, out.append) == 1
-    assert settings.read_text() == '{"a": 2}\n' and "changed while the plan was on screen" in out[0]
+    assert settings.read_text() == '{"a": 2}\n' and "changed after the preview" in out[0]
 
 
 def test_symlink_out_of_home_is_followed_only_with_a_warning(home, tmp_path):

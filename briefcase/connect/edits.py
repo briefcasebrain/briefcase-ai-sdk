@@ -1,17 +1,27 @@
-"""Key-level config edits for ``briefcase-ai connect``: plan, diff, write, undo.
+"""Key-level config edits for ``briefcase-ai connect``: plan, preview, write, undo.
 
-Nothing here rewrites a file wholesale. JSON files are parsed with the stdlib,
-only the named keys are changed, and unrelated keys keep their order. TOML
-files get one marker-delimited block that is added once and never rewritten.
-Every write is preceded by a timestamped backup and recorded in a journal so
-``--undo`` can restore exactly the keys that were set, even after the user has
-edited the file again.
+The guarantees every config writer (connect, mcp install, policy init and off, --undo, --managed) relies on, and
+the one function each is enforced in:
+
+* **I1 nothing we do not own changes.** A file is only ever extended by inserted text and shrunk by deleting what
+  we wrote (:mod:`briefcase.connect.jsontext` edits JSON as text; TOML gets an appended block). Every write goes
+  through :func:`write_checked`: a new file is created exclusively, an existing one is replaced only while it
+  still holds exactly what the preview saw. Undo removes a value only when it is still equal, type for type
+  (:func:`typed_eq`), to what was written.
+* **I2 nothing read from an existing file is shown.** :func:`render_diff` prints only our own lines.
+* **I3 nothing is exported that was not asked for.** :func:`exposure` names existing capture or credential keys
+  that would combine with our endpoint; :mod:`briefcase.connect.engine` refuses such a write.
+* **I4 ownership is exact** (:mod:`briefcase.connect.mcpreg` for registries, journal records for files).
+* **I5 results are true** (:mod:`briefcase.connect.engine` stops a plan with a failing target).
+* **I6 a hash is over parsed structure** (:func:`content_hash`): our TOML tables by name, our JSON key paths.
+* **I7 credentials are private**: new files are 0600.
+Every write is preceded by a timestamped backup and recorded in a journal so ``--undo`` can remove exactly what
+was written, even after the user has edited the file again.
 """
 
 from __future__ import annotations
 
 import copy
-import difflib
 import importlib
 import json
 import os
@@ -22,6 +32,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+from briefcase.connect import jsontext
 
 
 def _load_toml_module() -> Any:
@@ -100,6 +112,10 @@ class FileEdit:
     notes: List[str] = field(default_factory=list)
     # What the edit is for: "telemetry" (also hooks that forward events) or "mcp".
     kind: str = "telemetry"
+    # Existing keys of the file that change what our write exports: ``(path, "capture" | "credential")``. A
+    # truthy capture key or a present credential key would combine with our endpoint to send prompts or an
+    # existing credential somewhere new, so the write is refused unless this invocation asked for that.
+    watch: List[Tuple[List[str], str]] = field(default_factory=list)
 
 
 @dataclass
@@ -287,6 +303,21 @@ def _descend(doc: Dict[str, Any], keys: Sequence[str], create: bool,
     return node
 
 
+def typed_eq(a: Any, b: Any) -> bool:
+    """JSON equality that keeps types apart: ``true`` is not ``1`` and ``1`` is not ``1.0``."""
+    if type(a) is not type(b):
+        return False
+    if isinstance(a, dict):
+        return a.keys() == b.keys() and all(typed_eq(a[k], b[k]) for k in a)
+    if isinstance(a, list):
+        return len(a) == len(b) and all(typed_eq(x, y) for x, y in zip(a, b))
+    return bool(a == b)
+
+
+def _index_of(items: Sequence[Any], value: Any) -> int:
+    return next((i for i, item in enumerate(items) if typed_eq(item, value)), -1)
+
+
 def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: str) -> List[Dict[str, Any]]:
     """Apply ``ops`` to ``doc`` in place; return journal entries for what changed."""
     applied: List[Dict[str, Any]] = []
@@ -298,7 +329,7 @@ def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: st
         key = path[-1]
         if kind in ("set", "default"):
             if key in parent:
-                if kind == "default" or parent[key] == value:
+                if kind == "default" or typed_eq(parent[key], value):
                     continue
                 raise EditRefused(f"{'.'.join(path)!r} already holds another value; it is never overwritten")
             entry = {"op": "set", "tool": tool, "path": path, "value": value, "created": created}
@@ -313,7 +344,7 @@ def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: st
             items = parent[key]
             if not isinstance(items, list):
                 raise EditRefused(f"expected a list at {'.'.join(path)!r}, found {type(items).__name__}")
-            if value in items:
+            if _index_of(items, value) >= 0:
                 continue
             entry = {"op": "append", "tool": tool, "path": path, "value": value, "created": created}
             if op.get("owned_by"):
@@ -347,44 +378,87 @@ _BLOCK_RE = re.compile(
     r"^" + re.escape(TOML_BEGIN) + r"[^\n]*\n.*?^" + re.escape(TOML_END) + r"[^\n]*\n?",
     re.MULTILINE | re.DOTALL,
 )
+_TOML_HEADER = re.compile(r"^\s*\[\[?\s*([^\]]+?)\s*\]\]?\s*(?:#.*)?$")
 
 
-def _toml_has_table(doc: Dict[str, Any], dotted: str) -> bool:
-    node: Any = doc
-    for part in dotted.split("."):
-        if not isinstance(node, dict) or part not in node:
-            return False
-        node = node[part]
-    return True
+def _toml_found(text: str, tables: Sequence[str]) -> Optional[Dict[str, Any]]:
+    """The values of the named tables as the file defines them (wherever they sit), or ``None`` when the file is
+    not valid TOML. A table that is not there is left out."""
+    if _toml is None:
+        return None
+    try:
+        doc = _toml.loads(text)
+    except Exception:
+        return None
+    found: Dict[str, Any] = {}
+    for table in tables:
+        node: Any = doc
+        for part in table.split("."):
+            if isinstance(node, dict) and part in node:
+                node = node[part]
+            else:
+                node = _ABSENT
+                break
+        if node is not _ABSENT:
+            found[table] = node
+    return found
+
+
+def _toml_hash(text: str, tables: Sequence[str]) -> Optional[str]:
+    """A hash of what the file says our tables are: parsed, so spacing, comments, key order and the trailing
+    newline do not matter, and anything the tool added elsewhere (even between our markers) is not ours."""
+    found = _toml_found(text, tables)
+    return _sha(found) if found else None
 
 
 def _resolve_toml(edit: FileEdit, old: str) -> Tuple[str, str]:
     if _toml is None:
         raise EditRefused("no TOML parser is available on this Python (needs 3.11+ or `pip install tomli`)")
-    match = _BLOCK_RE.search(old)
+    found = _toml_found(old, edit.toml_tables) if old.strip() else {}
+    if found is None:
+        raise EditRefused(f"{edit.path} is not valid TOML; fix it or add the snippet by hand")
+    if found:
+        raise EditRefused(f"{edit.path} already defines [{next(iter(found))}]; it is never rewritten")
     block = toml_block(edit.toml_body)
-    outside = old[:match.start()] + old[match.end():] if match else old
-    try:
-        parsed = _toml.loads(outside)
-    except Exception as exc:
-        raise EditRefused(f"{edit.path} is not valid TOML ({exc}); fix it or add the snippet by hand")
-    for table in edit.toml_tables:
-        if _toml_has_table(parsed, table):
-            raise EditRefused(
-                f"{edit.path} already defines [{table}] outside the briefcase block; "
-                "merge the snippet into it by hand"
-            )
-    if match:
-        new = old[:match.start()] + block + old[match.end():]
-    elif old.strip():
-        new = old.rstrip("\n") + "\n\n" + block
+    if old.strip():
+        lead = old if old.endswith("\n") else old + "\n"
+        new = lead + ("" if lead.endswith("\n\n") else "\n") + block  # only ever adds bytes
     else:
-        new = block
+        new = old + block
     try:
         _toml.loads(new)
     except Exception as exc:  # pragma: no cover - our own block is malformed
         raise EditRefused(f"refusing to write invalid TOML to {edit.path}: {exc}")
     return new, block
+
+
+def _toml_remove(old: str, tables: Sequence[str]) -> str:
+    """``old`` without the named tables (and their sub-tables), and without our marker lines when nothing else is
+    left between them. Everything else, including tables a tool put inside our markers, stays byte for byte."""
+    lines = old.splitlines(keepends=True)
+    keep: List[str] = []
+    skipping = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith((TOML_BEGIN, TOML_END)):
+            skipping = False
+            keep.append(line)
+            continue
+        header = _TOML_HEADER.match(line)
+        if header:
+            name = ".".join(part.strip().strip("\"'") for part in header.group(1).split("."))
+            skipping = any(name == t or name.startswith(t + ".") for t in tables)
+        if not skipping:
+            keep.append(line)
+    text = "".join(keep)
+
+    out = text
+    for match in reversed(list(_BLOCK_RE.finditer(text))):
+        inner = match.group(0).splitlines()[1:-1]
+        if all(not ln.strip() or ln.strip().startswith("#") for ln in inner):
+            start = match.start() - 1 if out[:match.start()].endswith("\n\n") else match.start()
+            out = out[:start] + out[match.end():]
+    return out
 
 
 # --- resolve / render ---------------------------------------------------------
@@ -409,13 +483,18 @@ def resolve(edit: FileEdit) -> Resolved:
         if edit.format == "toml":
             new, block = _resolve_toml(edit, old)
             applied = [{"op": "toml_block", "tool": edit.tool, "tables": list(edit.toml_tables),
-                        "hash": content_hash("toml", [], new)}]
+                        "hash": content_hash("toml", [], new, edit.toml_tables)}]
             if new == old:
                 applied = []
         else:
             doc = _load_json(old, edit.path)
             applied = _apply_json_ops(doc, edit.ops, edit.tool)
-            new = _dump_json(doc, old) if applied else old
+            if not applied:
+                new = old
+            elif old.strip():
+                new = _json_apply_text(old, applied)
+            else:
+                new = _dump_json(doc, old)
     except EditRefused as exc:
         return Resolved(edit, REFUSED, target, old_text=old, existed=existed,
                         reason=str(exc), warnings=warnings)
@@ -425,6 +504,34 @@ def resolve(edit: FileEdit) -> Resolved:
     status = CHANGE if applied and new != old else NOOP
     return Resolved(edit, status, target, old_text=old, new_text=new, applied=applied,
                     existed=existed, warnings=warnings)
+
+
+def _json_apply_text(old: str, applied: Sequence[Dict[str, Any]]) -> str:
+    """``old`` with each applied op inserted as text: every byte already in the file stays where it is."""
+    text = old
+    for entry in applied:
+        root = jsontext.parse(text)
+        path = list(entry["path"])
+        value = entry["value"]
+        if entry["op"] == "append":
+            arr = jsontext.find(root, path)
+            if arr is not None and arr.kind == "array":
+                text = jsontext.append_item(text, arr, value)
+                continue
+            value = [value]
+        depth = len(path) - 1
+        while depth > 0:
+            node = jsontext.find(root, path[:depth])
+            if node is not None and node.kind == "object":
+                break
+            depth -= 1
+        parent = jsontext.find(root, path[:depth]) if depth else root
+        assert parent is not None
+        missing = path[depth:]
+        for key in reversed(missing[1:]):
+            value = {key: value}
+        text = jsontext.insert_member(text, parent, missing[0], value)
+    return text
 
 
 _INLINE_HEADERS = re.compile(r"(headers\s*=\s*)\{[^{}]*[^{}\s][^{}]*\}")
@@ -439,17 +546,16 @@ def mask_secrets(line: str) -> str:
 
 
 def render_diff(resolved: Resolved) -> str:
-    """Unified diff of the change. Values of secret-looking keys are masked so
-    a neighbouring API key never lands in a terminal scrollback or CI log."""
-    name = str(resolved.edit.path)
-    lines = difflib.unified_diff(
-        resolved.old_text.splitlines(), resolved.new_text.splitlines(),
-        fromfile=name if resolved.existed else "/dev/null", tofile=name, lineterm="", n=2,
-    )
-    out = []
-    for line in lines:
-        out.append(line if line.startswith(("---", "+++", "@@")) else mask_secrets(line))
-    return "\n".join(out)
+    """What this edit would add, and nothing else: the lines of our own snippet, never the file's existing
+    content or its neighbours. Secret-looking values in our own lines are masked."""
+    edit = resolved.edit
+    if edit.format == "toml":
+        text = toml_block(edit.toml_body).rstrip("\n")
+    else:
+        ops = [{"op": o["op"] if o["op"] != "set" else "set", "path": o["path"], "value": o["value"]}
+               for o in resolved.applied] or list(edit.ops)
+        text = json_snippet(ops)
+    return "\n".join("+" + mask_secrets(line) for line in text.splitlines())
 
 
 # --- journal ------------------------------------------------------------------
@@ -474,9 +580,14 @@ def _recorded(data: Any) -> List[str]:
     items = [str(path) for path in sorted(data.get("files") or {})]
     for command in data.get("commands") or []:
         try:
-            argv = command.get("undo_hint") or command.get("argv") or []
-            items.append("MCP registration, remove it with: " + shlex.join(str(a) for a in argv))
-        except AttributeError:
+            argv = [str(a) for a in (command.get("undo_hint") or command.get("argv") or [])]
+            profile = command.get("config_dir") or command.get("profile")
+            var = "CODEX_HOME" if argv[:1] == ["codex"] else "CLAUDE_CONFIG_DIR"
+            prefix = f"{var}={shlex.quote(str(profile))} " if profile else ""
+            where = f"cd {shlex.quote(str(command['cwd']))} && " if command.get("cwd") else ""
+            items.append(f"MCP registration (profile {profile or 'default'}); to remove it run: "
+                         f"{where}{prefix}{shlex.join(argv)}")
+        except (AttributeError, TypeError):
             continue
     return items
 
@@ -519,7 +630,8 @@ _ABSENT = object()
 def _sha(value: Any) -> str:
     import hashlib
 
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
 
 
 def _json_values(ops: Sequence[Dict[str, Any]], doc: Optional[Dict[str, Any]]) -> List[Any]:
@@ -531,21 +643,22 @@ def _json_values(ops: Sequence[Dict[str, Any]], doc: Optional[Dict[str, Any]]) -
         parent = _descend(doc, path[:-1], create=False) if doc is not None else None
         current = parent.get(path[-1], _ABSENT) if parent is not None else _ABSENT
         if op["op"] == "append":
-            present = isinstance(current, list) and op["value"] in current
+            present = isinstance(current, list) and _index_of(current, op["value"]) >= 0
             out.append([path, op["value"] if present else None])
         else:
             out.append([path, None if current is _ABSENT else current])
     return out
 
 
-def content_hash(fmt: str, ops: Sequence[Dict[str, Any]], text: Optional[str]) -> Optional[str]:
-    """A hash of exactly what was written, as ``text`` holds it now: the managed block for TOML, the values at
-    ``ops``' key paths for JSON. ``None`` when the block or every key is absent."""
+def content_hash(fmt: str, ops: Sequence[Dict[str, Any]], text: Optional[str],
+                 tables: Sequence[str] = ()) -> Optional[str]:
+    """A hash of what was written, as ``text`` holds it now, over parsed structure (typed, so ``true`` is not
+    ``1``; spacing, key order and the trailing newline do not count): our named tables for TOML, the values at
+    ``ops``' key paths for JSON. ``None`` when every one of them is absent."""
     if text is None:
         return None
     if fmt == "toml":
-        match = _BLOCK_RE.search(text)
-        return _sha(match.group(0)) if match else None
+        return _toml_hash(text, tables)
     try:
         doc: Optional[Dict[str, Any]] = _load_json(text, Path("(target)")) if text.strip() else {}
     except EditRefused:
@@ -564,10 +677,36 @@ def same_content(edit: FileEdit, rec: Dict[str, Any]) -> bool:
     """Is what ``edit`` would write the same as what the record says was written? (A ``default`` key is in
     neither: it is only ever set when absent.)"""
     if edit.format == "toml":
-        return _sha(toml_block(edit.toml_body)) == rec.get("hash")
+        return _toml_hash(edit.toml_body, edit.toml_tables) == rec.get("hash")
     wanted = sorted(_sha([list(op["path"]), op["value"]]) for op in edit.ops if op["op"] in ("set", "append"))
     wrote = sorted(_sha([list(op["path"]), op["value"]]) for op in rec.get("ops", []))
     return wanted == wrote
+
+
+def exposure(edit: FileEdit, text: Optional[str], given: Dict[str, Any]) -> List[str]:
+    """Dotted names (never values) of the file's existing capture and credential keys that this invocation did not
+    ask for and that would combine with the endpoint ``edit`` writes."""
+    if not text or not edit.watch or edit.format != "json":
+        return []
+    try:
+        doc = _load_json(text, Path("(target)"))
+    except EditRefused:
+        return []
+    found = []
+    for path, what in edit.watch:
+        parent = _descend(doc, list(path)[:-1], create=False)
+        if parent is None or path[-1] not in parent:
+            continue
+        value = parent[path[-1]]
+        if what == "capture":
+            risky = value is True or (isinstance(value, str) and value.strip().lower() in ("1", "true", "yes", "on"))
+            asked = bool(given.get("capture_content"))
+        else:
+            risky = value not in (None, "", {}, [])
+            asked = bool(given.get("headers"))
+        if risky and not asked:
+            found.append(".".join(path))
+    return found
 
 
 def holds_any(edit: FileEdit, text: Optional[str]) -> bool:
@@ -575,7 +714,7 @@ def holds_any(edit: FileEdit, text: Optional[str]) -> bool:
     if not text:
         return False
     if edit.format == "toml":
-        return bool(_BLOCK_RE.search(text))
+        return bool(_toml_found(text, edit.toml_tables))
     try:
         doc = _load_json(text, Path("(target)"))
     except EditRefused:
@@ -590,7 +729,8 @@ def holds_any(edit: FileEdit, text: Optional[str]) -> bool:
             return True
         marker = op.get("owned_by") or ""
         items = parent[op["path"][-1]]
-        if isinstance(items, list) and any(op["value"] == i or (marker and marker in json.dumps(i)) for i in items):
+        if isinstance(items, list) and any(
+                typed_eq(op["value"], i) or (marker and marker in json.dumps(i)) for i in items):
             return True
     return False
 
@@ -622,6 +762,43 @@ def backup_path(target: Path, now: Optional[float] = None) -> Path:
     return candidate
 
 
+def write_checked(target: Path, text: str, expect: Optional[str], mode: int) -> None:
+    """The one way a config file is written. ``expect`` is the exact content the file must still have
+    (``None``: it must not exist). A new file is created exclusively (hard link of a private temp file, so it is
+    complete the moment it appears and an existing file is never replaced); an existing one is replaced only
+    when it still holds ``expect``. Anything else is refused, never overwritten."""
+    if expect is None:
+        fd, tmp = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+                handle.write(text)
+            os.chmod(tmp, mode)
+            try:
+                os.link(tmp, target)
+            except FileExistsError:
+                raise EditRefused(f"{target} appeared after the preview; it was not touched") from None
+            except OSError:  # no hard links here: still exclusive
+                try:
+                    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                    with os.fdopen(os.open(target, flags, mode), "w", encoding="utf-8", newline="") as handle:
+                        handle.write(text)
+                except FileExistsError:
+                    raise EditRefused(f"{target} appeared after the preview; it was not touched") from None
+        finally:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+        return
+    try:
+        current = target.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        raise EditRefused(f"{target} changed after the preview; it was not touched") from None
+    if current != expect:
+        raise EditRefused(f"{target} changed after the preview; it was not touched")
+    _atomic_write(target, text, mode)
+
+
 def apply(resolved: Resolved, journal: Dict[str, Any]) -> Optional[Path]:
     """Write one resolved edit, back the file up first, and journal it.
 
@@ -634,16 +811,22 @@ def apply(resolved: Resolved, journal: Dict[str, Any]) -> Optional[Path]:
     backup: Optional[Path] = None
     mode = 0o600
     if resolved.existed:
-        # The file may have changed between plan and confirmation; never write
-        # a merge computed against stale content.
-        if target.read_text(encoding="utf-8") != resolved.old_text:
-            raise EditRefused(f"{target} changed while the plan was on screen; run connect again")
         mode = target.stat().st_mode & 0o7777
+        if target.read_text(encoding="utf-8") != resolved.old_text:
+            raise EditRefused(f"{target} changed after the preview; it was not touched")
         backup = backup_path(target)
         shutil.copy2(str(target), str(backup))
     else:
         target.parent.mkdir(parents=True, exist_ok=True)
-    _atomic_write(target, resolved.new_text, mode)
+    try:
+        write_checked(target, resolved.new_text, resolved.old_text if resolved.existed else None, mode)
+    except EditRefused:
+        if backup is not None:
+            try:
+                backup.unlink()
+            except OSError:
+                pass
+        raise
 
     entry = journal["files"].setdefault(str(target), {
         "format": resolved.edit.format, "created_file": not resolved.existed, "ops": [], "backups": [],
@@ -663,12 +846,12 @@ def _json_op_present(doc: Dict[str, Any], op: Dict[str, Any]) -> bool:
         return False
     current = parent[op["path"][-1]]
     if op["op"] == "append":
-        return isinstance(current, list) and op["value"] in current
-    return current == op["value"]
+        return isinstance(current, list) and _index_of(current, op["value"]) >= 0
+    return typed_eq(current, op["value"])
 
 
 def check_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None) -> List[Tuple[bool, str]]:
-    """For each journalled key of ``tool`` in ``path``: is our value still there?"""
+    """For each journalled key of ``tool`` in ``path``: is our value still there, exactly as written?"""
     results: List[Tuple[bool, str]] = []
     ops = [o for o in entry["ops"] if tool is None or o.get("tool") == tool]
     if not ops:
@@ -678,7 +861,9 @@ def check_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None) ->
     except OSError:
         return [(False, f"{path}: file is gone")]
     if entry["format"] == "toml":
-        results.append((bool(_BLOCK_RE.search(text)), f"{path}: briefcase block"))
+        for op in (o for o in ops if o["op"] == "toml_block"):
+            ok = _toml_hash(text, op.get("tables", [])) == op.get("hash")
+            results.append((ok, f"{path}: {', '.join(op.get('tables', [])) or 'briefcase block'}"))
         return results
     try:
         doc = _load_json(text, Path(path))
@@ -689,20 +874,54 @@ def check_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None) ->
     return results
 
 
-def _prune(doc: Dict[str, Any], created: Sequence[Sequence[str]]) -> None:
+def _remove_json(text: str, op: Dict[str, Any]) -> Tuple[str, str]:
+    """Remove one journalled op from ``text`` if it still holds exactly what we wrote. Returns ``(text, outcome)``
+    with outcome ``removed``, ``gone`` or ``changed``."""
+    root = jsontext.parse(text)
+    path = list(op["path"])
+    parent = jsontext.find(root, path[:-1]) if len(path) > 1 else root
+    if parent is None or parent.kind != "object":
+        return text, "gone"
+    index = next((i for i, m in enumerate(parent.members) if m.key == path[-1]), -1)
+    if index < 0:
+        return text, "gone"
+    node = parent.members[index].value
+    if op["op"] == "append":
+        if node.kind != "array":
+            return text, "changed"
+        items = [json.loads(text[n.start:n.end]) for n in node.items]
+        at = _index_of(items, op["value"])
+        if at >= 0:
+            return jsontext.remove_item(text, node, at), "removed"
+        marker = op.get("owned_by") or ""
+        edited = marker and any(marker in json.dumps(item) for item in items)
+        return text, ("changed" if edited else "gone")
+    if typed_eq(json.loads(text[node.start:node.end]), op["value"]):
+        return jsontext.remove_member(text, parent, index), "removed"
+    return text, "changed"
+
+
+def _prune_json(text: str, created: Sequence[Sequence[str]]) -> str:
     for path in sorted(created, key=len, reverse=True):
-        parent = _descend(doc, path[:-1], create=False)
-        if parent is not None and path[-1] in parent and parent[path[-1]] in ({}, []):
-            del parent[path[-1]]
+        root = jsontext.parse(text)
+        parent = jsontext.find(root, list(path)[:-1]) if len(path) > 1 else root
+        if parent is None or parent.kind != "object":
+            continue
+        index = next((i for i, m in enumerate(parent.members) if m.key == path[-1]), -1)
+        if index >= 0:
+            node = parent.members[index].value
+            if node.kind in ("object", "array") and not (node.members or node.items):
+                text = jsontext.remove_member(text, parent, index)
+    return text
 
 
 def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
-               dry_run: bool = False) -> Tuple[List[str], bool]:
-    """Remove the journalled keys of ``tool`` (all tools when ``None``) from
-    ``path``, leaving everything else, including later user edits, alone.
+               dry_run: bool = False, keep_unremoved: bool = False) -> Tuple[List[str], bool]:
+    """Remove the journalled keys of ``tool`` (all tools when ``None``) from ``path`` as text deletions, only where
+    the file still holds exactly what we wrote; everything else, including later user edits, stays byte for byte.
+    With ``keep_unremoved`` what could not be removed stays in the journal.
 
-    Returns ``(messages, fully_undone)``; when fully undone the caller drops
-    the journal entry.
+    Returns ``(messages, fully_undone)``; when fully undone the caller drops the journal entry.
     """
     messages: List[str] = []
     target = Path(path)
@@ -714,77 +933,69 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
         entry["ops"] = rest
         return [f"{path}: already gone"], not rest
     old = target.read_text(encoding="utf-8")
+    retained: List[Dict[str, Any]] = []
+    pending: List[List[str]] = []
     if entry["format"] == "toml":
         new = old
-        match = _BLOCK_RE.search(old)
-        recorded = next((o.get("hash") for o in mine if o["op"] == "toml_block"), None)
-        if match and recorded and _sha(match.group(0)) != recorded:
-            messages.append(f"{path}: the briefcase block was changed after connect; left as it is")
-        elif match:
-            # Also take back the blank line that was inserted ahead of the block.
-            start = match.start() - 1 if old[:match.start()].endswith("\n\n") else match.start()
-            new = old[:start] + old[match.end():]
+        for op in mine:
+            tables = op.get("tables", [])
+            found = _toml_hash(old, tables)
+            if found is None:
+                messages.append(f"{path}: {', '.join(tables)} already removed")
+            elif op.get("hash") and found != op["hash"]:
+                messages.append(f"{path}: {', '.join(tables)} was changed after connect; left as it is")
+                retained.append(op)
+            else:
+                new = _toml_remove(new, tables)
+                messages.append(f"{path}: removed {', '.join(tables)}")
         if not new.strip():
             new = ""
-        if match and new == old:
-            pass
-        else:
-            messages.append(f"{path}: removed the briefcase block" if new != old
-                            else f"{path}: briefcase block already removed")
     else:
         try:
-            doc = _load_json(old, target)
-        except EditRefused as exc:
-            return [f"{exc}; nothing was changed. Remove the briefcase keys by hand."], False
+            jsontext.parse(old)
+        except ValueError:
+            return [f"{path} cannot be read as JSON; nothing was changed. Remove the briefcase keys by hand."], False
+        new = old
         created: List[List[str]] = []
-        untouched = copy.deepcopy(doc)
         for op in reversed(mine):
             dotted = ".".join(op["path"])
             created.extend(op.get("created", []))
-            parent = _descend(doc, op["path"][:-1], create=False)
-            key = op["path"][-1]
-            if parent is None or key not in parent:
+            new, outcome = _remove_json(new, op)
+            if outcome == "removed":
+                messages.append(f"{path}: removed {dotted}" if op["op"] == "set"
+                                else f"{path}: removed our entry from {dotted}")
+            elif outcome == "gone":
                 messages.append(f"{path}: {dotted} already removed")
-                continue
-            if op["op"] == "append":
-                items = parent[key] if isinstance(parent[key], list) else []
-                if op["value"] in items:
-                    items.remove(op["value"])
-                    messages.append(f"{path}: removed our entry from {dotted}")
-                else:
-                    messages.append(f"{path}: our entry in {dotted} was changed or removed after connect; "
-                                    "left as it is")
-            elif parent[key] == op["value"]:
-                del parent[key]
-                messages.append(f"{path}: removed {dotted}")
             else:
                 messages.append(f"{path}: {dotted} was changed after connect; left as it is")
-        # Containers created for this owner may still hold another owner's entries; remember
-        # them so they are pruned when the last owner of the file is undone.
+                retained.append(op)
         created.extend(entry.get("pending_prune", []))
-        _prune(doc, created)
-        pending = []
+        new = _prune_json(new, created)
+        root = jsontext.parse(new) if new.strip() else None
         for item in created:
-            parent = _descend(doc, item[:-1], create=False)
-            if parent is not None and item[-1] in parent and list(item) not in pending:
+            if root is not None and jsontext.find(root, list(item)) is not None and list(item) not in pending:
                 pending.append(list(item))
-        new = old if doc == untouched else (_dump_json(doc, old) if doc else "")
     if not dry_run:
         if new == old:
             pass
-        elif not new.strip() and entry.get("created_file") and not rest:
-            target.unlink()
-            messages.append(f"{path}: deleted (briefcase created it and nothing else is in it)")
         else:
-            if not new.strip():
-                new = "{}\n" if entry["format"] == "json" else ""
-            backup = backup_path(target)
-            shutil.copy2(str(target), str(backup))
-            _atomic_write(target, new, target.stat().st_mode & 0o7777)
-        entry["ops"] = rest
+            empty = (not new.strip()) or (entry["format"] == "json" and json.loads(new) == {})
+            if empty and entry.get("created_file") and not rest and not retained:
+                backup = backup_path(target)
+                shutil.copy2(str(target), str(backup))
+                if target.read_text(encoding="utf-8") == old:
+                    target.unlink()
+                    messages.append(f"{path}: deleted (briefcase created it and nothing else is in it)")
+            else:
+                if not new.strip() and entry["format"] == "json":
+                    new = "{}\n"
+                backup = backup_path(target)
+                shutil.copy2(str(target), str(backup))
+                write_checked(target, new, old, target.stat().st_mode & 0o7777)
+        entry["ops"] = rest + (retained if keep_unremoved else [])
         if entry["format"] == "json":
-            if pending and rest:
+            if pending and entry["ops"]:
                 entry["pending_prune"] = pending
             else:
                 entry.pop("pending_prune", None)
-    return messages, not rest
+    return messages, not (rest or (retained and keep_unremoved))

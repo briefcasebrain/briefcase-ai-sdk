@@ -160,7 +160,7 @@ def test_cursor_golden_plan(home, fake_bin):
     fake_bin("briefcase-ai")
     hooks, mcp = plan("cursor")
     assert hooks.path == home / ".cursor" / "hooks.json"
-    entry = {"command": "briefcase-ai hook cursor", "timeout": 5}
+    entry = {"command": "briefcase-ai hook cursor --endpoint http://127.0.0.1:4318", "timeout": 5}
     assert hooks.ops[0] == {"op": "default", "path": ["version"], "value": 1}
     assert [(op["op"], op["path"], op["value"]) for op in hooks.ops[1:]] == [
         ("append", ["hooks", event], entry)

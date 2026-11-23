@@ -78,6 +78,34 @@ def _expand(raw: Any) -> Path:
     return Path(text)
 
 
+class ProfileError(RuntimeError):
+    """A profile variable (``CLAUDE_CONFIG_DIR``, ``CODEX_HOME``) is set but names no usable directory."""
+
+
+# (tool, file key) -> (environment variable naming the profile directory, file name inside it)
+_PROFILE_FILES = {
+    ("claude-code", "user_settings"): ("CLAUDE_CONFIG_DIR", "settings.json"),
+    ("codex", "user_config"): ("CODEX_HOME", "config.toml"),
+    ("codex", "user_hooks"): ("CODEX_HOME", "hooks.json"),
+}
+
+
+def profile_path(tool: str, key: str) -> Optional[Path]:
+    """The file ``key`` of ``tool`` lives in under the profile the environment selects, or ``None`` when no
+    profile variable is set. A variable that is set but cannot be resolved is refused, never ignored."""
+    spec = _PROFILE_FILES.get((tool, key))
+    if spec is None:
+        return None
+    raw = os.environ.get(spec[0])
+    if raw is None:
+        return None
+    base = Path(raw).expanduser() if raw.strip() else None
+    if base is None or not base.is_absolute() or (base.exists() and not base.is_dir()):
+        raise ProfileError(f"{spec[0]} is set but is not an absolute directory path; nothing was written "
+                           f"(unset it, or set it to the profile directory)")
+    return base / spec[1]
+
+
 def which(name: str) -> Optional[str]:
     return shutil.which(name)
 
@@ -124,7 +152,7 @@ class Adapter:
 
     # -- discovery -------------------------------------------------------------
     def path(self, key: str) -> Path:
-        return _expand(self.data["files"][key])
+        return profile_path(getattr(self, "tool", self.id), key) or _expand(self.data["files"][key])
 
     def binary(self) -> Optional[str]:
         name = self.data.get("bin")
@@ -243,6 +271,11 @@ class ClaudeCode(Adapter):
                 "Turn on Claude Code's OpenTelemetry export and point it at the briefcase receiver",
                 ops=[{"op": "set", "path": ["env", key], "value": value} for key, value in env.items()],
                 notes=notes,
+                watch=[(["env", key], "capture") for key in (
+                    "OTEL_LOG_USER_PROMPTS", "OTEL_LOG_TOOL_DETAILS", "OTEL_LOG_TOOL_CONTENT")]
+                + [(["env", key], "credential") for key in (
+                    "OTEL_EXPORTER_OTLP_HEADERS", "OTEL_EXPORTER_OTLP_LOGS_HEADERS",
+                    "OTEL_EXPORTER_OTLP_METRICS_HEADERS")],
             ))
             for path, keys in self.managed_overrides(list(env)):
                 items.append(Manual(
@@ -345,8 +378,7 @@ class Cursor(Adapter):
             base = "briefcase-ai hook cursor"
         else:
             base = f"{shlex.quote(sys.executable)} -m briefcase.cli hook cursor"
-        if ctx.endpoint != DEFAULT_ENDPOINT:
-            base += f" --endpoint {shlex.quote(ctx.endpoint)}"
+        base += f" --endpoint {shlex.quote(ctx.endpoint)}"  # always explicit: the environment must not redirect it
         if ctx.capture_content:
             base += " --capture-content"
         return base
@@ -405,7 +437,7 @@ class VSCodeCopilot(Adapter):
                 self.id, self.path("user_settings"), "json",
                 "Turn on Copilot Chat's OpenTelemetry export and point it at the briefcase receiver",
                 ops=[{"op": "set", "path": [key], "value": value} for key, value in self.settings(ctx).items()],
-                notes=notes,
+                notes=notes, watch=[(["github.copilot.chat.otel.captureContent"], "capture")],
             ))
         if ctx.mcp:
             config = mcp_payloads.server_config(which)
@@ -469,8 +501,10 @@ class GeminiCLI(Adapter):
         purpose = "Point Gemini CLI's OpenTelemetry export at the briefcase receiver"
         if ctx.scope == "project":
             path = ctx.project_dir / self.data["files"]["project_settings"]
-            return [FileEdit(self.id, path, "json", purpose, ops=ops, notes=notes)]
-        edit = FileEdit(self.id, self.path("user_settings"), "json", purpose, ops=ops, notes=notes)
+            return [FileEdit(self.id, path, "json", purpose, ops=ops, notes=notes,
+                             watch=[(["telemetry", "logPrompts"], "capture")])]
+        edit = FileEdit(self.id, self.path("user_settings"), "json", purpose, ops=ops, notes=notes,
+                        watch=[(["telemetry", "logPrompts"], "capture")])
         if edit.path.exists():
             return [edit]
         return [Manual(self.id, "Add to .gemini/settings.json in a project (or run with --scope project)",

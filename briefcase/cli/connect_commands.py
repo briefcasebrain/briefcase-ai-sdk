@@ -208,15 +208,18 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
     # skipped step for `connect`). Asking for other settings than a target was written with is a failure for both.
     refused_mcp = mcp_only and (any(b.kind == "mcp" for b in plan.blocked) or any(
         r.status == edits.REFUSED and r.edit.kind == "mcp" for r in plan.resolved))
-    blocked = 1 if (plan.differs or refused_mcp) else 0
+    if plan.failing or refused_mcp:
+        # A non-zero result for any target stops the whole plan: nothing is written, a dry run says the same.
+        out("\nNothing was written: " + ("other settings were asked for than a connected target has, or a write "
+                                         "would export what you did not ask for (see above)." if plan.failing
+                                         else "briefcase-ai-mcp could not be registered where asked (see above)."))
+        return 1
 
     if not plan.has_work:
         if any(r.status == edits.NOOP for r in plan.resolved) or plan.done_commands:
             out("\nNothing to write: everything that can be set up automatically is already connected.")
         elif not plan.blocked:
             out("\nNothing can be written automatically for these tools; follow the manual steps above.")
-        if blocked and not dry:
-            return 1
     elif dry:
         out(f"\nDry run: {len(plan.changes)} file(s) would be written and {len(plan.commands)} "
             "command(s) run. Nothing was changed.")
@@ -232,9 +235,8 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
             out("Aborted; nothing was changed.")
             return 1
         failures = engine.apply_plan(plan, ctxs, out, runner=runner, skipped_is_failure=mcp_only)
-        failures += blocked
         if failures:
-            out(f"\n{failures} step(s) failed; the rest were applied. Run `briefcase-ai connect status`.")
+            out(f"\n{failures} step(s) failed and no later step was run. Run `briefcase-ai connect status`.")
         out("\nUndo any time with: briefcase-ai connect --undo")
         if failures:
             return 1
@@ -245,7 +247,7 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
     reporting = {r.edit.tool for r in plan.changes if r.edit.kind == "telemetry"}
     if getattr(args, "start", False):
         reporting |= {name for name, c in ctxs.items() if c.telemetry}
-    endpoints = {_effective_endpoint(name, ctxs[name], journal) for name in sorted(reporting)}
+    endpoints = {plan.endpoints.get(name, ctxs[name].endpoint) for name in sorted(reporting)}
     if offer_receiver and endpoints:
         _receiver_step(plan, DEFAULT_ENDPOINT if DEFAULT_ENDPOINT in endpoints else sorted(endpoints)[0],
                        adapters, args, out, ask)
@@ -255,16 +257,6 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
 def _legacy(exc: "edits.LegacyJournal") -> int:
     print(f"error: {exc}", file=sys.stderr)
     return 1
-
-
-def _effective_endpoint(name: str, ctx: Context, journal: Dict[str, Any]) -> str:
-    """Where ``name`` reports: the endpoint named on this command line, else the one its telemetry was written
-    with, else the default."""
-    if ctx.given.get("endpoint"):
-        return ctx.endpoint
-    recorded = [t["endpoint"] for t in journal["targets"].values()
-                if t["tool"] == name and t["kind"] == "telemetry"]
-    return recorded[0] if recorded else ctx.endpoint
 
 
 def _receiver_step(plan, endpoint: str, adapters, args, out, ask) -> None:

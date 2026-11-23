@@ -93,7 +93,7 @@ def test_connect_happy_path_detects_writes_and_tells_you_how_to_undo(home, capsy
     assert main(["connect", "--yes"]) == 0
     out = capsys.readouterr().out
     assert "Detected: Claude Code, Cursor" in out
-    assert "+++ " + str(home / ".claude" / "settings.json") in out  # the diff was shown
+    assert '+  "CLAUDE_CODE_ENABLE_TELEMETRY": "1"' in out.replace("+    ", '+  ')  # what is added was shown
     assert "wrote  " + str(home / ".claude" / "settings.json") in out
     assert "Undo any time with: briefcase-ai connect --undo" in out
     assert "briefcase-ai receive --detach" in out
@@ -206,12 +206,14 @@ def test_connect_tells_the_user_the_exact_pip_command_when_protobuf_is_missing(h
 def test_connect_runs_mcp_commands_through_the_runner_only_after_confirmation(home, tmp_path, monkeypatch, capsys):
     fake_bin(tmp_path, "claude", "2.1.330 (Claude Code)")
     calls = []
-    monkeypatch.setattr(engine, "run_command", lambda argv: calls.append(argv) or (0, ""))
+    monkeypatch.setattr(engine, "run_command", lambda argv: calls.append(argv) or (
+        (1, 'No MCP server found with name: "briefcase"') if argv[2] == "get" else (0, "")))
     assert main(["connect", "claude-code", "--dry-run"]) == 0
-    assert calls == [] and "run    claude mcp add --scope user briefcase" in capsys.readouterr().out
+    assert [c for c in calls if c[2] != "get"] == []  # only a read-only lookup before confirmation
+    assert "run    claude mcp add --scope user briefcase" in capsys.readouterr().out
     assert main(["connect", "claude-code", "--yes"]) == 0
-    assert calls == [["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
-                      "uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]]
+    assert [c for c in calls if c[2] != "get"] == [["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
+                                                    "uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]]
 
 
 def test_connect_bad_input(home, capsys):
@@ -355,13 +357,14 @@ def test_a_bare_connect_leaves_the_recorded_endpoint_and_a_new_one_needs_an_undo
     assert settings.read_text() == before and "connect --undo claude-code" in capsys.readouterr().out
 
 
-def test_mcp_install_for_codex_after_telemetry_leaves_the_block_alone_and_fails(home, capsys):
+def test_mcp_install_for_codex_after_telemetry_adds_its_own_table_and_leaves_the_otel_block_byte_for_byte(home):
     assert main(["connect", "codex", "--no-mcp", "--yes", "--endpoint", "https://otel.example.com"]) == 0
     config = home / ".codex" / "config.toml"
     before = config.read_text()
-    capsys.readouterr()
-    assert main(["mcp", "install", "codex", "--yes"]) == 1
-    assert config.read_text() == before and "connect --undo codex" in capsys.readouterr().out
+    assert main(["mcp", "install", "codex", "--yes"]) == 0
+    after = config.read_text()
+    assert after.startswith(before) and "[mcp_servers.briefcase]" in after[len(before):]
+    assert main(["mcp", "install", "codex", "--yes"]) == 0 and config.read_text() == after  # now already connected
 
 
 def _claude_endpoint(home):
@@ -413,14 +416,14 @@ def test_a_deleted_settings_file_is_modified_since_connect_and_is_not_recreated(
     assert not settings.exists() and "modified since connect" in capsys.readouterr().out
 
 
-def test_telemetry_after_an_mcp_only_codex_block_leaves_it_alone(home, capsys):
+def test_telemetry_after_an_mcp_only_codex_block_adds_its_own_table_and_leaves_the_first_byte_for_byte(home):
     assert main(["mcp", "install", "codex", "--yes"]) == 0
     config = home / ".codex" / "config.toml"
     before = config.read_text()
     assert "[otel]" not in before
-    capsys.readouterr()
     assert main(["connect", "codex", "--no-mcp", "--yes"]) == 0
-    assert config.read_text() == before and "connect --undo codex" in capsys.readouterr().out
+    after = config.read_text()
+    assert after.startswith(before) and "[otel]" in after[len(before):]
 
 
 def test_start_runs_the_receiver_for_an_already_connected_local_tool(home, monkeypatch):
@@ -479,16 +482,15 @@ def test_project_scope_claude_mcp_json_entry_we_journalled_is_not_rewritten(home
     assert mcp_json.read_text() == before and "already connected" in capsys.readouterr().out
 
 
-def test_mcp_install_after_a_telemetry_only_codex_connect_keeps_the_header_on_disk_and_in_the_journal(home):
+def test_mcp_install_after_a_telemetry_only_codex_connect_keeps_the_header_on_disk(home):
     assert main(["connect", "codex", "--no-mcp", "--yes", "--endpoint", "https://codex.example.com",
                  "--headers", "Authorization=Bearer abc"]) == 0
     config = home / ".codex" / "config.toml"
-    before, journal = config.read_text(), (home / ".briefcase" / "connect" / "journal.json").read_text()
-    assert main(["mcp", "install", "codex", "--yes"]) == 1
-    assert config.read_text() == before
-    assert (home / ".briefcase" / "connect" / "journal.json").read_text() == journal
+    before = config.read_text()
+    assert main(["mcp", "install", "codex", "--yes"]) == 0
+    assert config.read_text().startswith(before) and config.read_text().count("Bearer abc") == 1
     assert main(["connect", "codex", "--no-mcp", "--yes"]) == 0  # a bare reconnect leaves the header alone
-    assert config.read_text() == before
+    assert config.read_text().count("Bearer abc") == 1
 
 
 def test_codex_block_without_its_otel_table_is_modified_since_connect(home, capsys):

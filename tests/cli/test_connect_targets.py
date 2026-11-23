@@ -117,7 +117,9 @@ def test_codex_with_only_the_mcp_table_removed_is_modified_since_connect_and_lef
     assert main(["connect", "codex", "--no-mcp", "--yes"]) == 0  # a skipped step, not a failure
     out = capsys.readouterr().out
     assert config.read_text() == edited and "modified since connect" in out and "SECRET-3" not in out
-    assert main(["mcp", "install", "codex", "--yes"]) == 1
+    # The removed table is simply absent now: installing it adds it (a new table; nothing existing is rewritten).
+    assert main(["mcp", "install", "codex", "--yes"]) == 0
+    assert config.read_text().startswith(edited) and "mcp_servers.briefcase" in config.read_text()[len(edited):]
 
 
 def test_a_formerly_owned_project_entry_the_user_replaced_is_not_ours_any_more(
@@ -188,7 +190,8 @@ def test_an_older_journal_changes_nothing_and_lists_what_the_earlier_build_recor
     out = capsys.readouterr()
     text = out.out + out.err
     assert str(old) in text and str(journal) in text and "delete" in text.lower()
-    assert text.count("claude mcp remove --scope user briefcase") == 2  # both profiles are listed
+    assert "CLAUDE_CONFIG_DIR=/p/a claude mcp remove --scope user briefcase" in text  # each profile's own command
+    assert "CLAUDE_CONFIG_DIR=/p/b claude mcp remove --scope user briefcase" in text
     assert old.read_text() == before and journal.read_text() == raw and not calls
     assert main(["connect", "--undo"]) == 1
     assert main(["mcp", "install", "claude-code", "--yes"]) == 1
