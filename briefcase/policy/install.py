@@ -190,6 +190,49 @@ def detected(all_adapters: Dict[str, PolicyAdapter]) -> List[str]:
     return [name for name, adapter in all_adapters.items() if adapter.detect().installed]
 
 
+def hook_count(tool: str) -> int:
+    """How many enforcement hook entries for ``tool`` are on disk (see :func:`hook_active`)."""
+    from briefcase.connect.adapters import Context
+
+    needle, total = marker(tool), 0
+    seen = set()
+    for scope in ("user", "project"):
+        try:
+            items = adapters(HookOptions())[PREFIX + tool].plan(Context(scope=scope, mcp=False, telemetry=False))
+        except Exception:
+            continue
+        for item in items:
+            if isinstance(item, FileEdit) and str(item.path) not in seen:
+                seen.add(str(item.path))
+                try:
+                    total += edits.read_text(item.path).count(needle)
+                except (OSError, UnicodeDecodeError):
+                    continue
+    return total
+
+
+def hook_active(tool: str) -> bool:
+    """Is any enforcement hook for ``tool`` on disk, wherever it came from? Read from the files the tool reads, not
+    from the journal: a copy a user edited, or one the journal lost, still enforces (and still blocks)."""
+    from briefcase.connect.adapters import Context
+
+    needle = marker(tool)
+    for scope in ("user", "project"):
+        adapters_ = adapters(HookOptions())
+        try:
+            items = adapters_[PREFIX + tool].plan(Context(scope=scope, mcp=False, telemetry=False))
+        except Exception:
+            continue
+        for item in items:
+            if isinstance(item, FileEdit):
+                try:
+                    if needle in edits.read_text(item.path):
+                        return True
+                except (OSError, UnicodeDecodeError):
+                    continue
+    return False
+
+
 def installed() -> List[Dict[str, Any]]:
     """What the journal says is installed, checked against the files as they are now.
 

@@ -320,11 +320,11 @@ def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def _policy_file_is_ours(path: Path) -> bool:
-    """Is the policy file at ``path`` exactly what an earlier `policy init` wrote (by hash)?"""
+def _policy_file_is_ours(path: Path, text: Optional[str]) -> bool:
+    """Is the policy file at ``path`` (whose text at preview time was ``text``) exactly what an earlier `policy init`
+    wrote (by hash)?"""
     from briefcase.connect import edits
 
-    text = _read_or_none(path)
     try:
         journal = edits.load_journal()
     except edits.LegacyJournal:
@@ -344,6 +344,13 @@ def _record_policy_file(path: Path, text: str) -> None:
 
 
 def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[str], str]] = None) -> int:
+    from briefcase.connect.lock import command_lock
+
+    with command_lock(not _dry_run(args)):
+        return _run_init(args, out, ask)
+
+
+def _run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[str], str]] = None) -> int:
     from briefcase.connect import edits
     from briefcase.connect import engine as connect_engine
     from briefcase.connect.adapters import DEFAULT_ENDPOINT, Context
@@ -365,7 +372,8 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
     # 1. The policy file: keep a valid one, never overwrite silently.
     write_policy = None
     fail_closed = bool(getattr(args, "fail_closed", False))
-    if policy_path.exists() and force and not _policy_file_is_ours(policy_path):
+    preview_text = _read_or_none(policy_path) if policy_path.exists() else None  # what the preview is based on
+    if policy_path.exists() and force and not _policy_file_is_ours(policy_path, preview_text):
         _error(f"{_tilde(policy_path)} was not written by `briefcase-ai policy init` (or was edited since), so --force "
                "will not replace it: its restrictions would stop applying. Move it aside yourself, or edit it "
                "(`briefcase-ai policy check` validates it), then run `briefcase-ai policy init` again.")
@@ -423,10 +431,12 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
         _error(str(exc))
         return 1
     connect_engine.render_plan(plan, adapters, out)  # type: ignore[arg-type]
-    if plan.blocked:
+    refused = [r for r in plan.resolved if r.status == edits.REFUSED]
+    if plan.blocked or refused:
         out("\nNothing was changed, and enforcement is NOT in place for the tool(s) above: " + (
             "a hook is installed with other settings." if plan.differs else
-            "a hook entry is missing, edited, or not ours (see above)."))
+            "a hook file cannot be edited safely (add the snippet shown by hand)." if refused and not plan.blocked
+            else "a hook entry is missing, edited, or not ours (see above)."))
         return 1
 
     if dry:
@@ -455,7 +465,7 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
             shutil.copy2(str(policy_path), str(backup))
             out(f"  backup {_tilde(backup)}")
         try:
-            edits.write_checked(policy_path, write_policy, _read_or_none(policy_path) if policy_path.exists() else None,
+            edits.write_checked(policy_path, write_policy, preview_text,
                                 0o600 if not project else 0o644)
         except edits.EditRefused as exc:
             _error(str(exc))
@@ -480,6 +490,13 @@ def cmd_init(args, store=None, engine=None, stack=None) -> int:
 
 
 def cmd_off(args, store=None, engine=None, stack=None) -> int:
+    from briefcase.connect.lock import command_lock
+
+    with command_lock(not _dry_run(args)):
+        return _cmd_off(args)
+
+
+def _cmd_off(args) -> int:
     from briefcase.connect import engine as connect_engine
     from briefcase.policy import install, model
 
@@ -504,10 +521,20 @@ def cmd_off(args, store=None, engine=None, stack=None) -> int:
             print("Aborted; nothing was changed.")
             return 1
     print("Would remove:" if dry else "Removing:")
-    connect_engine.undo(owners, print, dry_run=dry, keep_unremoved=True)
+    kept: List[str] = []
+    removed: Dict[str, int] = {}
+    connect_engine.undo(owners, print, dry_run=dry, keep_unremoved=True, retained=kept, removed=removed)
     if dry:
-        return 0
-    still = [row["tool"] for row in install.installed() if install.PREFIX + row["tool"] in owners]
+        # What would be left: hook entries on disk now, minus the ones this run would remove.
+        kept = sorted({n[len(install.PREFIX):] for n in owners
+                       if install.hook_count(n[len(install.PREFIX):]) > removed.get(n, 0)}
+                      | {n[len(install.PREFIX):] for n in kept})
+        if kept:
+            print("Enforcement would still be ON: a hook entry was changed after install and would not be removed.",
+                  file=sys.stderr)
+        return 1 if kept else 0
+    still = sorted({row["tool"] for row in install.installed() if install.PREFIX + row["tool"] in owners}
+                   | {name for name in (n[len(install.PREFIX):] for n in owners) if install.hook_active(name)})
     if still:
         print(f"Enforcement is still ON for {', '.join(still)}: the hook entry was changed after it was installed, "
               "so it was not removed and its record was kept. Remove the entry yourself (it runs "

@@ -128,7 +128,8 @@ def test_without_a_policy_only_telemetry_is_generated(home, tmp_path):
 def test_tools_subset(home, tmp_path):
     code, out, _ = generate(tmp_path, managed_tools=["claude-code"])
     assert code == 0
-    assert {p.split("/")[0] for p in tree(out)} == {"briefcase", "claude-code", "README.md", "manifest.json"}
+    top = {p.split("/")[0] for p in tree(out)}
+    assert top == {"briefcase", "claude-code", "README.md", "manifest.json", ".briefcase-pack"}
 
 
 def test_refusals(home, tmp_path, capsys):
@@ -201,3 +202,17 @@ def test_pack_files_with_supplied_credentials_are_private_and_the_endpoint_is_sh
     command = json.loads((out / "cursor" / "hooks.json").read_text())["hooks"]["sessionStart"][0]["command"]
     import shlex
     assert shlex.split(command)[-1] == hostile  # one argument: nothing in it is interpreted
+
+
+def test_regenerating_a_pack_removes_what_the_old_pack_wrote_and_hash_owns_the_manifest(home, tmp_path):
+    out = tmp_path / "pack"
+    assert managed.cmd_managed(args(out, managed_tools=["claude-code", "codex"],
+                                    headers=["Authorization=Bearer SUPPLIED-TOKEN"])) == 0
+    assert (out / "codex").is_dir()
+    assert managed.cmd_managed(args(out, managed_tools=["claude-code"], force=True)) == 0
+    assert not (out / "codex").exists(), "the old pack's Codex files (with its credential) must not be left behind"
+    assert managed.cmd_managed(args(out, managed_tools=["claude-code"], force=True)) == 0  # and --force still works
+    manifest = (out / "manifest.json")
+    manifest.write_text(manifest.read_text().replace("claude-code", "mine", 1))
+    assert managed.cmd_managed(args(out, managed_tools=["claude-code"], force=True)) == 1
+    assert "mine" in manifest.read_text(), "an edited manifest is the user's now"

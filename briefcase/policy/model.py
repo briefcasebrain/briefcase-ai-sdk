@@ -150,6 +150,12 @@ def _strlist(value, what, path):
     raise PolicyError(f"{what} must be a string or a list of strings", path)
 
 
+def _shown(value):
+    """A value from a policy file as it may appear in an error: short, and never a whole document."""
+    text = repr(value)
+    return text if len(text) <= 24 else text[:21] + "..."
+
+
 def _check(kind, value, what, path):
     if kind == _BOOL:
         if not isinstance(value, bool):
@@ -168,7 +174,7 @@ def _check(kind, value, what, path):
     choices = {"preset": PRESETS, "mode": MODES, _EFFECT: EFFECTS, _FALLBACK: ("allow", "deny")}.get(kind)
     if choices is not None:
         if value not in choices:
-            raise PolicyError(f"{what} must be one of: {', '.join(choices)} (got {value!r})", path)
+            raise PolicyError(f"{what} must be one of: {', '.join(choices)} (got {_shown(value)})", path)
         return value
     if kind == "tools":
         kinds = []
@@ -177,7 +183,7 @@ def _check(kind, value, what, path):
             for item in expanded:
                 if item not in TOOL_KINDS:
                     raise PolicyError(
-                        f"{what}: unknown tool {name!r}; use one of: shell, read, write, file, mcp, web", path)
+                        f"{what}: unknown tool {_shown(name)}; use one of: shell, read, write, file, mcp, web", path)
                 if item not in kinds:
                     kinds.append(item)
         if not kinds:
@@ -242,7 +248,8 @@ def build_rule(raw, index, source, path=None):
     label = f"rule #{index}" + (f" ({raw['id']})" if isinstance(raw.get("id"), str) else "")
     unknown = sorted(set(raw) - set(RULE_KEYS))
     if unknown:
-        raise PolicyError(f"{label}: unknown key {unknown[0]!r}; known keys: {', '.join(sorted(RULE_KEYS))}", path)
+        known = ", ".join(sorted(RULE_KEYS))
+        raise PolicyError(f"{label}: unknown key {_shown(unknown[0])}; known keys: {known}", path)
     for required in ("tool", "effect"):
         if required not in raw:
             raise PolicyError(f"{label}: missing `{required}`", path)
@@ -262,7 +269,7 @@ def build_rule(raw, index, source, path=None):
             try:
                 shell.compile_pattern(pattern)
             except ValueError as exc:
-                raise PolicyError(f"{label}: command pattern {pattern!r}: {exc}", path)
+                raise PolicyError(f"{label}: command pattern {_shown(pattern)}: {exc}", path)
     rule_id = values.get("id") or f"{source}.{index}"
     if not all(ch.isalnum() or ch in "._-" for ch in rule_id):
         raise PolicyError(f"{label}: `id` may only use letters, digits, '.', '_' and '-'", path)
@@ -292,7 +299,7 @@ def parse_layer(text, source, path=None):
     unknown = sorted(set(doc) - known)
     if unknown:
         hint = " (rules are written as [[rule]])" if unknown[0] in ("rules", "Rule") else ""
-        raise PolicyError(f"unknown key {unknown[0]!r}{hint}; known keys: {', '.join(sorted(known))}", path)
+        raise PolicyError(f"unknown key {_shown(unknown[0])}{hint}; known keys: {', '.join(sorted(known))}", path)
     if "version" not in doc:
         raise PolicyError(f"missing `version = {VERSION}`", path)
     settings = {key: _check(SETTINGS[key], doc[key], f"`{key}`", path) for key in doc if key != "rule"}

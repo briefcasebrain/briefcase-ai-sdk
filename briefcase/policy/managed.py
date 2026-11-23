@@ -259,6 +259,7 @@ def build(tools: List[str], ctx: Context, policy_text: Optional[str] = None) -> 
         "files_sha256": {name: hashlib.sha256(text.encode("utf-8")).hexdigest()
                          for name, text in sorted(pack.files.items())},
     })
+    pack.files[PACK_MARK] = hashlib.sha256(pack.files["manifest.json"].encode("utf-8")).hexdigest() + "\n"
     return pack
 
 
@@ -308,7 +309,8 @@ def readme(pack: Pack, tools: List[str], ctx: Context, enforce: bool, fail_close
             "4. Each hook decides on the machine itself (no network hop) and then posts a decision record",
             "   (rule id and effect; the command or path only as a keyed hash) to",
             f"   `{ctx.endpoint}/v1/policy/decisions`,",
-            "   without waiting for it. If that receiver needs a token, set `BRIEFCASE_RECEIVER_TOKEN` and `BRIEFCASE_RECEIVER_TOKEN_ENDPOINT` (this URL) in the",
+            "   without waiting for it. If that receiver needs a token, set `BRIEFCASE_RECEIVER_TOKEN` and",
+            "   `BRIEFCASE_RECEIVER_TOKEN_ENDPOINT` (this URL) in the",
             "   environment the coding tools run in; without it the records are refused and enforcement is unaffected.",
         ]
     lines += ["", "## Files", "", "| File | Status | Where it goes | Format from |", "| --- | --- | --- | --- |"]
@@ -411,6 +413,9 @@ def readme(pack: Pack, tools: List[str], ctx: Context, enforce: bool, fail_close
     return "\n".join(lines)
 
 
+PACK_MARK = ".briefcase-pack"  # the hash of manifest.json, so that the manifest is hash-owned like every other file
+
+
 class UnsafeDestination(Exception):
     """A pack file would land outside the output directory or in a system location."""
 
@@ -439,31 +444,35 @@ def existing_files(out_dir: Path) -> List[Path]:
 
 def ownership(out_dir: Path) -> Tuple[List[str], Dict[str, str]]:
     """``(foreign, ours)`` for the files already under ``out_dir``: ``ours`` maps each file a previous pack wrote
-    (named in its manifest, with the exact hash it recorded) to its current text; ``foreign`` lists every other
-    file, whose contents are not read."""
+    (named in its manifest with the exact hash it recorded, the manifest itself and its mark checked the same way) to
+    its current text; ``foreign`` lists every other file, whose contents are not read."""
     manifest: Dict[str, str] = {}
-    try:
-        doc = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
-        if isinstance(doc, dict) and doc.get("generated_by") == "briefcase-ai connect --managed":
-            manifest = {str(k): str(v) for k, v in (doc.get("files_sha256") or {}).items()}
-    except (OSError, ValueError, UnicodeDecodeError):
-        pass
+    texts: Dict[str, str] = {}
     foreign: List[str] = []
-    ours: Dict[str, str] = {}
     for path in existing_files(out_dir):
         relative = str(path.relative_to(out_dir))
         try:
-            text = path.read_text(encoding="utf-8")
+            texts[relative] = edits.read_text(path)
         except (OSError, UnicodeDecodeError):
             foreign.append(relative)
-            continue
-        if relative == "manifest.json" and manifest:
-            ours[relative] = text
-        elif manifest.get(relative) == hashlib.sha256(text.encode("utf-8")).hexdigest():
-            ours[relative] = text
+    mark = texts.get(PACK_MARK, "").strip()
+    text = texts.get("manifest.json")
+    if text is not None and mark and hashlib.sha256(text.encode("utf-8")).hexdigest() == mark:
+        try:
+            doc = json.loads(text)
+            if isinstance(doc, dict) and doc.get("generated_by") == "briefcase-ai connect --managed":
+                manifest = {str(k): str(v) for k, v in (doc.get("files_sha256") or {}).items()}
+        except ValueError:
+            pass
+    ours: Dict[str, str] = {}
+    for relative, body in texts.items():
+        if manifest and relative in ("manifest.json", PACK_MARK):
+            ours[relative] = body
+        elif manifest.get(relative) == hashlib.sha256(body.encode("utf-8")).hexdigest():
+            ours[relative] = body
         else:
             foreign.append(relative)
-    return foreign, ours
+    return sorted(set(foreign)), ours
 
 
 def write(pack: Pack, out_dir: Path, private: bool = False, replace: Optional[Dict[str, str]] = None) -> List[Path]:
@@ -565,6 +574,15 @@ def cmd_managed(args, out=print) -> int:
         return 0
     try:
         write(pack, out_dir, private=bool(headers), replace=replace)
+        for relative in sorted(set(replace) - set(pack.files)):  # files the old pack wrote and this one does not
+            stale = out_dir / relative
+            if edits.read_text(stale) == replace[relative]:
+                stale.unlink()
+                parent = stale.parent
+                while parent != out_dir and not any(parent.iterdir()):
+                    parent.rmdir()
+                    parent = parent.parent
+                out(f"  removed {relative} (the previous pack wrote it; this one does not)")
     except UnsafeDestination as exc:
         print(f"error: {exc}. Choose a new, empty directory.", file=sys.stderr)
         return 1

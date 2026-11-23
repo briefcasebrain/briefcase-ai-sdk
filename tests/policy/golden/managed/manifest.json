@@ -95,7 +95,7 @@
     }
   ],
   "files_sha256": {
-    "README.md": "bdc400082c0e0f553acde9e4f75f8308bc3d8ef26b904f4196c4acaacb71a1e6",
+    "README.md": "a889cec984060ba8824df5c72e878d52f0c8e2e1eef0ed17d737d6c8de6d34e8",
     "briefcase/policy.toml": "bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
     "claude-code/macos/briefcase-claude-code.mobileconfig": "10c916fd71fa0eab25ffd2d38e83970166bd410cdaa08a0cc2c4a4c2ef24ce8a",
     "claude-code/managed-settings.d/10-briefcase.json": "ba1a1c11001b445af3348a426bbf4df26497512e6da5a22291dcb97eda3da6c7",

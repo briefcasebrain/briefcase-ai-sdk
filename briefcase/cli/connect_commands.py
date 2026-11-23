@@ -136,6 +136,13 @@ def cmd_status(adapters: Dict[str, Adapter], out=print) -> int:
 
 
 def run_undo(args, out=print) -> int:
+    from briefcase.connect.lock import command_lock
+
+    with command_lock(not _dry_run(args)):
+        return _run_undo(args, out)
+
+
+def _run_undo(args, out=print) -> int:
     try:
         tools = resolve_names(args.tools) if args.tools else None
     except KeyError as exc:
@@ -162,6 +169,14 @@ def _dry_run(args) -> bool:
 
 def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: bool = True,
                 ask: Optional[Callable[[str], str]] = None, runner: Any = None, mcp_only: bool = False) -> int:
+    from briefcase.connect.lock import command_lock
+
+    with command_lock(not _dry_run(args)):
+        return _run_connect(args, adapters, out, offer_receiver, ask, runner, mcp_only)
+
+
+def _run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: bool = True,
+                 ask: Optional[Callable[[str], str]] = None, runner: Any = None, mcp_only: bool = False) -> int:
     try:
         headers = _parse_headers(getattr(args, "headers", []) or [])
         named = resolve_names(args.tools)
