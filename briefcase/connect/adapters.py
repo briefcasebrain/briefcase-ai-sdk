@@ -96,10 +96,10 @@ def profile_path(tool: str, key: str) -> Optional[Path]:
     if (tool, key) == ("vscode-copilot", "user_settings") and sys.platform.startswith("linux"):
         xdg = os.environ.get("XDG_CONFIG_HOME")  # VS Code puts its user data under it when set
         if xdg:
-            base = Path(xdg).expanduser()
-            if not base.is_absolute():
+            xdg_base = Path(xdg).expanduser()
+            if not xdg_base.is_absolute():
                 raise ProfileError("XDG_CONFIG_HOME is set but is not an absolute path; nothing was written")
-            return base / "Code" / "User" / "settings.json"
+            return xdg_base / "Code" / "User" / "settings.json"
     spec = _PROFILE_FILES.get((tool, key))
     if spec is None:
         return None
