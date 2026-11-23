@@ -575,6 +575,53 @@ def test_the_client_archive_next_to_the_bundle_is_found_when_the_manifest_is_els
     assert _engine.current_install()["binary"]
 
 
+def test_installs_of_different_releases_never_overlap_at_the_shared_state_and_keep_both_records(
+        env, offline, monkeypatch, key, tmp_path):
+    """One lock covers every install under the engine home: the installers are held for 0.5 s inside the
+    shared-state section, and at most one process may be in it at a time."""
+    import multiprocessing
+    import time
+
+    if "fork" not in multiprocessing.get_all_start_methods():
+        pytest.skip("needs fork")
+    second = build_release(key, version="0.5.0").write(tmp_path / "downloads-0.5.0")
+    ctx = multiprocessing.get_context("fork")
+    inside, peak, results = ctx.Value("i", 0), ctx.Value("i", 0), ctx.Queue()
+    real_save, real_finish = install._save_manifest, install._finish
+
+    def slow_save(*args, **kwargs):
+        with inside.get_lock():
+            inside.value += 1
+            peak.value = max(peak.value, inside.value)
+        time.sleep(0.5)
+        return real_save(*args, **kwargs)
+
+    def finish(*args, **kwargs):
+        try:
+            return real_finish(*args, **kwargs)
+        finally:
+            with inside.get_lock():
+                inside.value -= 1
+
+    monkeypatch.setattr(install, "_save_manifest", slow_save)
+    monkeypatch.setattr(install, "_finish", finish)
+
+    def worker(version, directory):
+        results.put(_install("--bundle", str(directory / f"engine-images-{version}-x86_64.tar"),
+                             "--manifest", str(directory / "engine-manifest.json")))
+
+    procs = [ctx.Process(target=worker, args=(VERSION, offline)), ctx.Process(target=worker, args=("0.5.0", second))]
+    for proc in procs:
+        proc.start()
+    for proc in procs:
+        proc.join(120)
+        assert proc.exitcode == 0
+    assert sorted(results.get(timeout=5) for _ in procs) == [0, 0]
+    assert peak.value == 1, "two installs were inside the shared-state section at once"
+    state = json.loads(_engine.installed_path().read_text())
+    assert set(state["installs"]) == {VERSION, "0.5.0"}  # neither record was lost
+
+
 def test_two_concurrent_offline_installs_of_one_release_both_end_verified(env, offline, monkeypatch):
     import multiprocessing
 

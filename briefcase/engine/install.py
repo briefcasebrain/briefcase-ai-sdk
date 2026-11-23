@@ -404,8 +404,9 @@ def stable_ref(name: str, version: str) -> str:
 def save_state(state: Dict[str, Any], env: Optional[Mapping[str, str]] = None) -> None:
     path = _engine.installed_path(env)
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(state, indent=2, sort_keys=True))
     os.replace(tmp, path)
 
 
@@ -477,9 +478,14 @@ def prepare_online(opts: InstallOptions, *, response: Optional[Dict[str, Any]] =
     return Prepared(response=response, manifest=manifest, manifest_sig=sig, target=target)
 
 
-def complete_online(opts: InstallOptions, prepared: Prepared, *, runner=subprocess.run, fetch: Callable = _open,
-                    which: Callable = shutil.which, log: Callable[[str], Any] = print,
-                    verify_kw: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def complete_online(opts: InstallOptions, prepared: Prepared, **kwargs) -> Dict[str, Any]:
+    with engine_lock(opts.env):
+        return _complete_online(opts, prepared, **kwargs)
+
+
+def _complete_online(opts: InstallOptions, prepared: Prepared, *, runner=subprocess.run, fetch: Callable = _open,
+                     which: Callable = shutil.which, log: Callable[[str], Any] = print,
+                     verify_kw: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     env, manifest, response, target = opts.env, prepared.manifest, prepared.response, prepared.target
     verify_kw = verify_kw or {}
     docker = Docker(runner)
@@ -570,8 +576,8 @@ def offline_install(opts: InstallOptions, *, runner=subprocess.run, which: Calla
                            fix="install Docker (https://docs.docker.com/get-docker/), start it, then re-run")
     manifest, sig, entry, _how = verified or verify_offline(opts, verify_kw)
     install_dir = _engine.engine_dir(env) / manifest.version
-    _save_manifest(install_dir, manifest, sig)
-    with _version_lock(install_dir):
+    with engine_lock(env):
+        _save_manifest(install_dir, manifest, sig)
         # Files are copied into a directory made for this run alone (0700) and verified there, so what
         # Docker loads is exactly what was checked even if the originals change or another install of
         # the same release runs at the same time. The copies are removed when this run ends.
@@ -613,18 +619,34 @@ def _private_dir(path: Path) -> Path:
 
 
 @contextlib.contextmanager
-def _version_lock(install_dir: Path):
-    """One install of a release at a time on this machine (installs of other releases are not blocked)."""
-    install_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if fcntl is None:  # Windows: no advisory lock available; the per-run directory still keeps runs apart
-        yield
-        return
-    with open(install_dir / ".install.lock", "a") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
+def engine_lock(env: Optional[Mapping[str, str]] = None):
+    """One install at a time under the engine home, whatever the version or mode: held from before the
+    manifest is written until installed.json and the secrets file are updated (``fcntl`` on POSIX,
+    ``msvcrt`` on Windows)."""
+    home = _engine.engine_dir(env)
+    home.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with open(home / ".install.lock", "a+b") as handle:
+        if fcntl is not None:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+        else:  # Windows
+            import msvcrt
+
+            while True:
+                try:
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)  # waits up to 10 s, so loop
+                    break
+                except OSError:
+                    continue
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def _stage_verified(src: Path, stage_dir: Path, entry: Mapping[str, Any], manifest: _trust.Manifest,
