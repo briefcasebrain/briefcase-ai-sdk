@@ -11,21 +11,49 @@ from briefcase.connect import mcp
 UVX = {"command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]}
 
 
-def only(*names):
-    """A ``which`` that knows exactly these executables."""
-    return lambda name: f"/usr/bin/{name}" if name in names else None
+def stub(directory, name, exit_code, output=""):
+    """A real executable on disk that answers `--check` like the launcher would."""
+    import stat
+
+    path = directory / name
+    path.write_text(f"#!/bin/sh\n[ \"$1\" = --check ] || exit 99\necho '{output}'\nexit {exit_code}\n")
+    path.chmod(path.stat().st_mode | stat.S_IEXEC)
+    return path
 
 
-def test_server_config_prefers_the_installed_script(monkeypatch):
-    monkeypatch.setattr(mcp, "launcher_works", lambda: True)
-    assert mcp.server_config(only("briefcase-ai-mcp")) == {"command": "briefcase-ai-mcp"}
-    assert mcp.server_config(only("briefcase-mcp")) == UVX  # the old name does not count
-    assert mcp.server_config(lambda name: None) == UVX
+def test_server_config_prefers_a_launcher_that_passes_its_own_check(tmp_path, monkeypatch):
+    stub(tmp_path, "briefcase-ai-mcp", 0, "ok")
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert mcp.server_config() == {"command": "briefcase-ai-mcp"}
 
 
-def test_server_config_uses_uvx_when_the_installed_script_cannot_run(monkeypatch):
-    monkeypatch.setattr(mcp, "launcher_works", lambda: False)  # no `mcp` package in this environment
-    assert mcp.server_config(only("briefcase-ai-mcp")) == UVX
+def test_server_config_uses_uvx_when_the_launcher_on_path_fails_its_check(tmp_path, monkeypatch):
+    stub(tmp_path, "briefcase-ai-mcp", 1, "needs the mcp extra")
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert mcp.server_config() == UVX
+
+
+def test_server_config_ignores_the_old_launcher_name_and_a_missing_launcher(tmp_path, monkeypatch):
+    stub(tmp_path, "briefcase-mcp", 0, "ok")
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert mcp.server_config() == UVX
+
+
+def test_the_check_runs_the_launcher_found_not_the_current_interpreter(tmp_path, monkeypatch):
+    """A launcher from another environment is judged by what it says, whatever this interpreter has."""
+    stub(tmp_path, "briefcase-ai-mcp", 1)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert mcp.server_config() == UVX
+
+
+def test_the_check_flag_on_the_real_launcher_exits_one_without_the_extra():
+    import subprocess
+    import sys
+
+    code = ("import sys; sys.modules['mcp'] = None; sys.argv = ['briefcase-ai-mcp', '--check'];"
+            " from briefcase.mcp.__main__ import main; main()")
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
+    assert done.returncode == 1 and "Traceback" not in done.stderr and "pip install briefcase-ai[mcp]" in done.stderr
 
 
 def test_the_launcher_without_the_mcp_extra_prints_one_line_and_no_traceback():

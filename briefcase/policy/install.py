@@ -191,45 +191,6 @@ def detected(all_adapters: Dict[str, PolicyAdapter]) -> List[str]:
     return [name for name, adapter in all_adapters.items() if adapter.detect().installed]
 
 
-# Where an administrator's managed pack places hooks on a machine (read only, to spot a pack that was
-# generated before the command was renamed).
-SYSTEM_HOOK_FILES = (
-    "/Library/Application Support/ClaudeCode/managed-settings.json",
-    "/Library/Application Support/ClaudeCode/managed-settings.d",
-    "/etc/claude-code/managed-settings.json", "/etc/claude-code/managed-settings.d",
-    "/etc/cursor/hooks.json", "/Library/Application Support/Cursor/hooks.json",
-    "/etc/codex/hooks.json", "/etc/codex/requirements.toml",
-)
-REMOVED_COMMAND = "briefcase"  # the pre-4.5 name of the CLI
-
-
-def runs_removed_command(command: Optional[str]) -> bool:
-    try:
-        parts = shlex.split(command or "")
-    except ValueError:
-        return False
-    return bool(parts) and os.path.basename(parts[0]) in (REMOVED_COMMAND, REMOVED_COMMAND + ".exe")
-
-
-def managed_files_with_removed_command(paths: Optional[Any] = None) -> List[str]:
-    """Machine-wide hook files that still call ``briefcase hook ...``."""
-    import glob
-    import re
-
-    pattern = re.compile(r"(?:^|[\s\"'])briefcase hook ")
-    found = []
-    for entry in (SYSTEM_HOOK_FILES if paths is None else paths):
-        candidates = sorted(glob.glob(os.path.join(entry, "*"))) if os.path.isdir(entry) else [entry]
-        for path in candidates:
-            try:
-                with open(path, encoding="utf-8") as handle:
-                    if pattern.search(handle.read(1 << 20)):
-                        found.append(path)
-            except (OSError, UnicodeDecodeError):
-                continue
-    return found
-
-
 def installed() -> List[Dict[str, Any]]:
     """What the journal says is installed, checked against the files as they are now.
 
@@ -263,8 +224,7 @@ def installed() -> List[Dict[str, Any]]:
             elif parts:
                 launcher_ok = shutil.which(parts[0]) is not None
         rows.append({"tool": tool, "files": checks, "command": command,
-                     "fail_closed": bool(command and "--fail-closed" in command), "launcher_ok": launcher_ok,
-                     "removed_command": runs_removed_command(command)})
+                     "fail_closed": bool(command and "--fail-closed" in command), "launcher_ok": launcher_ok})
     return rows
 
 

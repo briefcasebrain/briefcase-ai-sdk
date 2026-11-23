@@ -395,16 +395,15 @@ def self_command(cmd, ctx):
     argv = [a for a, d in zip(cmd.argv, cmd.dyn) if not d]
     name = cmd.name
     rest = None
-    # "briefcase" is the pre-4.5 command name; a 4.4 install can still be on PATH.
-    if name in ("briefcase-ai", "briefcase-ai.exe", "briefcase", "briefcase.exe"):
+    if name in ("briefcase-ai", "briefcase-ai.exe"):
         rest = argv[1:]
     elif name.startswith(("python", "py")) or name in ("uv", "uvx", "pipx"):
         for index, arg in enumerate(argv):
-            if arg in ("briefcase.cli", "briefcase.cli.__main__", "briefcase-ai", "briefcase") and index > 0:
+            if arg in ("briefcase.cli", "briefcase.cli.__main__", "briefcase-ai") and index > 0:
                 rest = argv[index + 1:]
                 break
     if name.startswith("pip") or "pip" in argv[1:3] or name == "uv":
-        if "uninstall" in argv and any(a in ("briefcase-ai", "briefcase_ai", "briefcase") for a in argv):
+        if "uninstall" in argv and any(a in ("briefcase-ai", "briefcase_ai") for a in argv):
             return "uninstall briefcase-ai"
     if name == "claude":
         # A nested Claude Code that skips user hooks (`claude --help`, 2.1.330): --safe-mode

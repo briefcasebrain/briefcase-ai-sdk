@@ -1,4 +1,6 @@
-"""Run the briefcase MCP server: ``briefcase-ai-mcp`` or ``python -m briefcase.mcp``."""
+"""Run the briefcase MCP server: ``briefcase-ai-mcp`` or ``python -m briefcase.mcp``.
+
+``briefcase-ai-mcp --check`` exits 0 if this environment can serve, else 1 with one line saying why."""
 import sys
 
 
@@ -8,6 +10,9 @@ def main() -> None:
     except ImportError as exc:
         print(f"briefcase-ai-mcp: {exc}", file=sys.stderr)
         raise SystemExit(1)
+    if "--check" in sys.argv[1:]:
+        print("briefcase-ai-mcp: ok")
+        raise SystemExit(0)
     serve()
 
 

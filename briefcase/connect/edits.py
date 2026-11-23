@@ -42,12 +42,15 @@ JOURNAL_VERSION = 1
 
 CHANGE, NOOP, REFUSED = "change", "noop", "refused"
 
-# Directories no edit may ever target: managed/system configuration belongs to
-# an administrator, and connect only prints a snippet for it.
+# Locations no edit may ever target: managed/system configuration belongs to an administrator, and
+# connect only prints a snippet for it. Both the symlinked and the resolved spelling are listed (macOS:
+# /etc is /private/etc). Ordinary project directories (/opt/app, /var/tmp/app, /usr/local/...) are not here.
 _SYSTEM_PREFIXES = (
-    "/etc", "/usr", "/bin", "/sbin", "/opt", "/var", "/System", "/Library",
+    "/etc", "/private/etc", "/System", "/Library", "/usr", "/bin", "/sbin",
+    "/var/db", "/var/root", "/private/var/db", "/private/var/root",
     "c:\\programdata", "c:\\windows", "c:\\program files",
 )
+_SYSTEM_EXCEPTIONS = ("/usr/local",)
 
 _SECRET_LINE = re.compile(
     r"""^(?P<head>[-+ ]?\s*"?[\w.\-]*(?:key|token|secret|password|passwd|auth|credential|headers)[\w.\-]*"?"""
@@ -134,32 +137,17 @@ class Resolved:
 
 # --- path safety --------------------------------------------------------------
 
-def _system_prefixes() -> Tuple[str, ...]:
-    """The prefixes plus where they really live (macOS: ``/etc`` is ``/private/etc``, ``/var`` is
-    ``/private/var``), so a path that was already resolved is still recognised."""
-    real = tuple(os.path.realpath(p) for p in _SYSTEM_PREFIXES if p.startswith("/"))
-    return _SYSTEM_PREFIXES + tuple(p for p in real if p not in _SYSTEM_PREFIXES)
-
-
-def _temp_roots() -> Tuple[str, ...]:
-    """The current user's own temp directory (macOS keeps it under ``/private/var/folders``)."""
-    import tempfile
-
-    names = {tempfile.gettempdir(), os.environ.get("TMPDIR", "")}
-    return tuple(sorted({os.path.realpath(n) for n in names if n}))
-
-
 def _under(text: str, prefix: str) -> bool:
     lowered, base = text.lower(), prefix.lower().rstrip("/\\")
     return lowered == base or lowered.startswith(base + os.sep)
 
 
 def is_system_path(path: Path) -> bool:
-    """Under a managed/system prefix, except inside the user's own temp directory."""
+    """Under one of the listed system locations (see ``_SYSTEM_PREFIXES``)."""
     text = str(path)
-    if not any(_under(text, prefix) for prefix in _system_prefixes()):
+    if any(_under(text, exception) for exception in _SYSTEM_EXCEPTIONS):
         return False
-    return not any(_under(os.path.realpath(text), root) for root in _temp_roots())
+    return any(_under(text, prefix) for prefix in _SYSTEM_PREFIXES)
 
 
 def _inside(path: Path, parent: Path) -> bool:
@@ -197,8 +185,7 @@ def _target_for(path: Path) -> Tuple[Path, List[str]]:
             )
         else:
             warnings.append(f"{path} is a symlink to {resolved}")
-    # Checked on the resolved path; only the user's own home is exempt (the temp directory is
-    # exempted inside is_system_path).
+    # Checked on the resolved path; only the user's own home is exempt.
     if is_system_path(resolved) and not _inside(resolved, real_home):
         raise EditRefused(f"{resolved} is a managed/system path; briefcase never writes there")
     return target, warnings

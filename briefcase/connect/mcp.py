@@ -19,22 +19,25 @@ CURSOR_DEEPLINK = "cursor://anysphere.cursor-deeplink/mcp/install"
 UVX_CONFIG = {"command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]}
 
 
-def launcher_works() -> bool:
-    """The ``briefcase-ai-mcp`` script ships with every install, but it only runs when the ``mcp``
-    extra is installed in the same environment."""
-    import importlib.util
+def launcher_works(path: str) -> bool:
+    """Run the launcher found on ``PATH`` with ``--check``: it exits 0 only if its own environment can
+    serve (the ``mcp`` extra is installed there). The script ships with every install, so its presence
+    alone says nothing."""
+    import subprocess
 
     try:
-        return importlib.util.find_spec("mcp") is not None
-    except (ImportError, ValueError):
+        done = subprocess.run([path, "--check"], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
         return False
+    return done.returncode == 0
 
 
 def server_config(which: Optional[Callable[[str], Optional[str]]] = None) -> Dict[str, Any]:
-    """``briefcase-ai-mcp`` when it is on PATH, else a ``uvx`` one-liner that
+    """``briefcase-ai-mcp`` when it is on PATH and passes its own check, else a ``uvx`` one-liner that
     needs nothing installed beforehand."""
     which = which or shutil.which
-    if which("briefcase-ai-mcp") and launcher_works():
+    found = which("briefcase-ai-mcp")
+    if found and launcher_works(found):
         return {"command": "briefcase-ai-mcp"}
     return {"command": UVX_CONFIG["command"], "args": list(UVX_CONFIG["args"])}
 

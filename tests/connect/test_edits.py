@@ -166,85 +166,116 @@ def test_cursor_hook_is_replaced_not_duplicated_when_flags_change(home):
     assert not (home / ".cursor" / "hooks.json").exists()
 
 
-def test_a_4_4_cursor_config_naming_the_old_commands_is_repaired(home, fake_bin):
-    fake_bin("briefcase-ai")
-    cursor = home / ".cursor"
-    cursor.mkdir()
-    old_hook = {"command": "briefcase hook cursor", "timeout": 5}
-    (cursor / "hooks.json").write_text(json.dumps({"version": 1, "hooks": {"stop": [old_hook]}}))
-    (cursor / "mcp.json").write_text(json.dumps({"mcpServers": {"briefcase": {"command": "briefcase-mcp"}}}))
-    connect(["cursor"])
-    hooks = json.loads((cursor / "hooks.json").read_text())["hooks"]
-    assert [entry["command"] for entry in hooks["stop"]] == ["briefcase-ai hook cursor"]
-    servers = json.loads((cursor / "mcp.json").read_text())["mcpServers"]
-    assert "briefcase-mcp" not in json.dumps(servers) and "briefcase-ai-mcp" in json.dumps(servers)
-
-
 class FakeClaudeMcp:
-    """Behaves like `claude mcp add|remove|get` (2.1.330, checked with a throwaway HOME): add of an
-    existing name exits 1 with "already exists"; remove of a missing name exits 1; get prints the
-    command and args. ``fail_add`` makes the next add of the new launcher fail."""
+    """Behaves like `claude mcp add|add-json|remove` (2.1.330, checked with a throwaway HOME): add of a
+    name that exists in the same scope exits 1 with "already exists"; remove of a missing name exits 1.
+    Scopes are independent and the registrations live in the files Claude Code reads (user and local in
+    ~/.claude.json, project in ./.mcp.json), which is what the SDK inspects. ``fail_new_add`` fails the next
+    add of the new launcher; ``fail_rollback`` fails every add-json."""
 
-    def __init__(self, servers, fail_new_add=False):
-        self.servers = dict(servers)
+    def __init__(self, entries=None, fail_new_add=False, fail_rollback=False):
+        self.entries = {"user": {}, "local": {}, "project": {}}
+        for (scope, name), entry in (entries or {}).items():
+            self.entries[scope][name] = entry
         self.calls = []
         self.fail_new_add = fail_new_add
+        self.fail_rollback = fail_rollback
+        self._write()
+
+    def _write(self):
+        user = {"mcpServers": self.entries["user"]}
+        if self.entries["local"]:
+            user["projects"] = {os.getcwd(): {"mcpServers": self.entries["local"]}}
+        (Path(os.environ["HOME"]) / ".claude.json").write_text(json.dumps(user))
+        if self.entries["project"]:
+            Path(".mcp.json").write_text(json.dumps({"mcpServers": self.entries["project"]}))
 
     def __call__(self, argv):
         self.calls.append(argv)
-        verb = argv[2]
-        if verb == "get":
-            name = argv[3]
-            if name not in self.servers:
-                return 1, f'No MCP server found with name: "{name}"'
-            command = self.servers[name]
-            return 0, f"{name}:\n  Type: stdio\n  Command: {command[0]}\n  Args: {' '.join(command[1:])}\n"
-        name = argv[5]
+        verb, scope, name = argv[2], argv[4], argv[5]
+        bucket = self.entries[scope]
         if verb == "add":
-            if name in self.servers:
-                return 1, f"MCP server {name} already exists in user config"
             tail = argv[argv.index("--") + 1:]
+            if name in bucket:
+                return 1, f"MCP server {name} already exists in {scope} config"
             if self.fail_new_add and tail[-1] == "briefcase-ai-mcp":
                 return 1, "simulated failure"
-            self.servers[name] = tail
-            return 0, ""
-        if name not in self.servers:
-            return 1, f'No MCP server named "{name}" in user scope'
-        del self.servers[name]
+            bucket[name] = {"type": "stdio", "command": tail[0], "args": tail[1:], "env": {}}
+        elif verb == "add-json":
+            if self.fail_rollback:
+                return 1, "simulated rollback failure"
+            bucket[name] = json.loads(argv[6])
+        else:
+            if name not in bucket:
+                return 1, f'No MCP server named "{name}" in {scope} scope'
+            del bucket[name]
+        self._write()
         return 0, ""
 
+    def removed(self):
+        return [c for c in self.calls if c[2] == "remove"]
 
-def test_a_4_4_claude_code_mcp_entry_is_replaced_not_refused(home, fake_bin):
+
+OLD = {"type": "stdio", "command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-mcp"],
+       "env": {"BRIEFCASE_HOME": "/data/my briefcase", "TOKEN": "a b=c"}}
+
+
+def test_a_4_4_hand_registered_claude_code_mcp_entry_is_replaced(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
-    old_argv = ["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
-                "uvx", "--from", "briefcase-ai[mcp]", "briefcase-mcp"]
-    journal = edits.load_journal()
-    journal["commands"].append({"tool": "claude-code", "argv": old_argv, "undo_hint": None, "at": "2026-08-01"})
-    edits.save_journal(journal)
-    claude = FakeClaudeMcp({"briefcase": old_argv[7:]})
+    claude = FakeClaudeMcp({("user", "briefcase"): OLD})
     plan, out, failures = connect(["claude-code"], runner=claude)
     assert failures == 0, out
-    assert claude.servers["briefcase"][-1] == "briefcase-ai-mcp"
-    assert [c for c in edits.load_journal()["commands"] if c["argv"] == old_argv] == []
+    assert claude.entries["user"]["briefcase"]["args"][-1] == "briefcase-ai-mcp"
 
 
-def test_a_user_managed_server_named_briefcase_is_left_alone(home, fake_bin):
+@pytest.mark.parametrize("entry", [
+    {"type": "stdio", "command": "/home/me/.local/bin/briefcase-mcp", "args": [], "env": {}},
+    {"type": "stdio", "command": "python3", "args": ["-m", "briefcase.mcp"], "env": {}},
+])
+def test_other_documented_forms_of_the_old_launcher_are_replaced(home, fake_bin, entry):
     fake_bin("claude", "2.1.330 (Claude Code)")
-    claude = FakeClaudeMcp({"briefcase": ["my-own-server", "--flag"]})
+    claude = FakeClaudeMcp({("user", "briefcase"): entry})
+    assert connect(["claude-code"], runner=claude)[2] == 0
+    assert claude.entries["user"]["briefcase"]["args"][-1] == "briefcase-ai-mcp"
+
+
+@pytest.mark.parametrize("entry", [
+    {"type": "stdio", "command": "my-own-server", "args": ["--flag"], "env": {}},
+    {"type": "stdio", "command": "node", "args": ["wrapper.js", "briefcase-mcp"], "env": {}},
+    {"type": "stdio", "command": "bash", "args": ["-c", "run briefcase-ai-mcp"], "env": {}},
+])
+def test_a_registration_that_is_not_our_launcher_is_left_alone(home, fake_bin, entry):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    claude = FakeClaudeMcp({("user", "briefcase"): entry})
     plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 0
-    assert claude.servers["briefcase"] == ["my-own-server", "--flag"]
-    assert not any(call[2] == "remove" for call in claude.calls)
+    assert failures == 0 and claude.entries["user"]["briefcase"] == entry and not claude.removed()
     assert any("not created by briefcase" in line for line in out), out
 
 
-def test_a_failed_re_add_restores_the_previous_registration(home, fake_bin):
+def test_only_the_scope_being_registered_is_inspected_and_removed(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
-    old = ["uvx", "--from", "briefcase-ai[mcp]", "briefcase-mcp"]
-    claude = FakeClaudeMcp({"briefcase": old}, fail_new_add=True)
+    foreign_user = {"type": "stdio", "command": "mine", "args": [], "env": {}}
+    claude = FakeClaudeMcp({("user", "briefcase"): foreign_user, ("local", "briefcase"): OLD})
+    connect(["claude-code"], runner=claude)
+    assert claude.entries["user"]["briefcase"] == foreign_user and claude.entries["local"]["briefcase"] == OLD
+    assert not claude.removed()
+
+
+def test_a_failed_re_add_restores_the_previous_registration_exactly(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    claude = FakeClaudeMcp({("user", "briefcase"): OLD}, fail_new_add=True)
     plan, out, failures = connect(["claude-code"], runner=claude)
     assert failures == 1
-    assert claude.servers["briefcase"] == old  # put back, not left missing
+    assert claude.entries["user"]["briefcase"] == OLD  # env, spaces and args untouched
+
+
+def test_a_failed_restore_is_reported_and_counts_as_a_failure(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    claude = FakeClaudeMcp({("user", "briefcase"): OLD}, fail_new_add=True, fail_rollback=True)
+    plan, out, failures = connect(["claude-code"], runner=claude)
+    assert failures == 1 and "briefcase" not in claude.entries["user"]
+    text = "\n".join(out)
+    assert "could not restore" in text and "claude mcp add-json" in text
 
 
 def test_claude_code_mcp_first_install_does_not_remove_anything(home, fake_bin):
@@ -397,11 +428,25 @@ def test_the_working_directory_does_not_exempt_a_system_path(home, monkeypatch):
     assert resolved.status == REFUSED
 
 
-def test_only_the_users_own_temp_directory_is_exempt(tmp_path):
-    assert not edits.is_system_path(tmp_path / "x.json")
+@pytest.mark.parametrize("path", [
+    "/etc/x.json", "/private/etc/x.json", "/System/x", "/Library/Application Support/ClaudeCode/x.json",
+    "/usr/bin/x", "/usr/lib/x", "/bin/x", "/sbin/x", "/var/db/x", "/var/root/x", "/private/var/db/x",
+    "/private/var/root/x", "/etc/claude-code/managed-settings.d/10.json", "/etc/codex/hooks.json",
+])
+def test_the_listed_system_locations_are_refused(path):
+    assert edits.is_system_path(Path(path))
+
+
+@pytest.mark.parametrize("path", ["/opt/project/.mcp.json", "/var/tmp/project/.mcp.json", "/usr/local/src/p/x.json",
+                                  "/srv/app/x.json", "/tmp/project/x.json"])
+def test_ordinary_project_locations_are_accepted(path):
+    assert not edits.is_system_path(Path(path))
+
+
+def test_temp_dir_settings_are_not_an_exemption(tmp_path, monkeypatch):
+    monkeypatch.setenv("TMPDIR", "/etc")  # a hostile TMPDIR must not whitelist anything
     assert edits.is_system_path(Path("/etc/x.json"))
-    assert edits.is_system_path(Path("/var/db/x.json"))
-    assert not edits.is_system_path(Path.home() / ".claude" / "settings.json")
+    assert not edits.is_system_path(tmp_path / "x.json")  # allowed because it is not on the list, not via TMPDIR
 
 
 def test_diff_masks_secret_looking_values(home):

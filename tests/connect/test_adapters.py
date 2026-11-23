@@ -82,8 +82,7 @@ def test_claude_code_headers_and_endpoint(home):
     assert env["OTEL_EXPORTER_OTLP_HEADERS"] == "Authorization=Bearer t,x=1"
 
 
-def test_claude_code_mcp_is_a_command_when_the_binary_exists(home, fake_bin, monkeypatch):
-    monkeypatch.setattr(adapters_mod.mcp_payloads, "launcher_works", lambda: True)
+def test_claude_code_mcp_is_a_command_when_the_binary_exists(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
     fake_bin("briefcase-ai-mcp")
     command = plan("claude-code")[1]

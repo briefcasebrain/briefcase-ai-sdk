@@ -278,8 +278,7 @@ def test_mcp_install_writes_only_mcp_config(home, tmp_path, capsys):
     assert not (project / ".mcp.json").exists()
 
 
-def test_mcp_install_uses_the_installed_script_when_on_path(home, tmp_path, monkeypatch):
-    monkeypatch.setattr(payloads, "launcher_works", lambda: True)
+def test_mcp_install_uses_the_installed_script_when_on_path(home, tmp_path):
     fake_bin(tmp_path, "briefcase-ai-mcp", "")
     assert main(["mcp", "install", "cursor", "--yes"]) == 0
     assert json.loads((home / ".cursor" / "mcp.json").read_text()) == {

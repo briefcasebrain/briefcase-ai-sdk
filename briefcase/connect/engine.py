@@ -7,8 +7,10 @@ and the tests drive the same code.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import time
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -118,45 +120,76 @@ def render_plan(plan: Plan, adapters: Dict[str, Adapter], out: Printer) -> None:
 
 
 _OUR_LAUNCHERS = ("briefcase-mcp", "briefcase-ai-mcp")
+_RUNNERS = ("uvx", "uv", "pipx")
 
 
-def _registered_launcher(runner: Callable[[List[str]], Tuple[int, str]], name: str) -> Optional[List[str]]:
-    """``[command, *args]`` of the registered server ``name`` (``claude mcp get``), or ``None``."""
-    code, text = runner(["claude", "mcp", "get", name])
-    if code != 0:
+def _is_our_launcher(entry: Dict[str, Any]) -> bool:
+    """A registration this SDK (any version) would have made or documented: its launcher script (any path),
+    ``uvx --from briefcase-ai[...] <launcher>``, or ``python -m briefcase.mcp``."""
+    command = os.path.basename(str(entry.get("command") or "")).lower()
+    command = command[:-4] if command.endswith(".exe") else command
+    args = [str(a) for a in entry.get("args") or []]
+    if command in _OUR_LAUNCHERS:
+        return True
+    if command in _RUNNERS:
+        return (bool(args) and args[-1] in _OUR_LAUNCHERS
+                and any(a == "--from" and i + 1 < len(args) and args[i + 1].startswith("briefcase-ai")
+                        for i, a in enumerate(args)))
+    if command.startswith("python"):
+        return args[:2] == ["-m", "briefcase.mcp"]
+    return False
+
+
+def _read_registration(scope: str, name: str) -> Optional[Dict[str, Any]]:
+    """The registered entry exactly as Claude Code stores it (command, args, env), read from the file that
+    holds that scope: user and local in ``~/.claude.json``, project in ``./.mcp.json``."""
+    import json
+
+    try:
+        if scope == "project":
+            data = json.loads((Path.cwd() / ".mcp.json").read_text(encoding="utf-8"))
+            servers = data.get("mcpServers")
+        else:
+            data = json.loads((edits.home() / ".claude.json").read_text(encoding="utf-8"))
+            if scope == "local":
+                data = (data.get("projects") or {}).get(str(Path.cwd())) or {}
+            servers = data.get("mcpServers")
+        entry = (servers or {}).get(name)
+    except (OSError, ValueError, AttributeError):
         return None
-    command, args = None, ""
-    for line in text.splitlines():
-        key, _, value = line.strip().partition(":")
-        if key == "Command":
-            command = value.strip()
-        elif key == "Args":
-            args = value.strip()
-    return [command, *args.split()] if command else None
+    return entry if isinstance(entry, dict) else None
 
 
 def _replace_registration(command: Command, runner: Callable[[List[str]], Tuple[int, str]],
                           out: Printer) -> Tuple[int, str, bool]:
-    """The server name is taken. Replace it only when it is one of this SDK's own launchers (an earlier
-    version's registration), and put the old one back if adding the new one fails.
+    """The server name is taken in this scope. Replace it only when it is one of this SDK's own launchers
+    (an earlier version's registration), and put the exact previous entry back if the new one cannot be added.
     Returns ``(code, output, skipped)``."""
+    import json
+
+    scope = command.argv[4] if len(command.argv) > 4 else "user"
     name = command.argv[5] if len(command.argv) > 5 else ""
-    existing = _registered_launcher(runner, name)
+    existing = _read_registration(scope, name)
     if existing is None:
-        return 1, "an MCP server with this name already exists and could not be inspected; left unchanged", False
-    if not any(part in _OUR_LAUNCHERS for part in existing):
-        found = f" (command: {' '.join(existing)})"
-        out(f"  skip   an MCP server named {name!r} is already registered{found} and was not created by briefcase; "
-            f"left unchanged. To use briefcase-ai-mcp instead, run: {mcp_payloads.shell(command.undo_hint or [])}")
+        return 1, (f"an MCP server named {name!r} already exists in {scope} scope and its settings could not "
+                   "be read; left unchanged"), False
+    if not _is_our_launcher(existing):
+        found = " ".join([str(existing.get("command", ""))] + [str(a) for a in existing.get("args") or []])
+        out(f"  skip   an MCP server named {name!r} is already registered in {scope} scope (command: {found}) and "
+            f"was not created by briefcase; left unchanged. To use briefcase-ai-mcp instead, run: "
+            f"{mcp_payloads.shell(command.undo_hint or [])} and then connect again")
         return 0, "", True
-    previous = command.argv[:7] + existing
+    restore = ["claude", "mcp", "add-json", "--scope", scope, name, json.dumps(existing, separators=(",", ":"))]
     out(f"  replace {mcp_payloads.shell(command.undo_hint or [])}")
     if runner(command.undo_hint or [])[0] != 0:
         return 1, "could not remove the existing registration", False
     code, output = runner(command.argv)
     if code != 0:
-        runner(previous)  # put the old registration back
-        output = f"{output}; the previous registration was restored".strip("; ")
+        if runner(restore)[0] == 0:
+            output = f"{output}; the previous registration was restored".strip("; ")
+        else:
+            output = (f"{output}; could not restore the previous registration, re-create it with: "
+                      f"{mcp_payloads.shell(restore)}").strip("; ")
     return code, output, False
 
 
