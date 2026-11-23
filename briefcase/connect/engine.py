@@ -217,8 +217,8 @@ def apply_plan(plan: Plan, ctx: Any, out: Printer,
         if resolved.status not in (CHANGE, NOOP):
             continue
         edit, mine = resolved.edit, (ctx[resolved.edit.tool] if isinstance(ctx, dict) else ctx)
-        key = target_key(edit.tool, edit.kind, mine.scope, str(resolved.target))
-        journal.setdefault("targets", {})[key] = {
+        tkey = target_key(edit.tool, edit.kind, mine.scope, str(resolved.target))
+        journal.setdefault("targets", {})[tkey] = {
             "tool": edit.tool, "kind": edit.kind, "scope": mine.scope, "target": str(resolved.target),
             "endpoint": mine.endpoint, "capture_content": mine.capture_content,
             "telemetry": edit.kind == "telemetry", "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
