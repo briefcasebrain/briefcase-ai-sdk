@@ -506,6 +506,10 @@ if args[:1] == ["compose"] and "exec" in args:
 else:
     stdin = ""
 record(stdin)
+for spec in (os.environ.get("FAKE_DOCKER_FAIL") or "").split(","):
+    parts = spec.split()
+    if parts and args[:1] == parts[:1] and all(p in args for p in parts[1:]):
+        sys.stderr.write("simulated failure: " + spec + "\n"); sys.exit(1)
 if args[:1] == ["version"]:
     if os.environ.get("FAKE_DOCKER_DOWN"):
         sys.stderr.write("Cannot connect to the Docker daemon\n"); sys.exit(1)
@@ -535,12 +539,22 @@ if args[:1] == ["load"]:
         else:
             print("Loaded image ID: " + image_id)
     save(); sys.exit(0)
+def servers_now():
+    """Image ids of the running server container(s). Seeded from FAKE_DOCKER_SERVERS (re-seeded when it changes);
+    `compose up` starts the server of the compose file's release (the image id its tag resolves to), and
+    `compose down` stops it."""
+    raw = os.environ.get("FAKE_DOCKER_SERVERS") or "[]"
+    if state.get("servers_src") != raw:
+        state["servers_src"], state["servers"] = raw, json.loads(raw)
+        save()
+    return state["servers"]
+
 if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in args):
-    # The containers of one Compose project: FAKE_DOCKER_PROJECT_ROWS is a JSON list of
-    # [image, compose config file] pairs, printed as the format asks (image, TAB, config_files label).
-    for image, config in json.loads(os.environ.get("FAKE_DOCKER_PROJECT_ROWS") or "[]"):
-        print(image + "\t" + config)
+    for i, _ in enumerate(servers_now()):
+        print("c%d" % i)
     sys.exit(0)
+if args[:1] == ["inspect"]:
+    print(servers_now()[int(args[-1][1:])]); sys.exit(0)
 if args[:1] == ["ps"]:
     # `docker ps --filter label=com.docker.compose.service=oci-jj-server ...`: FAKE_DOCKER_PS holds
     # "project<TAB>container" lines, as Docker prints them with the Compose labels in the format.
@@ -595,6 +609,17 @@ if args[:1] == ["compose"]:
                 sys.stderr.write("no such service: %s\n" % service); sys.exit(1)
     if "up" in args and os.environ.get("FAKE_DOCKER_COMPOSE_UP_FAIL"):
         sys.stderr.write("service failed to start\n"); sys.exit(1)
+    if "-f" in args and ("up" in args or "down" in args):
+        import re as _re
+        servers_now()
+        if "down" in args:
+            state["servers"] = []
+        else:
+            text = open(args[args.index("-f") + 1]).read()
+            match = _re.search(r"oci-jj-server:\n(?:.*\n)*?\s+image: (\S+)", text)
+            ref = match.group(1) if match else None
+            state["servers"] = [state["refs"][ref]] if ref in state["refs"] else []
+        save()
     if "ps" in args:
         if "--quiet" in args:
             print(os.environ.get("FAKE_DOCKER_RUNNING", "")); sys.exit(0)

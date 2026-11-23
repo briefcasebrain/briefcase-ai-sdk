@@ -105,13 +105,14 @@ Then `briefcase-ai engine up`, `briefcase-ai engine status`, and the engine comm
 | `engine up [--wait]` / `down [--volumes]` / `logs [SERVICE] [-f]` | `docker compose` on the generated file, project `briefcase-engine`. |
 | `engine status [--json] [--token T]` | What is installed, the key it was verified with, which services run, whether gRPC answers, and (with a licence token) whether a newer release exists. Exit 3 when nothing is installed. |
 | `engine doctor [--json]` | Docker, compose, the pinned keys, the stored manifest's signature, each image against the ID verified at install, the secrets file mode, and one authenticated gRPC call. |
-| `engine upgrade --code C \| --token T [--version X]` | Installs the newest release (or the code's) and restarts onto it when the engine is running; the release becomes the current one only after the restart guard passed and `compose up` succeeded, so a refused or failed upgrade can simply be run again. Secrets and data volumes are kept. |
-| `engine uninstall [--purge] [--dry-run]` | Removes the images and the version directory, and takes the stack down only when that release is the one running (releases share one Compose project; another release's containers are left up). `--purge` also deletes the data volumes and then the secrets and certificates, but only when no other release is installed and every engine volume is confirmed gone; if one cannot be removed, nothing is deleted, the secrets included, the command exits 1 and says why. |
+| `engine upgrade --code C \| --token T [--version X]` | Installs the newest release (or the code's) and restarts onto it when the engine is running; the release becomes the current one only after the restart guard passed and `compose up` succeeded, so a refused or failed upgrade can simply be run again. The restart and the switch happen under one lock, any docker error (it cannot say what runs, `compose up` fails) fails the command and leaves the old release current, and an upgrade keeps the installed TLS setting unless you pass `--tls` or `--no-tls`. Secrets and data volumes are kept. |
+| `engine uninstall [--purge] [--dry-run]` | Removes the images and the version directory, and takes the stack down only when that release is the one running (releases share one Compose project, so "running" means the project's server container uses this release's recorded image id; sidecars and labels prove nothing). If docker cannot say what runs, or `compose down` fails, nothing is deleted and the command exits 1. `--purge` also deletes the data volumes and then the secrets and certificates, but only when no other release is installed and every engine volume is positively confirmed absent. Docker missing, failing or refusing to inspect counts as "unknown" and blocks (`--force-without-docker` is accepted only for an install whose record proves no volume was ever created). When it blocks, the secrets and the install record are kept and the command exits 1; other engine volumes may already have been removed, and the same command can be run again. |
 
 ## The signed release index
 
-`engine status` (with a licence token) and `engine upgrade` learn the newest version from `releases/index.json`,
-which is a single object, not a file plus a `.sig`:
+`engine status` (with a licence token) learns the newest version from `releases/index.json`,
+which is a single object, not a file plus a `.sig`. (`engine upgrade` gets its release from the install API and
+verifies that release's manifest; it does not read the index.)
 
 ```json
 {"schema_version": 2, "key_id": "sha256:<hex>", "payload": "<the index document, as JSON text>", "signature": "<base64>"}

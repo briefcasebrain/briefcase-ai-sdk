@@ -16,43 +16,11 @@ from briefcase.cli.__main__ import main
 from briefcase.engine import compose, install, trust
 
 from tests.cli.engine_fakes import (
-    OPENSSL, VERSION, FakePlatform, SigningKey, build_index, build_release, calls,
+    OPENSSL, VERSION, SigningKey, build_index, build_release, calls,
     docker_state, install_fake_tools, make_docker_archive,
 )
 
 TOOLS = ("docker", "skopeo", "xattr")
-
-
-@pytest.fixture
-def key(tmp_path_factory):
-    return SigningKey(tmp_path_factory.mktemp("signing"))
-
-
-@pytest.fixture
-def pinned(key, tmp_path, monkeypatch):
-    """Test-only trust root: the throwaway key is the one release key this 'SDK build' pins."""
-    keys_dir = tmp_path / "keys"
-    key.pin(keys_dir)
-    monkeypatch.setattr(trust, "KEYS_DIR", keys_dir)
-    return keys_dir
-
-
-@pytest.fixture
-def env(shell_home, tmp_path, monkeypatch, key, pinned):
-    release = build_release(key)
-    platform = FakePlatform(release, build_index(key, [VERSION, "0.3.0"]))
-    monkeypatch.setattr(install, "host_target", lambda: {"os": "linux", "arch": "x86_64"})
-    monkeypatch.setattr(install, "is_macos", lambda: False)
-    log = tmp_path / "docker.log"
-    # Without `cryptography` the installer falls back to `cosign verify-blob`; the fake cosign
-    # verifies with openssl, so the whole suite also runs (and checks for real) on that path.
-    install_fake_tools(tmp_path / "bin", log, monkeypatch, TOOLS + (() if trust.crypto_available() else ("cosign",)))
-    monkeypatch.setenv("BRIEFCASE_PLATFORM_URL", platform.url)
-    for name in ("OCI_JJ_SERVER", "OCI_JJ_AUTH_TOKEN", "OCI_JJ_TLS_CA", "OCI_JJ_REPO", "BRIEFCASE_LICENSE_TOKEN"):
-        monkeypatch.delenv(name, raising=False)
-    yield {"platform": platform, "release": release, "log": log, "home": shell_home / ".briefcase",
-           "key": key, "tmp": tmp_path}
-    platform.close()
 
 
 def _install(*extra):
@@ -1107,7 +1075,7 @@ def test_upgrade_needs_a_code_or_token_and_restarts_a_running_engine(env, capsys
     assert main(["engine", "upgrade", "--yes"]) == 2
     assert "no install code, licence token or offline bundle" in capsys.readouterr().err
     env["platform"].release = build_release(key, version="0.5.0")
-    monkeypatch.setenv("FAKE_DOCKER_RUNNING", "abc123")
+    _project_runs(monkeypatch, _engine.current_install())
     env["log"].unlink()
     assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 0
     assert _engine.current_install()["version"] == "0.5.0"
@@ -1158,7 +1126,7 @@ def test_upgrade_restart_runs_the_foreign_volume_check_first(env, capsys, monkey
     assert _install("--code", "bci_good") == 0
     capsys.readouterr()
     env["platform"].release = build_release(key, version="0.5.0")
-    monkeypatch.setenv("FAKE_DOCKER_RUNNING", "abc123")
+    _project_runs(monkeypatch, _engine.current_install())
     _volumes(monkeypatch, pgdata={})
     env["log"].unlink()
     assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 1
@@ -1192,15 +1160,17 @@ def _second_install(version="0.5.0", binary_only=False):
     else:
         other["images"] = {k: v.replace(VERSION, version) for k, v in base["images"].items()}
         other["compose"] = base["compose"].replace(VERSION, version)
+        import hashlib
+        other["image_ids"] = {k: "sha256:" + hashlib.sha256((version + k).encode()).hexdigest()
+                              for k in base["image_ids"]}
     state["installs"][version] = other
     _engine.installed_path().write_text(json.dumps(state))
     return other
 
 
 def _project_runs(monkeypatch, record):
-    """Make the fake docker report that the containers of the engine project are this record's."""
-    rows = [[ref, record["compose"]] for ref in record["images"].values()]
-    monkeypatch.setenv("FAKE_DOCKER_PROJECT_ROWS", json.dumps(rows))
+    """Make the fake docker report that the engine project's server container runs this record's image."""
+    monkeypatch.setenv("FAKE_DOCKER_SERVERS", json.dumps([record["image_ids"]["server"]]))
 
 
 def test_purge_keeps_the_secrets_and_the_install_when_a_volume_cannot_be_removed(env, capsys, monkeypatch):
@@ -1253,7 +1223,7 @@ def test_a_retry_after_a_refused_upgrade_performs_the_upgrade(env, capsys, monke
     assert _install("--code", "bci_good") == 0
     capsys.readouterr()
     env["platform"].release = build_release(key, version="0.5.0")
-    monkeypatch.setenv("FAKE_DOCKER_RUNNING", "abc123")
+    _project_runs(monkeypatch, _engine.current_install())
     _volumes(monkeypatch, pgdata={})  # a volume the engine did not create refuses the restart
     env["log"].unlink()
     assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 1
@@ -1269,7 +1239,7 @@ def test_a_retry_after_a_refused_upgrade_performs_the_upgrade(env, capsys, monke
 def test_a_failed_compose_up_does_not_move_the_current_version(env, capsys, monkeypatch, key):
     assert _install("--code", "bci_good") == 0
     env["platform"].release = build_release(key, version="0.5.0")
-    monkeypatch.setenv("FAKE_DOCKER_RUNNING", "abc123")
+    _project_runs(monkeypatch, _engine.current_install())
     monkeypatch.setenv("FAKE_DOCKER_COMPOSE_UP_FAIL", "1")
     assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 1
     assert _engine.current_install()["version"] == VERSION

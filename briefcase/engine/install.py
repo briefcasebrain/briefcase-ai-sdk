@@ -805,6 +805,9 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
     }
     state = _engine.load_state(env)
     state["schema"] = 2
+    if "compose_used" not in state:
+        state["compose_used"] = any(r.get("compose") for r in (state.get("installs") or {}).values())
+    state["compose_used"] = bool(state["compose_used"]) or compose_file is not None  # sticky: volumes may exist
     state.setdefault("installs", {})[manifest.version] = record
     if opts.make_current or not state.get("current"):
         state["current"] = manifest.version
@@ -812,13 +815,19 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
     return record
 
 
-def set_current(version: str, env: Optional[Mapping[str, str]] = None) -> None:
-    """Make an installed release the current one (under the install lock)."""
-    with engine_lock(env):
+def set_current(version: str, env: Optional[Mapping[str, str]] = None, locked: bool = False) -> None:
+    """Make an installed release the current one, under the install lock (``locked``: the caller holds it)."""
+    def write() -> None:
         state = _engine.load_state(env)
         if version in (state.get("installs") or {}) and state.get("current") != version:
             state["current"] = version
             save_state(state, env)
+
+    if locked:
+        write()
+    else:
+        with engine_lock(env):
+            write()
 
 
 # --------------------------------------------------------------------------- newer versions
