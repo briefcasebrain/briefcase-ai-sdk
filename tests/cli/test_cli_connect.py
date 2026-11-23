@@ -513,3 +513,13 @@ def test_start_picks_the_local_receiver_not_the_first_tools_remote(home, monkeyp
     started.clear()
     assert main(["connect", "claude-code", "codex", "--no-mcp", "--yes", "--start"]) == 0
     assert len(started) == 1 and started[0].port == 4318
+
+
+def test_undo_forgets_the_targets_recorded_settings(home, capsys):
+    assert main(["connect", "claude-code", "--no-mcp", "--yes", "--endpoint", "https://claude.example.com",
+                 "--capture-content"]) == 0
+    assert main(["connect", "--undo", "claude-code"]) == 0
+    capsys.readouterr()
+    assert main(["connect", "claude-code", "--no-mcp", "--yes"]) == 0
+    assert _claude_endpoint(home) == "http://127.0.0.1:4318"
+    assert "prompt" not in capsys.readouterr().err.lower()

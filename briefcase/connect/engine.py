@@ -271,6 +271,8 @@ def undo(tools: Optional[List[str]], out: Printer, dry_run: bool = False) -> int
         for name in list(journal["tools"]):
             if tools is None or name in tools:
                 del journal["tools"][name]
+        for key in [k for k, v in journal.get("targets", {}).items() if tools is None or v["tool"] in tools]:
+            del journal["targets"][key]  # an undone target must not lend its endpoint or capture to a new connect
         edits.save_journal(journal)
     return visited
 
