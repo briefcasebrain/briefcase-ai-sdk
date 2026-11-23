@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2026 Briefcase AI, Inc. — the oci-jj API contract is Apache-2.0 (see proto/LICENSE);
+// Copyright (c) 2026 Briefcase AI — the oci-jj API contract is Apache-2.0 (see proto/LICENSE);
 // the oci-jj engine that implements it is proprietary (see LICENSE and NOTICE at the repository root).
-// Vendored from oci-jj proto/oci_jj/v1/vcs.proto (commit 54120d0); the engine is not part of this package.
+// Vendored from oci-jj proto/oci_jj/v1/vcs.proto (commit 76fa3df); the engine is not part of this package.
 // Regenerate with scripts/engine/regen_proto.py; do not edit by hand.
 // VcsService — the version-control plane RPC surface.
 // Verbatim anchor: §9.2. M1 implements {Push, Log, OpLog, Diff, Search, Undo,
@@ -380,6 +380,7 @@ message LogRequest {
 message OpLogRequest {
   int64 after_op_id = 1;   // tail via op_id > $last (§16)
   int32 limit = 2;
+  string repo = 3;         // when set, only ops whose payload names this repo
 }
 
 // §9.2 DiffRequest with the canonical Depth enum.
@@ -427,6 +428,7 @@ message SearchHit {
 
 message UndoRequest {
   string op_ref = 1;       // op id/label to invert (e.g. "cohort_push@abc123")
+  string repo = 2;         // with an empty op_ref: undo the latest push in this repo (empty: the tenant's latest)
 }
 
 message UndoResponse {

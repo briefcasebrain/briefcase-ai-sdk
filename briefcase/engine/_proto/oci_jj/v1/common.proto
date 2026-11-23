@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2026 Briefcase AI, Inc. — the oci-jj API contract is Apache-2.0 (see proto/LICENSE);
+// Copyright (c) 2026 Briefcase AI — the oci-jj API contract is Apache-2.0 (see proto/LICENSE);
 // the oci-jj engine that implements it is proprietary (see LICENSE and NOTICE at the repository root).
-// Vendored from oci-jj proto/oci_jj/v1/common.proto (commit 54120d0); the engine is not part of this package.
+// Vendored from oci-jj proto/oci_jj/v1/common.proto (commit 76fa3df); the engine is not part of this package.
 // Regenerate with scripts/engine/regen_proto.py; do not edit by hand.
 // oci-jj common wire types. Shared across VcsService, ChunkService, IngestService.
 // Traces to docs/system-design.md §4 (data model), §10 (catalog), §9.2 (RPC).
