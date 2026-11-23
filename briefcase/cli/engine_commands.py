@@ -85,6 +85,8 @@ def register(sub) -> None:
     down = _sub(sp, "down", "Stop the engine. Data is kept unless --volumes.", "briefcase-ai engine down")
     down.add_argument("--volumes", action="store_true", help="Also delete the engine's data (asks first).")
     down.add_argument("--yes", "-y", action="store_true", help="Do not ask for confirmation.")
+    down.add_argument("--dry-run", dest="engine_dry_run", action="store_true",
+                      help="With --volumes: show what would be deleted; change nothing.")
     down.set_defaults(func=cmd_down)
 
     st = _sub(sp, "status", "Show what is installed, the key it was verified with, and whether it runs.",
@@ -295,12 +297,14 @@ def _volume_state(name: str) -> Tuple[str, str]:
     return "unknown", stderr or f"exit {_rc(res)}"
 
 
-def remove_engine_volumes(allow_no_docker: bool = False) -> Tuple[List[str], List[str]]:
+def remove_engine_volumes(confirmed: Confirmed, allow_no_docker: bool = False) -> Tuple[List[str], List[str]]:
     """Remove the volumes carrying this engine's label, and check each is gone. Returns ``(kept, problems)``:
     ``kept`` are same-named volumes this engine did not create (left alone), ``problems`` say why a labelled
     volume could not be confirmed gone."""
     from briefcase.engine import compose as engine_compose
 
+    if not isinstance(confirmed, Confirmed):
+        raise TypeError("removing volumes needs a Confirmed token")
     kept: List[str] = []
     problems: List[str] = []
     for key in engine_compose.VOLUME_KEYS:
@@ -328,7 +332,54 @@ def _kept_message(kept: List[str]) -> str:
             "them: " + " && ".join(f"docker volume rm {n}" for n in kept))
 
 
-def teardown(record: Dict[str, Any], remove_volumes: bool) -> int:
+class Confirmed:
+    """Proof that the person authorised this destructive step. Only :func:`_authorize` can make one, and a dry run
+    never gets one, so no deleting function can be reached without it (each takes one as a required argument)."""
+
+    _key = object()
+
+    def __init__(self, what: str, key: object = None) -> None:
+        if key is not Confirmed._key:
+            raise TypeError("a Confirmed token comes only from the confirmation step")
+        self.what = what
+
+
+def _authorize(args, question: str, flag_fix: str) -> Tuple[Optional[Confirmed], int]:
+    """``(token, 0)`` when confirmed, else ``(None, exit code)``. A dry run is ``(None, 0)``."""
+    if _dry(args):
+        print("dry run: nothing was changed.")
+        return None, 0
+    answer = _ux.confirm(question, default=False, assume_yes=bool(getattr(args, "yes", False)))
+    if not answer:
+        return None, _ux.fail("not deleting anything without confirmation", fix=flag_fix,
+                              code=2 if answer is None else 1)
+    return Confirmed(question, Confirmed._key), 0
+
+
+def _daemon_problems(state: Dict[str, Any], force_without_docker: bool) -> List[str]:
+    """Reasons not to touch the engine's volumes and secrets from here (read-only): the daemon is not the one the
+    install used, none is recorded, or ``--force-without-docker`` is not provable."""
+    from briefcase.engine import install as _install_mod
+
+    problems: List[str] = []
+    provable = force_without_docker and state.get("compose_used") is False
+    if force_without_docker and not provable:
+        problems.append("--force-without-docker is only allowed for an install that never created volumes, and "
+                        "this one's record does not prove that")
+    recorded = list(state.get("docker_contexts") or [])
+    if not provable and state.get("compose_used"):
+        here = _install_mod.docker_identity(_runner())
+        if not recorded:
+            problems.append("the record does not say which Docker daemon this install used, so a probe here says "
+                            "nothing about its volumes")
+        elif here is None or set(recorded) != {here}:
+            problems.append("the Docker daemon is not the one this install used (it used "
+                            f"{', '.join(recorded)}; now {here or 'unknown'}), so a probe here says nothing about "
+                            "its volumes")
+    return problems
+
+
+def teardown(record: Dict[str, Any], remove_volumes: bool, confirmed: Optional[Confirmed] = None) -> int:
     """``compose down`` without ever passing ``-v`` (it would take a same-named volume of another stack with
     it). With ``remove_volumes``, remove only the volumes carrying this engine's label, check they are gone, and
     name any other volume of the same name that is left, with the command to remove it by hand. Non-zero when
@@ -336,7 +387,9 @@ def teardown(record: Dict[str, Any], remove_volumes: bool) -> int:
     rc = _rc(_run(_compose(record, "down")))
     if rc != 0 or not remove_volumes:
         return rc
-    kept, problems = remove_engine_volumes()
+    if confirmed is None:
+        raise TypeError("removing volumes needs a Confirmed token")
+    kept, problems = remove_engine_volumes(confirmed)
     if kept:
         print(_kept_message(kept))
     for problem in problems:
@@ -456,12 +509,17 @@ def _install(args, upgrading: bool) -> int:
     from briefcase.engine import install as _inst
     from briefcase.engine import trust as _trust
 
-    errors = (_inst.InstallError, _trust.TrustError, _bundle.BundleError)
+    errors = (_inst.InstallError, _trust.TrustError, _bundle.BundleError, _engine.StateUnreadable)
     as_json = bool(getattr(args, "json", False))
     try:
         opts = _options(args)
     except _Usage as exc:
         return _ux.fail(str(exc.args[0]), fix=exc.args[1], code=2)
+    try:
+        _engine.load_state_strict()
+        _engine.read_env_file(_engine.secrets_path(), strict=True)
+    except _engine.StateUnreadable as exc:
+        return _ux.fail(str(exc), fix=exc.fix)
     previous = _engine.current_install()
     if upgrading and previous and not getattr(args, "tls", False) and not getattr(args, "no_tls", False):
         opts.tls = bool(previous.get("tls"))  # an upgrade keeps what was installed unless told otherwise
@@ -581,6 +639,10 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
             log(f"restarting onto {record['version']}" + (" (TLS changed) " if tls_changed else " ")
                 + "(data volumes are kept)...")
             if _rc(_run(_compose(record, "up", "-d", "--remove-orphans"))) != 0:
+                if tls_changed and previous:  # the running transport is still the old one: so is the record
+                    fresh = _engine.load_state(opts.env)
+                    fresh.setdefault("installs", {})[record["version"]] = previous
+                    _inst.save_state(fresh, opts.env)
                 return _ux.fail("the new engine did not start", fix="briefcase-ai engine logs")
             _inst.set_current(record["version"], opts.env, locked=True)
             return None
@@ -751,8 +813,18 @@ def running_releases() -> Tuple[str, List[str], str]:
     fits = []
     for version, rec in installs.items():
         ids = set((rec.get("image_ids") or {}).values())
-        if servers and all(row["image"] == (rec.get("image_ids") or {}).get("server") for row in servers) \
-                and ours <= ids:
+        recorded = rec.get("image_ids") or {}
+
+        def agrees(row: Dict[str, str]) -> bool:
+            """A container of a service this release records must run exactly the image it recorded for it (an
+            unknown image in the gateway is not this release, whatever the server runs)."""
+            key = "server" if row["service"] == "oci-jj-server" else row["service"].replace("-", "_")
+            if key in recorded:
+                return row["image"] == recorded[key]
+            return row["image"] not in known or row["image"] in ids
+
+        if servers and all(row["image"] == recorded.get("server") for row in servers) and ours <= ids \
+                and all(agrees(row) for row in rows):
             fits.append(version)
     if len(fits) > 1:
         paths = {c for row in servers for c in row["config"].split(",")}
@@ -816,6 +888,7 @@ def _reinstall_fix(record: Dict[str, Any]) -> str:
 
 
 def cmd_up(args, store, engine, stack) -> int:
+    from briefcase import engine as _engine
     from briefcase.engine import install as _inst
 
     if _require_stack(args) is None:
@@ -831,6 +904,13 @@ def cmd_up(args, store, engine, stack) -> int:
         if getattr(args, "wait", False):
             argv += ["--wait", "--wait-timeout", "300"]
         rc = _rc(_run(argv))
+        if rc == 0:  # the daemon the volumes are actually used on
+            identity = _inst.docker_identity(_runner())
+            fresh = _engine.load_state()
+            if identity and identity not in (fresh.get("docker_contexts") or []):
+                fresh["docker_contexts"] = list(fresh.get("docker_contexts") or []) + [identity]
+                fresh["compose_used"] = True
+                _inst.save_state(fresh)
     if rc != 0:
         return _ux.fail("docker compose up failed (see above)", fix="briefcase-ai engine doctor")
     print(f"engine {record['version']} started: gRPC {record['grpc_addr']}, registry gateway {record['gateway']}")
@@ -839,17 +919,26 @@ def cmd_up(args, store, engine, stack) -> int:
 
 
 def cmd_down(args, store, engine, stack) -> int:
-    record = _require_stack(args)
-    if record is None:
+    from briefcase import engine as _engine
+    from briefcase.engine import install as _install_mod
+
+    if _require_stack(args) is None:
         return 3 if _local_install() is None else 1
     volumes = bool(getattr(args, "volumes", False))
-    if volumes:
-        answer = _ux.confirm("Delete the engine's data volumes (database, blobs, registry)?", default=False,
-                             assume_yes=bool(getattr(args, "yes", False)))
-        if not answer:
-            return _ux.fail("not deleting data without confirmation", fix="briefcase-ai engine down --volumes --yes",
-                            code=2 if answer is None else 1)
-    rc = teardown(record, volumes)
+    with _install_mod.engine_lock():  # lifecycle commands do not interleave
+        record = _local_install()
+        if record is None or not record.get("compose"):
+            return 1
+        token = None
+        if volumes:
+            problems = _daemon_problems(_engine.load_state(), False)
+            if problems:
+                return _ux.fail(_purge_blocked(problems), fix="briefcase-ai engine doctor", code=1)
+            token, code = _authorize(args, "Delete the engine's data volumes (database, blobs, registry)?",
+                                     "briefcase-ai engine down --volumes --yes")
+            if token is None:
+                return code
+        rc = teardown(record, volumes, token)
     if rc != 0:
         return _ux.fail("docker compose down failed, or an engine volume could not be removed (see above)",
                         fix="briefcase-ai engine doctor")
@@ -1096,7 +1185,8 @@ def cmd_doctor(args, store, engine, stack) -> int:
 # --------------------------------------------------------------------------- uninstall
 
 
-def _remove_install(version: str, purge: bool, force_without_docker: bool = False) -> Tuple[str, Optional[str]]:
+def _remove_install(version: str, purge: bool, force_without_docker: bool,
+                    confirmed: Confirmed) -> Tuple[str, Optional[str]]:
     """Run under ``engine_lock``. Re-reads installed.json, so what is removed is decided now and not when the
     plan was shown: only ``version``, and the shared files and volumes only when no other install remains.
 
@@ -1113,6 +1203,10 @@ def _remove_install(version: str, purge: bool, force_without_docker: bool = Fals
         return "gone", f"engine {version} is no longer installed; nothing was changed"
     others = [v for v in (state.get("installs") or {}) if v != version]
     last = purge and not others
+    if last:  # the daemon is verified before anything is stopped or deleted
+        early = _daemon_problems(state, force_without_docker)
+        if early:
+            return "blocked", _purge_blocked(early)
     # Every release shares one Compose project, so only the release whose server is up is taken down.
     if record.get("compose"):
         running = running_install(record)
@@ -1124,7 +1218,7 @@ def _remove_install(version: str, purge: bool, force_without_docker: bool = Fals
     if last:
         # The volumes go whichever release created them (a client-only install can be the last one left after a
         # deferred cleanup), and the secrets only after every one is confirmed absent.
-        problems = _purge_problems(state, force_without_docker)
+        problems = _purge_volumes(state, force_without_docker, confirmed)
         if problems:
             return "blocked", _purge_blocked(problems)
     docker = _install_mod.Docker(_runner())
@@ -1162,34 +1256,25 @@ def _remove_install(version: str, purge: bool, force_without_docker: bool = Fals
     return "removed", note
 
 
-def _purge_problems(state: Dict[str, Any], force_without_docker: bool) -> List[str]:
-    """Remove every engine volume and report why the secrets must nonetheless stay (empty list: all confirmed
-    absent, on the daemon the install used)."""
-    from briefcase.engine import install as _install_mod
-
+def _purge_volumes(state: Dict[str, Any], force_without_docker: bool, confirmed: Confirmed) -> List[str]:
+    """Verify the daemon, then remove every engine volume. Returns why the secrets must nonetheless stay (empty:
+    all confirmed absent, on the daemon the install used). Nothing is removed unless the daemon check passed."""
+    problems = _daemon_problems(state, force_without_docker)
+    if problems:
+        return problems
     provable = force_without_docker and state.get("compose_used") is False
-    kept, problems = remove_engine_volumes(allow_no_docker=provable)
-    if force_without_docker and not provable:
-        problems.append("--force-without-docker is only allowed for an install that never created volumes, and "
-                        "this one's record does not prove that")
-    recorded = list(state.get("docker_contexts") or [])
-    if recorded and not provable:
-        here = _install_mod.docker_identity(_runner())
-        if here is None or set(recorded) != {here}:
-            problems.append("the Docker daemon is not the one this install used (it used "
-                            f"{', '.join(recorded)}; now {here or 'unknown'}), so a probe here says nothing about "
-                            "its volumes")
+    kept, problems = remove_engine_volumes(confirmed, allow_no_docker=provable)
     if not problems and kept:
         print(_kept_message(kept))
     return problems
 
 
-def _purge_leftovers(force_without_docker: bool) -> int:
+def _purge_leftovers(force_without_docker: bool, confirmed: Confirmed) -> int:
     """``uninstall --purge`` when nothing is installed but an earlier uninstall left volumes and secrets behind."""
     from briefcase import engine as _engine
 
     state = _engine.load_state()
-    problems = _purge_problems(state, force_without_docker)
+    problems = _purge_volumes(state, force_without_docker, confirmed)
     if problems:
         return _ux.fail(_purge_blocked(problems), fix="fix what is named above, then: briefcase-ai engine "
                                                       "uninstall --purge", code=1)
@@ -1220,37 +1305,53 @@ def cmd_uninstall(args, store, engine, stack) -> int:
     from briefcase import engine as _engine
     from briefcase.engine import install as _install_mod
 
-    if _local_install() is None and getattr(args, "purge", False) and _engine.load_state().get("compose_used"):
-        from briefcase.engine import install as _install_mod2
-
-        with _install_mod2.engine_lock():
-            return _purge_leftovers(bool(getattr(args, "force_without_docker", False)))
-    record = _require_local(args)
-    if record is None:
-        return 3
     purge = bool(getattr(args, "purge", False))
-    images = sorted(set((record.get("images") or {}).values()))
-    version_dir = Path(record.get("manifest") or record.get("compose") or "").parent
-    steps = []
-    if record.get("compose"):
-        steps.append("docker compose down" + (" and remove the data volumes this engine created (others are left)"
-                                              if purge else ""))
-    steps += [f"docker image rm {ref}" for ref in images]
-    steps.append(f"delete {version_dir}")
-    if purge:
-        steps.append(f"delete {_engine.secrets_path()} and {_engine.engine_dir() / 'tls'}")
-    print(f"Uninstall engine {record['version']}:")
-    for step in steps:
-        print(f"  - {step}")
-    if _dry(args):
-        print("dry run: nothing was changed.")
-        return 0
-    answer = _ux.confirm("Go ahead?", default=False, assume_yes=bool(getattr(args, "yes", False)))
-    if not answer:
-        return _ux.fail("not uninstalling without confirmation", fix="briefcase-ai engine uninstall --yes",
-                        code=2 if answer is None else 1)
-    with _install_mod.engine_lock():  # installed.json and engine.env are shared with every install
-        outcome, note = _remove_install(record["version"], purge, bool(getattr(args, "force_without_docker", False)))
+    force_wd = bool(getattr(args, "force_without_docker", False))
+    # The release to remove is the one the person sees now; what is removed is decided under the lock.
+    wanted = (_engine.current_install() or {}).get("version")
+    # Order, for every destructive command: lock, re-read state, verify the daemon, authorise, and only then (and
+    # never in a dry run) call anything that deletes.
+    with _install_mod.engine_lock():
+        try:
+            state = _engine.load_state_strict()
+        except _engine.StateUnreadable as exc:
+            return _ux.fail(str(exc), fix=exc.fix)
+        record = (state.get("installs") or {}).get(wanted) if wanted else None
+        if wanted and record is None:
+            return _ux.fail(f"engine {wanted} is no longer installed; nothing was changed",
+                            fix="briefcase-ai engine status", code=1)
+        if record is None and not (purge and state.get("compose_used")):
+            _engine.not_installed(False)
+            return 3
+        installs = state.get("installs") or {}
+        others = [v for v in installs if record is None or v != record["version"]]
+        last = purge and not others
+        problems = _daemon_problems(state, force_wd) if last else []
+        steps = []
+        if record is not None:
+            images = sorted(set((record.get("images") or {}).values()))
+            version_dir = Path(record.get("manifest") or record.get("compose") or "").parent
+            if record.get("compose"):
+                steps.append("docker compose down (only if this release is the one running)"
+                             + (" and remove the data volumes this engine created (others are left)" if purge else ""))
+            steps += [f"docker image rm {ref}" for ref in images]
+            steps.append(f"delete {version_dir}")
+        elif purge:
+            steps.append("remove the data volumes this engine created (others are left)")
+        if purge:
+            steps.append(f"delete {_engine.secrets_path()} and {_engine.engine_dir() / 'tls'}")
+        print(f"Uninstall engine {record['version']}:" if record else "Remove what an earlier uninstall left:")
+        for step in steps:
+            print(f"  - {step}")
+        if problems:
+            return _ux.fail(_purge_blocked(problems), fix="fix what is named above, then: briefcase-ai engine "
+                                                          "uninstall --purge", code=1)
+        token, code = _authorize(args, "Go ahead?", "briefcase-ai engine uninstall --yes")
+        if token is None:
+            return code
+        if record is None:
+            return _purge_leftovers(force_wd, token)
+        outcome, note = _remove_install(record["version"], purge, force_wd, token)
     if outcome == "gone":
         return _ux.fail(note or "", fix="briefcase-ai engine status", code=1)
     if outcome == "blocked":

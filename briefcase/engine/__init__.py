@@ -68,6 +68,34 @@ def load_state(env: Optional[Mapping[str, str]] = None) -> Dict[str, Any]:
         return {}
 
 
+class StateUnreadable(RuntimeError):
+    """``installed.json`` or ``engine.env`` exists but cannot be read (permissions, corruption). Not the same as
+    missing: treating it as empty would generate new passwords for volumes that still hold the old ones, or record
+    that no volumes ever existed."""
+
+    fix = "briefcase-ai engine doctor"
+
+
+def load_state_strict(env: Optional[Mapping[str, str]] = None) -> Dict[str, Any]:
+    """Like :func:`load_state`, but only a missing file is ``{}``; any other failure raises."""
+    path = installed_path(env)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return {}
+    except (OSError, UnicodeDecodeError) as exc:
+        raise StateUnreadable(f"{path} exists but cannot be read ({exc.__class__.__name__}); nothing was "
+                              "changed. Fix its permissions or restore it (it records which volumes exist)") from exc
+    try:
+        data = json.loads(text)
+    except ValueError as exc:
+        raise StateUnreadable(f"{path} is not valid JSON; nothing was changed. Restore it from a backup or remove "
+                              "it by hand if you are sure no engine volumes exist") from exc
+    if not isinstance(data, dict):
+        raise StateUnreadable(f"{path} does not hold a JSON object; nothing was changed")
+    return data
+
+
 def current_install(env: Optional[Mapping[str, str]] = None) -> Optional[Dict[str, Any]]:
     """The record of the current install, or ``None``."""
     state = load_state(env)
@@ -90,11 +118,18 @@ def available(env: Optional[Mapping[str, str]] = None, server: Optional[str] = N
     return bool(server) or installed(env) or configured_address(env) is not None
 
 
-def read_env_file(path: Path) -> Dict[str, str]:
+def read_env_file(path: Path, strict: bool = False) -> Dict[str, str]:
+    """The ``KEY=value`` lines of ``path``. With ``strict`` only a missing file is empty; an unreadable one raises
+    :class:`StateUnreadable` (so no replacement passwords are generated for volumes that hold the old ones)."""
     values: Dict[str, str] = {}
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError:
+    except FileNotFoundError:
+        return values
+    except (OSError, UnicodeDecodeError) as exc:
+        if strict:
+            raise StateUnreadable(f"{path} exists but cannot be read ({exc.__class__.__name__}); its passwords are "
+                                  "not replaced. Fix its permissions or restore it") from exc
         return values
     for line in text.splitlines():
         line = line.strip()

@@ -74,7 +74,7 @@ def ensure_secrets(path: Path) -> Dict[str, str]:
     """Read ``engine.env``, add any missing secret, write it back with mode 0600."""
     from briefcase.engine import read_env_file
 
-    values = read_env_file(path)
+    values = read_env_file(path, strict=True)
     changed = False
     for key in SECRET_KEYS:
         if not values.get(key):

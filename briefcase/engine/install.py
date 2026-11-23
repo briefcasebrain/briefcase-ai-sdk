@@ -574,7 +574,7 @@ def offline_install(opts: InstallOptions, *, runner=subprocess.run, which: Calla
     docker = Docker(runner)
     assert opts.manifest is not None and opts.bundle is not None
     manifest_path, bundle_path = Path(opts.manifest), Path(opts.bundle)
-    if docker.available() is None:
+    if not opts.skip_images and docker.available() is None:
         raise InstallError("Docker is not installed or its daemon is not running",
                            fix="install Docker (https://docs.docker.com/get-docker/), start it, then re-run")
     manifest, sig, entry, _how = verified or verify_offline(opts, verify_kw)
@@ -608,7 +608,12 @@ def offline_install(opts: InstallOptions, *, runner=subprocess.run, which: Calla
                 else:
                     log(f"{bentry['file']} is not next to the manifest or the bundle; pass --binary FILE to "
                         "install the client binary")
-            images, ids, method = _load_images(manifest, staged_bundle, docker, target, runner, which, log)
+            if opts.skip_images:
+                images: Dict[str, str] = {}
+                ids: Dict[str, str] = {}
+                method: Optional[str] = None
+            else:
+                images, ids, method = _load_images(manifest, staged_bundle, docker, target, runner, which, log)
         finally:
             shutil.rmtree(stage_dir, ignore_errors=True)
         return _finish(opts, manifest, install_dir, binary_path, binary_info, images, ids,
@@ -803,7 +808,12 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
         "tls_ca": tls_info.get("ca"),
         **extra,
     }
-    state = _engine.load_state(env)
+    state = _engine.load_state_strict(env)
+    old = (state.get("installs") or {}).get(manifest.version)
+    if isinstance(old, dict) and old.get("compose") and compose_file is None:
+        raise InstallError(f"engine {manifest.version} is installed with its images, and a client-only install of "
+                           "the same release would drop them while its containers may still run",
+                           fix="briefcase-ai engine uninstall   # then install again with --no-images")
     state["schema"] = 2
     if "compose_used" not in state:
         state["compose_used"] = any(r.get("compose") for r in (state.get("installs") or {}).values())

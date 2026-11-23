@@ -378,3 +378,130 @@ def test_up_cannot_start_the_old_release_while_an_upgrade_is_moving_current(env,
     assert state["current"] == B
     servers = [c[1] for c in docker_state(env["log"])["containers"] if c[0] == "oci-jj-server"]
     assert servers == [state["installs"][B]["image_ids"]["server"]], "what runs is not the current release"
+
+
+# --- authorisation: nothing is deleted unless it was confirmed, and never in a dry run --------------------------
+
+DESTRUCTIVE = {
+    "uninstall": ["engine", "uninstall"],
+    "purge": ["engine", "uninstall", "--purge"],
+    "purge_force_without_docker": ["engine", "uninstall", "--purge", "--force-without-docker"],
+    "down_volumes": ["engine", "down", "--volumes"],
+}
+AUTH = ["dry_run", "no_yes_non_tty", "yes"]
+AUTH_STATES = ["installed", "tombstone", "other_daemon", "volumes_ours"]
+AUTH_COMBOS = [(c, a, st) for c in DESTRUCTIVE for a in AUTH for st in AUTH_STATES
+               if not (c == "down_volumes" and st == "tombstone")]
+DELETING = (["volume", "rm"], ["image", "rm"])
+
+
+def snapshot_paths(env):
+    root = env["home"] / "engine"
+    return {str(p.relative_to(root)): p.read_bytes() for p in sorted(root.rglob("*"))
+            if p.is_file() and p.name != ".install.lock"}
+
+
+@pytest.mark.parametrize("command, auth, state_name", AUTH_COMBOS,
+                         ids=[f"{c}-{a}-{s}" for c, a, s in AUTH_COMBOS])
+def test_nothing_is_deleted_unless_confirmed_and_never_in_a_dry_run(
+        env, monkeypatch, capsys, command, auth, state_name):
+    synthetic(env, [A], A)
+    if state_name == "tombstone":
+        state = json.loads(_engine.installed_path().read_text())
+        state["installs"] = {}
+        state["current"] = None
+        _engine.installed_path().write_text(json.dumps(state))
+    configure(env, monkeypatch, "ok", "ours", "A" if state_name != "tombstone" else "none",
+              context="other" if state_name == "other_daemon" else "same")
+    before = snapshot_paths(env)
+    argv = list(DESTRUCTIVE[command]) + (["--dry-run"] if auth == "dry_run" else []) + (
+        ["--yes"] if auth == "yes" else [])
+    code = main(argv)
+    capsys.readouterr()
+    log = [c["argv"] for c in calls(env["log"])]
+    deleted = [a for a in log if a[:2] in DELETING]
+    unconfirmed = auth != "yes"
+    if unconfirmed:
+        assert not deleted, f"deleted without confirmation: {deleted}"
+        assert snapshot_paths(env) == before
+        assert (env["home"] / "engine" / A).exists() or state_name == "tombstone"
+        if command != "down_volumes":
+            assert not [a for a in log if a[:1] == ["compose"] and "down" in a], "stopped the engine unconfirmed"
+        if auth == "dry_run":
+            assert code in (0, 1, 3)
+        else:
+            assert code in (1, 2, 3), "an unconfirmed destructive command must not succeed"
+    if state_name == "other_daemon" and command != "uninstall":
+        assert not deleted, "volumes were removed on a daemon that is not the one the install used"
+        assert (env["home"] / "engine" / "engine.env").exists()
+
+
+def test_a_confirmed_token_cannot_be_made_outside_the_confirmation_step():
+    from briefcase.cli import engine_commands
+
+    with pytest.raises(TypeError):
+        engine_commands.Confirmed("anything")
+    with pytest.raises(TypeError):
+        engine_commands.remove_engine_volumes(None)  # type: ignore[arg-type]
+
+
+def test_an_unreadable_secrets_file_is_never_replaced_by_new_passwords(env, capsys):
+    assert _install("--code", "bci_good") == 0
+    secrets = env["home"] / "engine" / "engine.env"
+    before = secrets.read_bytes()
+    secrets.chmod(0)
+    try:
+        env["platform"].release = build_release(env["key"], version=B)
+        code = main(["engine", "upgrade", "--yes", "--token", "bcl_good"])
+    finally:
+        secrets.chmod(0o600)
+    assert code != 0 and secrets.read_bytes() == before, "the passwords the volumes were created with are gone"
+
+
+def test_an_unreadable_or_corrupt_installed_json_is_not_empty_state(env, capsys):
+    assert _install("--code", "bci_good") == 0
+    path = _engine.installed_path()
+    good = path.read_text()
+    for bad in ("{not json", "[]"):
+        path.write_text(bad)
+        assert _install("--code", "bci_good2", "--no-images") != 0 and path.read_text() == bad
+        assert main(["engine", "uninstall", "--purge", "--yes"]) != 0 and path.read_text() == bad
+    path.write_text(good)
+    path.chmod(0)
+    try:
+        assert main(["engine", "uninstall", "--purge", "--yes"]) != 0
+    finally:
+        path.chmod(0o600)
+    assert (env["home"] / "engine" / "engine.env").exists()
+
+
+def test_a_matching_server_with_an_unknown_gateway_image_is_not_the_release(env, monkeypatch, capsys):
+    synthetic(env, [A, B], A)
+    rows = containers_for(A)
+    rows[1] = ["gateway", "sha256:" + "9" * 64, rows[1][2]]  # an image no install recorded, in a recorded service
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))
+    assert main(["engine", "uninstall", "--yes"]) != 0
+    assert not [c for c in calls(env["log"]) if c["argv"][:1] == ["compose"] and "down" in c["argv"]]
+    assert A in _engine.load_state()["installs"]
+
+
+def test_a_client_only_install_of_a_composed_version_is_refused(env, capsys):
+    assert _install("--code", "bci_good") == 0
+    before = _engine.installed_path().read_text()
+    assert _install("--code", "bci_good2", "--no-images") != 0
+    assert _engine.installed_path().read_text() == before
+
+
+def test_a_failed_tls_restart_keeps_the_old_record_so_a_retry_restarts(env, monkeypatch, key, capsys):
+    import shutil
+
+    if shutil.which("openssl") is None:
+        pytest.skip("needs openssl")
+    assert _install("--code", "bci_good") == 0
+    record = _engine.current_install()
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps([["oci-jj-server", record["image_ids"]["server"],
+                                                              record["compose"]]]))
+    env["platform"].release = build_release(key, version=A)
+    monkeypatch.setenv("FAKE_DOCKER_FAIL", "compose up")
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    assert _engine.current_install()["tls"] is False, "the running transport is still plaintext"
