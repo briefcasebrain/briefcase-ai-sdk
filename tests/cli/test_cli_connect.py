@@ -349,7 +349,7 @@ def test_a_bare_connect_keeps_the_endpoint_recorded_by_the_earlier_connect(home,
     capsys.readouterr()
     assert main(["connect", "claude-code", "--no-mcp", "--yes"]) == 0
     assert json.loads(settings.read_text())["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == "https://otel.example.com"
-    assert "Keeping the endpoint" in capsys.readouterr().out
+    assert "Keeping the telemetry destination" in capsys.readouterr().out
     assert main(["connect", "claude-code", "--no-mcp", "--yes", "--endpoint", "http://127.0.0.1:4318"]) == 0
     assert json.loads(settings.read_text())["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://127.0.0.1:4318"
 
@@ -361,3 +361,31 @@ def test_mcp_install_for_codex_without_the_binary_keeps_the_otel_table(home):
     assert main(["mcp", "install", "codex", "--yes"]) == 0
     text = config.read_text()
     assert "[otel]" in text and "https://otel.example.com" in text and "mcp_servers.briefcase" in text
+
+
+def _claude_endpoint(home):
+    return json.loads((home / ".claude" / "settings.json").read_text())["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"]
+
+
+def test_a_bare_connect_keeps_each_tools_own_recorded_endpoint(home):
+    assert main(["connect", "claude-code", "--no-mcp", "--yes", "--endpoint", "https://claude.example.com"]) == 0
+    assert main(["connect", "codex", "--no-mcp", "--yes", "--endpoint", "https://codex.example.com"]) == 0
+    assert main(["connect", "claude-code", "codex", "--no-mcp", "--yes"]) == 0
+    assert _claude_endpoint(home) == "https://claude.example.com"
+    assert "https://codex.example.com/v1/logs" in (home / ".codex" / "config.toml").read_text()
+
+
+def test_a_newly_named_tool_gets_the_default_not_another_tools_remote(home):
+    assert main(["connect", "claude-code", "--no-mcp", "--yes", "--endpoint", "https://claude.example.com"]) == 0
+    assert main(["connect", "claude-code", "codex", "--no-mcp", "--yes"]) == 0
+    assert _claude_endpoint(home) == "https://claude.example.com"
+    assert "http://127.0.0.1:4318/v1/logs" in (home / ".codex" / "config.toml").read_text()
+
+
+def test_a_bare_reconnect_keeps_codex_headers_and_prompt_capture(home):
+    assert main(["connect", "codex", "--no-mcp", "--yes", "--endpoint", "https://codex.example.com",
+                 "--headers", "Authorization=Bearer abc", "--capture-content"]) == 0
+    before = (home / ".codex" / "config.toml").read_text()
+    assert "Bearer abc" in before and "log_user_prompt = true" in before
+    assert main(["connect", "codex", "--no-mcp", "--yes"]) == 0
+    assert (home / ".codex" / "config.toml").read_text() == before

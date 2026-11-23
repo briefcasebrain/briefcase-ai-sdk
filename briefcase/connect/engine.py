@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from briefcase.connect import edits
 from briefcase.connect import mcp as mcp_payloads
-from briefcase.connect.adapters import Adapter, Context, registry, version_in_range
+from briefcase.connect.adapters import Adapter, registry, version_in_range
 from briefcase.connect.edits import CHANGE, NOOP, REFUSED, Command, FileEdit, Manual, Resolved
 
 Printer = Callable[[str], None]
@@ -57,14 +57,14 @@ def run_command(argv: List[str]) -> Tuple[int, str]:
     return done.returncode, ((done.stdout or "") + (done.stderr or "")).strip()
 
 
-def build_plan(tools: List[str], ctx: Context, adapters: Optional[Dict[str, Adapter]] = None,
+def build_plan(tools: List[str], ctx: Any, adapters: Optional[Dict[str, Adapter]] = None,
                journal: Optional[Dict[str, Any]] = None) -> Plan:
     adapters = adapters or registry()
     journal = journal if journal is not None else edits.load_journal()
     ran = {tuple(c["argv"]) for c in journal.get("commands", [])}
     plan = Plan(tools=list(tools))
     for name in tools:
-        for item in adapters[name].plan(ctx):
+        for item in adapters[name].plan(ctx[name] if isinstance(ctx, dict) else ctx):
             if isinstance(item, FileEdit):
                 resolved = edits.resolve(item)
                 if resolved.status == REFUSED:
@@ -193,7 +193,7 @@ def _replace_registration(command: Command, runner: Callable[[List[str]], Tuple[
     return code, output, False
 
 
-def apply_plan(plan: Plan, ctx: Context, out: Printer,
+def apply_plan(plan: Plan, ctx: Any, out: Printer,
                runner: Optional[Callable[[List[str]], Tuple[int, str]]] = None) -> int:
     """Write the plan. Returns the number of failures."""
     runner = runner or run_command
@@ -227,9 +227,15 @@ def apply_plan(plan: Plan, ctx: Context, out: Printer,
     touched = {r.edit.tool for r in plan.resolved if r.status in (CHANGE, NOOP)} | {
         c.tool for c in plan.commands + plan.done_commands}
     for name in touched:
+        mine = ctx[name] if isinstance(ctx, dict) else ctx
+        prior = journal["tools"].get(name) or {}
+        applied = mine.telemetry or not prior  # a telemetry-free run (mcp install) keeps what was recorded
         journal["tools"][name] = {
-            "scope": ctx.scope, "endpoint": ctx.endpoint, "capture_content": ctx.capture_content,
-            "mcp": ctx.mcp, "connected_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "scope": mine.scope,
+            "endpoint": mine.endpoint if applied else prior.get("endpoint", mine.endpoint),
+            "capture_content": mine.capture_content if applied else prior.get("capture_content", False),
+            "telemetry": mine.telemetry or bool(prior.get("telemetry", False)),
+            "mcp": mine.mcp, "connected_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         }
     edits.save_journal(journal)
     return failures

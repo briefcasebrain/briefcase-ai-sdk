@@ -184,21 +184,32 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
             out("Name one explicitly (briefcase-ai connect claude-code) or see: briefcase-ai connect list")
             return 1
         out("Detected: " + ", ".join(adapters[name].name for name in tools))
-    endpoint = args.endpoint
-    if not endpoint:
-        recorded = {entry.get("endpoint") for name, entry in edits.load_journal()["tools"].items()
-                    if name in tools and entry.get("endpoint")}
-        if len(recorded) == 1 and recorded != {DEFAULT_ENDPOINT}:
-            endpoint = recorded.pop()
-            out(f"Keeping the endpoint recorded by the earlier connect: {endpoint} (pass --endpoint to change it)")
-    ctx = Context(
-        scope=args.scope, endpoint=(endpoint or DEFAULT_ENDPOINT).rstrip("/"), headers=headers,
-        mcp=args.mcp, telemetry=getattr(args, "telemetry", True),
-        capture_content=args.capture_content, force=getattr(args, "force", False), project_dir=Path.cwd(),
-    )
-    if ctx.capture_content:
+    recorded = edits.load_journal()["tools"]
+    explicit = bool(args.endpoint or headers or args.capture_content)
+    telemetry = getattr(args, "telemetry", True)
+    ctxs: Dict[str, Context] = {}
+    kept = []
+    for name in tools:
+        known = recorded.get(name) or {}
+        keep = bool(known) and known.get("telemetry", True) and not explicit
+        ctxs[name] = Context(
+            scope=args.scope, headers=headers, mcp=args.mcp, force=getattr(args, "force", False),
+            project_dir=Path.cwd(),
+            endpoint=(args.endpoint or known.get("endpoint") or DEFAULT_ENDPOINT).rstrip("/"),
+            # A tool that is already connected keeps its own destination, headers and capture setting
+            # unless one of those flags is given: its telemetry is left exactly as it is.
+            telemetry=False if keep else telemetry,
+            capture_content=bool(args.capture_content or (known.get("capture_content") and not explicit)),
+        )
+        if keep and telemetry:
+            kept.append(f"{adapters[name].name} -> {known.get('endpoint') or DEFAULT_ENDPOINT}")
+    if kept:
+        out("Keeping the telemetry destination each tool already has: " + ", ".join(kept)
+            + " (pass --endpoint, --headers or --capture-content to change it)")
+    ctx = next((c for c in ctxs.values() if c.telemetry), next(iter(ctxs.values())))
+    if args.capture_content:
         print(CAPTURE_WARNING, file=sys.stderr)
-    plan = engine.build_plan(tools, ctx, adapters)
+    plan = engine.build_plan(tools, ctxs, adapters)
     engine.render_plan(plan, adapters, out)
     dry = _dry_run(args)
 
@@ -220,7 +231,7 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
         if not answer:
             out("Aborted; nothing was changed.")
             return 1
-        failures = engine.apply_plan(plan, ctx, out, runner=runner)
+        failures = engine.apply_plan(plan, ctxs, out, runner=runner)
         if failures:
             out(f"\n{failures} step(s) failed; the rest were applied. Run `briefcase-ai connect status`.")
         out("\nUndo any time with: briefcase-ai connect --undo")
@@ -229,7 +240,7 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
     if dry:
         return 0
 
-    if offer_receiver and ctx.telemetry:
+    if offer_receiver and any(c.telemetry for c in ctxs.values()):
         _receiver_step(plan, ctx, adapters, args, out, ask)
     return 0
 
