@@ -166,123 +166,100 @@ def test_cursor_hook_is_replaced_not_duplicated_when_flags_change(home):
     assert not (home / ".cursor" / "hooks.json").exists()
 
 
-class FakeClaudeMcp:
-    """Behaves like `claude mcp add|add-json|remove` (2.1.330, checked with a throwaway HOME): add of a
-    name that exists in the same scope exits 1 with "already exists"; remove of a missing name exits 1.
-    Scopes are independent and the registrations live in the files Claude Code reads (user and local in
-    ~/.claude.json, project in ./.mcp.json), which is what the SDK inspects. ``fail_new_add`` fails the next
-    add of the new launcher; ``fail_rollback`` fails every add-json."""
+class FakeClaude:
+    """Behaves like `claude mcp add|remove` (2.1.330, checked with a throwaway HOME): add of a name that
+    already exists in the same scope exits 1 with "already exists"; remove of a missing name exits 1.
+    Registrations are keyed by (config dir, scope, cwd-for-non-user scopes), as Claude Code stores them."""
 
-    def __init__(self, entries=None, fail_new_add=False, fail_rollback=False):
-        self.entries = {"user": {}, "local": {}, "project": {}}
-        for (scope, name), entry in (entries or {}).items():
-            self.entries[scope][name] = entry
+    def __init__(self, existing=(), fail_add=False):
+        self.registered = {key: ["old-command"] for key in existing}
         self.calls = []
-        self.fail_new_add = fail_new_add
-        self.fail_rollback = fail_rollback
-        self._write()
+        self.fail_add = fail_add
 
-    def _write(self):
-        user = {"mcpServers": self.entries["user"]}
-        if self.entries["local"]:
-            user["projects"] = {os.getcwd(): {"mcpServers": self.entries["local"]}}
-        (Path(os.environ["HOME"]) / ".claude.json").write_text(json.dumps(user))
-        if self.entries["project"]:
-            Path(".mcp.json").write_text(json.dumps({"mcpServers": self.entries["project"]}))
+    def _key(self, scope):
+        return (os.environ.get("CLAUDE_CONFIG_DIR"), scope, os.getcwd() if scope != "user" else None)
 
     def __call__(self, argv):
         self.calls.append(argv)
-        verb, scope, name = argv[2], argv[4], argv[5]
-        bucket = self.entries[scope]
+        verb, scope = argv[2], argv[4]
+        key = self._key(scope)
         if verb == "add":
-            tail = argv[argv.index("--") + 1:]
-            if name in bucket:
-                return 1, f"MCP server {name} already exists in {scope} config"
-            if self.fail_new_add and tail[-1] == "briefcase-ai-mcp":
+            if key in self.registered:
+                return 1, "MCP server briefcase already exists in %s config" % scope
+            if self.fail_add:
                 return 1, "simulated failure"
-            bucket[name] = {"type": "stdio", "command": tail[0], "args": tail[1:], "env": {}}
-        elif verb == "add-json":
-            if self.fail_rollback:
-                return 1, "simulated rollback failure"
-            bucket[name] = json.loads(argv[6])
-        else:
-            if name not in bucket:
-                return 1, f'No MCP server named "{name}" in {scope} scope'
-            del bucket[name]
-        self._write()
+            self.registered[key] = argv[argv.index("--") + 1:]
+            return 0, ""
+        if key not in self.registered:
+            return 1, 'No MCP server named "briefcase" in %s scope' % scope
+        del self.registered[key]
         return 0, ""
 
     def removed(self):
         return [c for c in self.calls if c[2] == "remove"]
 
 
-OLD = {"type": "stdio", "command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-mcp"],
-       "env": {"BRIEFCASE_HOME": "/data/my briefcase", "TOKEN": "a b=c"}}
+def journal_registration(scope="user", config_dir=None, cwd=None):
+    """What an earlier `connect` of this SDK recorded for its own registration."""
+    journal = edits.load_journal()
+    journal["commands"].append({
+        "tool": "claude-code", "argv": ["claude", "mcp", "add", "--scope", scope, "briefcase", "--", "old"],
+        "undo_hint": None, "at": "2026-08-01", "config_dir": config_dir, "cwd": cwd})
+    edits.save_journal(journal)
 
 
-def test_a_4_4_hand_registered_claude_code_mcp_entry_is_replaced(home, fake_bin):
+def test_a_registration_we_journalled_is_replaced_in_its_scope(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
-    claude = FakeClaudeMcp({("user", "briefcase"): OLD})
+    journal_registration("user")
+    claude = FakeClaude([(None, "user", None)])
     plan, out, failures = connect(["claude-code"], runner=claude)
     assert failures == 0, out
-    assert claude.entries["user"]["briefcase"]["args"][-1] == "briefcase-ai-mcp"
+    assert claude.registered[(None, "user", None)][-1] == "briefcase-ai-mcp"
+    assert [c for c in edits.load_journal()["commands"] if c["argv"][-1] == "old"] == []
 
 
-@pytest.mark.parametrize("entry", [
-    {"type": "stdio", "command": "/home/me/.local/bin/briefcase-mcp", "args": [], "env": {}},
-    {"type": "stdio", "command": "python3", "args": ["-m", "briefcase.mcp"], "env": {}},
-])
-def test_other_documented_forms_of_the_old_launcher_are_replaced(home, fake_bin, entry):
+def test_an_unjournalled_registration_is_left_untouched_and_nothing_secret_is_printed(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
-    claude = FakeClaudeMcp({("user", "briefcase"): entry})
-    assert connect(["claude-code"], runner=claude)[2] == 0
-    assert claude.entries["user"]["briefcase"]["args"][-1] == "briefcase-ai-mcp"
-
-
-@pytest.mark.parametrize("entry", [
-    {"type": "stdio", "command": "my-own-server", "args": ["--flag"], "env": {}},
-    {"type": "stdio", "command": "node", "args": ["wrapper.js", "briefcase-mcp"], "env": {}},
-    {"type": "stdio", "command": "bash", "args": ["-c", "run briefcase-ai-mcp"], "env": {}},
-])
-def test_a_registration_that_is_not_our_launcher_is_left_alone(home, fake_bin, entry):
-    fake_bin("claude", "2.1.330 (Claude Code)")
-    claude = FakeClaudeMcp({("user", "briefcase"): entry})
+    claude = FakeClaude([(None, "user", None)])
+    claude.registered[(None, "user", None)] = ["node", "server.js", "--token=SECRET-VALUE"]
     plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 0 and claude.entries["user"]["briefcase"] == entry and not claude.removed()
-    assert any("not created by briefcase" in line for line in out), out
+    assert failures == 1 and not claude.removed()
+    assert claude.registered[(None, "user", None)] == ["node", "server.js", "--token=SECRET-VALUE"]
+    text = "\n".join(out)
+    assert "SECRET-VALUE" not in text and "server.js" not in text
+    assert "'briefcase'" in text and "user scope" in text and "claude mcp remove --scope user briefcase" in text
+    assert "claude mcp add --scope user briefcase" in text and text.count("not registered by briefcase") == 1
 
 
-def test_only_the_scope_being_registered_is_inspected_and_removed(home, fake_bin):
+def test_a_registration_journalled_for_another_profile_is_not_ours_here(home, fake_bin, monkeypatch, tmp_path):
     fake_bin("claude", "2.1.330 (Claude Code)")
-    foreign_user = {"type": "stdio", "command": "mine", "args": [], "env": {}}
-    claude = FakeClaudeMcp({("user", "briefcase"): foreign_user, ("local", "briefcase"): OLD})
-    connect(["claude-code"], runner=claude)
-    assert claude.entries["user"]["briefcase"] == foreign_user and claude.entries["local"]["briefcase"] == OLD
-    assert not claude.removed()
+    profile_a, profile_b = str(tmp_path / "a"), str(tmp_path / "b")
+    journal_registration("user", config_dir=profile_a)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", profile_b)
+    claude = FakeClaude([(profile_b, "user", None)])
+    plan, out, failures = connect(["claude-code"], runner=claude)
+    assert failures == 1 and not claude.removed()
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", profile_a)
+    claude = FakeClaude([(profile_a, "user", None)])
+    plan, out, failures = connect(["claude-code"], runner=claude)
+    assert failures == 0 and claude.registered[(profile_a, "user", None)][-1] == "briefcase-ai-mcp"
 
 
-def test_a_failed_re_add_restores_the_previous_registration_exactly(home, fake_bin):
+def test_a_failed_re_add_of_a_journalled_registration_is_a_failure(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
-    claude = FakeClaudeMcp({("user", "briefcase"): OLD}, fail_new_add=True)
+    journal_registration("user")
+    claude = FakeClaude([(None, "user", None)], fail_add=True)
     plan, out, failures = connect(["claude-code"], runner=claude)
     assert failures == 1
-    assert claude.entries["user"]["briefcase"] == OLD  # env, spaces and args untouched
-
-
-def test_a_failed_restore_is_reported_and_counts_as_a_failure(home, fake_bin):
-    fake_bin("claude", "2.1.330 (Claude Code)")
-    claude = FakeClaudeMcp({("user", "briefcase"): OLD}, fail_new_add=True, fail_rollback=True)
-    plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 1 and "briefcase" not in claude.entries["user"]
-    text = "\n".join(out)
-    assert "could not restore" in text and "claude mcp add-json" in text
 
 
 def test_claude_code_mcp_first_install_does_not_remove_anything(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
-    claude = FakeClaudeMcp({})
+    claude = FakeClaude([])
     connect(["claude-code"], runner=claude)
     assert [c[2] for c in claude.calls] == ["add"]
+    entry = [c for c in edits.load_journal()["commands"] if c["tool"] == "claude-code"][0]
+    assert entry["config_dir"] is None and entry["cwd"] is None
 
 
 @pytest.mark.parametrize("body, why", [
@@ -369,7 +346,7 @@ def test_commands_run_once_as_argument_lists_and_are_journalled(home, fake_bin):
 def test_a_failing_command_is_reported_and_not_journalled(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
     plan, out, failures = connect(["claude-code"], runner=lambda argv: (1, "already exists"))
-    assert failures == 1 and any("already exists" in line for line in out)
+    assert failures == 1 and any("already registered" in line for line in out)
     assert edits.load_journal()["commands"] == []
 
 

@@ -10,7 +10,6 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -61,7 +60,7 @@ def build_plan(tools: List[str], ctx: Any, adapters: Optional[Dict[str, Adapter]
                journal: Optional[Dict[str, Any]] = None) -> Plan:
     adapters = adapters or registry()
     journal = journal if journal is not None else edits.load_journal()
-    ran = {tuple(c["argv"]) for c in journal.get("commands", [])}
+    ran = {tuple(c["argv"]) for c in journal.get("commands", []) if _journalled(journal, c["tool"], c["argv"])}
     plan = Plan(tools=list(tools))
     for name in tools:
         for item in adapters[name].plan(ctx[name] if isinstance(ctx, dict) else ctx):
@@ -119,78 +118,19 @@ def render_plan(plan: Plan, adapters: Dict[str, Adapter], out: Printer) -> None:
             out("  nothing to do")
 
 
-_OUR_LAUNCHERS = ("briefcase-mcp", "briefcase-ai-mcp")
-_RUNNERS = ("uvx", "uv", "pipx")
+def _registration_key(argv: List[str]) -> Dict[str, Any]:
+    """Where a ``claude mcp add`` lands: its scope, the active Claude profile, and (for project and local
+    scope) the directory, which together name the config file."""
+    scope = argv[4] if len(argv) > 4 else "user"
+    return {"config_dir": os.environ.get("CLAUDE_CONFIG_DIR"), "cwd": None if scope == "user" else os.getcwd()}
 
 
-def _is_our_launcher(entry: Dict[str, Any]) -> bool:
-    """A registration this SDK (any version) would have made or documented: its launcher script (any path),
-    ``uvx --from briefcase-ai[...] <launcher>``, or ``python -m briefcase.mcp``."""
-    command = os.path.basename(str(entry.get("command") or "")).lower()
-    command = command[:-4] if command.endswith(".exe") else command
-    args = [str(a) for a in entry.get("args") or []]
-    if command in _OUR_LAUNCHERS:
-        return True
-    if command in _RUNNERS:
-        return (bool(args) and args[-1] in _OUR_LAUNCHERS
-                and any(a == "--from" and i + 1 < len(args) and args[i + 1].startswith("briefcase-ai")
-                        for i, a in enumerate(args)))
-    if command.startswith("python"):
-        return args[:2] == ["-m", "briefcase.mcp"]
-    return False
-
-
-def _read_registration(scope: str, name: str) -> Optional[Dict[str, Any]]:
-    """The registered entry exactly as Claude Code stores it (command, args, env), read from the file that
-    holds that scope: user and local in ``~/.claude.json``, project in ``./.mcp.json``."""
-    import json
-
-    try:
-        if scope == "project":
-            data = json.loads((Path.cwd() / ".mcp.json").read_text(encoding="utf-8"))
-            servers = data.get("mcpServers")
-        else:
-            data = json.loads((edits.home() / ".claude.json").read_text(encoding="utf-8"))
-            if scope == "local":
-                data = (data.get("projects") or {}).get(str(Path.cwd())) or {}
-            servers = data.get("mcpServers")
-        entry = (servers or {}).get(name)
-    except (OSError, ValueError, AttributeError):
-        return None
-    return entry if isinstance(entry, dict) else None
-
-
-def _replace_registration(command: Command, runner: Callable[[List[str]], Tuple[int, str]],
-                          out: Printer) -> Tuple[int, str, bool]:
-    """The server name is taken in this scope. Replace it only when it is one of this SDK's own launchers
-    (an earlier version's registration), and put the exact previous entry back if the new one cannot be added.
-    Returns ``(code, output, skipped)``."""
-    import json
-
-    scope = command.argv[4] if len(command.argv) > 4 else "user"
-    name = command.argv[5] if len(command.argv) > 5 else ""
-    existing = _read_registration(scope, name)
-    if existing is None:
-        return 1, (f"an MCP server named {name!r} already exists in {scope} scope and its settings could not "
-                   "be read; left unchanged"), False
-    if not _is_our_launcher(existing):
-        found = " ".join([str(existing.get("command", ""))] + [str(a) for a in existing.get("args") or []])
-        out(f"  skip   an MCP server named {name!r} is already registered in {scope} scope (command: {found}) and "
-            f"was not created by briefcase; left unchanged. To use briefcase-ai-mcp instead, run: "
-            f"{mcp_payloads.shell(command.undo_hint or [])} and then connect again")
-        return 0, "", True
-    restore = ["claude", "mcp", "add-json", "--scope", scope, name, json.dumps(existing, separators=(",", ":"))]
-    out(f"  replace {mcp_payloads.shell(command.undo_hint or [])}")
-    if runner(command.undo_hint or [])[0] != 0:
-        return 1, "could not remove the existing registration", False
-    code, output = runner(command.argv)
-    if code != 0:
-        if runner(restore)[0] == 0:
-            output = f"{output}; the previous registration was restored".strip("; ")
-        else:
-            output = (f"{output}; could not restore the previous registration, re-create it with: "
-                      f"{mcp_payloads.shell(restore)}").strip("; ")
-    return code, output, False
+def _journalled(journal: Dict[str, Any], tool: str, argv: List[str]) -> bool:
+    """Did an earlier connect of this SDK register ``argv[:6]`` (same name and scope) in the same config file?"""
+    key = _registration_key(argv)
+    return any(c["tool"] == tool and c["argv"][:6] == argv[:6]
+               and c.get("config_dir") == key["config_dir"] and c.get("cwd") == key["cwd"]
+               for c in journal.get("commands", []))
 
 
 def apply_plan(plan: Plan, ctx: Any, out: Printer,
@@ -210,8 +150,19 @@ def apply_plan(plan: Plan, ctx: Any, out: Printer,
     for command in plan.commands:
         code, output = runner(command.argv)
         if code != 0 and command.undo_hint and "already exists" in output:
-            code, output, skipped = _replace_registration(command, runner, out)
-            if skipped:
+            scope = command.argv[4] if len(command.argv) > 4 else "user"
+            name = command.argv[5] if len(command.argv) > 5 else ""
+            if _journalled(journal, command.tool, command.argv):
+                # We registered it, so replacing it loses nothing of anyone else's.
+                out(f"  replace {mcp_payloads.shell(command.undo_hint)}")
+                if runner(command.undo_hint)[0] == 0:
+                    code, output = runner(command.argv)
+            else:
+                # Someone else's entry: never touched, never printed (its args and env may hold credentials).
+                failures += 1
+                out(f"  failed an MCP server named {name!r} is already registered in {scope} scope and was not "
+                    f"registered by briefcase, so it was left as it is; to use briefcase-ai-mcp, run "
+                    f"`{mcp_payloads.shell(command.undo_hint)}` and then `{mcp_payloads.shell(command.argv)}`")
                 continue
         if code != 0:
             failures += 1
@@ -219,9 +170,12 @@ def apply_plan(plan: Plan, ctx: Any, out: Printer,
             continue
         out(f"  ran    {mcp_payloads.shell(command.argv)}")
         journal["commands"] = [c for c in journal["commands"] if not (
-            c["tool"] == command.tool and c["argv"][:6] == command.argv[:6])]  # same registration, older command
+            c["tool"] == command.tool and c["argv"][:6] == command.argv[:6]
+            and c.get("config_dir") == _registration_key(command.argv)["config_dir"]
+            and c.get("cwd") == _registration_key(command.argv)["cwd"])]  # same registration, older command
         journal["commands"].append({
             "tool": command.tool, "argv": command.argv, "undo_hint": command.undo_hint,
+            **_registration_key(command.argv),
             "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         })
     touched = {r.edit.tool for r in plan.resolved if r.status in (CHANGE, NOOP)} | {
