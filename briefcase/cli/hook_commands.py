@@ -40,6 +40,13 @@ def scrub(payload: Dict[str, Any], capture_content: bool) -> Dict[str, Any]:
     return out
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect would carry the Authorization header to another origin: never follow one."""
+
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
 def forward(payload: Dict[str, Any], endpoint: str, timeout: float, token: Optional[str] = None) -> bool:
     request = urllib.request.Request(
         endpoint.rstrip("/") + HOOK_PATH, data=json.dumps(payload, default=str).encode("utf-8"),
@@ -49,7 +56,7 @@ def forward(payload: Dict[str, Any], endpoint: str, timeout: float, token: Optio
         request.add_header("Authorization", f"Bearer {token}")
     # No proxy: the receiver is local, and an HTTP proxy from the environment
     # must not see the event.
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
     with opener.open(request, timeout=timeout) as response:
         return 200 <= response.status < 300
 

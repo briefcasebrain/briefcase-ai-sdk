@@ -13,7 +13,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "briefcase-ai hook claude-code --enforce --endpoint https://otel.example.com",
+            "command": "briefcase-ai hook claude-code --enforce --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
             "timeout": 10
           }
         ]

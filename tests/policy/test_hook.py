@@ -342,7 +342,7 @@ def test_garbage_on_stdin_fails_open(home, project, write_policy, stdin):
     assert out is None or set(out) == {"systemMessage"}
     assert run("cursor", stdin)[1] == {"permission": "allow"}
     code, out, _ = run("cursor", stdin, "--fail-closed")
-    assert code == 0 and out["permission"] == ("deny" if stdin in ("", "not json", "{", "\x00\x01") else "allow")
+    assert code == 0 and out["permission"] == "deny"  # nothing parsed into a valid event: fail-closed never allows
 
 
 def test_a_crash_inside_evaluation_fails_open_or_closed(home, project, write_policy, monkeypatch):

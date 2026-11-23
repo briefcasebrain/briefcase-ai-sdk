@@ -45,7 +45,16 @@ def main():
         if argv[:1] == ["cursor"]:
             sys.stdout.write('{"permission": "allow"}\n')   # Cursor blocks on empty output
         return 0
-    return hook.main(argv)
+    try:
+        return hook.main(argv)
+    except BaseException as exc:  # noqa: B036 - a late import or any failure the hook did not catch
+        if "--fail-closed" in argv:
+            sys.stderr.write(f"Blocked by briefcase-ai policy: the hook failed ({type(exc).__name__}) and it was "
+                             "installed with --fail-closed.\n")
+            return 2
+        if argv[:1] == ["cursor"]:
+            sys.stdout.write('{"permission": "allow"}\n')
+        return 0
 
 
 if __name__ == "__main__":

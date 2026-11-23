@@ -93,22 +93,27 @@ def _tool_call(tool, tool_name, tool_input, cwd, common):
         command = _command_text(tool_input.get("command"))
         where = _text(tool_input.get("working_directory")) or cwd
         if command is None:
-            return ToolCall("other", tool, tool_name, note="no command in the hook input", **common)
+            return ToolCall("invalid", tool, tool_name, note="no command in the hook input", **common)
         return ToolCall("shell", tool, tool_name, command=command, cwd=where, **common)
     if tool_name == "PowerShell":
         command = _command_text(tool_input.get("command")) or ""
         return ToolCall("shell", tool, tool_name, command=command, cwd=cwd, dialect="powershell", **common)
     if tool_name in _READ_TOOLS:
         path = _first_path(tool_input) or (cwd if tool_name != "Read" else None)
-        return ToolCall("read", tool, tool_name, paths=[path] if path else [], cwd=cwd, **common)
+        if not path:
+            return ToolCall("invalid", tool, tool_name, note="no file path in the hook input", **common)
+        return ToolCall("read", tool, tool_name, paths=[path], cwd=cwd, **common)
     if tool_name in _WRITE_TOOLS:
         path = _first_path(tool_input)
-        note = None if path else "no file path in the hook input"
-        return ToolCall("write", tool, tool_name, paths=[path] if path else [], cwd=cwd, note=note, **common)
+        if not path:
+            return ToolCall("invalid", tool, tool_name, note="no file path in the hook input", **common)
+        return ToolCall("write", tool, tool_name, paths=[path], cwd=cwd, **common)
     if tool_name == "WebFetch":
         return ToolCall("web", tool, tool_name, url=_text(tool_input.get("url")), cwd=cwd, **common)
     if tool_name == "WebSearch":
         return ToolCall("web", tool, tool_name, url=None, cwd=cwd, **common)
+    if not tool_name:
+        return ToolCall("invalid", tool, tool_name, note="the hook input names no tool", **common)
     if tool_name.startswith("mcp__"):
         server, name = _mcp_name(tool_name)
         return ToolCall("mcp", tool, tool_name, server=server, name=name, cwd=cwd, **common)
@@ -134,9 +139,10 @@ def patch_paths(patch):
 
 
 def parse(tool, payload):
-    """The tool call a hook payload describes. Unknown shapes become kind ``other``, which is never judged."""
+    """The tool call a hook payload describes. A tool this policy does not cover is kind ``other`` (never judged); input
+    that is incomplete or not what the host documents is kind ``invalid``, which fail-closed mode denies."""
     if not isinstance(payload, dict):
-        return ToolCall("other", tool, note="the hook input is not a JSON object")
+        return ToolCall("invalid", tool, note="the hook input is not a JSON object")
     event = _text(payload.get("hook_event_name")) or ""
     cwd = _text(payload.get("cwd"))
     if tool == "cursor":
@@ -148,29 +154,33 @@ def parse(tool, payload):
         if event == "beforeShellExecution":
             command = _command_text(payload.get("command"))
             if command is None:
-                return ToolCall("other", tool, event, note="no command in the hook input", **common)
+                return ToolCall("invalid", tool, event, note="no command in the hook input", **common)
             return ToolCall("shell", tool, "Shell", command=command, cwd=cwd or project, **common)
         if event == "beforeMCPExecution":
             return ToolCall("mcp", tool, "MCP", server=_text(payload.get("mcp_server_name")),
                             name=_text(payload.get("tool_name")), cwd=cwd or project, **common)
         if event == "beforeReadFile":
             path = _text(payload.get("file_path"))
-            return ToolCall("read", tool, "Read", paths=[path] if path else [], cwd=cwd or project, **common)
+            if not path:
+                return ToolCall("invalid", tool, event, note="no file path in the hook input", **common)
+            return ToolCall("read", tool, "Read", paths=[path], cwd=cwd or project, **common)
         if event == "preToolUse":
             return _tool_call(tool, _text(payload.get("tool_name")) or "", payload.get("tool_input"),
                               cwd or project, common)
-        return ToolCall("other", tool, event, **common)
+        return ToolCall("invalid", tool, event, note=f"an event this hook is not installed for ({event or 'none'})",
+                        **common)
     common = {"project_dir": os.environ.get("CLAUDE_PROJECT_DIR") or cwd if tool == "claude-code" else cwd,
               "session_id": _text(payload.get("session_id")), "tool_use_id": _text(payload.get("tool_use_id"))}
     if event and event not in ("PreToolUse", "preToolUse"):
-        return ToolCall("other", tool, event, **common)
+        return ToolCall("invalid", tool, event, note=f"an event this hook is not installed for ({event})", **common)
     tool_name = _text(payload.get("tool_name")) or ""
     tool_input = payload.get("tool_input")
     if tool == "codex" and tool_name == "apply_patch":
         patch = _command_text(tool_input.get("command")) if isinstance(tool_input, dict) else None
         paths = patch_paths(patch or "")
-        note = None if paths else "no file paths found in the patch"
-        return ToolCall("write", tool, tool_name, paths=paths, cwd=cwd, note=note, **common)
+        if not paths:
+            return ToolCall("invalid", tool, tool_name, note="no file paths found in the patch", **common)
+        return ToolCall("write", tool, tool_name, paths=paths, cwd=cwd, **common)
     return _tool_call(tool, tool_name, tool_input, cwd, common)
 
 

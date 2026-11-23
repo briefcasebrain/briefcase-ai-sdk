@@ -60,12 +60,14 @@ def _json(doc: Any) -> str:
     return json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
 
 
-def claude_settings(ctx: Context, enforce: bool, fail_closed: bool, data: Dict[str, Any]) -> Dict[str, Any]:
+def claude_settings(ctx: Context, enforce: bool, fail_closed: bool, data: Dict[str, Any],
+                    policy_sha: str = "") -> Dict[str, Any]:
     """The managed-settings drop-in: telemetry ``env`` keys and, with a policy, the PreToolUse hook."""
     adapter = registry()["claude-code"]
     doc: Dict[str, Any] = {"env": adapter.telemetry_env(ctx)}  # type: ignore[attr-defined]
     if enforce:
-        options = install.HookOptions(fail_closed=fail_closed, endpoint=ctx.endpoint, portable=True)
+        options = install.HookOptions(fail_closed=fail_closed, endpoint=ctx.endpoint, portable=True,
+                                      require_policy_sha=policy_sha)
         command = install.hook_command("claude-code", options)
         doc["hooks"] = {"PreToolUse": [install.claude_entry(command, data["enforce"], fail_closed)]}
     return doc
@@ -119,26 +121,30 @@ def reg_template(settings: Dict[str, Any]) -> str:
     ])
 
 
-def cursor_hooks(ctx: Context, enforce: bool, fail_closed: bool, data: Dict[str, Any]) -> Dict[str, Any]:
+def cursor_hooks(ctx: Context, enforce: bool, fail_closed: bool, data: Dict[str, Any],
+                 policy_sha: str = "") -> Dict[str, Any]:
     endpoint = ["--endpoint", ctx.endpoint]  # always explicit, and quoted: it is shell text
     observe = " ".join(shlex.quote(part) for part in ["briefcase-ai", "hook", "cursor"] + endpoint)
     hooks: Dict[str, List[Dict[str, Any]]] = {
         event: [{"command": observe, "timeout": data["hook_timeout_seconds"]}] for event in data["hook_events"]}
     if enforce:
-        options = install.HookOptions(fail_closed=fail_closed, endpoint=ctx.endpoint, portable=True)
+        options = install.HookOptions(fail_closed=fail_closed, endpoint=ctx.endpoint, portable=True,
+                                      require_policy_sha=policy_sha)
         command = install.hook_command("cursor", options)
         for event, entry in install.cursor_entries(command, data["enforce"], fail_closed).items():
             hooks.setdefault(event, []).append(entry)
     return {"version": 1, "hooks": hooks}
 
 
-def codex_hooks(ctx: Context, fail_closed: bool, data: Dict[str, Any]) -> Dict[str, Any]:
-    options = install.HookOptions(fail_closed=fail_closed, endpoint=ctx.endpoint, portable=True)
+def codex_hooks(ctx: Context, fail_closed: bool, data: Dict[str, Any], policy_sha: str = "") -> Dict[str, Any]:
+    options = install.HookOptions(fail_closed=fail_closed, endpoint=ctx.endpoint, portable=True,
+                                  require_policy_sha=policy_sha)
     return {"hooks": {"PreToolUse": [install.codex_entry(install.hook_command("codex", options), data["enforce"])]}}
 
 
-def codex_requirements_template(ctx: Context, fail_closed: bool, data: Dict[str, Any]) -> str:
-    options = install.HookOptions(fail_closed=fail_closed, endpoint=ctx.endpoint, portable=True)
+def codex_requirements_template(ctx: Context, fail_closed: bool, data: Dict[str, Any], policy_sha: str = "") -> str:
+    options = install.HookOptions(fail_closed=fail_closed, endpoint=ctx.endpoint, portable=True,
+                                  require_policy_sha=policy_sha)
     command = install.hook_command("codex", options)
     return "\n".join([
         "# TEMPLATE - merge into your organization's Codex requirements.toml.",
@@ -205,6 +211,9 @@ def build(tools: List[str], ctx: Context, policy_text: Optional[str] = None) -> 
     data = load_data()["tools"]
     pack = Pack()
     enforce = policy_text is not None
+    body = policy_text or ""
+    policy_sha = hashlib.sha256((body if body.endswith("\n") else body + "\n").encode("utf-8")).hexdigest() \
+        if enforce else ""
     fail_closed = False
     if enforce:
         layer = model.parse_layer(policy_text or "", "system", "policy.toml")
@@ -212,7 +221,7 @@ def build(tools: List[str], ctx: Context, policy_text: Optional[str] = None) -> 
         pack.add("briefcase/policy.toml", policy_text or "", "ready", SYSTEM_POLICY,
                  "briefcase", "The policy every machine enforces. A user or project policy can only add restrictions.")
     if "claude-code" in tools:
-        settings = claude_settings(ctx, enforce, fail_closed, data["claude-code"])
+        settings = claude_settings(ctx, enforce, fail_closed, data["claude-code"], policy_sha)
         pack.add("claude-code/managed-settings.d/10-briefcase.json", _json(settings), "ready", {
             "macOS": "/Library/Application Support/ClaudeCode/managed-settings.d/10-briefcase.json",
             "Linux and WSL": "/etc/claude-code/managed-settings.d/10-briefcase.json",
@@ -228,7 +237,8 @@ def build(tools: List[str], ctx: Context, policy_text: Optional[str] = None) -> 
                  {"Windows": r"HKLM\SOFTWARE\Policies\ClaudeCode, value Settings (REG_SZ)"}, CLAUDE_MANAGED_DOCS,
                  "The registry location is documented; the .reg file itself is unverified.")
     if "cursor" in tools:
-        pack.add("cursor/hooks.json", _json(cursor_hooks(ctx, enforce, fail_closed, data["cursor"])), "ready", {
+        cursor_doc = cursor_hooks(ctx, enforce, fail_closed, data["cursor"], policy_sha)
+        pack.add("cursor/hooks.json", _json(cursor_doc), "ready", {
             "macOS": "/Library/Application Support/Cursor/hooks.json",
             "Linux and WSL": "/etc/cursor/hooks.json",
             "Windows": r"C:\ProgramData\Cursor\hooks.json",
@@ -236,13 +246,13 @@ def build(tools: List[str], ctx: Context, policy_text: Optional[str] = None) -> 
             "Enterprise hooks run first and cannot be removed by a user. Never run against Cursor by this project.")
     if "codex" in tools:
         if enforce:
-            pack.add("codex/hooks.json", _json(codex_hooks(ctx, fail_closed, data["codex"])), "ready", {
+            pack.add("codex/hooks.json", _json(codex_hooks(ctx, fail_closed, data["codex"], policy_sha)), "ready", {
                 "macOS": "/etc/codex/hooks.json", "Linux and WSL": "/etc/codex/hooks.json",
                 "Windows": r"%ProgramData%\OpenAI\Codex\hooks.json",
             }, data["codex"]["enforce"]["docs_url"],
                 "System hooks are trusted by policy. Never run against Codex by this project.")
             pack.add("codex/requirements-hooks.toml.template",
-                     codex_requirements_template(ctx, fail_closed, data["codex"]), "template",
+                     codex_requirements_template(ctx, fail_closed, data["codex"], policy_sha), "template",
                      "your organization's requirements.toml", data["codex"]["enforce"]["docs_url"],
                      "Use instead of hooks.json when you already manage requirements.toml.")
         pack.add("codex/config-otel.toml.template", codex_otel_template(ctx), "template",
@@ -450,7 +460,7 @@ def ownership(out_dir: Path) -> Tuple[List[str], Dict[str, str]]:
     texts: Dict[str, str] = {}
     foreign: List[str] = []
     for path in existing_files(out_dir):
-        relative = str(path.relative_to(out_dir))
+        relative = path.relative_to(out_dir).as_posix()  # manifest keys use slashes on every OS
         try:
             texts[relative] = edits.read_text(path)
         except (OSError, UnicodeDecodeError):
@@ -481,8 +491,9 @@ def write(pack: Pack, out_dir: Path, private: bool = False, replace: Optional[Di
     supplied credentials)."""
     replace = replace or {}
     root = out_dir.resolve()
-    targets = [(_checked_target(out_dir, root, relative), relative, text)
-               for relative, text in sorted(pack.files.items())]
+    # The ownership marker and the manifest go last: a pack that stops half-way is never mistaken for a finished one.
+    order = sorted(pack.files.items(), key=lambda kv: (kv[0] == PACK_MARK, kv[0] == "manifest.json", kv[0]))
+    targets = [(_checked_target(out_dir, root, relative), relative, text) for relative, text in order]
     written = []
     for target, relative, text in targets:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -573,6 +584,8 @@ def cmd_managed(args, out=print) -> int:
         out(f"\nDry run: {len(pack.files)} file(s) would be written to {out_dir}. Nothing was changed.")
         return 0
     try:
+        # No journal is involved and nothing outside the output directory may be created, so no lock file either:
+        # every file is written exclusively or compare-and-swapped, and the marker goes last.
         write(pack, out_dir, private=bool(headers), replace=replace)
         for relative in sorted(set(replace) - set(pack.files)):  # files the old pack wrote and this one does not
             stale = out_dir / relative

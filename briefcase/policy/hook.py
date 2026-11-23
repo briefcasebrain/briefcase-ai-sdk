@@ -42,12 +42,13 @@ FIX = "Fix it with `briefcase-ai policy check`, or turn enforcement off with `br
 
 
 class Options(object):
-    __slots__ = ("tool", "fail_closed", "capture_content", "endpoint", "endpoint_set", "report")
+    __slots__ = ("tool", "fail_closed", "capture_content", "endpoint", "endpoint_set", "report", "require_policy")
 
     def __init__(self, argv):
         """Hand-rolled on purpose: argparse exits 2 on an unknown flag, and exit 2 blocks the tool call."""
         self.tool = argv[0] if argv else ""
         self.fail_closed = False
+        self.require_policy = ""
         self.capture_content = False
         self.endpoint = os.environ.get("BRIEFCASE_RECEIVER_ENDPOINT") or ""
         self.endpoint_set = bool(self.endpoint)
@@ -61,6 +62,9 @@ class Options(object):
                 self.capture_content = True
             elif flag == "--no-report":
                 self.report = False
+            elif flag == "--require-policy-sha256" and index + 1 < len(argv):
+                index += 1
+                self.require_policy = argv[index].strip().lower()
             elif flag == "--endpoint" and index + 1 < len(argv):
                 index += 1
                 self.endpoint, self.endpoint_set = argv[index], True
@@ -184,17 +188,11 @@ def token_for(endpoint, environ=None):
     token = environ.get("BRIEFCASE_RECEIVER_TOKEN") or ""
     if not token:
         return ""
-    from urllib.parse import urlsplit
-
     wanted = str(endpoint or "").rstrip("/")
-    try:
-        host = (urlsplit(wanted).hostname or "").lower()
-    except ValueError:
-        return ""
-    if host in ("127.0.0.1", "localhost", "::1"):
-        return token
     bound = (environ.get("BRIEFCASE_RECEIVER_TOKEN_ENDPOINT") or "").rstrip("/")
-    return token if bound and bound == wanted else ""
+    if bound:  # an explicit binding decides: only that exact endpoint
+        return token if bound == wanted else ""
+    return token if wanted == DEFAULT_ENDPOINT.rstrip("/") else ""  # unbound: only the default local receiver
 
 
 def receiver_expected(options):
@@ -248,6 +246,17 @@ def spawn_report(options, event):
 
 # --- the hook -----------------------------------------------------------------
 
+def _required_policy_present(model, wanted):
+    """Is the system policy file there, and exactly the one this hook was deployed with?"""
+    import hashlib
+
+    try:
+        with open(model.system_policy_path(), "rb") as handle:
+            return hashlib.sha256(handle.read()).hexdigest() == wanted
+    except OSError:
+        return False
+
+
 def _load_errors(loaded):
     return "; ".join(f"{path or source}: {text}" for source, path, text in loaded.errors)
 
@@ -279,7 +288,21 @@ def decide(options, payload):
             entry["target"] = target[:4000]
     warning = None
     problem = None
-    if loaded.policy is None:
+    if call.kind == "invalid":
+        entry["note"] = call.note
+        if not fail_closed:  # not enforcing strictly: an event this policy cannot judge is not blocked
+            entry.update(effect="allow", would="allow", rule="not_judged", source="setting")
+            entry["ms"] = round((time.perf_counter() - started) * 1000, 2)
+            return tools.respond(tool, event, "allow"), entry
+        text = (f"Blocked by briefcase-ai policy: the hook input is not a valid {tool} event ({call.note}), and "
+                f"the policy is fail_closed, so nothing runs. {FIX}")
+        entry.update(effect="deny", would="deny", rule="fail_closed", source="setting", error=call.note)
+        entry["ms"] = round((time.perf_counter() - started) * 1000, 2)
+        return tools.respond(tool, event, "deny", text), entry
+    if options.require_policy and not _required_policy_present(model, options.require_policy):
+        problem = ("the system policy this hook was deployed with is missing or is not the one it requires "
+                   f"(sha256 {options.require_policy[:12]}...), so no weaker policy is used in its place")
+    elif loaded.policy is None:
         if loaded.errors:
             problem = "the policy cannot be applied (" + _load_errors(loaded) + ")"
         elif options.fail_closed:
@@ -345,12 +368,21 @@ def main(argv=None, stdin=None, stdout=None):
             raise ValueError("the hook input is larger than 4 MiB")
         payload = json.loads(raw)
         text, entry = decide(options, payload)
-        if text:
-            out.write(text + "\n")
-        out.flush()
+        try:
+            if text:
+                out.write(text + "\n")
+            out.flush()
+        except BaseException:  # noqa: B036 - the verdict could not be delivered
+            if "--fail-closed" in argv or options.fail_closed:
+                _block_stderr("the verdict could not be written")
+                return 2  # the host's blocking status: a verdict that never arrived must not read as allow
+            return 0
     except BaseException as exc:  # noqa: B036 - nothing may escape: a traceback or exit code 2 would block the tool
         # Options may be the thing that failed: the command line itself still says whether to fail closed.
-        _failed(tool, options, exc, out, "--fail-closed" in argv)
+        delivered = _failed(tool, options, exc, out, "--fail-closed" in argv)
+        if not delivered and ("--fail-closed" in argv or (options and options.fail_closed)):
+            _block_stderr("the verdict could not be written")
+            return 2
         return 0
     # The verdict is out. Everything below is bookkeeping and must not change it.
     try:
@@ -361,6 +393,14 @@ def main(argv=None, stdin=None, stdout=None):
     except BaseException:  # noqa: B036
         pass
     return 0
+
+
+def _block_stderr(why):
+    try:
+        sys.stderr.write(f"Blocked by briefcase-ai policy: {why}, and the hook was installed with --fail-closed. "
+                         f"{FIX}\n")
+    except BaseException:  # noqa: B036
+        pass
 
 
 def _failed(tool, options, exc, out, argv_fail_closed=False):
@@ -392,7 +432,8 @@ def _failed(tool, options, exc, out, argv_fail_closed=False):
                 out.write(text + "\n")
         out.flush()
     except BaseException:  # noqa: B036
-        pass
+        return False
+    return True
 
 
 if __name__ == "__main__":  # pragma: no cover

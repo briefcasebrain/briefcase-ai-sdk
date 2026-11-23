@@ -36,6 +36,7 @@ class HookOptions:
     capture_content: bool = False
     endpoint: str = DEFAULT_ENDPOINT
     portable: bool = False
+    require_policy_sha: str = ""  # a managed hook names the system policy it requires, by hash
 
 
 def launcher_path() -> str:
@@ -76,6 +77,8 @@ def hook_command(tool: str, options: HookOptions) -> str:
     if options.capture_content:
         flags.append("--capture-content")
     flags += ["--endpoint", (options.endpoint or DEFAULT_ENDPOINT).rstrip("/")]  # always explicit
+    if options.require_policy_sha:
+        flags += ["--require-policy-sha256", options.require_policy_sha]
     return " ".join(shlex.quote(part) for part in base + flags)
 
 
@@ -130,6 +133,17 @@ class PolicyAdapter(Adapter):
         command = hook_command(self.tool, self.options)
         project = ctx.scope == "project"
         notes: List[str] = []
+        if self.options.fail_closed:
+            # A startup guarantee that cannot be met is refused, not installed with a note.
+            from briefcase.connect.adapters import ProfileError
+
+            if self.options.portable and not shutil.which("briefcase-ai"):
+                raise ProfileError("--fail-closed needs `briefcase-ai` on PATH for the portable hook, and it is "
+                                   "not: a hook that cannot start would not block")
+            if not self.options.portable and not (os.path.exists(sys.executable)
+                                                  and os.path.exists(launcher_path())):
+                raise ProfileError("--fail-closed needs this Python and the hook launcher to exist, and one is "
+                                   "missing: a hook that cannot start would not block")
         if self.options.portable and not shutil.which("briefcase-ai"):
             notes.append("`briefcase-ai` is not on PATH here; the hook will fail open until it is")
         if self.tool == "claude-code":
@@ -143,10 +157,11 @@ class PolicyAdapter(Adapter):
                                  f"{field['min_version']}+; the installed version could not be read, so it is "
                                  "written anyway")
                 elif version < (parse_version(field["min_version"]) or (0,)):
-                    supports = False
-                    notes.append(f"fail_closed: Claude Code {'.'.join(map(str, version))} is older than "
-                                 f"{field['min_version']}, so `{field['name']}` is left out; a hook that cannot "
-                                 "start will not block there")
+                    from briefcase.connect.adapters import ProfileError
+
+                    raise ProfileError(f"--fail-closed needs Claude Code {field['min_version']}+ (it has "
+                                       f"{'.'.join(map(str, version))}): older versions ignore `{field['name']}`, "
+                                       "so a hook that cannot start would not block")
             entry = claude_entry(command, self.enforce, self.options.fail_closed, supports)
             notes.append("a denied or asked call shows the rule's reason in Claude Code; allowed calls go through "
                          "Claude Code's normal permission prompts")

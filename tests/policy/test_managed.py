@@ -77,7 +77,8 @@ def test_generated_files_parse_in_their_formats(home, tmp_path):
     settings = json.loads((out / "claude-code/managed-settings.d/10-briefcase.json").read_text())
     assert settings["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == ENDPOINT
     handler = settings["hooks"]["PreToolUse"][0]["hooks"][0]
-    assert handler["command"] == f"briefcase-ai hook claude-code --enforce --endpoint {ENDPOINT}"
+    assert handler["command"].startswith(f"briefcase-ai hook claude-code --enforce --endpoint {ENDPOINT}")
+    assert " --require-policy-sha256 " in handler["command"]
     # Only keys the managed-settings documentation lists; no lock settings are added silently.
     assert set(settings) == {"env", "hooks"}
     profile = plistlib.loads((out / "claude-code/macos/briefcase-claude-code.mobileconfig").read_bytes())
@@ -107,7 +108,8 @@ def test_fail_closed_policy_adds_the_documented_failure_fields(home, tmp_path):
     assert managed.cmd_managed(args(out, policy=str(policy)), out=lambda line: None) == 0
     handler = json.loads((out / "claude-code/managed-settings.d/10-briefcase.json").read_text())[
         "hooks"]["PreToolUse"][0]["hooks"][0]
-    assert handler["onFailure"] == "block" and handler["command"].endswith("--fail-closed --endpoint " + ENDPOINT)
+    assert handler["onFailure"] == "block"
+    assert "--fail-closed --endpoint " + ENDPOINT + " --require-policy-sha256 " in handler["command"]
     cursor = json.loads((out / "cursor/hooks.json").read_text())
     assert cursor["hooks"]["beforeReadFile"][-1]["failClosed"] is True
     assert "BLOCKED" in (out / "README.md").read_text()

@@ -8,7 +8,15 @@ Run by file path with ``python -I -S``, so it must not import ``briefcase``.
 """
 
 import json
+import urllib.request
 import sys
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect would carry the Authorization header to another origin: never follow one."""
+
+    def redirect_request(self, *args, **kwargs):
+        return None
 
 
 def main():
@@ -25,7 +33,7 @@ def main():
             request.add_header("Authorization", "Bearer " + str(job["token"]))
         # No proxy: the receiver is normally local, and a proxy from the
         # environment must not see the event.
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
         with opener.open(request, timeout=2.0) as response:
             response.read(1024)
     except BaseException:  # noqa: B036 - fire and forget

@@ -97,13 +97,13 @@
   "files_sha256": {
     "README.md": "a889cec984060ba8824df5c72e878d52f0c8e2e1eef0ed17d737d6c8de6d34e8",
     "briefcase/policy.toml": "bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
-    "claude-code/macos/briefcase-claude-code.mobileconfig": "10c916fd71fa0eab25ffd2d38e83970166bd410cdaa08a0cc2c4a4c2ef24ce8a",
-    "claude-code/managed-settings.d/10-briefcase.json": "ba1a1c11001b445af3348a426bbf4df26497512e6da5a22291dcb97eda3da6c7",
-    "claude-code/windows/claude-code-policy.reg.template": "6873ed66f01a922cf39c5aba0158edd834ded1af2d7da490b3ff8665521fe65f",
+    "claude-code/macos/briefcase-claude-code.mobileconfig": "7a5ee19ace8bb6ac99b86c8a9128056e849aba478dd781e2e1e295f503401b43",
+    "claude-code/managed-settings.d/10-briefcase.json": "9efd28ebe7b7bb9d1123d183629f58772c054cb23e2e39a8ce51acb49dbfbe79",
+    "claude-code/windows/claude-code-policy.reg.template": "2bdb8f622560c1016bdfe0a6d5f0d5d7c3f5b83830403b443b7add23e03d7a2f",
     "codex/config-otel.toml.template": "ebdc908debe3682f021cbd309136febcc940fb4d88d6ac9094d117f966e7d03a",
-    "codex/hooks.json": "87c5741159a2c21399d42083f65a82d6c3d0e1b6f1e99c6dd5eba4dbc6bb7305",
-    "codex/requirements-hooks.toml.template": "fdfe22c9a0c582c8eecf8bef0fdc2b0c47956d4ea3ef315813c85b405658c280",
+    "codex/hooks.json": "b2a743726e521e9a810611f70448a52d7025dbe05ba183d9037730b7a62dc9bb",
+    "codex/requirements-hooks.toml.template": "af4492423842e3f5765a7f55ca3f93fedb3c0a75c69e06e76e1434e1bdd624e0",
     "cowork/CHECKLIST.md": "1db78c9a2e62694651a32b723a0356f4aed77f06fd00d0172e7f5480390c7944",
-    "cursor/hooks.json": "8e293b743f604f0fbc53c7c4216f5f6773d62c073767179cb38371cb6ceaf934"
+    "cursor/hooks.json": "39c7f5a40ff938777f7bb613860f90e2c39aeb5a0f84272e83a31bd18a8b0ec8"
   }
 }

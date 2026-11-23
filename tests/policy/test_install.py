@@ -122,12 +122,10 @@ def test_reinstall_with_other_settings_changes_nothing_until_off(home, capsys, f
     assert "fail_closed = true" in (home / ".briefcase" / "policy.toml").read_text()
 
 
-def test_fail_closed_field_is_left_out_for_claude_code_older_than_documented(home, fake_bin):
+def test_fail_closed_is_refused_for_claude_code_older_than_documented(home, fake_bin):
     fake_bin("claude", "2.1.200 (Claude Code)")
     code, out = init(tools=["claude-code"], fail_closed=True)
-    assert code == 0
-    handler = json.loads(files(home)["claude"].read_text())["hooks"]["PreToolUse"][0]["hooks"][0]
-    assert "onFailure" not in handler and "older than 2.1.295" in out
+    assert code == 1 and "needs Claude Code" in out and not files(home)["claude"].exists()
 
 
 def test_off_that_cannot_remove_a_hook_says_enforcement_is_still_on_and_keeps_the_record(home, capsys):

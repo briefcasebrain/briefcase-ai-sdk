@@ -45,7 +45,9 @@ def denies(tool, code, raw):
     out = json.loads(raw)
     if tool == "cursor":
         return out.get("permission") == "deny"
-    return out.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
+    specific = out.get("hookSpecificOutput", {})
+    # The host recognises a deny only in this exact shape: the event name is part of it.
+    return specific.get("permissionDecision") == "deny" and specific.get("hookEventName") == "PreToolUse"
 
 
 def build_state(home, project, state):
@@ -143,7 +145,8 @@ def test_a_broken_policy_never_lets_a_call_through_under_fail_closed(home, proje
 
 
 @pytest.mark.parametrize("endpoint, bound, expect", [
-    ("http://127.0.0.1:4318", "", True), ("http://localhost:4318", "", True), ("http://[::1]:4318", "", True),
+    ("http://127.0.0.1:4318", "", True), ("http://localhost:4318", "", False), ("http://127.0.0.1:9", "", False),
+    ("http://127.0.0.1:9", "http://127.0.0.1:9", True), ("http://127.0.0.1:4318", "http://127.0.0.1:9", False),
     ("https://evil.example.com", "", False), ("https://evil.example.com", "https://other.example.com", False),
     ("https://rx.example.com", "https://rx.example.com/", True), ("not a url", "", False),
 ])
@@ -158,3 +161,112 @@ def test_the_receiver_token_goes_only_to_the_receiver_it_belongs_to(monkeypatch,
     monkeypatch.setattr(hook_commands, "forward", lambda payload, ep, timeout, token=None: sent.append((ep, token)))
     hook_commands.run_cursor(["--endpoint", endpoint], io.StringIO('{"hook_event_name": "stop"}'))
     assert len(sent) == 1 and (sent[0][1] == "tok") is expect
+
+
+# --- malformed input: under fail-closed the hook allows only a fully valid event the policy explicitly allows ----
+
+MALFORMED = ["shell_without_command", "non_object_root", "file_event_without_path", "unknown_event",
+             "tool_without_name", "empty_object"]
+
+
+def malformed(tool, kind, project):
+    if kind == "non_object_root":
+        return ["not", "an", "object"]
+    if kind == "empty_object":
+        return {}
+    if tool == "cursor":
+        base = {"conversation_id": "c", "generation_id": "g", "model": "m", "cursor_version": "1",
+                "workspace_roots": [str(project)], "user_email": "a@example.com", "transcript_path": None,
+                "cwd": str(project)}
+        if kind == "shell_without_command":
+            return dict(base, hook_event_name="beforeShellExecution")
+        if kind == "file_event_without_path":
+            return dict(base, hook_event_name="beforeReadFile")
+        if kind == "unknown_event":
+            return dict(base, hook_event_name="afterFileEdit", command="ls")
+        return dict(base, hook_event_name="preToolUse", tool_name="", tool_input={})
+    base = {"session_id": "s", "transcript_path": None, "cwd": str(project), "hook_event_name": "PreToolUse",
+            "tool_use_id": "t"}
+    if kind == "shell_without_command":
+        return dict(base, tool_name="Bash", tool_input={})
+    if kind == "file_event_without_path":
+        if tool == "codex":
+            return dict(base, tool_name="apply_patch", tool_input={"command": "no headers here"})
+        return dict(base, tool_name="Write", tool_input={})
+    if kind == "unknown_event":
+        return dict(base, hook_event_name="Stop", tool_name="Bash", tool_input={"command": "ls"})
+    return dict(base, tool_name="", tool_input={})
+
+
+M_COMBOS = [(t, k, e, c, st) for t in TOOLS for k in MALFORMED for e in ("module", "cli", "launcher")
+            for c in (False, True) for st in ("valid_denying", "absent")]
+
+
+@pytest.mark.parametrize("tool, kind, entry, closed, state", M_COMBOS,
+                         ids=[f"{t}-{k}-{e}-{'closed' if c else 'open'}-{s}" for t, k, e, c, s in M_COMBOS])
+def test_malformed_input_is_denied_under_fail_closed_and_allowed_otherwise(home, project, tool, kind, entry,
+                                                                           closed, state):
+    build_state(home, project, state)
+    code, raw = run_entry(entry, tool, ["--fail-closed"] if closed else [], malformed(tool, kind, project), home)
+    blocked = denies(tool, code, raw)
+    if closed:
+        assert blocked, f"fail-closed let malformed input ({kind}) through: exit {code}, output {raw!r}"
+    else:
+        assert not blocked and code == 0
+        if tool == "cursor":
+            assert raw.strip(), "a Cursor hook that prints nothing blocks"
+
+
+class _Broken(io.StringIO):
+    def write(self, text):
+        raise OSError("closed pipe")
+
+
+def test_a_verdict_that_cannot_be_written_blocks_with_the_hosts_status_under_fail_closed(home, project):
+    build_state(home, project, "valid_denying")
+    for tool in TOOLS:
+        code = hook.main([tool, "--enforce", "--fail-closed"], stdin=io.StringIO(json.dumps(payload(tool, project))),
+                         stdout=_Broken())
+        assert code == 2
+        code = hook.main([tool, "--enforce"], stdin=io.StringIO(json.dumps(payload(tool, project))), stdout=_Broken())
+        assert code == 0  # not enforcing strictly: unchanged
+
+
+def test_a_managed_hook_never_falls_back_to_a_weaker_policy(home, project, monkeypatch, tmp_path):
+    import hashlib
+
+    system = tmp_path / "system" / "policy.toml"
+    system.parent.mkdir()
+    strict = 'version = 1\npreset = "strict"\n'
+    system.write_text(strict)
+    monkeypatch.setenv("BRIEFCASE_SYSTEM_POLICY", str(system))
+    required = hashlib.sha256(strict.encode()).hexdigest()
+    harmless = {"session_id": "s", "transcript_path": None, "cwd": str(project), "hook_event_name": "PreToolUse",
+                "tool_name": "Bash", "tool_input": {"command": "ls"}, "tool_use_id": "t"}
+    flags = ["--fail-closed", "--require-policy-sha256", required]
+    out = io.StringIO()
+    hook.main(["claude-code", "--enforce", *flags], stdin=io.StringIO(json.dumps(harmless)), stdout=out)
+    assert not denies("claude-code", 0, out.getvalue()), "the required policy is present and allows ls"
+    system.unlink()  # the required file disappears; a valid weaker policy remains
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text(VALID.replace("guarded", "observe"))
+    out = io.StringIO()
+    hook.main(["claude-code", "--enforce", *flags], stdin=io.StringIO(json.dumps(harmless)), stdout=out)
+    assert denies("claude-code", 0, out.getvalue())
+    system.write_text(strict + "# changed\n")  # a different file at the same path is not the required one either
+    out = io.StringIO()
+    hook.main(["claude-code", "--enforce", *flags], stdin=io.StringIO(json.dumps(harmless)), stdout=out)
+    assert denies("claude-code", 0, out.getvalue())
+
+
+def test_fail_closed_is_not_installed_where_the_hook_could_not_start(home, project, monkeypatch, capsys):
+    from argparse import Namespace
+
+    from briefcase.cli import policy_commands
+
+    monkeypatch.setattr(install, "launcher_path", lambda: str(home / "missing" / "hook_main.py"))
+    lines = []
+    code = policy_commands.run_init(Namespace(tools=["claude-code"], preset=None, scope="user", fail_closed=True,
+                                              portable=False, capture_content=False, endpoint=None, force=False,
+                                              policy_dry_run=False, dry_run=False, yes=True), out=lines.append)
+    assert code == 1 and not (home / ".claude" / "settings.json").exists()

@@ -334,6 +334,13 @@ def _policy_file_is_ours(path: Path, text: Optional[str]) -> bool:
 
 
 def _record_policy_file(path: Path, text: str) -> None:
+    from briefcase.connect.lock import command_lock
+
+    with command_lock():
+        _record_locked(path, text)
+
+
+def _record_locked(path: Path, text: str) -> None:
     from briefcase.connect import edits
 
     journal = edits.load_journal()
@@ -344,10 +351,7 @@ def _record_policy_file(path: Path, text: str) -> None:
 
 
 def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[str], str]] = None) -> int:
-    from briefcase.connect.lock import command_lock
-
-    with command_lock(not _dry_run(args)):
-        return _run_init(args, out, ask)
+    return _run_init(args, out, ask)
 
 
 def _run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[str], str]] = None) -> int:
@@ -443,6 +447,9 @@ def _run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[
         out(f"\nDry run: {1 if write_policy else 0} policy file and {len(plan.changes)} tool file(s) would be "
             "written. Nothing was changed.")
         return 0
+    if tools and not plan.has_work and not [r for r in plan.resolved if r.status == edits.NOOP]:
+        out("\nNo hook was installed (see the manual steps above): enforcement is NOT in place.")
+        return 1
     if write_policy is None and not plan.has_work:
         out("\nNothing to write: the policy file exists and the hooks are already installed."
             if tools else "\nNothing was installed.")
@@ -490,10 +497,7 @@ def cmd_init(args, store=None, engine=None, stack=None) -> int:
 
 
 def cmd_off(args, store=None, engine=None, stack=None) -> int:
-    from briefcase.connect.lock import command_lock
-
-    with command_lock(not _dry_run(args)):
-        return _cmd_off(args)
+    return _cmd_off(args)
 
 
 def _cmd_off(args) -> int:
@@ -508,6 +512,13 @@ def _cmd_off(args) -> int:
     owners = [install.PREFIX + name for name in (named or install.TOOLS)]
     dry = _dry_run(args)
     present = [row["tool"] for row in install.installed() if install.PREFIX + row["tool"] in owners]
+    unrecorded = [n[len(install.PREFIX):] for n in owners if n[len(install.PREFIX):] not in present
+                  and install.hook_active(n[len(install.PREFIX):])]
+    if unrecorded and not present:
+        print(f"Enforcement is still ON for {', '.join(unrecorded)}: a hook exists that `policy init` has no record "
+              "of (it was edited, copied, or its record was lost), so it is not removed. Remove the entry yourself "
+              "(it runs `... hook <tool> --enforce`).", file=sys.stderr)
+        return 1
     if not present:
         print("No policy hooks are installed" + (" for those tools." if named else "."))
         print("Next: briefcase-ai policy init")
