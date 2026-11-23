@@ -464,7 +464,10 @@ class BedrockExecutor:
 
         service = botocore.session.get_session().get_service_model("bedrock-runtime")
         shape = service.operation_model("Converse").input_shape
-        return set(shape.members), set(shape.members["inferenceConfig"].members)
+        if shape is None or not hasattr(shape, "members"):
+            raise RuntimeError("botocore's bedrock-runtime model has no Converse input structure")
+        inference = shape.members["inferenceConfig"]
+        return set(shape.members), set(inference.members)  # type: ignore[attr-defined]
 
     def build(self, call: RecordedCall, overrides: Overrides,
               members: Optional[Tuple[Set[str], Set[str]]] = None) -> Dict[str, Any]:

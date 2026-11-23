@@ -110,3 +110,13 @@ def test_file_payloads():
         import tomli as tomllib
 
     assert tomllib.loads(mcp.codex_toml(UVX)) == {"mcp_servers": {"briefcase": UVX}}
+
+
+def test_the_real_launcher_check_succeeds_when_the_mcp_extra_is_installed():
+    import subprocess
+    import sys
+
+    pytest.importorskip("mcp")
+    done = subprocess.run([sys.executable, "-m", "briefcase.mcp", "--check"], capture_output=True, text=True,
+                          timeout=60)
+    assert done.returncode == 0 and done.stdout.strip() == "briefcase-ai-mcp: ok"
