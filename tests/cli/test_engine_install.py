@@ -254,11 +254,12 @@ def test_key_loader_accepts_any_release_pub_and_ignores_others(key, tmp_path):
     assert [k.key_id for k in loaded] == [key.key_id] and loaded[0].label == "release-anything.pub"
 
 
-def test_shipped_key_directory_has_readme_and_only_the_pinned_release_key():
+def test_shipped_key_directory_has_readme_and_only_the_pinned_release_keys():
     assert (trust.KEYS_DIR / "README.md").is_file()
     keys = trust.load_keys(trust.KEYS_DIR)
-    assert [k.key_id for k in keys] == [
-        "sha256:2c2303bdef3d97b33ca998f9eb397a8bf3de61465a0cb4fe955767e8b5470111"]
+    assert sorted(k.key_id for k in keys) == [
+        "sha256:2c2303bdef3d97b33ca998f9eb397a8bf3de61465a0cb4fe955767e8b5470111",   # active release key
+        "sha256:54a3f59fc571363966ea0e0700388201ce51a5d50e4d2f3de7843e8cd61fee43"]   # offline recovery key
 
 
 @pytest.mark.parametrize("argv, message, fix", [

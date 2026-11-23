@@ -25,7 +25,9 @@ the id, rename the file, and commit it here. The portal shows the same key and k
 ## Keys shipped
 
 `release-2c2303bdef3d97b3.pub` is the release operator's ECDSA P-256 key
-(`sha256:2c2303bdef3d97b33ca998f9eb397a8bf3de61465a0cb4fe955767e8b5470111`). With no key in this
+(`sha256:2c2303bdef3d97b33ca998f9eb397a8bf3de61465a0cb4fe955767e8b5470111`);
+`release-54a3f59fc5713639.pub` is the offline recovery key
+(`sha256:54a3f59fc571363966ea0e0700388201ce51a5d50e4d2f3de7843e8cd61fee43`). With no key in this
 directory, `briefcase-ai engine install` refuses with "no trusted release key is bundled in this SDK
 build": there is no way to install an unverified engine.
 
