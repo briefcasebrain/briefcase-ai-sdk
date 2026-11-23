@@ -361,8 +361,10 @@ def test_no_binary_for_this_os_runs_oci_bai_from_the_server_image(env, capsys, m
     (cohort / "cohort.json").write_text("{}")
     assert main(["env", "cohort", str(cohort), "--dry-run"]) == 0
     line = capsys.readouterr().out.strip()
-    assert line.startswith("docker run --rm -i --network briefcase-engine_default")
-    assert f"-v {cohort}:{cohort}:ro" in line and f"--entrypoint /usr/local/bin/oci-bai {server}" in line
+    assert line.startswith("docker run --rm -i --pull never --network briefcase-engine_default")
+    image_id = record["image_ids"]["server"]
+    assert f"-v {cohort}:{cohort}:ro" in line and f"--entrypoint /usr/local/bin/oci-bai {image_id}" in line
+    assert " --pull never " in line and server not in line  # the verified ID, never the mutable tag
     assert line.endswith(f"--server http://oci-jj-server:50051 --repo rl-gym-env cohort push {cohort}")
     token = compose.tenant_token(_engine.read_env_file(env["home"] / "engine" / "engine.env"))
     assert token not in line and "-e OCI_JJ_AUTH_TOKEN " in line  # by name only
@@ -423,7 +425,7 @@ def test_offline_install_loads_the_bundle_and_checks_every_image(env, offline, c
     assert "bundle signature verified" in out and "loaded 5 images with docker load" in out
     assert env["platform"].requests == []  # no network
     argvs = _docker(env)
-    assert ["load", "-i", str(offline / f"engine-images-{VERSION}-x86_64.tar")] in argvs
+    assert [a for a in argvs if a[0] == "load"][0][-1].endswith(f"download/engine-images-{VERSION}-x86_64.tar")
     assert not any(a[0] in ("login", "pull", "logout") for a in argvs)
     record = _engine.current_install()
     info = env["release"].images
@@ -459,12 +461,40 @@ def test_offline_install_with_the_containerd_image_store(env, offline, capsys, m
     assert _engine.current_install()["image_ids"]["postgres"] == info["postgres"]["digest"]
 
 
+def test_offline_install_loads_a_private_verified_copy_not_the_original_path(env, offline, capsys):
+    bundle = offline / f"engine-images-{VERSION}-x86_64.tar"
+    assert _install(*_offline_args(offline)) == 0
+    loads = [a for a in _docker(env) if a[0] == "load"]
+    assert len(loads) == 1 and loads[0][-1] != str(bundle)
+    staged = loads[0][-1]
+    assert staged.startswith(str(env["home"] / "engine" / VERSION / "download"))
+    assert stat.S_IMODE(os.stat(os.path.dirname(staged)).st_mode) == 0o700
+    wanted = env["release"].manifest["bundles"][0]["sha256"]
+    assert trust.sha256_file(install.Path(staged)) == wanted
+
+
+def test_offline_bundle_changed_after_the_first_check_is_refused_before_docker_sees_it(
+        env, offline, capsys, monkeypatch):
+    bundle = offline / f"engine-images-{VERSION}-x86_64.tar"
+    real = install.offline_install
+
+    def tamper_then_install(*args, **kwargs):
+        data = bundle.read_bytes()
+        bundle.write_bytes(data[:-1] + bytes([data[-1] ^ 1]))  # same length, one bit flipped
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(install, "offline_install", tamper_then_install)
+    assert _install(*_offline_args(offline)) == 1
+    assert "does not match the signed manifest" in capsys.readouterr().err
+    assert not any(a[0] == "load" for a in _docker(env)) and _engine.current_install() is None
+
+
 def test_offline_install_falls_back_to_skopeo(env, offline, capsys, monkeypatch):
     monkeypatch.setenv("FAKE_DOCKER_LOAD_FAIL", "1")
     assert _install(*_offline_args(offline)) == 0
     assert "trying skopeo" in capsys.readouterr().out
     copies = [c["argv"] for c in calls(env["log"], "skopeo")]
-    bundle = offline / f"engine-images-{VERSION}-x86_64.tar"
+    bundle = env["home"] / "engine" / VERSION / "download" / f"engine-images-{VERSION}-x86_64.tar"
     assert ["copy", "--quiet", f"oci-archive:{bundle}:briefcase-engine/server:{VERSION}",
             f"docker-daemon:localhost/briefcase-engine/server:{VERSION}"] in copies
     assert _engine.current_install()["load_method"] == "skopeo"

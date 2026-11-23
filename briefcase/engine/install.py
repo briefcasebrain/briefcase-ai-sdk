@@ -560,9 +560,14 @@ def offline_install(opts: InstallOptions, *, runner=subprocess.run, which: Calla
     if docker.available() is None:
         raise InstallError("Docker is not installed or its daemon is not running",
                            fix="install Docker (https://docs.docker.com/get-docker/), start it, then re-run")
-    manifest, sig, entry, how = verified or verify_offline(opts, verify_kw)
+    manifest, sig, entry, _how = verified or verify_offline(opts, verify_kw)
     install_dir = _engine.engine_dir(env) / manifest.version
     _save_manifest(install_dir, manifest, sig)
+    # The files are copied into a private directory and verified there, so what Docker loads is
+    # exactly what was checked even if the originals change after the first check or the prompt.
+    stage_dir = install_dir / "download"
+    bundle_path, how = _stage_verified(bundle_path, stage_dir, entry, manifest, _find_sig(bundle_path, entry),
+                                       **verify_kw)
     log(f"manifest for engine {manifest.version} verified (key {manifest.key_id}); bundle "
         + ("signature verified" if how == "signature" else "sha256 matches the signed manifest (no .sig next to it)"))
 
@@ -575,14 +580,30 @@ def offline_install(opts: InstallOptions, *, runner=subprocess.run, which: Calla
         if found is None and opts.binary:
             raise InstallError(f"{opts.binary} does not exist", code=2)
         if found is not None:
-            bhow = _trust.check_file(found, bentry, manifest, _find_sig(found, bentry), **verify_kw)
-            binary_path, binary_info = _install_binary(found, install_dir, bentry, bhow, runner, which, log)
+            staged, bhow = _stage_verified(found, stage_dir, bentry, manifest, _find_sig(found, bentry), **verify_kw)
+            binary_path, binary_info = _install_binary(staged, install_dir, bentry, bhow, runner, which, log)
         else:
             log(f"{bentry['file']} is not next to the manifest; pass --binary FILE to install the client binary")
 
     images, ids, method = _load_images(manifest, bundle_path, docker, target, runner, which, log)
     return _finish(opts, manifest, install_dir, binary_path, binary_info, images, ids,
                    {"load_method": method}, runner, log, target)
+
+
+def _stage_verified(src: Path, stage_dir: Path, entry: Mapping[str, Any], manifest: _trust.Manifest,
+                    signature: Optional[bytes], **verify_kw) -> Tuple[Path, str]:
+    """Copy ``src`` into the private ``stage_dir`` and verify the copy: ``(copy, how)``."""
+    stage_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(stage_dir, 0o700)
+    dest = stage_dir / entry["file"]
+    tmp = dest.with_name(dest.name + ".staging")
+    if tmp.exists():
+        tmp.unlink()
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as out, open(src, "rb") as source:
+        shutil.copyfileobj(source, out, 1 << 20)
+    os.replace(tmp, dest)
+    return dest, _verified(dest, entry, manifest, signature, **verify_kw)
 
 
 def _bundle_entry(manifest: _trust.Manifest, target: Mapping[str, str]) -> Dict[str, Any]:

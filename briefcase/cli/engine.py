@@ -111,13 +111,14 @@ class OciJJEngine:
                     mounts += ["-v", f"{arg}:{arg}:ro"]
             out_args.append(arg)
             prev = arg if arg.startswith("--") else None
-        run = ["docker", "run", "--rm", "-i", *net]
+        # The verified image ID, not the tag (which can be re-pointed after install), and never a pull.
+        run = ["docker", "run", "--rm", "-i", "--pull", "never", *net]
         if hasattr(os, "getuid"):
             run += ["--user", f"{os.getuid()}:{os.getgid()}"]
         run += ["-e", "OCI_JJ_AUTH_TOKEN"]
         if self._ca:
             run += ["-v", f"{os.path.abspath(self._ca)}:{CONTAINER_CA}:ro", "-e", f"OCI_JJ_TLS_CA={CONTAINER_CA}"]
-        run += mounts + ["--entrypoint", CONTAINER_BINARY, self.container["image"]]
+        run += mounts + ["--entrypoint", CONTAINER_BINARY, self.container.get("image_id") or self.container["image"]]
         return run + out_args
 
     def command(self, argv: Sequence[str]) -> list[str]:
