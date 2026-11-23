@@ -863,45 +863,74 @@ def test_up_status_logs_down_drive_the_installed_compose(env, capsys):
     assert [a[a.index("--env-file") + 2] for a in compose_calls] == ["up", "logs", "down"]
 
 
-def test_engine_up_refuses_while_a_4_4_stack_is_still_running(env, capsys, monkeypatch):
-    assert _install("--code", "bci_good") == 0
+def _up(env, capsys):
     capsys.readouterr()
-    monkeypatch.setenv("FAKE_DOCKER_LEGACY", "1")
-    env["log"].unlink()
-    assert main(["engine", "up"]) == 1
-    err = capsys.readouterr().err
-    assert "4.4 stack" in err and "docker compose -p oci-jj down" in err
-    assert "oci-jj_pgdata" in err and "no data transfer" in err
+    return main(["engine", "up"]), capsys.readouterr().err
+
+
+def test_engine_up_refuses_while_a_4_4_stack_is_running_and_names_its_project(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    monkeypatch.setenv("FAKE_DOCKER_PS", "oci-jj\toci-jj-oci-jj-server-1")
+    monkeypatch.setenv("FAKE_DOCKER_VOLUMES",
+                       json.dumps({"oci-jj_pgdata": {"com.docker.compose.project": "oci-jj"}}))
+    code, err = _up(env, capsys)
+    assert code == 1 and "docker compose -p oci-jj down" in err and "no data transfer" in err
+    assert "oci-jj_pgdata" in err
     assert not any(a[0] == "compose" and "up" in a for a in _docker(env))
 
 
-def test_a_4_4_stack_under_a_custom_project_name_is_caught_by_container_name(env, capsys, monkeypatch):
+def test_the_hint_names_the_actual_project_of_a_4_4_stack(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    monkeypatch.setenv("FAKE_DOCKER_PS", "mystack\tmystack-oci-jj-server-1")
+    code, err = _up(env, capsys)
+    assert code == 1 and "docker compose -p mystack down" in err
+
+
+def test_the_new_engines_own_project_and_unrelated_oci_jj_containers_do_not_block_up(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    # the Compose label filter lists only the new engine's own server; a container merely named oci-jj-x
+    # has no Compose service label and is never listed
+    monkeypatch.setenv("FAKE_DOCKER_PS", "briefcase-engine\tbriefcase-engine-oci-jj-server-1")
+    code, err = _up(env, capsys)
+    assert code == 0, err
+
+
+def test_engine_up_refuses_a_volume_it_did_not_create_with_the_commands_to_look_and_remove(env, capsys, monkeypatch):
+    """A 4.4 project named briefcase-engine used the same volume names; Compose would mount that data."""
+    assert _install("--code", "bci_good") == 0
+    monkeypatch.setenv("FAKE_DOCKER_VOLUMES", json.dumps({"briefcase-engine_pgdata": {}}))
+    code, err = _up(env, capsys)
+    assert code == 1
+    assert "docker volume inspect briefcase-engine_pgdata" in err and "docker volume rm briefcase-engine_pgdata" in err
+    assert "ai.briefcase.engine" in err
+    assert not any(a[0] == "compose" and "up" in a for a in _docker(env))
+
+
+def test_engine_up_starts_with_volumes_it_created_and_with_none(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    monkeypatch.setenv("FAKE_DOCKER_VOLUMES", json.dumps({"briefcase-engine_pgdata": {"ai.briefcase.engine": "1"}}))
+    assert _up(env, capsys)[0] == 0
+    monkeypatch.delenv("FAKE_DOCKER_VOLUMES")
+    assert _up(env, capsys)[0] == 0
+
+
+def test_the_compose_file_labels_the_volumes_it_creates():
+    text = compose.render(dict(DIGESTS), "0.2.0")
+    for volume in ("pgdata", "miniodata", "regdata"):
+        assert f"  {volume}:\n    labels:\n      ai.briefcase.engine: \"1\"\n" in text
+
+
+def test_engine_doctor_warns_about_a_running_4_4_stack_and_a_foreign_volume(env, capsys, monkeypatch):
     assert _install("--code", "bci_good") == 0
     capsys.readouterr()
-    monkeypatch.setenv("FAKE_DOCKER_LEGACY_CUSTOM", "1")
-    assert main(["engine", "up"]) == 1
-    err = capsys.readouterr().err
-    assert "mystack-oci-jj-server-1" in err and "no data transfer" in err
-
-
-def test_the_new_engines_own_containers_are_not_mistaken_for_a_4_4_stack(env, capsys):
-    assert _install("--code", "bci_good") == 0
-    capsys.readouterr()
-    assert main(["engine", "up"]) == 0  # the fake lists briefcase-engine-oci-jj-server-1 under the name filter
-
-
-def test_engine_doctor_warns_about_a_running_4_4_stack_and_its_leftover_volumes(env, capsys, monkeypatch):
-    assert _install("--code", "bci_good") == 0
-    capsys.readouterr()
-    monkeypatch.setenv("FAKE_DOCKER_LEGACY", "1")
+    monkeypatch.setenv("FAKE_DOCKER_PS", "mystack\tmystack-oci-jj-server-1")
+    monkeypatch.setenv("FAKE_DOCKER_VOLUMES", json.dumps({"briefcase-engine_pgdata": {}}))
     main(["engine", "doctor", "--json"])
     rows = {row["check"]: row for row in json.loads(capsys.readouterr().out)}
-    assert rows["4.4 stack"]["severity"] == "warn" and "docker compose -p oci-jj down" in rows["4.4 stack"]["detail"]
-    monkeypatch.delenv("FAKE_DOCKER_LEGACY")
-    monkeypatch.setenv("FAKE_DOCKER_LEGACY_VOLUMES", "1")
-    main(["engine", "doctor", "--json"])
-    rows = {row["check"]: row for row in json.loads(capsys.readouterr().out)}
-    assert rows["4.4 stack"]["severity"] == "warn" and "oci-jj_pgdata" in rows["4.4 stack"]["detail"]
+    assert rows["4.4 stack"]["severity"] == "warn"
+    assert "docker compose -p mystack down" in rows["4.4 stack"]["detail"]
+    assert rows["engine volumes"]["severity"] == "fail"
+    assert "briefcase-engine_pgdata" in rows["engine volumes"]["detail"]
 
 
 def test_run_logs_says_the_compose_override_is_no_longer_read(env, capsys, monkeypatch):

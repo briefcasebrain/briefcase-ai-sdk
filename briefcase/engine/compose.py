@@ -52,6 +52,9 @@ BLOB_BUCKET = "oci-jj-blobs"
 DATASET_BUCKET = "oci-jj-datasets"
 MINIO_IMAGE = ("bitnamilegacy/minio:2025.7.23"
                "@sha256:8935e75fa5d11295c17171e4aa49efe390a1193cd7f12e4d21b92af9ffef09d7")
+PROJECT = "briefcase-engine"
+ENGINE_LABEL = "ai.briefcase.engine"  # marks a volume this engine created
+VOLUME_KEYS = ("pgdata", "miniodata", "regdata")
 REGISTRY_IMAGE = ("registry:2.8.3"
                   "@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373")
 
@@ -250,8 +253,8 @@ def render(images: Mapping[str, str], version: str, tls: bool = False,
         "# pulled by Compose); auth required, only the workers hold a service token, ports on\n"
         "# 127.0.0.1 only.\n"
     )
-    return header + "name: briefcase-engine\n\nservices:\n" + "\n".join(services) + \
-        "\nvolumes:\n  pgdata:\n  miniodata:\n  regdata:\n"
+    return header + f"name: {PROJECT}\n\nservices:\n" + "\n".join(services) + \
+        "\nvolumes:\n" + "".join(f'  {key}:\n    labels:\n      {ENGINE_LABEL}: "1"\n' for key in VOLUME_KEYS)
 
 
 def write(target_dir: Path, images: Mapping[str, str], version: str, tls: bool = False,
@@ -263,7 +266,7 @@ def write(target_dir: Path, images: Mapping[str, str], version: str, tls: bool =
 
 
 def compose_argv(compose_file: Path, env_file: Path, *args: str, docker: Optional[str] = None) -> list:
-    return [docker or "docker", "compose", "--project-name", "briefcase-engine",
+    return [docker or "docker", "compose", "--project-name", PROJECT,
             "-f", str(compose_file), "--env-file", str(env_file), *args]
 
 

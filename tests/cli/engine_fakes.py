@@ -529,19 +529,28 @@ if args[:1] == ["load"]:
         else:
             print("Loaded image ID: " + image_id)
     save(); sys.exit(0)
-if args[:1] == ["ps"] and any("com.docker.compose.project=oci-jj" in a for a in args):
-    if os.environ.get("FAKE_DOCKER_LEGACY"):
-        print("oci-jj-oci-jj-server-1\noci-jj-postgres-1")
+if args[:1] == ["ps"]:
+    # `docker ps --filter label=com.docker.compose.service=oci-jj-server ...`: FAKE_DOCKER_PS holds
+    # "project<TAB>container" lines, as Docker prints them with the Compose labels in the format.
+    rows = [r for r in (os.environ.get("FAKE_DOCKER_PS") or "").split(";") if r]
+    if any("com.docker.compose.service=oci-jj-server" in a for a in args):
+        for row in rows:
+            print(row)
     sys.exit(0)
-if args[:1] == ["ps"] and any(a == "name=oci-jj-" for a in args):
-    # a stack started under another project name, plus the new engine's own containers (which must be ignored)
-    if os.environ.get("FAKE_DOCKER_LEGACY_CUSTOM"):
-        print("mystack-oci-jj-server-1\nmystack-oci-jj-gateway-1")
-    print("briefcase-engine-oci-jj-server-1")
+if args[:2] == ["volume", "ls"]:
+    # FAKE_DOCKER_VOLUMES: JSON {volume name: {label: value}}; filtered by `label=KEY=VALUE`.
+    volumes = json.loads(os.environ.get("FAKE_DOCKER_VOLUMES") or "{}")
+    wanted = [a.split("=", 1)[1] for a in args if a.startswith("label=")]
+    for name, labels in volumes.items():
+        if all(w.split("=", 1)[0] in labels and labels[w.split("=", 1)[0]] == w.split("=", 1)[1] for w in wanted):
+            print(name)
     sys.exit(0)
-if args[:2] == ["volume", "ls"] and any("com.docker.compose.project=oci-jj" in a for a in args):
-    if os.environ.get("FAKE_DOCKER_LEGACY") or os.environ.get("FAKE_DOCKER_LEGACY_VOLUMES"):
-        print("oci-jj_pgdata\noci-jj_miniodata")
+if args[:2] == ["volume", "inspect"]:
+    volumes = json.loads(os.environ.get("FAKE_DOCKER_VOLUMES") or "{}")
+    name = args[-1]
+    if name not in volumes:
+        sys.stderr.write("Error: No such volume: %s\n" % name); sys.exit(1)
+    print(volumes[name].get("ai.briefcase.engine", ""))
     sys.exit(0)
 if args[:1] == ["run"]:
     sys.exit(0)

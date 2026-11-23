@@ -170,39 +170,65 @@ def _compose(record: Dict[str, Any], *args: str) -> List[str]:
     return compose.compose_argv(Path(record["compose"]), Path(record["env_file"]), *args)
 
 
-LEGACY_PROJECT = "oci-jj"  # the Compose project of the 4.4 `briefcase stack`
-
-
 def legacy_stack() -> Dict[str, List[str]]:
-    """Containers and volumes left by the removed 4.4 ``briefcase stack``: Compose project ``oci-jj`` (by
-    label), or a stack started under another project name (by the ``oci-jj-`` service names in its
-    container names; the new engine's own ``briefcase-engine-*`` containers are ignored)."""
-    def names(argv: List[str]) -> List[str]:
+    """What the removed 4.4 ``briefcase stack`` left behind. A running one is a Compose service named
+    ``oci-jj-server`` in a project other than this engine's own (found by Compose labels, so unrelated
+    containers that merely have ``oci-jj-`` in their name are ignored); ``projects`` maps each project to
+    its containers and ``volumes`` lists the volumes those projects own."""
+    def lines(argv: List[str]) -> List[str]:
         res = _run(argv, capture_output=True, text=True)
-        return (getattr(res, "stdout", "") or "").split() if _rc(res) == 0 else []
+        return [ln for ln in (getattr(res, "stdout", "") or "").splitlines() if ln.strip()] if _rc(res) == 0 else []
 
-    label = f"label=com.docker.compose.project={LEGACY_PROJECT}"
-    running = names(["docker", "ps", "--filter", label, "--format", "{{.Names}}"])
-    for name in names(["docker", "ps", "--filter", "name=oci-jj-", "--format", "{{.Names}}"]):
-        if not name.startswith("briefcase-engine-") and name not in running:
-            running.append(name)
-    return {"running": running,
-            "volumes": names(["docker", "volume", "ls", "--filter", label, "--format", "{{.Name}}"])}
+    from briefcase.engine import compose as _compose
+
+    projects: Dict[str, List[str]] = {}
+    for row in lines(["docker", "ps", "--filter", "label=com.docker.compose.service=oci-jj-server", "--format",
+                      '{{.Label "com.docker.compose.project"}}\t{{.Names}}']):
+        project, _, name = row.partition("\t")
+        if project and project != _compose.PROJECT:
+            projects.setdefault(project, []).append(name)
+    volumes: List[str] = []
+    for project in projects:
+        volumes += lines(["docker", "volume", "ls", "--filter", f"label=com.docker.compose.project={project}",
+                          "--format", "{{.Name}}"])
+    return {"projects": projects, "volumes": volumes}  # type: ignore[dict-item]
 
 
-def legacy_stack_message(found: Dict[str, List[str]]) -> str:
+def legacy_stack_message(found: Dict[str, Any]) -> str:
     parts = []
-    if found["running"]:
-        parts.append(f"a 4.4 stack is still running ({', '.join(found['running'][:3])}; it uses the same ports): "
-                     "stop it with `docker compose -p oci-jj down` (or `-p <your project name>`)")
-    if found["volumes"]:
-        parts.append(f"its data volumes ({', '.join(found['volumes'])}) are kept but there is no data transfer: "
-                     "the new engine starts empty. Delete them with `docker volume rm` once you no longer need "
-                     "that data")
-    elif found["running"]:
-        parts.append("there is no data transfer from the old stack to the new engine, which starts empty; list "
-                     "the old volumes with `docker volume ls` before removing anything")
+    for project, names in found["projects"].items():
+        parts.append(f"a 4.4 stack is still running (Compose project {project}: {', '.join(names[:3])}; it uses "
+                     f"the same ports): stop it with `docker compose -p {project} down`")
+    if found["projects"]:
+        parts.append("there is no data transfer from the old stack to the new engine, which starts empty"
+                     + (f"; the old volumes ({', '.join(found['volumes'])}) are kept until you remove them with "
+                        "`docker volume rm`" if found["volumes"] else ""))
     return "; ".join(parts)
+
+
+def foreign_volumes() -> List[str]:
+    """Volumes the new engine would mount that exist but were not created by it (no ``ai.briefcase.engine``
+    label): a 4.4 project named ``briefcase-engine`` used the same names, and Compose would reuse that data."""
+    from briefcase.engine import compose as _compose
+
+    bad = []
+    for key in _compose.VOLUME_KEYS:
+        name = f"{_compose.PROJECT}_{key}"
+        res = _run(["docker", "volume", "inspect", "--format", '{{ index .Labels "' + _compose.ENGINE_LABEL + '" }}',
+                    name], capture_output=True, text=True)
+        if _rc(res) == 0 and (getattr(res, "stdout", "") or "").strip() != "1":
+            bad.append(name)
+    return bad
+
+
+def foreign_volumes_message(names: List[str]) -> str:
+    from briefcase.engine import compose as _compose
+
+    inspect = "; ".join(f"`docker volume inspect {n}`" for n in names)
+    remove = " and ".join(f"`docker volume rm {n}`" for n in names)
+    return (f"the volume(s) {', '.join(names)} already exist and were not created by this engine (they lack the "
+            f"{_compose.ENGINE_LABEL} label), so they may hold another stack's data: look with {inspect}; if you "
+            f"do not need that data, remove them with {remove}, then run `briefcase-ai engine up` again")
 
 
 def _rc(result) -> int:
@@ -556,9 +582,13 @@ def cmd_up(args, store, engine, stack) -> int:
         return _ux.fail("an engine image changed since it was verified at install; not starting it",
                         fix=_reinstall_fix(record))
     legacy = legacy_stack()
-    if legacy["running"]:
+    if legacy["projects"]:
+        first = next(iter(legacy["projects"]))
         return _ux.fail(legacy_stack_message(legacy),
-                        fix="docker compose -p oci-jj down   # then: briefcase-ai engine up")
+                        fix=f"docker compose -p {first} down   # then: briefcase-ai engine up")
+    foreign = foreign_volumes()
+    if foreign:
+        return _ux.fail(foreign_volumes_message(foreign), fix="briefcase-ai engine doctor")
     argv = _compose(record, "up", "-d", "--remove-orphans")
     if getattr(args, "wait", False):
         argv += ["--wait", "--wait-timeout", "300"]
@@ -729,8 +759,11 @@ def doctor_checks(record: Optional[Dict[str, Any]], client_factory=None) -> List
                    if _rc(res) == 0 else (FAIL, "docker compose", "the compose plugin is missing"))
     if version:
         legacy = legacy_stack()
-        if legacy["running"] or legacy["volumes"]:
+        if legacy["projects"]:
             out.append((WARN, "4.4 stack", legacy_stack_message(legacy)))
+        foreign = foreign_volumes()
+        if foreign:
+            out.append((FAIL, "engine volumes", foreign_volumes_message(foreign)))
     keys = _trust.load_keys()
     out.append((OK, "release keys", ", ".join(k.key_id[:19] + "..." for k in keys)) if keys
                else (WARN, "release keys", _trust.NO_KEY_MESSAGE))
