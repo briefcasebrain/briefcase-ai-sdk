@@ -33,7 +33,8 @@ def test_first_connect_does_not_send_existing_capture_or_credentials_to_a_new_en
     # Saying so explicitly is allowed: the capture or credential is then asked for, not inherited.
     flag = ["--capture-content"] if state == "capture_on" else ["--headers", "Authorization=Bearer x"]
     again, _, _ = w.run(["connect", tool, "--no-mcp", "--yes", "--endpoint", "https://new.example.com", *flag])
-    assert again == 0 and path.read_bytes().startswith(before.rstrip(b"\n")[:1])
+    # The key is the user's own and is never overwritten, so nothing is written either way.
+    assert again in (0, 1) and path.read_bytes() == before
 
 
 def test_a_preview_shows_only_the_lines_it_would_add(w):

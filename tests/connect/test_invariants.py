@@ -517,10 +517,11 @@ def test_invariants(tmp_path, monkeypatch, tool, state, name):
                     if isinstance(h, dict) and "hook cursor" in h.get("command", "")]
             assert all("--endpoint" in c for c in ours), ours
 
-    # I7: new files that hold a supplied credential are private
+    # I7: every file that holds a supplied credential is private, new or not; and it is never printed
     for rel, (data, mode) in after["files"].items():
-        if rel not in before["files"] and SUPPLIED.encode() in data:
+        if SUPPLIED.encode() in data:
             assert mode == 0o600, f"{rel} holds a supplied credential with mode {oct(mode)}"
+    assert SUPPLIED not in text + dry_out + dry_err, "a supplied credential was printed"
 
 
 def effective_exports_from(before, world, tool):

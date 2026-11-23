@@ -371,6 +371,7 @@ class Codex(Adapter):
                 "Point Codex's OpenTelemetry export at the briefcase receiver" if ctx.telemetry
                 else "Register the briefcase MCP server with Codex",
                 toml_body="\n\n".join(body), toml_tables=tuple(tables), notes=notes,
+                secret=bool(ctx.headers),
                 kind="telemetry" if ctx.telemetry else "mcp",
             ))
         if command is not None:
