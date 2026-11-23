@@ -27,7 +27,7 @@ with what is confirmed and what is not.
 4. Each hook decides on the machine itself (no network hop) and then posts a decision record
    (rule id and effect; the command or path only as a keyed hash) to
    `https://otel.example.com/v1/policy/decisions`,
-   without waiting for it. If that receiver needs a token, set `BRIEFCASE_RECEIVER_TOKEN` in the
+   without waiting for it. If that receiver needs a token, set `BRIEFCASE_RECEIVER_TOKEN` and `BRIEFCASE_RECEIVER_TOKEN_ENDPOINT` (this URL) in the
    environment the coding tools run in; without it the records are refused and enforcement is unaffected.
 
 ## Files

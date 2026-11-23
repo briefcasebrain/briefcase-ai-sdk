@@ -176,6 +176,27 @@ def record_problem(text, tool, fail_closed):
 
 # --- reporting ----------------------------------------------------------------
 
+def token_for(endpoint, environ=None):
+    """The receiver token that belongs to ``endpoint``, or ``""``. The ambient ``BRIEFCASE_RECEIVER_TOKEN`` goes to a
+    loopback receiver, or to the one endpoint named in ``BRIEFCASE_RECEIVER_TOKEN_ENDPOINT``; an endpoint someone
+    else chose never receives it."""
+    environ = os.environ if environ is None else environ
+    token = environ.get("BRIEFCASE_RECEIVER_TOKEN") or ""
+    if not token:
+        return ""
+    from urllib.parse import urlsplit
+
+    wanted = str(endpoint or "").rstrip("/")
+    try:
+        host = (urlsplit(wanted).hostname or "").lower()
+    except ValueError:
+        return ""
+    if host in ("127.0.0.1", "localhost", "::1"):
+        return token
+    bound = (environ.get("BRIEFCASE_RECEIVER_TOKEN_ENDPOINT") or "").rstrip("/")
+    return token if bound and bound == wanted else ""
+
+
 def receiver_expected(options):
     """Only start the reporting child when a receiver was configured or has been started here."""
     if not options.report:
@@ -194,7 +215,7 @@ def spawn_report(options, event):
     still holds it open, and refuses the decision if a background child does."""
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report.py")
     body = json.dumps({"endpoint": options.endpoint, "path": REPORT_PATH, "event": event,
-                       "token": os.environ.get("BRIEFCASE_RECEIVER_TOKEN") or ""}).encode("utf-8")
+                       "token": token_for(options.endpoint)}).encode("utf-8")
     argv = [sys.executable, "-I", "-S", script]
     if hasattr(os, "posix_spawn") and len(body) < 60000:
         read_end, write_end = os.pipe()
@@ -328,7 +349,8 @@ def main(argv=None, stdin=None, stdout=None):
             out.write(text + "\n")
         out.flush()
     except BaseException as exc:  # noqa: B036 - nothing may escape: a traceback or exit code 2 would block the tool
-        _failed(tool, options, exc, out)
+        # Options may be the thing that failed: the command line itself still says whether to fail closed.
+        _failed(tool, options, exc, out, "--fail-closed" in argv)
         return 0
     # The verdict is out. Everything below is bookkeeping and must not change it.
     try:
@@ -341,9 +363,9 @@ def main(argv=None, stdin=None, stdout=None):
     return 0
 
 
-def _failed(tool, options, exc, out):
+def _failed(tool, options, exc, out, argv_fail_closed=False):
     from briefcase.policy import tools
-    fail_closed = bool(options and options.fail_closed)
+    fail_closed = bool(options and options.fail_closed) or bool(argv_fail_closed)
     problem = f"the hook failed ({type(exc).__name__}: {exc})"
     warn = False
     try:
@@ -354,7 +376,10 @@ def _failed(tool, options, exc, out):
     except BaseException:  # noqa: B036
         pass
     try:
-        if fail_closed and tool in tools.TOOLS:
+        if fail_closed and tool not in tools.TOOLS:
+            out.write(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                                         "permissionDecisionReason": f"Blocked: {problem}"}}) + "\n")
+        elif fail_closed:
             event = "beforeShellExecution" if tool == "cursor" else "PreToolUse"
             text = (f"Blocked by briefcase-ai policy: {problem}. The hook was installed with --fail-closed, "
                     f"so nothing runs. {FIX}")

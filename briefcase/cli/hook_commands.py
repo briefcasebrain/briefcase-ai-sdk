@@ -86,6 +86,16 @@ def run_enforce(tool: str, argv: List[str], stdin: Any = None, stdout: Any = Non
         from briefcase.policy import hook
         return hook.main([tool] + list(argv), stdin=stdin, stdout=stdout)
     except BaseException:  # noqa: B036 - the policy code could not even be imported
+        if "--fail-closed" in argv:  # the one thing the command line promised: nothing runs
+            reason = ("Blocked by briefcase-ai policy: the hook could not run and it was installed with "
+                      "--fail-closed. Reinstall with `briefcase-ai policy init`, or turn enforcement off with "
+                      "`briefcase-ai policy off`.")
+            if tool == "cursor":
+                print(json.dumps({"permission": "deny", "user_message": reason, "agent_message": reason}))
+            else:
+                print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                                         "permissionDecisionReason": reason}}))
+            return 0
         if tool == "cursor":
             print('{"permission": "allow"}')   # a Cursor permission hook that prints nothing blocks
         return 0
@@ -105,8 +115,9 @@ def run_cursor(argv: List[str], stdin: Any = None) -> int:
             return 0
         payload = json.loads(raw)
         if isinstance(payload, dict):
-            forward(scrub(payload, capture_content), endpoint, timeout,
-                    os.environ.get("BRIEFCASE_RECEIVER_TOKEN"))
+            from briefcase.policy.hook import token_for
+
+            forward(scrub(payload, capture_content), endpoint, timeout, token_for(endpoint))
     except BaseException:  # noqa: B036 - fail open on everything, including SystemExit from argparse
         pass
     return 0

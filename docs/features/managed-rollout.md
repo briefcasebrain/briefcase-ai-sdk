@@ -90,7 +90,7 @@ The hooks run `briefcase-ai hook <tool> --enforce`, so `briefcase-ai` must be in
 machine with `briefcase-ai` on the PATH the coding tools see. Each hook decides on the machine (no
 network hop) and then posts a decision record (rule id and effect; the command or path only as a
 keyed hash) to `<endpoint>/v1/policy/decisions` without waiting. If your receiver needs a token,
-set `BRIEFCASE_RECEIVER_TOKEN` in the environment the tools run in; without it records are
+set `BRIEFCASE_RECEIVER_TOKEN` and `BRIEFCASE_RECEIVER_TOKEN_ENDPOINT` (the receiver's URL) in the environment the tools run in; the token is sent only to a loopback receiver or to exactly that URL; without it records are
 refused and enforcement is unaffected.
 
 ## Defaults and how to change them
