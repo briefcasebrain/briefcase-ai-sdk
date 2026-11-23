@@ -129,7 +129,9 @@ def lookup(argv: List[str], runner: Runner) -> Tuple[str, Optional[Dict[str, Any
                 if in_env and match.group(2).strip():
                     env_lines += 1
                 fields[match.group(1)] = match.group(2).strip()
-            elif in_env and line.strip():
+            elif in_env and not line.strip():
+                in_env = False  # a blank line ends the section; the CLI's removal hint follows it
+            elif in_env and line.startswith("    "):
                 env_lines += 1
         if "Command" not in fields or fields.get("Type", "stdio") != "stdio" or "URL" in fields:
             return UNKNOWN, None
