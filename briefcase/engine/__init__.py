@@ -2,16 +2,18 @@
 
 The engine is proprietary and is NOT part of this package. What ships here is the open part:
 the gRPC contract (``briefcase/engine/_proto``, Apache-2.0, vendored from oci-jj ``proto/``),
-the client, and the installer that fetches the engine with an account licence token
-(``briefcase engine install``). Nothing in this package contains engine binaries, images,
-source or credentials.
+the client, the release keys this SDK trusts (``briefcase/engine/keys``) and the installer that
+gets the engine from the gated Briefcase portal and verifies it (``briefcase engine install``).
+Nothing in this package contains engine binaries, images, source or credentials.
 
 Install state lives under ``~/.briefcase/engine`` (``$BRIEFCASE_HOME/engine``)::
 
     installed.json          which versions are installed and which one is current
     engine.env              per-install secrets (DB passwords, gRPC tokens), mode 0600
-    <version>/bin/oci-bai   the client binary (heavy local work: cohort push)
-    <version>/docker-compose.yml   the single-box stack, pinned to image digests
+    <version>/engine-manifest.json(.sig)   the verified, signed release manifest
+    <version>/bin/oci-bai   the client binary (heavy local work: cohort push), when the release
+                            has a build for this OS; otherwise it runs from the server image
+    <version>/docker-compose.yml   the single-box stack on the verified images
     tls/                    optional self-signed certificate (``engine install --tls``)
 
 Every engine command calls :func:`gate` first. Without an install (and without an explicit

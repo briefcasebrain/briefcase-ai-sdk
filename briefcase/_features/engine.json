@@ -2,10 +2,10 @@
   "id": "engine",
   "title": "Briefcase engine (oci-jj) install",
   "verb": "connect",
-  "one_line": "Install the licensed environment engine with your licence token.",
+  "one_line": "Install the licensed engine from the portal, verified against a pinned key.",
   "command": "briefcase engine install",
   "docs_slug": "connect/engine",
   "status": "experimental",
   "requires_extra": null,
-  "verified_against": "Offline: fake platform, fake docker, fake GitHub redirects. Real in a sandbox: briefcase-ai platform on MySQL 8.4 + registry:2 token auth + Docker; install, upgrade, up, status, doctor, --tls against images built from oci-jj be043d9. Not run: real GHCR, GitHub App, signing, verdict worker."
+  "verified_against": "Offline: throwaway P-256 key signing in the cosign blob format, fake platform (install codes, presigned downloads), fake docker/skopeo/xattr/cosign, with and without cryptography. Real: docker load of a signed OCI archive on Docker 29.10 (classic vfs and containerd stores). Not run: the real portal, S3, ECR, KMS, cosign, macOS; no release key ships yet."
 }

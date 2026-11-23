@@ -11,7 +11,7 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
 | [Adapter conformance checks](../../docs/features/adapter-conformance.md) | Know when a coding tool update breaks its briefcase connection. | `briefcase doctor --connect` | experimental |
-| [Briefcase engine (oci-jj) install](../../docs/features/engine.md) | Install the licensed environment engine with your licence token. | `briefcase engine install` | experimental |
+| [Briefcase engine (oci-jj) install](../../docs/features/engine.md) | Install the licensed engine from the portal, verified against a pinned key. | `briefcase engine install` | experimental |
 | [Connect coding tools](../../docs/integrations/README.md) | Point Claude Code, Codex, Cursor and Copilot at briefcase in one command. | `briefcase connect` | experimental |
 | [Cursor hooks](../../docs/integrations/README.md#cursor) | Record Cursor sessions, prompts and tool calls through its hook system. | `briefcase connect cursor` | experimental |
 | [Guided setup and status](../../docs/features/cli-shell.md) | One command to get started and one screen that shows what is on. | `briefcase setup` | experimental |

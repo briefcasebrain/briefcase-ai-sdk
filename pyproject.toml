@@ -113,9 +113,10 @@ mcp = ["mcp>=1.2,<3"]
 run = ["grpcio>=1.60,<2", "grpcio-reflection>=1.60,<2", "protobuf>=4.25"]
 # `briefcase engine` / `graph` / `env`: the gRPC client for the Briefcase engine (oci-jj), built from
 # the vendored Apache-2.0 contract in briefcase/engine/_proto (no reflection needed). The engine
-# itself is proprietary and is NOT a dependency: `briefcase engine install` fetches it with an
-# account licence token. `engine install` itself needs no extra (stdlib + docker).
-engine = ["grpcio>=1.60,<2", "protobuf>=4.25"]
+# itself is proprietary and is NOT a dependency: `briefcase engine install` gets it from the gated
+# portal and verifies its ECDSA P-256 release signatures with `cryptography` (without it, the
+# installer needs `cosign` on PATH instead).
+engine = ["grpcio>=1.60,<2", "protobuf>=4.25", "cryptography>=42"]
 # `briefcase receive` decodes OTLP/JSON with the stdlib. This extra adds OTLP/protobuf decoding,
 # which Codex and Copilot send; Claude Code is configured for http/json by `briefcase connect`
 # and needs nothing extra.
@@ -242,6 +243,8 @@ include = [
     "briefcase/engine/_proto/oci_jj_v1.binpb",
     "briefcase/engine/_proto/oci_jj/v1/*.proto",
     "briefcase/engine/_proto/LICENSE",
+    # The engine release keys this SDK trusts (release-*.pub) and how to rotate them.
+    "briefcase/engine/keys/*",
     # Usage guide served by the MCP server's how_to tool. A copy of the
     # repo-root llms-full.txt (tests/test_mcp_guide.py keeps them identical),
     # because a file outside the package cannot ship inside it.
