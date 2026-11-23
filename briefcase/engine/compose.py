@@ -5,7 +5,10 @@ The layout and settings follow oci-jj's own compose files as of branch charming-
 reconstructor: authenticate callers and forward the caller's credential", be043d9 "verdict
 worker sends its token; datasets only via server-minted presigned URLs", read 2026-11-22):
 
-* every first-party image is pinned by digest, from the release manifest the platform returned;
+* every first-party image is the one the signed release manifest pins by digest: the installer
+  verifies it, tags it ``localhost/briefcase-engine/<name>:<version>`` and the compose file uses
+  that tag with ``pull_policy: never`` (a ``docker load``-ed image has no registry digest to
+  reference, so the digest is checked at install and by ``engine up``/``doctor`` instead);
 * nothing is hard-coded: :func:`ensure_secrets` generates every password and token once into
   ``~/.briefcase/engine/engine.env`` (mode 0600); upgrades reuse it because the Postgres and
   MinIO volumes keep what they were first initialised with;
@@ -111,27 +114,48 @@ def make_tls(tls_dir: Path, runner=subprocess.run) -> Dict[str, str]:
     return {"cert": str(cert), "key": str(key), "ca": str(cert)}
 
 
+LOCAL_PREFIX = "localhost/briefcase-engine/"
+
+
+def _pinned(ref: str) -> bool:
+    return "@sha256:" in ref or ref.startswith(LOCAL_PREFIX)
+
+
 def render(images: Mapping[str, str], version: str, tls: bool = False,
-           grpc_port: int = 50051, gateway_port: int = 8080) -> str:
+           grpc_port: int = 50051, gateway_port: int = 8080,
+           digests: Optional[Mapping[str, str]] = None) -> str:
     """The compose file text. ``images`` maps service keys (``server``, ``gateway``,
-    ``reconstructor``, ``workers``, ``postgres``, optional ``verdict_worker``) to
-    ``<ref>@sha256:<digest>``."""
+    ``reconstructor``, ``workers``, ``postgres``, optional ``verdict_worker``, ``minio``,
+    ``registry``) to either ``<ref>@sha256:<digest>`` or the local tag the installer gave a
+    verified image (``localhost/briefcase-engine/<name>:<version>``). Local tags get
+    ``pull_policy: never`` (Compose must never fetch them from anywhere) and a comment with
+    the digest the signed manifest pins (``digests``)."""
     for required in ("server", "gateway", "workers", "postgres"):
-        if "@sha256:" not in (images.get(required) or ""):
+        if not _pinned(images.get(required) or ""):
             raise ValueError(f"image {required!r} is not pinned by digest: {images.get(required)!r}")
+    digests = digests or {}
+
+    def image(key: str, default: Optional[str] = None) -> str:
+        ref = images.get(key) or default or ""
+        line = f"    image: {ref}\n"
+        if ref.startswith(LOCAL_PREFIX):
+            line += "    pull_policy: never\n"
+            if digests.get(key):
+                line = f"    # signed manifest: {digests[key]}\n" + line
+        return line
     grpc_target = ("https://" if tls else "") + "oci-jj-server:50051"
     client_tls = "      OCI_JJ_TLS_CA: /tls/server.crt\n" if tls else ""
     tls_volume = "    volumes:\n      - ../tls:/tls:ro\n" if tls else ""
     server_tls = ("      OCI_JJ_TLS_CERT: /tls/server.crt\n      OCI_JJ_TLS_KEY: /tls/server.key\n"
                   if tls else '      OCI_JJ_ALLOW_PLAINTEXT: "1"\n')
 
-    def client(name: str, image: str, extra: str = "", ports: str = "", token: bool = False) -> str:
+    def client(name: str, key: str, extra: str = "", ports: str = "", token: bool = False) -> str:
         # Only the internal workers hold a credential (the admin-plane worker token); the gateway
         # and reconstructor forward each caller's own token.
         auth = "      OCI_JJ_AUTH_TOKEN: ${OCI_JJ_WORKER_TOKEN}\n" if token else ""
         return (
             f"  {name}:\n"
-            f"    image: {image}\n"
+            f"{image(key)}"
             "    restart: unless-stopped\n"
             "    environment:\n"
             f"      OCI_JJ_SERVER_GRPC: {grpc_target}\n"
@@ -142,7 +166,7 @@ def render(images: Mapping[str, str], version: str, tls: bool = False,
 
     services = [
         "  postgres:\n"
-        f"    image: {images['postgres']}\n"
+        f"{image('postgres')}"
         "    restart: unless-stopped\n"
         "    environment:\n"
         "      POSTGRES_USER: oci_jj\n"
@@ -155,7 +179,7 @@ def render(images: Mapping[str, str], version: str, tls: bool = False,
         '      test: ["CMD-SHELL", "pg_isready -U oci_jj -d oci_jj"]\n'
         "      interval: 5s\n      timeout: 5s\n      retries: 30\n",
         "  minio:\n"
-        f"    image: {MINIO_IMAGE}\n"
+        f"{image('minio', MINIO_IMAGE)}"
         "    restart: unless-stopped\n"
         "    environment:\n"
         "      MINIO_ROOT_USER: ${MINIO_ROOT_USER}\n"
@@ -166,11 +190,11 @@ def render(images: Mapping[str, str], version: str, tls: bool = False,
         '      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]\n'
         "      interval: 5s\n      timeout: 5s\n      retries: 30\n",
         "  registry:\n"
-        f"    image: {REGISTRY_IMAGE}\n"
+        f"{image('registry', REGISTRY_IMAGE)}"
         "    restart: unless-stopped\n"
         "    volumes:\n      - regdata:/var/lib/registry\n",
         "  oci-jj-server:\n"
-        f"    image: {images['server']}\n"
+        f"{image('server')}"
         "    restart: unless-stopped\n"
         "    environment:\n"
         "      OCI_JJ_SERVER_GRPC_ADDR: 0.0.0.0:50051\n"
@@ -197,40 +221,42 @@ def render(images: Mapping[str, str], version: str, tls: bool = False,
         f"{tls_volume}"
         "    ports:\n"
         f'      - "127.0.0.1:{grpc_port}:50051"\n',
-        client("gateway", images["gateway"],
+        client("gateway", "gateway",
                extra='      OCI_JJ_GATEWAY_ADDR: ":8080"\n'
                      "      OCI_JJ_BACKING_REGISTRY: http://registry:5000\n"
                      '      OCI_JJ_GATEWAY_BLOB_SOURCE: "1"\n'
                      '      OCI_JJ_GATEWAY_CORS_ORIGINS: ""\n',
                ports=f'    ports:\n      - "127.0.0.1:{gateway_port}:8080"\n'),
-        client("workers", images["workers"], token=True,
+        client("workers", "workers", token=True,
                extra="      OCI_JJ_BACKING_REGISTRY: http://registry:5000\n"
                      "      OCI_JJ_GC_INTERVAL: 5m\n"
                      '      SYFT_REGISTRY_INSECURE_USE_HTTP: "true"\n'),
     ]
     if images.get("reconstructor"):
-        services.append(client("reconstructor", images["reconstructor"],
+        services.append(client("reconstructor", "reconstructor",
                                extra='      OCI_JJ_RECONSTRUCTOR_ADDR: ":8090"\n'))
     if images.get("verdict_worker"):
         # No object-store credentials: datasets arrive as server-minted presigned URLs, which the
         # worker checks point at this endpoint.
-        services.append(client("verdict-worker", images["verdict_worker"], token=True,
+        services.append(client("verdict-worker", "verdict_worker", token=True,
                                extra="      OCI_JJ_S3_ENDPOINT: http://minio:9000\n"))
     header = (
         f"# Generated by `briefcase engine install` for engine {version}. Do not edit: run\n"
         "# `briefcase engine upgrade` to regenerate. Secrets come from ../engine.env.\n"
-        "# Layout: oci-jj docker-compose.yml + deploy/single-box, first-party images pinned by\n"
-        "# digest, auth required, only the workers hold a service token, ports on 127.0.0.1 only.\n"
+        "# Layout: oci-jj docker-compose.yml + deploy/single-box. First-party images are the ones\n"
+        "# the signed release manifest pins by digest (verified at install, tagged locally, never\n"
+        "# pulled by Compose); auth required, only the workers hold a service token, ports on\n"
+        "# 127.0.0.1 only.\n"
     )
     return header + "name: briefcase-engine\n\nservices:\n" + "\n".join(services) + \
         "\nvolumes:\n  pgdata:\n  miniodata:\n  regdata:\n"
 
 
 def write(target_dir: Path, images: Mapping[str, str], version: str, tls: bool = False,
-          grpc_port: int = 50051, gateway_port: int = 8080) -> Path:
+          grpc_port: int = 50051, gateway_port: int = 8080, digests: Optional[Mapping[str, str]] = None) -> Path:
     target_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     compose = target_dir / "docker-compose.yml"
-    compose.write_text(render(images, version, tls, grpc_port, gateway_port), encoding="utf-8")
+    compose.write_text(render(images, version, tls, grpc_port, gateway_port, digests), encoding="utf-8")
     return compose
 
 

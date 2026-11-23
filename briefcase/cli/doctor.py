@@ -223,7 +223,8 @@ def cmd_doctor(args, store, engine, stack=None) -> int:
         for key in ("briefcase_ai", "oci_jj_api_min", "oci_jj_image_tag", "verdictml"):
             print(f"  {key}: {compat.get(key)}")
         if compat.get("private_preview"):
-            print("  engine images: private — `briefcase engine install` pulls them with your licence token")
+            print("  engine images: private — get them with `briefcase engine install` "
+                  "(https://observe.briefcasebrain.io/engine)")
     except Exception:
         pass
     # The plugins section appears only when a package declares a briefcase plugin, so the

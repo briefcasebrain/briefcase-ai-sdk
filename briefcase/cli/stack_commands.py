@@ -36,7 +36,7 @@ class Stack:
         from briefcase import engine as _engine
 
         record = _engine.current_install() if self._compose_resolver is compose_path else None
-        if record is not None:
+        if record is not None and record.get("compose"):
             from pathlib import Path
 
             from briefcase.engine import compose as engine_compose

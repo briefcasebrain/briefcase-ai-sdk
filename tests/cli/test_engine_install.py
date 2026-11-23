@@ -1,7 +1,9 @@
-"""`briefcase engine install|up|down|status|logs|doctor|uninstall|upgrade`, offline.
+"""`briefcase engine install|verify|up|down|status|logs|doctor|uninstall|upgrade`, offline.
 
-A fake platform (tests/cli/engine_fakes.py) answers the credentials call and hosts the release
-asset behind a GitHub-style 302 to a signed URL; a fake `docker` on PATH records every call."""
+A throwaway P-256 key signs a fixture release exactly like `cosign sign-blob` (base64 DER over
+SHA-256); the test pins it by pointing `trust.KEYS_DIR` at a temp directory. A fake platform
+(tests/cli/engine_fakes.py) serves the install API and presigned-style downloads; a fake
+`docker` (and `skopeo`, `xattr`, `cosign`) on PATH records every call."""
 import json
 import os
 import stat
@@ -10,24 +12,45 @@ import pytest
 
 from briefcase import engine as _engine
 from briefcase.cli.__main__ import main
-from briefcase.engine import compose, install
+from briefcase.engine import compose, install, trust
 
 from tests.cli.engine_fakes import (
-    DIGESTS, DOWNLOAD_TOKEN, REGISTRY_PASSWORD, FakePlatform, docker_calls, install_fake_docker,
+    ENDPOINT, OPENSSL, REGISTRY_PASSWORD, VERSION, FakePlatform, SigningKey, build_index, build_release, calls,
+    docker_state, install_fake_tools, make_docker_archive,
 )
+
+TOOLS = ("docker", "skopeo", "xattr")
 
 
 @pytest.fixture
-def env(shell_home, tmp_path, monkeypatch):
-    platform = FakePlatform(target={"os": "linux", "arch": "x86_64"})
+def key(tmp_path_factory):
+    return SigningKey(tmp_path_factory.mktemp("signing"))
+
+
+@pytest.fixture
+def pinned(key, tmp_path, monkeypatch):
+    """Test-only trust root: the throwaway key is the one release key this 'SDK build' pins."""
+    keys_dir = tmp_path / "keys"
+    key.pin(keys_dir)
+    monkeypatch.setattr(trust, "KEYS_DIR", keys_dir)
+    return keys_dir
+
+
+@pytest.fixture
+def env(shell_home, tmp_path, monkeypatch, key, pinned):
+    release = build_release(key)
+    platform = FakePlatform(release, build_index(key, [VERSION, "0.3.0"]))
     monkeypatch.setattr(install, "host_target", lambda: {"os": "linux", "arch": "x86_64"})
+    monkeypatch.setattr(install, "is_macos", lambda: False)
     log = tmp_path / "docker.log"
-    install_fake_docker(tmp_path / "bin", log, monkeypatch)
-    monkeypatch.setenv("BRIEFCASE_LICENSE_TOKEN", "good")
+    # Without `cryptography` the installer falls back to `cosign verify-blob`; the fake cosign
+    # verifies with openssl, so the whole suite also runs (and checks for real) on that path.
+    install_fake_tools(tmp_path / "bin", log, monkeypatch, TOOLS + (() if trust.crypto_available() else ("cosign",)))
     monkeypatch.setenv("BRIEFCASE_PLATFORM_URL", platform.url)
-    for name in ("OCI_JJ_SERVER", "OCI_JJ_AUTH_TOKEN", "OCI_JJ_TLS_CA", "OCI_JJ_REPO"):
+    for name in ("OCI_JJ_SERVER", "OCI_JJ_AUTH_TOKEN", "OCI_JJ_TLS_CA", "OCI_JJ_REPO", "BRIEFCASE_LICENSE_TOKEN"):
         monkeypatch.delenv(name, raising=False)
-    yield {"platform": platform, "log": log, "home": shell_home / ".briefcase"}
+    yield {"platform": platform, "release": release, "log": log, "home": shell_home / ".briefcase",
+           "key": key, "tmp": tmp_path}
     platform.close()
 
 
@@ -35,172 +58,637 @@ def _install(*extra):
     return main(["engine", "install", "--yes", *extra])
 
 
-def test_install_downloads_verifies_pulls_and_records(env, capsys):
-    assert _install() == 0
+def _docker(env):
+    return [c["argv"] for c in calls(env["log"])]
+
+
+def _remote(release, name):
+    return f"{ENDPOINT}/briefcase-engine/{name}@{release.manifest['images'][name]['digest']}"
+
+
+# --------------------------------------------------------------------------- online
+
+
+def test_install_with_code_verifies_pulls_by_digest_and_records(env, capsys):
+    assert _install("--code", "bci_good") == 0
     out = capsys.readouterr().out
-    assert "engine 0.2.0 installed" in out and "Next: briefcase engine up" in out
-    assert "not signed; only its sha256 was checked" in out
+    assert f"engine {VERSION} installed" in out and "Next: briefcase engine up" in out
+    assert f"verified with key {env['key'].key_id}" in out
+
+    post = env["platform"].posts()[0]
+    assert post[1] == "/v1/engine/install" and post[2] == ""  # the code goes in the body, not as a bearer
+    assert post[3] == {"os": "linux", "arch": "x86_64", "code": "bci_good"}
+    downloads = env["platform"].downloads()
+    assert downloads and all(r[2] == "" for r in downloads)  # presigned URLs get no auth header
+    names = [r[1].split("?")[0].rsplit("/", 1)[-1] for r in downloads]
+    assert names.index("engine-manifest.json") < names.index(f"oci-bai-{VERSION}-linux-x86_64.tar.gz")
 
     record = _engine.current_install()
-    assert record["version"] == "0.2.0" and record["images"] == DIGESTS
-    binary = env["home"] / "engine" / "0.2.0" / "bin" / "oci-bai"
+    release = env["release"]
+    assert record["version"] == VERSION and record["source"] == "code"
+    assert record["key_id"] == env["key"].key_id and record["client"] == {"mode": "binary"}
+    binary = env["home"] / "engine" / VERSION / "bin" / "oci-bai"
     assert record["binary"] == str(binary) and os.access(binary, os.X_OK)
+    assert record["binary_file"]["verified_by"] == "signature"
 
-    # The asset request carried the short-lived download token; the signed URL did not.
-    gets = [r for r in env["platform"].requests if r[0] == "GET"]
-    assert gets[0][2] == f"Bearer {DOWNLOAD_TOKEN}"
-    assert env["platform"].downloads() and all(r[2] == "" for r in env["platform"].downloads())
-
-    calls = [c["argv"] for c in docker_calls(env["log"])]
-    login = next(c for c in docker_calls(env["log"]) if c["argv"][0] == "login")
-    assert login["argv"] == ["login", "ghcr.io", "--username", "x-access-token", "--password-stdin"]
+    docker = calls(env["log"])
+    login = next(c for c in docker if c["argv"][0] == "login")
+    assert login["argv"] == ["login", ENDPOINT, "--username", "AWS", "--password-stdin"]
     assert login["stdin"] == REGISTRY_PASSWORD
-    assert not any(REGISTRY_PASSWORD in " ".join(c) for c in calls)  # never in argv
-    pulls = [c[1] for c in calls if c[0] == "pull"]
-    assert sorted(pulls) == sorted(DIGESTS.values())
-    assert calls[-1] == ["logout", "ghcr.io"]
-    assert calls.index(["logout", "ghcr.io"]) > max(i for i, c in enumerate(calls) if c[0] == "pull")
+    argvs = [c["argv"] for c in docker]
+    assert not any(REGISTRY_PASSWORD in " ".join(a) for a in argvs)  # never in argv
+    pulls = [a[1] for a in argvs if a[0] == "pull"]
+    assert sorted(pulls) == sorted(_remote(release, n) for n in release.manifest["images"])
+    logout = argvs.index(["logout", ENDPOINT])
+    assert logout > max(i for i, a in enumerate(argvs) if a[0] == "pull")
+    tags = {a[2]: a[1] for a in argvs if a[0] == "tag"}
+    for name in release.manifest["images"]:
+        assert tags[f"localhost/briefcase-engine/{name}:{VERSION}"] == _remote(release, name)
+    assert record["images"]["server"] == f"localhost/briefcase-engine/server:{VERSION}"
+    assert record["image_digests"]["server"] == release.manifest["images"]["server"]["digest"]
 
-    text = (env["home"] / "engine" / "0.2.0" / "docker-compose.yml").read_text()
-    for ref in DIGESTS.values():
-        assert f"image: {ref}" in text
-    assert "oci_jj_secret" not in text and "POSTGRES_PASSWORD: oci_jj\n" not in text
-    assert "OCI_JJ_AUTH_TOKENS: ${OCI_JJ_WORKER_TOKEN}:platform:admin,${OCI_JJ_TENANT_TOKENS}\n" in text
-    assert '127.0.0.1:50051:50051' in text and 'OCI_JJ_ALLOW_PLAINTEXT: "1"' in text
+    text = (env["home"] / "engine" / VERSION / "docker-compose.yml").read_text()
+    for name, image in release.manifest["images"].items():
+        assert f"# signed manifest: {image['digest']}\n    image: localhost/briefcase-engine/{name}:{VERSION}\n" \
+               f"    pull_policy: never\n" in text
+    assert "oci_jj_secret" not in text and "OCI_JJ_AUTH_TOKENS: ${OCI_JJ_WORKER_TOKEN}:platform:admin" in text
+    assert (env["home"] / "engine" / VERSION / "engine-manifest.json").read_bytes() == \
+        release.files["engine-manifest.json"]
 
     secrets = env["home"] / "engine" / "engine.env"
     assert stat.S_IMODE(secrets.stat().st_mode) == 0o600
     values = _engine.read_env_file(secrets)
-    assert set(compose.SECRET_KEYS) <= set(values) and all(values[k] for k in compose.SECRET_KEYS)
-    assert REGISTRY_PASSWORD not in secrets.read_text() and DOWNLOAD_TOKEN not in secrets.read_text()
-
-    # Settings: the CLI now finds the local engine and its tenant token on its own.
+    assert set(compose.SECRET_KEYS) <= set(values) and REGISTRY_PASSWORD not in secrets.read_text()
     settings = _engine.client_settings()
-    assert settings["addr"] == "http://127.0.0.1:50051" and settings["source"] == "local install"
-    tenant, reader = values["OCI_JJ_TENANT_TOKENS"].split(",")
-    assert tenant.endswith(":local") and reader.endswith(":local:reader")
-    assert settings["token"] == tenant.split(":")[0]
+    assert settings["source"] == "local install" and settings["token"] == compose.tenant_token(values)
 
 
-def test_install_is_idempotent_and_keeps_secrets(env, capsys, monkeypatch):
+def test_install_code_is_single_use(env, capsys):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    assert _install("--code", "bci_good") == 1
+    err = capsys.readouterr().err
+    assert "the install code was already used" in err
+    assert f"Fix: Get a new install code at {env['platform'].url}/engine" in err
+
+
+def test_failure_after_redeeming_a_code_says_get_a_new_code(env, capsys):
+    env["platform"].overrides[f"oci-bai-{VERSION}-linux-x86_64.tar.gz"] = b"tampered binary"
+    assert _install("--code", "bci_good") == 1
+    err = capsys.readouterr().err
+    assert "does not match the signed manifest" in err
+    assert f"this install code is now used up; get a new one at {env['platform'].url}/engine" in err
+    assert _engine.current_install() is None
+    assert not list((env["home"] / "engine" / VERSION / "download").glob("oci-bai*"))  # bad file removed
+
+
+def test_docker_pull_failure_after_redeeming_logs_out_and_says_new_code(env, capsys, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_PULL_FAIL", "1")
+    assert _install("--code", "bci_good") == 1
+    err = capsys.readouterr().err
+    assert "docker pull" in err and "used up; get a new one" in err
+    assert _docker(env)[-1] == ["logout", ENDPOINT]
+
+
+def test_token_install_is_idempotent(env, capsys, monkeypatch):
+    monkeypatch.setenv("BRIEFCASE_LICENSE_TOKEN", "bcl_good")
     assert _install() == 0
     first = (env["home"] / "engine" / "engine.env").read_text()
-    downloads = len(env["platform"].downloads())
+    post = env["platform"].posts()[0]
+    assert post[2] == "Bearer bcl_good" and "code" not in post[3]
+    binary_gets = len([r for r in env["platform"].downloads() if "oci-bai" in r[1] and ".sig" not in r[1]])
     env["log"].unlink()
-    monkeypatch.setenv("FAKE_DOCKER_HAVE", "all")
     assert _install() == 0
     assert "already installed" in capsys.readouterr().out
-    assert len(env["platform"].downloads()) == downloads  # the verified file was reused
-    assert not any(c["argv"][0] in ("login", "pull") for c in docker_calls(env["log"]))
+    assert len([r for r in env["platform"].downloads()
+                if "oci-bai" in r[1] and ".sig" not in r[1]]) == binary_gets  # the verified file was reused
+    assert not any(a[0] in ("login", "pull") for a in _docker(env))
     assert (env["home"] / "engine" / "engine.env").read_text() == first
 
 
-def test_interrupted_download_resumes_with_range(env):
-    asset = env["platform"].asset
-    part = env["home"] / "engine" / "0.2.0" / "download" / "oci-bai-0.2.0-linux-x86_64.tar.gz.part"
-    part.parent.mkdir(parents=True)
-    part.write_bytes(asset[:40])
-    assert _install() == 0
-    signed = env["platform"].downloads()[-1]
-    assert signed[3].get("Range") == "bytes=40-"
+def test_binary_without_signature_url_is_checked_against_the_signed_manifest(env, capsys):
+    env["platform"].omit_binary_sig = True
+    assert _install("--code", "bci_good") == 0
+    assert "sha256 from the signed manifest" in capsys.readouterr().out
+    assert _engine.current_install()["binary_file"]["verified_by"] == "sha256"
 
 
-def test_server_ignoring_range_restarts_the_download(env):
-    env["platform"].honour_range = False
-    part = env["home"] / "engine" / "0.2.0" / "download" / "oci-bai-0.2.0-linux-x86_64.tar.gz.part"
-    part.parent.mkdir(parents=True)
-    part.write_bytes(b"garbage")
-    assert _install() == 0
+def test_wrong_binary_signature_is_refused(env, capsys):
+    env["platform"].overrides[f"oci-bai-{VERSION}-linux-x86_64.tar.gz.sig"] = env["key"].sign(b"something else")
+    assert _install("--code", "bci_good") == 1
+    assert "its signature does not verify" in capsys.readouterr().err
 
 
-def test_sha256_mismatch_stops_and_removes_the_partial_file(env, capsys):
-    env["platform"].wrong_sha = True
-    assert _install() == 1
-    err = capsys.readouterr().err
-    assert "sha256 mismatch" in err and "Fix: briefcase engine install" in err
-    assert not list((env["home"] / "engine" / "0.2.0" / "download").glob("*"))
-    assert _engine.current_install() is None
-
-
-def test_dry_run_shows_the_plan_and_writes_nothing(env, capsys):
-    assert main(["engine", "install", "--dry-run"]) == 0
-    out = capsys.readouterr().out
-    assert "docker pull " + DIGESTS["server"] in out and "dry run: nothing" in out
-    assert not (env["home"] / "engine").exists()
-    assert main(["engine", "install", "--dry-run", "--json"]) == 0
-    plan = json.loads(capsys.readouterr().out)
-    assert plan["dry_run"] and plan["plan"]["version"] == "0.2.0" and plan["plan"]["signed"] is False
-    assert not any(c["argv"][0] in ("login", "pull") for c in docker_calls(env["log"]))
-
-
-def test_needs_confirmation_without_a_terminal(env, capsys):
-    assert main(["engine", "install"]) == 2
-    assert "re-run with --yes" in capsys.readouterr().err
-    assert _engine.current_install() is None
-
-
-@pytest.mark.parametrize("token, message, code", [
-    ("noent", "your account isn't entitled to the engine", 1),
-    ("expired", "the licence token has expired", 1),
-    ("bogus", "did not accept the licence token", 1),
-    ("slow", "retry in 42 seconds", 1),
-    ("noconfig", "cannot issue engine credentials right now", 1),
+@pytest.mark.parametrize("change, message", [
+    ("tamper", "signature does not verify with pinned key"),
+    ("other_key", "which this SDK does not trust"),
+    ("other_signer", "signature does not verify with pinned key"),
+    ("schema", "schema_version 3; this SDK understands only 2"),
+    ("min_sdk", "needs briefcase-ai 99.0.0 or newer"),
 ])
-def test_platform_refusals_are_explained(env, capsys, monkeypatch, token, message, code):
-    monkeypatch.setenv("BRIEFCASE_LICENSE_TOKEN", token)
-    assert _install() == code
+def test_manifest_checks(env, capsys, tmp_path, change, message):
+    key = env["key"]
+    other = SigningKey(tmp_path / "other")
+    if change == "tamper":
+        raw = env["release"].files["engine-manifest.json"].replace(b"Test release", b"Evil release")
+        env["platform"].overrides["engine-manifest.json"] = raw
+    elif change == "other_key":
+        env["platform"].release = build_release(other)
+    elif change == "other_signer":  # names the pinned key, signed by another
+        env["platform"].release = build_release(key, manifest_signer=other)
+    elif change == "schema":
+        env["platform"].release = build_release(key, schema_version=3)
+    elif change == "min_sdk":
+        env["platform"].release = build_release(key, min_sdk="99.0.0")
+    assert _install("--code", "bci_good") == 1
     err = capsys.readouterr().err
     assert message in err and "Traceback" not in err
+    assert "Fix:" in err and _engine.current_install() is None
+    assert not any(a[0] == "pull" for a in _docker(env))
 
 
-def test_missing_token_and_platform_are_usage_errors(env, capsys, monkeypatch):
-    monkeypatch.delenv("BRIEFCASE_LICENSE_TOKEN")
-    assert _install() == 2
-    assert "no licence token" in capsys.readouterr().err
-    monkeypatch.delenv("BRIEFCASE_PLATFORM_URL")
-    assert _install() == 2
-    assert "--platform-url" in capsys.readouterr().err
-
-
-def test_no_docker(env, capsys, monkeypatch):
-    monkeypatch.setenv("FAKE_DOCKER_DOWN", "1")
-    assert _install() == 1
-    assert "Docker is not installed or its daemon is not running" in capsys.readouterr().err
-    # The client binary alone still installs.
-    assert _install("--no-images") == 0
-
-
-def test_unsupported_platform(env, capsys, monkeypatch):
-    monkeypatch.setattr(install, "host_target", lambda: {"os": "windows", "arch": "x86_64"})
-    env["platform"].target = {"os": "linux", "arch": "x86_64"}
-    assert _install() == 1
+def test_no_bundled_key_refuses_before_redeeming(env, capsys, monkeypatch, tmp_path):
+    monkeypatch.setattr(trust, "KEYS_DIR", tmp_path / "empty-keys")
+    assert _install("--code", "bci_good") == 1
     err = capsys.readouterr().err
-    assert "no oci-bai build for windows/x86_64" in err and "linux/x86_64" in err
+    assert ("no trusted release key is bundled in this SDK build; the engine cannot be installed until "
+            "a release key is published") in err
+    assert env["platform"].posts() == []  # the code was not spent
+
+
+def test_key_loader_accepts_any_release_pub_and_ignores_others(key, tmp_path):
+    keys_dir = tmp_path / "k"
+    keys_dir.mkdir()
+    (keys_dir / "release-anything.pub").write_bytes(key.public_pem)
+    (keys_dir / "release-broken.pub").write_text("not a key")
+    (keys_dir / "notes.pub").write_bytes(key.public_pem)
+    (keys_dir / "README.md").write_text("x")
+    loaded = trust.load_keys(keys_dir)
+    assert [k.key_id for k in loaded] == [key.key_id] and loaded[0].label == "release-anything.pub"
+
+
+def test_shipped_key_directory_has_readme_and_no_key():
+    assert (trust.KEYS_DIR / "README.md").is_file()
+    assert trust.load_keys(trust.KEYS_DIR) == []
+
+
+@pytest.mark.parametrize("argv, message, fix", [
+    (["--code", "bci_expired"], "the install code has expired", "Get a new install code at {url}/engine"),
+    (["--code", "bci_noent"], "your account isn't entitled to the engine", "Request access at {url}/engine"),
+    (["--token", "bcl_noent"], "your account isn't entitled to the engine", "Request access at {url}/engine"),
+    (["--token", "bcl_expired"], "the licence token has expired", "{url}/settings/api-keys"),
+    (["--token", "bcl_bogus"], "did not accept the licence token", "{url}/settings/api-keys"),
+    (["--token", "bcl_slow"], "retry in 42 seconds", None),
+    (["--token", "bcl_noconfig"], "cannot serve engine downloads right now", "operator"),
+])
+def test_platform_refusals_name_the_next_step(env, capsys, argv, message, fix):
+    assert _install(*argv) == 1
+    err = capsys.readouterr().err
+    assert message in err and "Traceback" not in err
+    if fix:
+        assert fix.format(url=env["platform"].url) in err
+
+
+@pytest.mark.parametrize("argv, message", [
+    ([], "no install code, licence token or offline bundle given"),
+    (["--code", "bci_good", "--version", "0.3.0"], "an install code is bound to the version"),
+    (["--code", "bcl_x"], "install codes start with bci_"),
+    (["--token", "bci_good"], "that is an install code, not a licence token"),
+    (["--code", "bci_good", "--token", "bcl_good"], "either --code or --token"),
+    (["--bundle", "x.tar"], "needs both --bundle and --manifest"),
+])
+def test_usage_errors(env, capsys, argv, message):
+    assert _install(*argv) == 2
+    err = capsys.readouterr().err
+    assert message in err and env["platform"].posts() == []
+    if not argv:
+        assert f"{env['platform'].url}/engine" in err
+
+
+def test_default_platform_is_the_portal(shell_home, capsys, pinned, monkeypatch):
+    monkeypatch.delenv("BRIEFCASE_PLATFORM_URL", raising=False)
+    assert main(["engine", "install"]) == 2
+    assert "https://observe.briefcasebrain.io/engine" in capsys.readouterr().err
+
+
+def test_dry_run_with_a_code_does_not_redeem_it(env, capsys):
+    assert main(["engine", "install", "--code", "bci_good", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "the install code was not redeemed" in out and "Next: briefcase engine install --code bci_good --yes" in out
+    assert env["platform"].posts() == [] and not (env["home"] / "engine").exists()
+
+
+def test_dry_run_with_a_token_shows_the_signed_plan(env, capsys):
+    assert main(["engine", "install", "--token", "bcl_good", "--dry-run", "--json"]) == 0
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["version"] == VERSION and plan["key_id"] == env["key"].key_id
+    digest = env["release"].manifest["images"]["server"]["digest"]
+    assert f"docker pull <ECR>/briefcase-engine/server@{digest}" in plan["steps"]
+    assert not any(a[0] in ("login", "pull") for a in _docker(env))
+    assert not (env["home"] / "engine" / VERSION / "docker-compose.yml").exists()
+
+
+def test_needs_confirmation_without_a_terminal_and_keeps_the_code(env, capsys):
+    assert main(["engine", "install", "--code", "bci_good"]) == 2
+    assert "re-run with --yes" in capsys.readouterr().err
+    assert env["platform"].posts() == [] and _engine.current_install() is None
+
+
+def test_no_docker_fails_before_redeeming(env, capsys, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_DOWN", "1")
+    assert _install("--code", "bci_good") == 1
+    assert "Docker is not installed or its daemon is not running" in capsys.readouterr().err
+    assert env["platform"].posts() == []
+    assert _install("--code", "bci_good", "--no-images") == 0  # the client binary alone still installs
+    assert _engine.current_install()["compose"] is None
+
+
+def test_expired_download_link(env, capsys):
+    env["platform"].expired_paths.add("engine-manifest.json")
+    assert _install("--token", "bcl_good") == 1
+    assert "expire after 5 minutes" in capsys.readouterr().err
 
 
 def test_login_failure_still_logs_out(env, capsys, monkeypatch):
     monkeypatch.setenv("FAKE_DOCKER_LOGIN_FAIL", "1")
-    assert _install() == 1
-    assert "docker login ghcr.io failed" in capsys.readouterr().err
+    assert _install("--token", "bcl_good") == 1
+    assert f"docker login {ENDPOINT} failed" in capsys.readouterr().err
 
 
-def test_undigested_image_is_refused():
-    with pytest.raises(install.InstallError, match="not pinned by digest"):
-        install._check_credentials({"registry": "r", "username": "u", "password": "p", "expires_at": "x",
-                                    "release": {"assets": []}, "images": {"server": "ghcr.io/x:latest"}})
-    with pytest.raises(ValueError):
-        compose.render({"server": "x:1", "gateway": "x", "workers": "x", "postgres": "x"}, "0.1.0")
+# --------------------------------------------------------------------------- no binary for this OS / macOS
+
+
+def test_no_binary_for_this_os_runs_oci_bai_from_the_server_image(env, capsys, monkeypatch, tmp_path):
+    monkeypatch.setattr(install, "host_target", lambda: {"os": "darwin", "arch": "aarch64"})
+    assert _install("--code", "bci_good") == 0
+    out = capsys.readouterr().out
+    server = f"localhost/briefcase-engine/server:{VERSION}"
+    assert f"no oci-bai build for darwin/aarch64 in engine {VERSION}" in out and f"run it from {server}" in out
+    assert out.count("no oci-bai build") == 1
+    record = _engine.current_install()
+    assert record["binary"] is None and record["client"]["mode"] == "container"
+    assert record["client"]["image"] == server and record["client"]["image_id"] == record["image_ids"]["server"]
+    assert not [r for r in env["platform"].downloads() if "oci-bai" in r[1]]
+
+    cohort = tmp_path / "project" / "cohort"
+    cohort.mkdir()
+    (cohort / "cohort.json").write_text("{}")
+    assert main(["env", "cohort", str(cohort), "--dry-run"]) == 0
+    line = capsys.readouterr().out.strip()
+    assert line.startswith("docker run --rm -i --network briefcase-engine_default")
+    assert f"-v {cohort}:{cohort}:ro" in line and f"--entrypoint /usr/local/bin/oci-bai {server}" in line
+    assert line.endswith(f"--server http://oci-jj-server:50051 --repo rl-gym-env cohort push {cohort}")
+    token = compose.tenant_token(_engine.read_env_file(env["home"] / "engine" / "engine.env"))
+    assert token not in line and "-e OCI_JJ_AUTH_TOKEN " in line  # by name only
+
+    env["log"].unlink()
+    assert main(["env", "cohort", str(cohort)]) == 0
+    run = calls(env["log"])[-1]
+    assert run["argv"][:2] == ["run", "--rm"] and run["token"] == token  # the value came via the environment
+    assert main(["engine", "status"]) == 0
+    assert f"oci-bai:       runs from {server}" in capsys.readouterr().out
+
+
+def test_no_binary_and_no_images_is_refused(env, capsys, monkeypatch):
+    monkeypatch.setattr(install, "host_target", lambda: {"os": "darwin", "arch": "aarch64"})
+    assert _install("--token", "bcl_good", "--no-images") == 1
+    assert "leaves no server image to run it from" in capsys.readouterr().err
+
+
+def test_quarantine_is_removed_only_after_verification(env, capsys, monkeypatch, key):
+    env["platform"].release = build_release(key, targets=(("linux", "x86_64"), ("darwin", "aarch64")))
+    monkeypatch.setattr(install, "host_target", lambda: {"os": "darwin", "arch": "aarch64"})
+    monkeypatch.setattr(install, "is_macos", lambda: True)
+    monkeypatch.setenv("FAKE_QUARANTINE", "1")
+    env["platform"].overrides[f"oci-bai-{VERSION}-darwin-aarch64.tar.gz"] = b"tampered"
+    assert _install("--token", "bcl_good") == 1
+    assert calls(env["log"], "xattr") == []  # never touched an unverified file
+    env["platform"].overrides.clear()
+    capsys.readouterr()
+    assert _install("--token", "bcl_good") == 0
+    binary = str(env["home"] / "engine" / VERSION / "bin" / "oci-bai")
+    assert [c["argv"] for c in calls(env["log"], "xattr")] == [
+        ["-p", "com.apple.quarantine", binary], ["-d", "com.apple.quarantine", binary]]
+    assert "removed the macOS quarantine attribute" in capsys.readouterr().out
+    assert _engine.current_install()["client"] == {"mode": "binary"}
+
+
+# --------------------------------------------------------------------------- offline
+
+
+@pytest.fixture
+def offline(env, monkeypatch):
+    """The portal downloads in a directory, and no reachable platform."""
+    directory = env["release"].write(env["tmp"] / "downloads")
+    monkeypatch.setenv("BRIEFCASE_PLATFORM_URL", "http://127.0.0.1:9")
+    env["platform"].requests.clear()
+    return directory
+
+
+def _offline_args(directory, *extra):
+    return ["--bundle", str(directory / f"engine-images-{VERSION}-x86_64.tar"),
+            "--manifest", str(directory / "engine-manifest.json"), *extra]
+
+
+def test_offline_install_loads_the_bundle_and_checks_every_image(env, offline, capsys):
+    assert _install(*_offline_args(offline)) == 0
+    out = capsys.readouterr().out
+    assert "bundle signature verified" in out and "loaded 5 images with docker load" in out
+    assert env["platform"].requests == []  # no network
+    argvs = _docker(env)
+    assert ["load", "-i", str(offline / f"engine-images-{VERSION}-x86_64.tar")] in argvs
+    assert not any(a[0] in ("login", "pull", "logout") for a in argvs)
+    record = _engine.current_install()
+    info = env["release"].images
+    assert record["source"] == "bundle" and record["load_method"] == "docker load"
+    assert record["image_ids"] == {n: i["config"] for n, i in info.items()}  # IDs = config digests
+    tags = {a[2]: a[1] for a in argvs if a[0] == "tag"}
+    assert tags[f"localhost/briefcase-engine/postgres:{VERSION}"] == info["postgres"]["config"]
+    assert record["binary"] and record["binary_file"]["verified_by"] == "signature"
+    state = docker_state(env["log"])
+    assert state["refs"][f"localhost/briefcase-engine/server:{VERSION}"] == info["server"]["config"]
+    # The bundle's Docker-Hub-looking names are untagged (never forced) once the local tag exists.
+    untagged = [a[-1] for a in argvs if a[:3] == ["image", "rm", "--no-prune"]]
+    assert sorted(untagged) == sorted(f"briefcase-engine/{n}:{VERSION}" for n in info)
+
+
+def test_offline_install_on_macos_runs_oci_bai_from_the_server_image(env, key, capsys, tmp_path, monkeypatch):
+    """The real macOS path: releases carry linux binaries only (oci-jj 6d1db6a)."""
+    monkeypatch.setattr(install, "host_target", lambda: {"os": "darwin", "arch": "aarch64"})
+    directory = build_release(key, bundle_arch="aarch64").write(tmp_path / "mac")
+    assert _install("--bundle", str(directory / f"engine-images-{VERSION}-aarch64.tar"),
+                    "--manifest", str(directory / "engine-manifest.json")) == 0
+    out = capsys.readouterr().out
+    assert f"no oci-bai build for darwin/aarch64 in engine {VERSION}" in out
+    assert "pass --binary" not in out  # nothing to pass: there is no darwin build
+    record = _engine.current_install()
+    assert record["client"]["mode"] == "container" and record["binary"] is None
+
+
+def test_offline_install_with_the_containerd_image_store(env, offline, capsys, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERD", "1")  # image ID = the manifest/index digest
+    assert _install(*_offline_args(offline)) == 0
+    info = env["release"].images
+    assert _engine.current_install()["image_ids"]["postgres"] == info["postgres"]["digest"]
+
+
+def test_offline_install_falls_back_to_skopeo(env, offline, capsys, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_LOAD_FAIL", "1")
+    assert _install(*_offline_args(offline)) == 0
+    assert "trying skopeo" in capsys.readouterr().out
+    copies = [c["argv"] for c in calls(env["log"], "skopeo")]
+    bundle = offline / f"engine-images-{VERSION}-x86_64.tar"
+    assert ["copy", "--quiet", f"oci-archive:{bundle}:briefcase-engine/server:{VERSION}",
+            f"docker-daemon:localhost/briefcase-engine/server:{VERSION}"] in copies
+    assert _engine.current_install()["load_method"] == "skopeo"
+
+
+def test_offline_docker_load_failure_without_skopeo(env, offline, capsys, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_LOAD_FAIL", "1")
+    (env["tmp"] / "bin" / "skopeo").unlink()
+    assert _install(*_offline_args(offline)) == 1
+    err = capsys.readouterr().err
+    assert "docker load" in err and "Docker to 25 or newer" in err
+
+
+def test_offline_docker_save_archive(env, key, capsys, tmp_path, monkeypatch):
+    data, ids = make_docker_archive()
+    release = build_release(key)
+    release.files[f"engine-images-{VERSION}-x86_64.tar"] = data
+    release.files[f"engine-images-{VERSION}-x86_64.tar.sig"] = key.sign(data)
+    release.manifest["bundles"][0].update(sha256=__import__("hashlib").sha256(data).hexdigest(), size=len(data))
+    raw = json.dumps(release.manifest).encode()
+    release.files["engine-manifest.json"], release.files["engine-manifest.json.sig"] = raw, key.sign(raw)
+    directory = release.write(tmp_path / "legacy")
+    assert _install(*_offline_args(directory)) == 0
+    assert "without registry digests" in capsys.readouterr().out
+    assert _engine.current_install()["image_ids"] == ids
+
+
+@pytest.mark.parametrize("what, message", [
+    ("bundle", "does not match the signed manifest"),
+    ("bundle_sig", "its signature does not verify"),
+    ("manifest", "signature does not verify with pinned key"),
+])
+def test_offline_tampering_is_refused_before_loading(env, offline, capsys, what, message):
+    bundle = offline / f"engine-images-{VERSION}-x86_64.tar"
+    if what == "bundle":
+        bundle.write_bytes(bundle.read_bytes() + b"\0" * 512)
+    elif what == "bundle_sig":
+        (offline / (bundle.name + ".sig")).write_bytes(env["key"].sign(b"other"))
+    else:
+        (offline / "engine-manifest.json").write_bytes(
+            (offline / "engine-manifest.json").read_bytes().replace(b"0.4.0", b"0.4.1"))
+    assert _install(*_offline_args(offline)) == 1
+    assert message in capsys.readouterr().err
+    assert not any(a[0] == "load" for a in _docker(env)) and _engine.current_install() is None
+
+
+def test_offline_wrong_architecture(env, key, capsys, tmp_path):
+    directory = build_release(key, bundle_arch="aarch64").write(tmp_path / "arm")
+    assert _install("--bundle", str(directory / f"engine-images-{VERSION}-aarch64.tar"),
+                    "--manifest", str(directory / "engine-manifest.json")) == 1
+    assert "is for aarch64; this machine is x86_64" in capsys.readouterr().err
+
+
+def test_offline_without_the_binary_uses_the_server_image(env, offline, capsys):
+    (offline / f"oci-bai-{VERSION}-linux-x86_64.tar.gz").unlink()
+    assert _install(*_offline_args(offline)) == 0
+    out = capsys.readouterr().out
+    assert "pass --binary FILE" in out and "no oci-bai build" in out
+    assert _engine.current_install()["client"]["mode"] == "container"
+
+
+# --------------------------------------------------------------------------- verify
+
+
+def test_engine_verify(env, offline, capsys):
+    bundle = offline / f"engine-images-{VERSION}-x86_64.tar"
+    manifest = offline / "engine-manifest.json"
+    assert main(["engine", "verify", str(manifest)]) == 0
+    out = capsys.readouterr().out
+    assert f"verified: engine-manifest.json (engine {VERSION})" in out and env["key"].key_id in out
+    assert main(["engine", "verify", str(bundle), "--manifest", str(manifest), "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["ok"] and result["checked"] == ["size", "sha256", "signature"]
+    assert result["key_id"] == env["key"].key_id and result["key_file"].startswith("release-")
+    index = build_index(env["key"], [VERSION])
+    (offline / "index.json").write_bytes(index["index.json"])
+    (offline / "index.json.sig").write_bytes(index["index.json.sig"])
+    assert main(["engine", "verify", str(offline / "index.json")]) == 0
+    assert "checked: signature" in capsys.readouterr().out
+    binary = offline / f"oci-bai-{VERSION}-linux-x86_64.tar.gz"
+    assert main(["engine", "verify", str(binary)]) == 0  # its .sig alone
+    assert "checked: signature" in capsys.readouterr().out
+
+    binary.write_bytes(binary.read_bytes() + b"x")
+    assert main(["engine", "verify", str(binary)]) == 1
+    assert "does not verify with any key pinned in this SDK" in capsys.readouterr().err
+    assert main(["engine", "verify", str(binary), "--manifest", str(manifest)]) == 1
+    assert "does not match the signed manifest" in capsys.readouterr().err
+    (offline / "lonely.bin").write_bytes(b"x")
+    assert main(["engine", "verify", str(offline / "lonely.bin")]) == 2
+    assert "--signature" in capsys.readouterr().err
+    assert env["platform"].requests == []
+
+
+def test_engine_verify_with_cosign_when_cryptography_is_missing(env, offline, capsys, monkeypatch):
+    if OPENSSL is None:
+        pytest.skip("the fake cosign verifies with openssl")
+    install_fake_tools(env["tmp"] / "bin", env["log"], monkeypatch, ("cosign",))
+    monkeypatch.setattr(trust, "crypto_available", lambda: False)
+    bundle = offline / f"engine-images-{VERSION}-x86_64.tar"
+    assert main(["engine", "verify", str(bundle)]) == 0
+    argv = calls(env["log"], "cosign")[0]["argv"]
+    assert argv[0] == "verify-blob" and "--key" in argv and "--insecure-ignore-tlog=true" in argv
+    (offline / (bundle.name + ".sig")).write_bytes(env["key"].sign(b"other"))
+    assert main(["engine", "verify", str(bundle)]) == 1
+
+
+def test_no_cryptography_and_no_cosign_refuses_before_redeeming(env, capsys, monkeypatch):
+    monkeypatch.setattr(trust, "crypto_available", lambda: False)
+    (env["tmp"] / "bin" / "cosign").unlink(missing_ok=True)
+    assert _install("--code", "bci_good") == 1
+    err = capsys.readouterr().err
+    assert "neither the `cryptography` package nor `cosign`" in err and "briefcase-ai[engine]" in err
+    assert env["platform"].posts() == []
+
+
+def test_signature_format_is_cosign_blob(key):
+    data = b"payload"
+    sig = key.sign(data)
+    k = trust.ReleaseKey(key.key_id, trust.Path("release-x.pub"), key.public_pem, trust.pem_to_der(key.public_pem))
+    if not trust.crypto_available():
+        pytest.skip("pure-python verification needs cryptography")
+    assert trust.verify_blob(data, sig, k) and trust.verify_blob(data, sig + b"\n", k)
+    assert not trust.verify_blob(b"other", sig, k)
+    assert trust.key_id_of(key.public_pem) == key.key_id
+
+
+# --------------------------------------------------------------------------- status / doctor / lifecycle
+
+
+def test_status_shows_key_and_newer_version(env, capsys, monkeypatch, key):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    assert main(["engine", "status"]) == 0
+    out = capsys.readouterr().out
+    assert f"verified with: {key.key_id}" in out and "newest:        not checked (no licence token" in out
+    env["platform"].index = build_index(key, ["0.5.0", VERSION])
+    monkeypatch.setenv("BRIEFCASE_LICENSE_TOKEN", "bcl_good")
+    assert main(["engine", "status", "--json"]) == 0
+    state = json.loads(capsys.readouterr().out)
+    assert state["key_id"] == key.key_id and state["update"] == {"checked": True, "latest": "0.5.0",
+                                                                 "update_available": True}
+    assert state["services"] == [{"service": "oci-jj-server", "state": "running", "health": "healthy"}]
+    assert main(["engine", "status"]) == 0
+    assert "Next: briefcase engine upgrade" in capsys.readouterr().out
+    env["platform"].index["index.json"] = env["platform"].index["index.json"].replace(b"0.5.0", b"9.9.9")
+    assert main(["engine", "status", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["update"]["checked"] is False  # bad signature: not trusted
+
+
+def test_doctor_and_up_detect_a_replaced_image(env, capsys, monkeypatch):
+    from briefcase.cli import engine_commands
+
+    monkeypatch.setattr(engine_commands, "port_open", lambda addr, timeout=0.3: False)
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    assert main(["engine", "doctor", "--json"]) == 0
+    checks = {row["check"]: row for row in json.loads(capsys.readouterr().out)}
+    for name in ("docker", "release keys", "signature", "client binary", "image server", "secrets"):
+        assert checks[name]["severity"] == "ok", checks[name]
+    assert checks["gRPC"]["severity"] == "warn"
+    # Someone retags the server image.
+    state_file = env["log"].with_suffix(".state.json")
+    state = json.loads(state_file.read_text())
+    state["refs"][f"localhost/briefcase-engine/server:{VERSION}"] = "sha256:" + "e" * 64
+    state_file.write_text(json.dumps(state))
+    assert main(["engine", "doctor", "--json"]) == 1
+    checks = {row["check"]: row for row in json.loads(capsys.readouterr().out)}
+    assert checks["image server"]["severity"] == "fail"
+    env["log"].unlink()
+    state_file.write_text(json.dumps(state))
+    assert main(["engine", "up"]) == 1
+    err = capsys.readouterr().err
+    assert "changed since it was verified" in err and "/engine" in err
+    assert not any(a[0] == "compose" for a in _docker(env))
+
+
+def test_up_status_logs_down_drive_the_installed_compose(env, capsys):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    env["log"].unlink()
+    assert main(["engine", "up"]) == 0
+    assert main(["engine", "logs", "oci-jj-server", "--tail", "5"]) == 0
+    assert main(["engine", "down"]) == 0
+    compose_calls = [a for a in _docker(env) if a[0] == "compose"]
+    for argv in compose_calls:
+        assert argv[1:3] == ["--project-name", "briefcase-engine"] and "--env-file" in argv
+    assert [a[a.index("--env-file") + 2] for a in compose_calls] == ["up", "logs", "down"]
+
+
+def test_uninstall_removes_install_and_purge_removes_secrets(env, capsys):
+    assert _install("--code", "bci_good") == 0
+    assert main(["engine", "uninstall", "--dry-run"]) == 0
+    assert _engine.current_install() is not None
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0
+    assert _engine.current_install() is None
+    assert not (env["home"] / "engine" / VERSION).exists()
+    assert not (env["home"] / "engine" / "engine.env").exists()
+    removed = {a[2] for a in _docker(env) if a[:2] == ["image", "rm"]}
+    release = env["release"]
+    for name in release.manifest["images"]:
+        assert f"localhost/briefcase-engine/{name}:{VERSION}" in removed and _remote(release, name) in removed
+
+
+def test_upgrade_needs_a_code_or_token_and_restarts_a_running_engine(env, capsys, monkeypatch, key):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    assert main(["engine", "upgrade", "--yes"]) == 2
+    assert "no install code, licence token or offline bundle" in capsys.readouterr().err
+    env["platform"].release = build_release(key, version="0.5.0")
+    monkeypatch.setenv("FAKE_DOCKER_RUNNING", "abc123")
+    env["log"].unlink()
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 0
+    assert _engine.current_install()["version"] == "0.5.0"
+    ups = [a for a in _docker(env) if a[0] == "compose" and "up" in a]
+    assert ups and "0.5.0" in ups[-1][ups[-1].index("-f") + 1]
+
+
+def test_stack_alias_prints_one_line_and_uses_the_install(env, capsys):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    env["log"].unlink()
+    assert main(["stack", "status"]) == 0
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1 and "use `briefcase engine status`" in err
+    assert _docker(env)[0][:3] == ["compose", "--project-name", "briefcase-engine"]
+
+
+# --------------------------------------------------------------------------- compose
 
 
 def _service(text, name):
     return text.split(f"\n  {name}:\n", 1)[1].split("\n\n", 1)[0]
 
 
+DIGESTS = {n: f"ghcr.example/oci-jj-{n}@sha256:" + str(i) * 64
+           for i, n in enumerate(("server", "gateway", "workers", "postgres", "reconstructor"), 1)}
+
+
+def test_unpinned_image_is_refused():
+    with pytest.raises(ValueError):
+        compose.render({"server": "x:1", "gateway": "x", "workers": "x", "postgres": "x"}, "0.1.0")
+    with pytest.raises(ValueError):  # a bare tag that could resolve to Docker Hub
+        compose.render(dict(DIGESTS, server="briefcase-engine/server:0.4.0"), "0.4.0")
+
+
 def test_compose_matches_the_engine_security_model():
     """oci-jj e89ddbf/8a52297/be043d9: only the workers hold a (worker) token; the gateway and
     reconstructor forward callers' tokens; the verdict worker has no object-store credentials;
     datasets live in the tenant-prefixed bucket; the app role password comes from the env."""
-    images = dict(DIGESTS, verdict_worker="ghcr.io/briefcasebrain/oci-jj-verdict-worker@sha256:" + "6" * 64)
+    images = dict(DIGESTS, verdict_worker="ghcr.example/oci-jj-verdict-worker@sha256:" + "6" * 64)
     text = compose.render(images, "0.2.0")
     assert "OCI_JJ_AUTH_TOKEN:" not in _service(text, "gateway")
     assert "OCI_JJ_AUTH_TOKEN:" not in _service(text, "reconstructor")
@@ -217,89 +705,18 @@ def test_compose_matches_the_engine_security_model():
             assert "127.0.0.1:" in line, line  # every published port is loopback-only
 
 
+def test_compose_takes_minio_and_registry_from_the_manifest():
+    names = ("server", "gateway", "workers", "postgres", "minio", "registry")
+    local = {n: f"localhost/briefcase-engine/{n}:0.4.0" for n in names}
+    text = compose.render(local, "0.4.0")
+    assert "image: localhost/briefcase-engine/minio:0.4.0\n    pull_policy: never" in _service(text, "minio")
+    assert "image: localhost/briefcase-engine/registry:0.4.0" in _service(text, "registry")
+
+
 def test_tls_compose_variant():
     text = compose.render(dict(DIGESTS), "0.2.0", tls=True)
     assert "OCI_JJ_TLS_CERT: /tls/server.crt" in text and "OCI_JJ_ALLOW_PLAINTEXT" not in text
     assert "OCI_JJ_SERVER_GRPC: https://oci-jj-server:50051" in text and "OCI_JJ_TLS_CA: /tls/server.crt" in text
-
-
-def test_up_status_logs_down_drive_the_installed_compose(env, capsys, monkeypatch):
-    assert _install() == 0
-    capsys.readouterr()
-    env["log"].unlink()
-    assert main(["engine", "up"]) == 0
-    assert main(["engine", "logs", "oci-jj-server", "--tail", "5"]) == 0
-    assert main(["engine", "down"]) == 0
-    compose_calls = [c["argv"] for c in docker_calls(env["log"]) if c["argv"][0] == "compose"]
-    for argv in compose_calls:
-        assert argv[1:3] == ["--project-name", "briefcase-engine"] and "--env-file" in argv
-    verbs = [a[a.index("--env-file") + 2] for a in compose_calls]
-    assert verbs == ["up", "logs", "down"]
-
-
-def test_status_json(env, capsys):
-    assert _install() == 0
-    capsys.readouterr()
-    assert main(["engine", "status", "--json"]) == 0
-    state = json.loads(capsys.readouterr().out)
-    assert state["installed"] and state["version"] == "0.2.0"
-    assert state["services"] == [{"service": "oci-jj-server", "state": "running", "health": "healthy"}]
-    assert state["addr_source"] == "local install"
-
-
-def test_doctor_reports_each_check(env, capsys, monkeypatch):
-    from briefcase.cli import engine_commands
-
-    monkeypatch.setattr(engine_commands, "port_open", lambda addr, timeout=0.3: False)  # no engine here
-    assert _install() == 0
-    monkeypatch.setenv("FAKE_DOCKER_HAVE", "all")
-    capsys.readouterr()
-    rc = main(["engine", "doctor", "--json"])
-    checks = {row["check"]: row for row in json.loads(capsys.readouterr().out)}
-    assert checks["docker"]["severity"] == "ok" and checks["client binary"]["severity"] == "ok"
-    assert checks["image server"]["severity"] == "ok" and checks["secrets"]["severity"] == "ok"
-    assert checks["gRPC"]["severity"] == "warn"  # nothing listens in the test
-    assert rc == 0
-
-
-def test_uninstall_removes_install_and_purge_removes_secrets(env, capsys):
-    assert _install() == 0
-    assert main(["engine", "uninstall", "--dry-run"]) == 0
-    assert _engine.current_install() is not None
-    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0
-    assert _engine.current_install() is None
-    assert not (env["home"] / "engine" / "0.2.0").exists()
-    assert not (env["home"] / "engine" / "engine.env").exists()
-    rm = [c["argv"] for c in docker_calls(env["log"]) if c["argv"][:2] == ["image", "rm"]]
-    assert sorted(c[2] for c in rm) == sorted(DIGESTS.values())
-
-
-def test_upgrade_restarts_a_running_engine(env, capsys, monkeypatch):
-    assert _install() == 0
-    state = _engine.load_state()
-    state["installs"]["0.1.0"] = dict(state["installs"]["0.2.0"], version="0.1.0")
-    state["current"] = "0.1.0"
-    from briefcase.engine.install import save_state
-
-    save_state(state)
-    monkeypatch.setenv("FAKE_DOCKER_RUNNING", "abc123")
-    monkeypatch.setenv("FAKE_DOCKER_HAVE", "all")
-    env["log"].unlink()
-    assert main(["engine", "upgrade", "--yes"]) == 0
-    assert _engine.current_install()["version"] == "0.2.0"
-    ups = [c["argv"] for c in docker_calls(env["log"]) if c["argv"][0] == "compose" and "up" in c["argv"]]
-    assert ups and "0.2.0" in ups[-1][ups[-1].index("-f") + 1]
-
-
-def test_stack_alias_prints_one_line_and_uses_the_install(env, capsys):
-    assert _install() == 0
-    capsys.readouterr()
-    env["log"].unlink()
-    assert main(["stack", "status"]) == 0
-    err = capsys.readouterr().err
-    assert err.count("\n") == 1 and "use `briefcase engine status`" in err
-    argv = docker_calls(env["log"])[0]["argv"]
-    assert argv[:3] == ["compose", "--project-name", "briefcase-engine"]
 
 
 # --- ungated behaviour -----------------------------------------------------------------
@@ -361,6 +778,14 @@ def test_help_status_and_features_mark_the_engine(shell_home, capsys, monkeypatc
     assert {"engine", "graph", "env-artifacts"} <= ids
 
 
+def test_install_help_has_one_example(shell_home, capsys):
+    with pytest.raises(SystemExit):
+        main(["engine", "install", "--help"])
+    out = capsys.readouterr().out
+    assert "briefcase engine install --code bci_..." in out and "https://observe.briefcasebrain.io/engine" in out
+    assert "--insecure" not in out  # there is no way to skip verification
+
+
 def test_remote_engine_counts_as_available(shell_home, monkeypatch):
     monkeypatch.setenv("BRIEFCASE_ENGINE_ADDR", "https://engine.example:443")
     assert _engine.available() and _engine.client_settings()["addr"] == "https://engine.example:443"
@@ -402,3 +827,10 @@ def test_engine_commands_render_over_an_injected_transport(shell_home, capsys, m
     assert "intact (1 trees" in capsys.readouterr().out
     assert main(["graph", "log", "cand"]) == 0
     assert "no commits for 'cand'" in capsys.readouterr().out
+
+
+def test_offline_bundle_of_another_release_is_refused(env, offline, capsys):
+    other = offline / "renamed.tar"
+    other.write_bytes(b"\0" * 1024)
+    assert _install("--bundle", str(other), "--manifest", str(offline / "engine-manifest.json")) == 1
+    assert "is not a bundle of engine" in capsys.readouterr().err

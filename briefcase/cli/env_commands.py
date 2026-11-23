@@ -187,14 +187,14 @@ def cmd_cohort(args, store, engine, stack) -> int:
                         code=2)
     sub = OciJJEngine(server=getattr(args, "server", None),
                       repo=getattr(args, "engine_repo", None) or getattr(args, "repo", None))
-    argv = sub._base() + ["cohort", "push", args.dir]
+    argv = sub._base() + ["cohort", "push", os.path.abspath(args.dir) if sub.container else args.dir]
     if getattr(args, "env_dry_run", False) or getattr(args, "dry_run", False):
-        print(" ".join(argv))
+        print(" ".join(sub.command(argv)))
         return 0
     try:
         result = sub.exec(argv)
     except FileNotFoundError:
-        return _ux.fail(f"the oci-bai client ({sub.binary}) is not installed",
+        return _ux.fail(f"the oci-bai client ({'docker' if sub.container else sub.binary}) is not installed",
                         fix="briefcase engine install   # installs it under ~/.briefcase/engine")
     code = getattr(result, "returncode", 1)
     if code != 0:
