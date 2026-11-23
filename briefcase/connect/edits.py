@@ -50,7 +50,7 @@ _toml: Any = _load_toml_module()
 
 TOML_BEGIN = "# >>> briefcase >>>"
 TOML_END = "# <<< briefcase <<<"
-JOURNAL_VERSION = 2
+JOURNAL_VERSION = 3  # 3: TOML ownership is hashed over parsed tables, not the marked text
 
 CHANGE, NOOP, REFUSED = "change", "noop", "refused"
 

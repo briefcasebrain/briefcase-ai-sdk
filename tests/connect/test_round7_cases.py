@@ -150,3 +150,35 @@ def test_the_command_lock_is_reentrant_within_one_command(w):
     with command_lock():
         with command_lock():
             assert os.path.exists(edits.journal_path().parent / ".command.lock")
+
+
+def test_a_receiver_that_fails_to_start_is_reported(w, monkeypatch):
+    from briefcase.cli import receive_commands
+
+    monkeypatch.setattr(receive_commands, "start_detached", lambda args, out=print: 1)
+    code, out, err = w.run(["connect", "claude-code", "--no-mcp", "--yes", "--start"])
+    assert code == 1 and "did not start" in err
+
+
+def test_status_does_not_call_a_deleted_registration_connected(w):
+    assert w.run(["mcp", "install", "claude-code", "--yes"])[0] == 0
+    code, out, _ = w.run(["connect", "status"])
+    assert "DRIFTED" not in out
+    w.cli.claude.clear()  # the user removed it by hand
+    code, out, _ = w.run(["connect", "status"])
+    assert "DRIFTED" in out and "MISSING" in out
+
+
+def test_the_default_profile_undo_retry_says_to_unset_the_active_variable(w, monkeypatch, tmp_path):
+    assert w.run(["mcp", "install", "claude-code", "--yes"])[0] == 0
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "other"))
+    code, out, _ = w.run(["connect", "--undo", "claude-code", "--dry-run"])
+    assert "env -u CLAUDE_CONFIG_DIR briefcase-ai connect --undo claude-code" in out
+
+
+def test_a_journal_from_the_round_6_build_is_not_read(w):
+    journal = edits.journal_path()
+    journal.parent.mkdir(parents=True, exist_ok=True)
+    journal.write_text(json.dumps({"version": 2, "files": {}, "commands": [], "targets": {}}))
+    code, out, err = w.run(["connect", "claude-code", "--no-mcp", "--yes"])
+    assert code == 1 and "earlier build" in err

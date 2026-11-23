@@ -448,8 +448,10 @@ def undo(tools: Optional[List[str]], out: Printer, dry_run: bool = False, keep_u
         hint = command.get("undo_hint")
         if (profile or None) != (_registry.current_profile(argv) or None) or (cwd and cwd != os.getcwd()):
             where = f"cd {mcp_payloads.shell([cwd])} && " if cwd else ""
+            var = "CODEX_HOME" if argv[:1] == ["codex"] else "CLAUDE_CONFIG_DIR"
+            unset = f"env -u {var} " if not profile and _registry.current_profile(argv) else ""
             out(f"  registered in profile {profile or 'default'}; to undo it, run: {where}"
-                f"{_registry.profile_prefix(argv, profile)}briefcase-ai connect --undo {command['tool']}")
+                f"{unset}{_registry.profile_prefix(argv, profile)}briefcase-ai connect --undo {command['tool']}")
             keep.append(command)
             continue
         state = _registry.owned(argv, runner)
@@ -497,6 +499,10 @@ def status(adapters: Optional[Dict[str, Adapter]] = None) -> List[Dict[str, Any]
         for path, entry in journal["files"].items():
             checks.extend(edits.check_entry(path, entry, name))
         commands = [c for c in journal["commands"] if c["tool"] == name]
+        for c in commands:  # a deleted or replaced registration is not "connected" because the journal remembers it
+            if (c.get("profile") or None) == (_registry.current_profile(c["argv"]) or None):
+                checks.append((_registry.owned(c["argv"], run_command) == _registry.OURS,
+                               f"{c['argv'][0]} mcp registration: {_registry.server_name(c['argv'])}"))
         targets = [t for t in journal["targets"].values() if t["tool"] == name]
         telemetry = [t for t in targets if t["kind"] == "telemetry"]
         settings: Dict[str, Any] = {}

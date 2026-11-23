@@ -264,8 +264,8 @@ def _run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: 
         reporting |= {name for name, c in ctxs.items() if c.telemetry}
     endpoints = {plan.endpoints.get(name, ctxs[name].endpoint) for name in sorted(reporting)}
     if offer_receiver and endpoints:
-        _receiver_step(plan, DEFAULT_ENDPOINT if DEFAULT_ENDPOINT in endpoints else sorted(endpoints)[0],
-                       adapters, args, out, ask)
+        return _receiver_step(plan, DEFAULT_ENDPOINT if DEFAULT_ENDPOINT in endpoints else sorted(endpoints)[0],
+                              adapters, args, out, ask)
     return 0
 
 
@@ -274,7 +274,7 @@ def _legacy(exc: "edits.LegacyJournal") -> int:
     return 1
 
 
-def _receiver_step(plan, endpoint: str, adapters, args, out, ask) -> None:
+def _receiver_step(plan, endpoint: str, adapters, args, out, ask) -> int:
     from briefcase.receiver import daemon, otlp
 
     needy = plan.needs_protobuf(adapters)
@@ -284,10 +284,10 @@ def _receiver_step(plan, endpoint: str, adapters, args, out, ask) -> None:
         out("(Claude Code is configured for http/json and Cursor uses hooks; both work without it.)")
     if endpoint != DEFAULT_ENDPOINT:
         out(f"\nTools now report to {endpoint}; make sure a receiver is listening there.")
-        return
+        return 0
     if daemon.probe(endpoint) is not None:
         out(f"\nThe receiver is already running at {endpoint}.")
-        return
+        return 0
     start = True if getattr(args, "start", False) else (
         None if args.yes else _confirm("Start the briefcase receiver in the background now?", False, ask=ask))
     if start:
@@ -296,13 +296,18 @@ def _receiver_step(plan, endpoint: str, adapters, args, out, ask) -> None:
         from briefcase.cli.receive_commands import start_detached
 
         out("")
-        start_detached(Namespace(port=4318, host="127.0.0.1", to=None, keep_content=False,
-                                 metrics=False, token=None, max_body_mb=8.0), out)
+        code = start_detached(Namespace(port=4318, host="127.0.0.1", to=None, keep_content=False,
+                                        metrics=False, token=None, max_body_mb=8.0), out)
+        if code:
+            print("error: the receiver did not start (see above); the tools are connected but nothing is "
+                  "listening yet. Run: briefcase-ai receive --detach", file=sys.stderr)
+            return 1
     else:
         out("\nStart the receiver when you are ready:")
         out("  briefcase-ai receive            # foreground, records to the console")
         out("  briefcase-ai receive --detach   # background, records to ~/.briefcase/receiver/records.jsonl")
     out("Restart the connected tools so they pick up the new settings.")
+    return 0
 
 
 def cmd_connect(args, store=None, engine_=None, stack=None) -> int:
