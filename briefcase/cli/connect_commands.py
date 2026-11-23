@@ -184,25 +184,28 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
             out("Name one explicitly (briefcase-ai connect claude-code) or see: briefcase-ai connect list")
             return 1
         out("Detected: " + ", ".join(adapters[name].name for name in tools))
-    recorded = edits.load_journal()["tools"]
+    journal = edits.load_journal()
+    recorded = journal["tools"]
     explicit = bool(args.endpoint or headers or args.capture_content)
     telemetry = getattr(args, "telemetry", True)
     ctxs: Dict[str, Context] = {}
     kept = []
     for name in tools:
         known = recorded.get(name) or {}
-        keep = bool(known) and known.get("telemetry", True) and not explicit
-        ctxs[name] = Context(
+        ctx_for = Context(
             scope=args.scope, headers=headers, mcp=args.mcp, force=getattr(args, "force", False),
             project_dir=Path.cwd(),
             endpoint=(args.endpoint or known.get("endpoint") or DEFAULT_ENDPOINT).rstrip("/"),
-            # A tool that is already connected keeps its own destination, headers and capture setting
-            # unless one of those flags is given: its telemetry is left exactly as it is.
-            telemetry=False if keep else telemetry,
+            telemetry=telemetry,
             capture_content=bool(args.capture_content or (known.get("capture_content") and not explicit)),
         )
-        if keep and telemetry:
+        # A connected tool keeps its own destination, headers and capture setting unless one of those flags
+        # is given, but only when the files this scope and project would write already hold them.
+        if (known and known.get("telemetry", True) and not explicit and telemetry
+                and _telemetry_held(name, ctx_for, adapters, journal)):
+            ctx_for.telemetry = False
             kept.append(f"{adapters[name].name} -> {known.get('endpoint') or DEFAULT_ENDPOINT}")
+        ctxs[name] = ctx_for
     if kept:
         out("Keeping the telemetry destination each tool already has: " + ", ".join(kept)
             + " (pass --endpoint, --headers or --capture-content to change it)")
@@ -240,9 +243,38 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
     if dry:
         return 0
 
-    if offer_receiver and any(c.telemetry for c in ctxs.values()):
+    if offer_receiver and (any(c.telemetry for c in ctxs.values()) or (kept and getattr(args, "start", False))):
         _receiver_step(plan, ctx, adapters, args, out, ask)
     return 0
+
+
+def _telemetry_held(name: str, ctx: Context, adapters, journal: Dict[str, Any]) -> bool:
+    """Do the files that connecting ``name`` with ``ctx`` would write (for this scope and project) already hold
+    this tool's telemetry settings, as our journal recorded them?"""
+    import dataclasses
+
+    full = dataclasses.replace(ctx, telemetry=True, mcp=False)
+    plan = engine.build_plan([name], full, adapters, journal)
+    edits_planned = [r for r in plan.resolved if r.status != edits.REFUSED]
+    if not edits_planned:
+        return False
+    for resolved in edits_planned:
+        entry = journal["files"].get(str(resolved.target))
+        if not entry:
+            return False
+        ours = [op for op in entry["ops"] if op.get("tool") == name]
+        if not ours or not all(ok for ok, _ in edits.check_entry(str(resolved.target), entry, name)):
+            return False
+        edit = resolved.edit
+        if edit.format == "toml":
+            have = {t for op in ours for t in op.get("tables", [])}
+            if not set(edit.toml_tables) <= have:
+                return False
+        else:
+            have_paths = {tuple(op["path"]) for op in ours if "path" in op}
+            if not {tuple(op["path"]) for op in edit.ops} <= have_paths:
+                return False
+    return True
 
 
 def _receiver_step(plan, ctx: Context, adapters, args, out, ask) -> None:

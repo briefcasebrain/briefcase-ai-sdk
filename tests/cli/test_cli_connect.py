@@ -389,3 +389,39 @@ def test_a_bare_reconnect_keeps_codex_headers_and_prompt_capture(home):
     assert "Bearer abc" in before and "log_user_prompt = true" in before
     assert main(["connect", "codex", "--no-mcp", "--yes"]) == 0
     assert (home / ".codex" / "config.toml").read_text() == before
+
+
+def test_a_second_project_for_cursor_gets_its_own_telemetry_hooks(home, tmp_path, monkeypatch):
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    monkeypatch.chdir(first)
+    assert main(["connect", "cursor", "--no-mcp", "--scope", "project", "--yes"]) == 0
+    assert (first / ".cursor" / "hooks.json").exists()
+    monkeypatch.chdir(second)
+    assert main(["connect", "cursor", "--no-mcp", "--scope", "project", "--yes"]) == 0
+    assert (second / ".cursor" / "hooks.json").exists()
+
+
+def test_reconnect_repairs_settings_that_went_missing(home, capsys):
+    assert main(["connect", "claude-code", "--no-mcp", "--yes", "--endpoint", "https://claude.example.com"]) == 0
+    settings = home / ".claude" / "settings.json"
+    settings.unlink()
+    assert main(["connect", "claude-code", "--no-mcp", "--yes"]) == 0
+    assert _claude_endpoint(home) == "https://claude.example.com"  # repaired with the recorded endpoint
+
+
+def test_reconnect_repairs_codex_telemetry_when_only_the_mcp_block_was_ever_written(home):
+    assert main(["mcp", "install", "codex", "--yes"]) == 0
+    config = home / ".codex" / "config.toml"
+    assert "[otel]" not in config.read_text()
+    assert main(["connect", "codex", "--no-mcp", "--yes"]) == 0
+    assert "[otel]" in config.read_text()
+
+
+def test_start_runs_the_receiver_for_an_already_connected_local_tool(home, monkeypatch):
+    started = []
+    monkeypatch.setattr(receive_commands, "start_detached", lambda args, out=print: started.append(args) or 0)
+    assert main(["connect", "claude-code", "--no-mcp", "--yes"]) == 0
+    assert main(["connect", "claude-code", "--no-mcp", "--yes", "--start"]) == 0
+    assert len(started) == 1
