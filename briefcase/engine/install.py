@@ -389,6 +389,9 @@ class InstallOptions:
     tls: bool = False
     skip_images: bool = False
     env: Optional[Mapping[str, str]] = None
+    # An upgrade records the new release but leaves the current one alone until the caller has restarted onto it
+    # (see ``set_current``); a plain install is current at once.
+    make_current: bool = True
 
     @property
     def mode(self) -> str:
@@ -803,9 +806,19 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
     state = _engine.load_state(env)
     state["schema"] = 2
     state.setdefault("installs", {})[manifest.version] = record
-    state["current"] = manifest.version
+    if opts.make_current or not state.get("current"):
+        state["current"] = manifest.version
     save_state(state, env)
     return record
+
+
+def set_current(version: str, env: Optional[Mapping[str, str]] = None) -> None:
+    """Make an installed release the current one (under the install lock)."""
+    with engine_lock(env):
+        state = _engine.load_state(env)
+        if version in (state.get("installs") or {}) and state.get("current") != version:
+            state["current"] = version
+            save_state(state, env)
 
 
 # --------------------------------------------------------------------------- newer versions

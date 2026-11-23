@@ -529,6 +529,12 @@ if args[:1] == ["load"]:
         else:
             print("Loaded image ID: " + image_id)
     save(); sys.exit(0)
+if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in args):
+    # The containers of one Compose project: FAKE_DOCKER_PROJECT_ROWS is a JSON list of
+    # [image, compose config file] pairs, printed as the format asks (image, TAB, config_files label).
+    for image, config in json.loads(os.environ.get("FAKE_DOCKER_PROJECT_ROWS") or "[]"):
+        print(image + "\t" + config)
+    sys.exit(0)
 if args[:1] == ["ps"]:
     # `docker ps --filter label=com.docker.compose.service=oci-jj-server ...`: FAKE_DOCKER_PS holds
     # "project<TAB>container" lines, as Docker prints them with the Compose labels in the format.
@@ -537,22 +543,36 @@ if args[:1] == ["ps"]:
         for row in rows:
             print(row)
     sys.exit(0)
+def volumes_now():
+    """The volumes that exist. Seeded from FAKE_DOCKER_VOLUMES ({name: {label: value}}) and re-seeded when that
+    variable changes; `docker volume rm` removes from it, so a purge can be checked afterwards."""
+    raw = os.environ.get("FAKE_DOCKER_VOLUMES") or "{}"
+    if state.get("volumes_src") != raw:
+        state["volumes_src"], state["volumes"] = raw, json.loads(raw)
+        save()
+    return state["volumes"]
+
 if args[:2] == ["volume", "ls"]:
-    # FAKE_DOCKER_VOLUMES: JSON {volume name: {label: value}}; filtered by `label=KEY=VALUE`.
-    volumes = json.loads(os.environ.get("FAKE_DOCKER_VOLUMES") or "{}")
+    # filtered by `label=KEY=VALUE`.
     wanted = [a.split("=", 1)[1] for a in args if a.startswith("label=")]
-    for name, labels in volumes.items():
+    for name, labels in volumes_now().items():
         if all(w.split("=", 1)[0] in labels and labels[w.split("=", 1)[0]] == w.split("=", 1)[1] for w in wanted):
             print(name)
     sys.exit(0)
 if args[:2] == ["volume", "rm"]:
-    sys.exit(0)  # recorded in the call log; the fake keeps no volume state
-if args[:2] == ["volume", "inspect"]:
-    volumes = json.loads(os.environ.get("FAKE_DOCKER_VOLUMES") or "{}")
     name = args[-1]
-    if name not in volumes:
+    failing = (os.environ.get("FAKE_DOCKER_VOLUME_RM_FAIL") or "").split(",")
+    if name not in volumes_now():
         sys.stderr.write("Error: No such volume: %s\n" % name); sys.exit(1)
-    print(volumes[name].get("ai.briefcase.engine", ""))
+    if name in failing or "*" in failing:
+        sys.stderr.write("Error: remove %s: volume is in use\n" % name); sys.exit(1)
+    del state["volumes"][name]; save()
+    sys.exit(0)
+if args[:2] == ["volume", "inspect"]:
+    name = args[-1]
+    if name not in volumes_now():
+        sys.stderr.write("Error: No such volume: %s\n" % name); sys.exit(1)
+    print(volumes_now()[name].get("ai.briefcase.engine", ""))
     sys.exit(0)
 if args[:1] == ["run"]:
     sys.exit(0)
@@ -567,6 +587,8 @@ if args[:1] == ["compose"]:
             compose_text = open(args[args.index("-f") + 1]).read() if "-f" in args else ""
             if compose_text and ("\n  %s:\n" % service) not in compose_text:
                 sys.stderr.write("no such service: %s\n" % service); sys.exit(1)
+    if "up" in args and os.environ.get("FAKE_DOCKER_COMPOSE_UP_FAIL"):
+        sys.stderr.write("service failed to start\n"); sys.exit(1)
     if "ps" in args:
         if "--quiet" in args:
             print(os.environ.get("FAKE_DOCKER_RUNNING", "")); sys.exit(0)

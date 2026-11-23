@@ -1070,6 +1070,7 @@ def test_uninstall_purge_leaves_a_foreign_volume_and_names_it(env, capsys, monke
     _volumes(monkeypatch, pgdata={}, miniodata=LABEL)
     env["log"].unlink()
     capsys.readouterr()
+    _project_runs(monkeypatch, _engine.current_install())
     assert main(["engine", "uninstall", "--purge", "--yes"]) == 0
     out = capsys.readouterr().out
     down = [a for a in _compose_calls(env) if "down" in a][0]
@@ -1104,6 +1105,118 @@ def test_purge_keeps_shared_files_and_volumes_while_another_install_remains(env,
     assert not [a for a in _docker(env) if a[:2] == ["volume", "rm"]]
     assert set(json.loads(_engine.installed_path().read_text())["installs"]) == {"0.5.0"}
     assert "still installed" in capsys.readouterr().out
+
+
+def _second_install(version="0.5.0", binary_only=False):
+    """Add a second record to installed.json, as another release installed next to the first would leave."""
+    state = json.loads(_engine.installed_path().read_text())
+    base = state["installs"][VERSION]
+    other = dict(base, version=version)
+    if binary_only:
+        other.update(compose=None, images={}, image_ids={}, image_digests={})
+    else:
+        other["images"] = {k: v.replace(VERSION, version) for k, v in base["images"].items()}
+        other["compose"] = base["compose"].replace(VERSION, version)
+    state["installs"][version] = other
+    _engine.installed_path().write_text(json.dumps(state))
+    return other
+
+
+def _project_runs(monkeypatch, record):
+    """Make the fake docker report that the containers of the engine project are this record's."""
+    rows = [[ref, record["compose"]] for ref in record["images"].values()]
+    monkeypatch.setenv("FAKE_DOCKER_PROJECT_ROWS", json.dumps(rows))
+
+
+def test_purge_keeps_the_secrets_and_the_install_when_a_volume_cannot_be_removed(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    _volumes(monkeypatch, pgdata=LABEL, miniodata=LABEL)
+    monkeypatch.setenv("FAKE_DOCKER_VOLUME_RM_FAIL", "briefcase-engine_pgdata")
+    _project_runs(monkeypatch, _engine.current_install())
+    capsys.readouterr()
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 1
+    captured = capsys.readouterr()
+    assert (env["home"] / "engine" / "engine.env").exists()
+    assert _engine.current_install() is not None and (env["home"] / "engine" / VERSION).exists()
+    assert "briefcase-engine_pgdata" in captured.err and "engine.env" in captured.err
+    # Once the volume can be removed, the same command finishes the job and only then deletes the secrets.
+    monkeypatch.delenv("FAKE_DOCKER_VOLUME_RM_FAIL")
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0
+    assert not (env["home"] / "engine" / "engine.env").exists() and _engine.current_install() is None
+    assert docker_state(env["log"])["volumes"] == {}
+
+
+def test_purge_of_a_binary_only_install_after_a_deferred_cleanup_removes_the_volumes_first(
+        env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    _second_install(binary_only=True)  # a client-only release installed next to it
+    _volumes(monkeypatch, pgdata=LABEL, miniodata=LABEL, regdata=LABEL)
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0  # removes the first; the other one remains
+    assert (env["home"] / "engine" / "engine.env").exists() and "still installed" in capsys.readouterr().out
+    env["log"].unlink()
+    assert _engine.current_install()["compose"] is None
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0  # the last one: the deferred cleanup is done now
+    removed = sorted(a[2] for a in _docker(env) if a[:2] == ["volume", "rm"])
+    assert removed == ["briefcase-engine_miniodata", "briefcase-engine_pgdata", "briefcase-engine_regdata"]
+    assert not (env["home"] / "engine" / "engine.env").exists()
+    assert docker_state(env["log"])["volumes"] == {}
+
+
+def test_purge_keeps_the_secrets_when_a_volume_is_still_there_afterwards(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    _second_install(binary_only=True)
+    assert main(["engine", "uninstall", "--yes"]) == 0
+    _volumes(monkeypatch, pgdata=LABEL)
+    monkeypatch.setenv("FAKE_DOCKER_VOLUME_RM_FAIL", "*")
+    capsys.readouterr()
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 1
+    assert (env["home"] / "engine" / "engine.env").exists()
+    assert "briefcase-engine_pgdata" in capsys.readouterr().err
+
+
+def test_a_retry_after_a_refused_upgrade_performs_the_upgrade(env, capsys, monkeypatch, key):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    env["platform"].release = build_release(key, version="0.5.0")
+    monkeypatch.setenv("FAKE_DOCKER_RUNNING", "abc123")
+    _volumes(monkeypatch, pgdata={})  # a volume the engine did not create refuses the restart
+    env["log"].unlink()
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 1
+    assert _engine.current_install()["version"] == VERSION, "a refused upgrade must not move the current version"
+    assert not [a for a in _compose_calls(env) if "up" in a]
+    _volumes(monkeypatch, pgdata=LABEL)  # the user fixed it
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 0
+    ups = [a for a in _compose_calls(env) if "up" in a]
+    assert ups and "0.5.0" in ups[-1][ups[-1].index("-f") + 1]
+    assert _engine.current_install()["version"] == "0.5.0"
+
+
+def test_a_failed_compose_up_does_not_move_the_current_version(env, capsys, monkeypatch, key):
+    assert _install("--code", "bci_good") == 0
+    env["platform"].release = build_release(key, version="0.5.0")
+    monkeypatch.setenv("FAKE_DOCKER_RUNNING", "abc123")
+    monkeypatch.setenv("FAKE_DOCKER_COMPOSE_UP_FAIL", "1")
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 1
+    assert _engine.current_install()["version"] == VERSION
+
+
+def test_uninstalling_a_version_that_is_not_running_leaves_the_running_one_up(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    other = _second_install()
+    _project_runs(monkeypatch, other)  # the containers up are the other release's
+    env["log"].unlink()
+    assert main(["engine", "uninstall", "--yes"]) == 0  # removes the current one, which is not running
+    assert not [a for a in _compose_calls(env) if "down" in a], "took the running release down"
+    assert not (env["home"] / "engine" / VERSION).exists()
+    assert set(json.loads(_engine.installed_path().read_text())["installs"]) == {"0.5.0"}
+
+
+def test_uninstalling_the_version_that_is_running_takes_it_down(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    _project_runs(monkeypatch, _engine.current_install())
+    env["log"].unlink()
+    assert main(["engine", "uninstall", "--yes"]) == 0
+    assert [a for a in _compose_calls(env) if "down" in a]
 
 
 def test_uninstall_decides_what_to_delete_after_taking_the_lock(env, capsys, monkeypatch):

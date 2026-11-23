@@ -105,8 +105,8 @@ Then `briefcase-ai engine up`, `briefcase-ai engine status`, and the engine comm
 | `engine up [--wait]` / `down [--volumes]` / `logs [SERVICE] [-f]` | `docker compose` on the generated file, project `briefcase-engine`. |
 | `engine status [--json] [--token T]` | What is installed, the key it was verified with, which services run, whether gRPC answers, and (with a licence token) whether a newer release exists. Exit 3 when nothing is installed. |
 | `engine doctor [--json]` | Docker, compose, the pinned keys, the stored manifest's signature, each image against the ID verified at install, the secrets file mode, and one authenticated gRPC call. |
-| `engine upgrade --code C \| --token T [--version X]` | Installs the newest release (or the code's), restarts onto it when the engine is running. Secrets and data volumes are kept. |
-| `engine uninstall [--purge] [--dry-run]` | Stops the stack, removes the images and the version directory; `--purge` also deletes data volumes, secrets and certificates. |
+| `engine upgrade --code C \| --token T [--version X]` | Installs the newest release (or the code's) and restarts onto it when the engine is running; the release becomes the current one only after the restart guard passed and `compose up` succeeded, so a refused or failed upgrade can simply be run again. Secrets and data volumes are kept. |
+| `engine uninstall [--purge] [--dry-run]` | Removes the images and the version directory, and takes the stack down only when that release is the one running (releases share one Compose project; another release's containers are left up). `--purge` also deletes the data volumes and then the secrets and certificates, but only when no other release is installed and every engine volume is confirmed gone; if one cannot be removed, nothing is deleted, the secrets included, the command exits 1 and says why. |
 
 ## What it writes or sends, and where
 
