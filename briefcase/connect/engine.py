@@ -60,17 +60,16 @@ def build_plan(tools: List[str], ctx: Any, adapters: Optional[Dict[str, Adapter]
                journal: Optional[Dict[str, Any]] = None) -> Plan:
     adapters = adapters or registry()
     journal = journal if journal is not None else edits.load_journal()
-    ran = {tuple(c["argv"]) for c in journal.get("commands", []) if _journalled(journal, c["tool"], c["argv"])}
     plan = Plan(tools=list(tools))
     for name in tools:
         for item in adapters[name].plan(ctx[name] if isinstance(ctx, dict) else ctx):
             if isinstance(item, FileEdit):
-                resolved = edits.resolve(item)
+                resolved = edits.resolve(item, journal)
                 if resolved.status == REFUSED:
                     plan.manual.append(Manual(name, f"Add to {item.path}", edits.snippet(item), resolved.reason))
                 plan.resolved.append(resolved)
             elif isinstance(item, Command):
-                (plan.done_commands if tuple(item.argv) in ran else plan.commands).append(item)
+                (plan.done_commands if _done(journal, item.tool, item.argv) else plan.commands).append(item)
             else:
                 plan.manual.append(item)
     return plan
@@ -118,19 +117,44 @@ def render_plan(plan: Plan, adapters: Dict[str, Adapter], out: Printer) -> None:
             out("  nothing to do")
 
 
-def _registration_key(argv: List[str]) -> Dict[str, Any]:
-    """Where a ``claude mcp add`` lands: its scope, the active Claude profile, and (for project and local
-    scope) the directory, which together name the config file."""
-    scope = argv[4] if len(argv) > 4 else "user"
-    return {"config_dir": os.environ.get("CLAUDE_CONFIG_DIR"), "cwd": None if scope == "user" else os.getcwd()}
+def registration(argv: List[str]) -> Tuple[str, Tuple[str, ...]]:
+    """``(scope, name key)`` of a registration command in its own CLI's argument form: ``claude mcp add --scope S
+    NAME --`` has a scope; ``codex mcp add NAME --`` is global (its ``--`` is not a scope)."""
+    if argv[:1] == ["claude"]:
+        return (argv[4] if len(argv) > 4 else "user"), tuple(argv[:6])
+    if argv[:1] == ["codex"]:
+        return "global", tuple(argv[:4])
+    return "user", tuple(argv[:3])
 
 
-def _journalled(journal: Dict[str, Any], tool: str, argv: List[str]) -> bool:
-    """Did an earlier connect of this SDK register ``argv[:6]`` (same name and scope) in the same config file?"""
-    key = _registration_key(argv)
-    return any(c["tool"] == tool and c["argv"][:6] == argv[:6]
-               and c.get("config_dir") == key["config_dir"] and c.get("cwd") == key["cwd"]
-               for c in journal.get("commands", []))
+def identity(argv: List[str]) -> Dict[str, Any]:
+    """Where that registration lands: the profile (``CLAUDE_CONFIG_DIR`` or ``CODEX_HOME``) and, for project and
+    local scope, the directory. Two commands with different identities never share state."""
+    scope, _ = registration(argv)
+    profile = os.environ.get("CODEX_HOME" if argv[:1] == ["codex"] else "CLAUDE_CONFIG_DIR")
+    return {"profile": profile, "cwd": None if scope in ("user", "global") else os.getcwd()}
+
+
+def _same_registration(c: Dict[str, Any], tool: str, argv: List[str]) -> bool:
+    ident = identity(argv)
+    return (c["tool"] == tool and registration(c["argv"])[1] == registration(argv)[1]
+            and c.get("profile") == ident["profile"] and c.get("cwd") == ident["cwd"])
+
+
+def _journalled(journal: Dict[str, Any], tool: str, argv: List[str]) -> Optional[Dict[str, Any]]:
+    """The journal entry of an earlier connect of this SDK for this exact registration (name, scope, profile and
+    directory), or ``None``."""
+    return next((c for c in journal.get("commands", []) if _same_registration(c, tool, argv)), None)
+
+
+def _done(journal: Dict[str, Any], tool: str, argv: List[str]) -> bool:
+    entry = _journalled(journal, tool, argv)
+    return entry is not None and list(entry["argv"]) == list(argv)
+
+
+def target_key(tool: str, kind: str, scope: str, target: str) -> str:
+    """The unit the journal reasons about: one tool, one purpose, one scope, one absolute target."""
+    return "|".join([tool, kind, scope, target])
 
 
 def apply_plan(plan: Plan, ctx: Any, out: Printer,
@@ -153,37 +177,52 @@ def apply_plan(plan: Plan, ctx: Any, out: Printer,
     for command in plan.commands:
         code, output = runner(command.argv)
         if code != 0 and command.undo_hint and "already exists" in output:
-            scope = command.argv[4] if len(command.argv) > 4 else "user"
-            name = command.argv[5] if len(command.argv) > 5 else ""
-            if _journalled(journal, command.tool, command.argv):
+            scope, key = registration(command.argv)
+            name = key[-1] if len(key) > 5 else (key[3] if len(key) > 3 else "")
+            ours = _journalled(journal, command.tool, command.argv)
+            if ours is not None:
                 # We registered it, so replacing it loses nothing of anyone else's.
                 out(f"  replace {mcp_payloads.shell(command.undo_hint)}")
                 if runner(command.undo_hint)[0] == 0:
                     code, output = runner(command.argv)
+                    if code != 0:
+                        # Put back exactly what the journal says we wrote.
+                        if runner(list(ours["argv"]))[0] == 0:
+                            output = f"{output}; the previous registration was restored".strip("; ")
+                        else:
+                            output = (f"{output}; could not restore the previous registration, re-create it with: "
+                                      f"{mcp_payloads.shell(list(ours['argv']))}").strip("; ")
             else:
                 # Someone else's entry: never touched, never printed (its args and env may hold credentials).
                 failures += 1 if skipped_is_failure else 0
                 out(f"  {'failed' if skipped_is_failure else 'skip  '} an MCP server named {name!r} is already "
-                    f"registered in {scope} scope and was not "
-                    f"registered by briefcase, so it was left as it is; to use briefcase-ai-mcp, run "
-                    f"`{mcp_payloads.shell(command.undo_hint)}` and then `{mcp_payloads.shell(command.argv)}`")
+                    f"registered in {scope} scope and was not registered by briefcase, so it was left as it is; to "
+                    f"use briefcase-ai-mcp, run `{mcp_payloads.shell(command.undo_hint)}` and then "
+                    f"`{mcp_payloads.shell(command.argv)}`")
                 continue
         if code != 0:
             failures += 1
             out(f"  failed {mcp_payloads.shell(command.argv)}: {output or f'exit {code}'}")
             continue
         out(f"  ran    {mcp_payloads.shell(command.argv)}")
-        journal["commands"] = [c for c in journal["commands"] if not (
-            c["tool"] == command.tool and c["argv"][:6] == command.argv[:6]
-            and c.get("config_dir") == _registration_key(command.argv)["config_dir"]
-            and c.get("cwd") == _registration_key(command.argv)["cwd"])]  # same registration, older command
+        journal["commands"] = [c for c in journal["commands"] if not _same_registration(c, command.tool,
+                                                                                        command.argv)]
         journal["commands"].append({
-            "tool": command.tool, "argv": command.argv, "undo_hint": command.undo_hint,
-            **_registration_key(command.argv),
+            "tool": command.tool, "argv": command.argv, "undo_hint": command.undo_hint, **identity(command.argv),
             "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         })
     touched = {r.edit.tool for r in plan.resolved if r.status in (CHANGE, NOOP)} | {
         c.tool for c in plan.commands + plan.done_commands}
+    for resolved in plan.resolved:
+        if resolved.status not in (CHANGE, NOOP):
+            continue
+        edit, mine = resolved.edit, (ctx[resolved.edit.tool] if isinstance(ctx, dict) else ctx)
+        key = target_key(edit.tool, edit.kind, mine.scope, str(resolved.target))
+        journal.setdefault("targets", {})[key] = {
+            "tool": edit.tool, "kind": edit.kind, "scope": mine.scope, "target": str(resolved.target),
+            "endpoint": mine.endpoint, "capture_content": mine.capture_content,
+            "telemetry": edit.kind == "telemetry", "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        }
     for name in touched:
         mine = ctx[name] if isinstance(ctx, dict) else ctx
         prior = journal["tools"].get(name) or {}

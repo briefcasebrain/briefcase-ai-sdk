@@ -425,3 +425,91 @@ def test_start_runs_the_receiver_for_an_already_connected_local_tool(home, monke
     assert main(["connect", "claude-code", "--no-mcp", "--yes"]) == 0
     assert main(["connect", "claude-code", "--no-mcp", "--yes", "--start"]) == 0
     assert len(started) == 1
+
+
+def _cursor_hook_commands(directory):
+    data = json.loads((directory / ".cursor" / "hooks.json").read_text())
+    return [h["command"] for entries in data["hooks"].values() for h in entries]
+
+
+def test_a_bare_connect_in_another_cursor_project_inherits_neither_endpoint_nor_content_capture(
+        home, tmp_path, monkeypatch, capsys):
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    monkeypatch.chdir(first)
+    assert main(["connect", "cursor", "--no-mcp", "--scope", "project", "--yes",
+                 "--endpoint", "https://remote.example.com", "--capture-content"]) == 0
+    assert all("--capture-content" in c and "remote.example.com" in c for c in _cursor_hook_commands(first))
+    monkeypatch.chdir(second)
+    capsys.readouterr()
+    assert main(["connect", "cursor", "--no-mcp", "--scope", "project", "--yes"]) == 0
+    commands = _cursor_hook_commands(second)
+    assert commands and not any("--capture-content" in c or "remote.example.com" in c for c in commands)
+    assert "capture" not in capsys.readouterr().err.lower()
+
+
+def test_the_content_warning_prints_whenever_capture_is_on_even_if_only_recorded(home, capsys):
+    assert main(["connect", "cursor", "--no-mcp", "--yes", "--capture-content"]) == 0
+    capsys.readouterr()
+    assert main(["connect", "cursor", "--no-mcp", "--yes"]) == 0
+    assert "prompt" in capsys.readouterr().err.lower()
+
+
+def test_project_scope_claude_mcp_json_entry_we_did_not_write_is_skipped_and_never_printed(home, tmp_path, capsys):
+    mcp_json = tmp_path / "project" / ".mcp.json"
+    foreign = {"command": "mine", "args": ["--token=SECRET-VALUE"]}
+    mcp_json.write_text(json.dumps({"mcpServers": {"briefcase": foreign}}))
+    before = mcp_json.read_text()
+    capsys.readouterr()
+    assert main(["connect", "claude-code", "--scope", "project", "--yes"]) == 0
+    captured = capsys.readouterr()
+    assert mcp_json.read_text() == before
+    assert "SECRET-VALUE" not in captured.out + captured.err and "mine" not in captured.out + captured.err
+    assert "did not write" in captured.out
+    assert main(["mcp", "install", "claude-code", "--scope", "project", "--yes"]) == 1  # its whole job failed
+    assert mcp_json.read_text() == before
+
+
+def test_project_scope_claude_mcp_json_entry_we_journalled_is_replaced(home, tmp_path, monkeypatch):
+    mcp_json = tmp_path / "project" / ".mcp.json"
+    assert main(["connect", "claude-code", "--scope", "project", "--yes"]) == 0
+    first = json.loads(mcp_json.read_text())["mcpServers"]["briefcase"]
+    monkeypatch.setattr(payloads, "server_config",
+                        lambda which=None: {"command": "another-launcher", "args": ["--x"]})
+    assert main(["connect", "claude-code", "--scope", "project", "--yes"]) == 0
+    assert json.loads(mcp_json.read_text())["mcpServers"]["briefcase"]["command"] == "another-launcher" != first
+
+
+def test_mcp_install_after_a_telemetry_only_codex_connect_keeps_otel_header_on_disk_and_in_the_journal(home):
+    assert main(["connect", "codex", "--no-mcp", "--yes", "--endpoint", "https://codex.example.com",
+                 "--headers", "Authorization=Bearer abc"]) == 0
+    assert main(["mcp", "install", "codex", "--yes"]) == 0
+    config = home / ".codex" / "config.toml"
+    assert "Bearer abc" in config.read_text() and "[otel]" in config.read_text()
+    ops = [op for entry in edits.load_journal()["files"].values() for op in entry["ops"] if op["op"] == "toml_block"]
+    assert set(ops[0]["tables"]) == {"otel", "mcp_servers.briefcase"}
+    assert main(["connect", "codex", "--no-mcp", "--yes"]) == 0  # a bare reconnect leaves the header alone
+    assert "Bearer abc" in config.read_text()
+
+
+def test_codex_telemetry_counts_as_intact_only_while_the_otel_table_is_present(home):
+    assert main(["connect", "codex", "--no-mcp", "--yes", "--endpoint", "https://codex.example.com"]) == 0
+    config = home / ".codex" / "config.toml"
+    text = config.read_text()
+    start = text.index("[otel]")
+    end = text.index("# <<< briefcase <<<")
+    config.write_text(text[:start] + text[end:])  # the block survives, [otel] does not
+    assert "[otel]" not in config.read_text()
+    assert main(["connect", "codex", "--no-mcp", "--yes"]) == 0
+    assert "https://codex.example.com/v1/logs" in config.read_text()
+
+
+def test_start_picks_the_local_receiver_not_the_first_tools_remote(home, monkeypatch):
+    started = []
+    monkeypatch.setattr(receive_commands, "start_detached", lambda args, out=print: started.append(args) or 0)
+    assert main(["connect", "claude-code", "--no-mcp", "--yes", "--endpoint", "https://remote.example.com"]) == 0
+    assert main(["connect", "codex", "--no-mcp", "--yes"]) == 0
+    started.clear()
+    assert main(["connect", "claude-code", "codex", "--no-mcp", "--yes", "--start"]) == 0
+    assert len(started) == 1 and started[0].port == 4318

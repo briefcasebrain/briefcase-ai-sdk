@@ -185,41 +185,50 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
             return 1
         out("Detected: " + ", ".join(adapters[name].name for name in tools))
     journal = edits.load_journal()
-    recorded = journal["tools"]
     explicit = bool(args.endpoint or headers or args.capture_content)
     telemetry = getattr(args, "telemetry", True)
     ctxs: Dict[str, Context] = {}
-    kept = []
+    kept: List[Context] = []
     for name in tools:
-        known = recorded.get(name) or {}
+        # Everything recorded about a tool is looked up by the exact target this invocation would write
+        # (scope and absolute file), never inherited from another project or file of the same tool.
+        known = _recorded_for_target(name, args.scope, adapters, journal)
         ctx_for = Context(
             scope=args.scope, headers=headers, mcp=args.mcp, force=getattr(args, "force", False),
             project_dir=Path.cwd(),
             endpoint=(args.endpoint or known.get("endpoint") or DEFAULT_ENDPOINT).rstrip("/"),
             telemetry=telemetry,
-            capture_content=bool(args.capture_content or (known.get("capture_content") and not explicit)),
+            capture_content=bool(args.capture_content or known.get("capture_content")),
         )
-        # A connected tool keeps its own destination, headers and capture setting unless one of those flags
-        # is given, but only when the files this scope and project would write already hold them.
-        if (known and known.get("telemetry", True) and not explicit and telemetry
+        # A connected target keeps its own destination, headers and capture setting unless one of those flags
+        # is given, but only when the file this scope and project writes already holds them.
+        if (known and known.get("telemetry") and not explicit and telemetry
                 and _telemetry_held(name, ctx_for, adapters, journal)):
             ctx_for.telemetry = False
-            kept.append(f"{adapters[name].name} -> {known.get('endpoint') or DEFAULT_ENDPOINT}")
+            kept.append(ctx_for)
         ctxs[name] = ctx_for
     if kept:
-        out("Keeping the telemetry destination each tool already has: " + ", ".join(kept)
+        out("Keeping the telemetry destination each tool already has: "
+            + ", ".join(f"{adapters[n].name} -> {c.endpoint}" for n, c in ctxs.items() if c in kept)
             + " (pass --endpoint, --headers or --capture-content to change it)")
-    ctx = next((c for c in ctxs.values() if c.telemetry), next(iter(ctxs.values())))
-    if args.capture_content:
+    active = [c for c in ctxs.values() if c.telemetry]
+    local = [c for c in active + kept if c.endpoint == DEFAULT_ENDPOINT]
+    ctx = (local or active or list(ctxs.values()))[0]
+    if any(c.capture_content for c in ctxs.values()):
         print(CAPTURE_WARNING, file=sys.stderr)
     plan = engine.build_plan(tools, ctxs, adapters)
     engine.render_plan(plan, adapters, out)
     dry = _dry_run(args)
+    # `mcp install` exists to register the server: an entry it may not touch is a failure for it (but only a
+    # skipped step for `connect`).
+    refused_mcp = mcp_only and any(r.status == edits.REFUSED and r.edit.kind == "mcp" for r in plan.resolved)
 
     if not plan.has_work:
         out("\nNothing to write: everything that can be set up automatically already is."
             if any(r.status == edits.NOOP for r in plan.resolved) or plan.done_commands
             else "\nNothing can be written automatically for these tools; follow the manual steps above.")
+        if refused_mcp and not dry:
+            return 1
     elif dry:
         out(f"\nDry run: {len(plan.changes)} file(s) would be written and {len(plan.commands)} "
             "command(s) run. Nothing was changed.")
@@ -235,6 +244,7 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
             out("Aborted; nothing was changed.")
             return 1
         failures = engine.apply_plan(plan, ctxs, out, runner=runner, skipped_is_failure=mcp_only)
+        failures += int(refused_mcp)
         if failures:
             out(f"\n{failures} step(s) failed; the rest were applied. Run `briefcase-ai connect status`.")
         out("\nUndo any time with: briefcase-ai connect --undo")
@@ -243,9 +253,19 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
     if dry:
         return 0
 
-    if offer_receiver and (any(c.telemetry for c in ctxs.values()) or (kept and getattr(args, "start", False))):
+    if offer_receiver and (active or (local and getattr(args, "start", False))):
         _receiver_step(plan, ctx, adapters, args, out, ask)
     return 0
+
+
+def _recorded_for_target(name: str, scope: str, adapters, journal: Dict[str, Any]) -> Dict[str, Any]:
+    """What the journal recorded for the telemetry target ``name`` would write at ``scope`` from here, or ``{}``."""
+    probe = Context(scope=scope, mcp=False, telemetry=True, project_dir=Path.cwd())
+    for resolved in engine.build_plan([name], probe, adapters, journal).resolved:
+        if resolved.edit.kind == "telemetry":
+            return journal.get("targets", {}).get(
+                engine.target_key(name, "telemetry", scope, str(resolved.target))) or {}
+    return {}
 
 
 def _telemetry_held(name: str, ctx: Context, adapters, journal: Dict[str, Any]) -> bool:

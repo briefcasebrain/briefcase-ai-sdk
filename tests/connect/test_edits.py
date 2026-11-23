@@ -204,7 +204,7 @@ def journal_registration(scope="user", config_dir=None, cwd=None):
     journal = edits.load_journal()
     journal["commands"].append({
         "tool": "claude-code", "argv": ["claude", "mcp", "add", "--scope", scope, "briefcase", "--", "old"],
-        "undo_hint": None, "at": "2026-08-01", "config_dir": config_dir, "cwd": cwd})
+        "undo_hint": None, "at": "2026-08-01", "profile": config_dir, "cwd": cwd})
     edits.save_journal(journal)
 
 
@@ -274,7 +274,78 @@ def test_claude_code_mcp_first_install_does_not_remove_anything(home, fake_bin):
     connect(["claude-code"], runner=claude)
     assert [c[2] for c in claude.calls] == ["add"]
     entry = [c for c in edits.load_journal()["commands"] if c["tool"] == "claude-code"][0]
-    assert entry["config_dir"] is None and entry["cwd"] is None
+    assert entry["profile"] is None and entry["cwd"] is None
+
+
+def test_a_failed_re_add_restores_exactly_what_the_journal_says_we_wrote(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    journal_registration("user")  # journalled argv ends in "old"
+    claude = FakeClaude([(None, "user", None)])
+    claude.registered[(None, "user", None)] = ["old"]
+
+    real = claude.__call__
+
+    def fail_only_the_new_launcher(argv):
+        if argv[-1] == "briefcase-ai-mcp":
+            claude.calls.append(argv)
+            return 1, "simulated failure"
+        return real(argv)
+
+    plan, out, failures = connect(["claude-code"], runner=fail_only_the_new_launcher)
+    assert failures == 1
+    assert claude.registered[(None, "user", None)] == ["old"]  # put back from the journal
+
+
+def test_a_failed_restore_of_a_journalled_registration_is_reported_with_the_command_to_redo_it(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    journal_registration("user")
+    claude = FakeClaude([(None, "user", None)], fail_add=True)  # every add fails, restore included
+    plan, out, failures = connect(["claude-code"], runner=claude)
+    assert failures == 1
+    text = "\n".join(out)
+    assert "could not restore" in text and "claude mcp add --scope user briefcase -- old" in text
+
+
+def test_a_profile_that_still_points_at_the_removed_launcher_is_re_registered(home, fake_bin, monkeypatch, tmp_path):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    profile_a, profile_b = str(tmp_path / "a"), str(tmp_path / "b")
+    # profile B was already upgraded to the new launcher
+    journal = edits.load_journal()
+    journal["commands"].append({
+        "tool": "claude-code", "argv": ["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
+                                        "uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"],
+        "undo_hint": None, "at": "2026-11-01", "profile": profile_b, "cwd": None})
+    # profile A still has the 4.5-prerelease launcher it registered earlier
+    journal["commands"].append({
+        "tool": "claude-code", "argv": ["claude", "mcp", "add", "--scope", "user", "briefcase", "--", "old"],
+        "undo_hint": None, "at": "2026-08-01", "profile": profile_a, "cwd": None})
+    edits.save_journal(journal)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", profile_a)
+    claude = FakeClaude([(profile_a, "user", None)])
+    plan, out, failures = connect(["claude-code"], runner=claude)
+    assert failures == 0 and claude.registered[(profile_a, "user", None)][-1] == "briefcase-ai-mcp"
+
+
+class FakeCodex:
+    """`codex mcp add NAME -- CMD ...` replaces the named global entry silently."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, argv):
+        self.calls.append(argv)
+        return 0, ""
+
+
+def test_a_codex_registration_is_not_reissued_when_the_directory_changes(home, fake_bin, tmp_path, monkeypatch):
+    fake_bin("codex", "codex 0.171.0")
+    codex = FakeCodex()
+    connect(["codex"], runner=codex)
+    other = tmp_path / "elsewhere"
+    other.mkdir()
+    monkeypatch.chdir(other)
+    plan, out, failures = connect(["codex"], runner=codex)
+    assert [c[2] for c in codex.calls] == ["add"] and failures == 0 and not plan.commands
 
 
 @pytest.mark.parametrize("body, why", [

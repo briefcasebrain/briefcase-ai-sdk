@@ -249,6 +249,7 @@ class ClaudeCode(Adapter):
                     self.id, ctx.project_dir / self.data["files"]["project_mcp"], "json",
                     "Register the briefcase MCP server for this project",
                     ops=[{"op": "set", "path": ["mcpServers", mcp_payloads.SERVER_NAME], "value": config}],
+                    kind="mcp",
                 ))
             else:
                 items.append(self._mcp_command_or_manual(
@@ -319,6 +320,7 @@ class Codex(Adapter):
                 "Point Codex's OpenTelemetry export at the briefcase receiver" if ctx.telemetry
                 else "Register the briefcase MCP server with Codex",
                 toml_body="\n\n".join(body), toml_tables=tuple(tables), notes=notes,
+                kind="telemetry" if ctx.telemetry else "mcp",
             ))
         if command is not None:
             items.append(command)
@@ -361,6 +363,7 @@ class Cursor(Adapter):
             items.append(FileEdit(
                 self.id, path, "json", "Register the briefcase MCP server with Cursor",
                 ops=[{"op": "set", "path": ["mcpServers", mcp_payloads.SERVER_NAME], "value": entry}],
+                kind="mcp",
             ))
         return items
 
@@ -402,6 +405,7 @@ class VSCodeCopilot(Adapter):
                     "Register the briefcase MCP server for this workspace",
                     ops=[{"op": "set", "path": ["servers", mcp_payloads.SERVER_NAME],
                           "value": mcp_payloads.stdio_entry(config)}],
+                    kind="mcp",
                 ))
             else:
                 items.append(self._mcp_command_or_manual(mcp_payloads.vscode_add_argv(config), None))

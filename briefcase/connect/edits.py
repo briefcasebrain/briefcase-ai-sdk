@@ -21,7 +21,7 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 
 def _load_toml_module() -> Any:
@@ -98,6 +98,9 @@ class FileEdit:
     toml_body: str = ""
     toml_tables: Tuple[str, ...] = ()
     notes: List[str] = field(default_factory=list)
+    # What the edit is for: "telemetry" (also hooks that forward events) or "mcp". An "mcp" edit never overwrites
+    # an entry in the file that this SDK did not write.
+    kind: str = "telemetry"
 
 
 @dataclass
@@ -282,8 +285,11 @@ def _descend(doc: Dict[str, Any], keys: Sequence[str], create: bool,
     return node
 
 
-def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: str) -> List[Dict[str, Any]]:
-    """Apply ``ops`` to ``doc`` in place; return journal entries for what changed."""
+def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: str,
+                    owned: Optional[Set[Tuple[str, ...]]] = None) -> List[Dict[str, Any]]:
+    """Apply ``ops`` to ``doc`` in place; return journal entries for what changed. With ``owned`` (the key paths
+    this tool journalled in this file), a ``set`` over a different existing value at any other path is refused
+    without printing that value."""
     applied: List[Dict[str, Any]] = []
     for op in ops:
         kind, path, value = op["op"], list(op["path"]), op["value"]
@@ -293,6 +299,11 @@ def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: st
         key = path[-1]
         if kind in ("set", "default"):
             had = key in parent
+            if (owned is not None and kind == "set" and had and parent[key] != value
+                    and tuple(path) not in owned):
+                raise EditRefused(
+                    f"{'.'.join(path)!r} already holds an entry that briefcase did not write; it was left "
+                    "untouched (its contents are not shown)")
             if had and (kind == "default" or parent[key] == value):
                 continue
             entry = {
@@ -422,7 +433,7 @@ def snippet(edit: FileEdit) -> str:
     return json_snippet(edit.ops)
 
 
-def resolve(edit: FileEdit) -> Resolved:
+def resolve(edit: FileEdit, journal: Optional[Dict[str, Any]] = None) -> Resolved:
     """Evaluate ``edit`` against the current file without touching it."""
     try:
         target, warnings = _target_for(edit.path)
@@ -440,7 +451,11 @@ def resolve(edit: FileEdit) -> Resolved:
                 applied = []
         else:
             doc = _load_json(old, edit.path)
-            applied = _apply_json_ops(doc, edit.ops, edit.tool)
+            owned = None
+            if edit.kind == "mcp":
+                mine = ((journal or {}).get("files", {}).get(str(target)) or {}).get("ops", [])
+                owned = {tuple(o["path"]) for o in mine if o.get("tool") == edit.tool and "path" in o}
+            applied = _apply_json_ops(doc, edit.ops, edit.tool, owned)
             new = _dump_json(doc, old) if applied else old
     except EditRefused as exc:
         return Resolved(edit, REFUSED, target, old_text=old, existed=existed,
@@ -487,11 +502,12 @@ def load_journal() -> Dict[str, Any]:
         if isinstance(data, dict) and data.get("version") == JOURNAL_VERSION:
             data.setdefault("files", {})
             data.setdefault("commands", [])
+            data.setdefault("targets", {})
             data.setdefault("tools", {})
             return data
     except (OSError, ValueError):
         pass
-    return {"version": JOURNAL_VERSION, "files": {}, "commands": [], "tools": {}}
+    return {"version": JOURNAL_VERSION, "files": {}, "commands": [], "tools": {}, "targets": {}}
 
 
 def save_journal(journal: Dict[str, Any]) -> None:
@@ -515,6 +531,10 @@ def _merge_ops(existing: List[Dict[str, Any]], applied: List[Dict[str, Any]]) ->
     merged = list(existing)
     for op in applied:
         if op["op"] == "toml_block":
+            # An edit that defines only some tables (the MCP one) must not forget the others (otel).
+            tables = [t for o in merged if o["op"] == "toml_block" and o.get("tool") == op.get("tool")
+                      for t in o.get("tables", [])]
+            op = dict(op, tables=list(dict.fromkeys(tables + list(op.get("tables", [])))))
             merged = [o for o in merged if o["op"] != "toml_block"] + [op]
             continue
         if op["op"] == "append" and "replaced" in op:
@@ -621,6 +641,14 @@ def check_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None) ->
         return [(False, f"{path}: file is gone")]
     if entry["format"] == "toml":
         results.append((bool(_BLOCK_RE.search(text)), f"{path}: briefcase block"))
+        tables = [t for o in ops if o["op"] == "toml_block" for t in o.get("tables", [])]
+        if tables and _toml is not None:
+            try:
+                parsed = _toml.loads(text)
+            except Exception:
+                parsed = None
+            for table in tables:
+                results.append((parsed is not None and _toml_has_table(parsed, table), f"{path}: [{table}]"))
         return results
     try:
         doc = _load_json(text, Path(path))
