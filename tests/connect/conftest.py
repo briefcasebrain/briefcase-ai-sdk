@@ -17,7 +17,8 @@ def home(tmp_path, monkeypatch):
     monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
     monkeypatch.setenv("PATH", str(bindir))
-    monkeypatch.delenv("BRIEFCASE_HOME", raising=False)
+    for name in ("BRIEFCASE_HOME", "XDG_CONFIG_HOME", "VSCODE_PORTABLE", "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.chdir(project)
     return home
 

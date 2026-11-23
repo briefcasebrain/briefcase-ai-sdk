@@ -106,7 +106,8 @@ class World:
         monkeypatch.setenv("HOME", str(self.home))
         monkeypatch.setenv("USERPROFILE", str(self.home))
         monkeypatch.setenv("PATH", str(self.bin))
-        for name in ("BRIEFCASE_HOME", "CLAUDE_CONFIG_DIR", "CODEX_HOME", "BRIEFCASE_RECEIVER_TOKEN"):
+        for name in ("BRIEFCASE_HOME", "CLAUDE_CONFIG_DIR", "CODEX_HOME", "BRIEFCASE_RECEIVER_TOKEN",
+                     "XDG_CONFIG_HOME", "VSCODE_PORTABLE"):
             monkeypatch.delenv(name, raising=False)
         monkeypatch.setenv("BRIEFCASE_RECEIVER_ENDPOINT", EVIL)  # the environment a hook would run in
         monkeypatch.chdir(self.project)

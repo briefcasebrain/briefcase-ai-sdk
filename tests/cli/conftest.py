@@ -25,7 +25,8 @@ def shell_home(tmp_path, monkeypatch):
     monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
     monkeypatch.setenv("PATH", str(tmp_path / "bin"))
     for name in list(os.environ):
-        if name.startswith(("BRIEFCASE_", "OTEL_")) or name in ("NO_COLOR", "TERM"):
+        if name.startswith(("BRIEFCASE_", "OTEL_")) or name in (
+                "NO_COLOR", "TERM", "XDG_CONFIG_HOME", "VSCODE_PORTABLE", "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
             monkeypatch.delenv(name, raising=False)
     monkeypatch.chdir(tmp_path / "project")
 

@@ -24,6 +24,8 @@ def home(tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", str(tmp_path / "bin"))
     monkeypatch.delenv("BRIEFCASE_HOME", raising=False)
     monkeypatch.delenv("BRIEFCASE_RECEIVER_TOKEN", raising=False)
+    for name in ("XDG_CONFIG_HOME", "VSCODE_PORTABLE", "CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.chdir(tmp_path / "project")
     # No test may start a real background receiver or find one on :4318.
     from briefcase.receiver import daemon
