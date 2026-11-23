@@ -251,7 +251,28 @@ def test_supersedes_that_matches_nothing_is_an_error_and_changes_nothing(repo, c
     assert "matches no bullet" in capsys.readouterr().err
 
 
-def test_supersedes_never_removes_a_bullet_from_another_fragment(repo):
+def test_supersedes_never_removes_a_bullet_from_another_fragment(repo, capsys):
     frag(repo, "a.md", "### Added\n- From a fragment.\n")
     frag(repo, "b.md", 'Supersedes: "From a fragment."\n\n### Added\n- Other.\n')
     assert run(repo) == 2
+    assert "b.md: Supersedes: 'From a fragment.' matches no bullet in Unreleased" in capsys.readouterr().err
+
+
+def test_supersedes_needs_the_whole_bullet_not_a_fragment_of_it(repo, capsys):
+    frag(repo, "a.md", 'Supersedes: "Existing"\n\n### Added\n- New.\n')
+    before = changelog(repo)
+    assert run(repo) == 2
+    assert changelog(repo) == before and "matches no bullet" in capsys.readouterr().err
+
+
+def test_supersedes_ignores_whitespace_differences_in_a_whole_bullet(repo):
+    frag(repo, "a.md", 'Supersedes: "  Existing   change. "\n\n### Added\n- New.\n')
+    assert run(repo) == 0 and "- Existing change." not in unreleased(repo)
+
+
+@pytest.mark.parametrize("selector", ["", "   "])
+def test_supersedes_refuses_an_empty_selector(repo, capsys, selector):
+    frag(repo, "a.md", f'Supersedes: "{selector}"\n\n### Added\n- New.\n')
+    before = changelog(repo)
+    assert run(repo) == 2
+    assert changelog(repo) == before and "empty" in capsys.readouterr().err

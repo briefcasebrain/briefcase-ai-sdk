@@ -533,6 +533,12 @@ if args[:1] == ["ps"] and any("com.docker.compose.project=oci-jj" in a for a in 
     if os.environ.get("FAKE_DOCKER_LEGACY"):
         print("oci-jj-oci-jj-server-1\noci-jj-postgres-1")
     sys.exit(0)
+if args[:1] == ["ps"] and any(a == "name=oci-jj-" for a in args):
+    # a stack started under another project name, plus the new engine's own containers (which must be ignored)
+    if os.environ.get("FAKE_DOCKER_LEGACY_CUSTOM"):
+        print("mystack-oci-jj-server-1\nmystack-oci-jj-gateway-1")
+    print("briefcase-engine-oci-jj-server-1")
+    sys.exit(0)
 if args[:2] == ["volume", "ls"] and any("com.docker.compose.project=oci-jj" in a for a in args):
     if os.environ.get("FAKE_DOCKER_LEGACY") or os.environ.get("FAKE_DOCKER_LEGACY_VOLUMES"):
         print("oci-jj_pgdata\noci-jj_miniodata")

@@ -174,24 +174,34 @@ LEGACY_PROJECT = "oci-jj"  # the Compose project of the 4.4 `briefcase stack`
 
 
 def legacy_stack() -> Dict[str, List[str]]:
-    """Containers and volumes left by the removed 4.4 ``briefcase stack`` (Compose project ``oci-jj``)."""
+    """Containers and volumes left by the removed 4.4 ``briefcase stack``: Compose project ``oci-jj`` (by
+    label), or a stack started under another project name (by the ``oci-jj-`` service names in its
+    container names; the new engine's own ``briefcase-engine-*`` containers are ignored)."""
     def names(argv: List[str]) -> List[str]:
         res = _run(argv, capture_output=True, text=True)
         return (getattr(res, "stdout", "") or "").split() if _rc(res) == 0 else []
 
     label = f"label=com.docker.compose.project={LEGACY_PROJECT}"
-    return {"running": names(["docker", "ps", "--filter", label, "--format", "{{.Names}}"]),
+    running = names(["docker", "ps", "--filter", label, "--format", "{{.Names}}"])
+    for name in names(["docker", "ps", "--filter", "name=oci-jj-", "--format", "{{.Names}}"]):
+        if not name.startswith("briefcase-engine-") and name not in running:
+            running.append(name)
+    return {"running": running,
             "volumes": names(["docker", "volume", "ls", "--filter", label, "--format", "{{.Name}}"])}
 
 
 def legacy_stack_message(found: Dict[str, List[str]]) -> str:
     parts = []
     if found["running"]:
-        parts.append("a 4.4 stack is still running (Compose project oci-jj; it uses the same ports): stop it with "
-                     "`docker compose -p oci-jj down`")
+        parts.append(f"a 4.4 stack is still running ({', '.join(found['running'][:3])}; it uses the same ports): "
+                     "stop it with `docker compose -p oci-jj down` (or `-p <your project name>`)")
     if found["volumes"]:
-        parts.append(f"its data volumes ({', '.join(found['volumes'])}) are kept and not migrated: the new engine "
-                     "starts empty. Delete them with `docker volume rm` once you no longer need that data")
+        parts.append(f"its data volumes ({', '.join(found['volumes'])}) are kept but there is no data transfer: "
+                     "the new engine starts empty. Delete them with `docker volume rm` once you no longer need "
+                     "that data")
+    elif found["running"]:
+        parts.append("there is no data transfer from the old stack to the new engine, which starts empty; list "
+                     "the old volumes with `docker volume ls` before removing anything")
     return "; ".join(parts)
 
 

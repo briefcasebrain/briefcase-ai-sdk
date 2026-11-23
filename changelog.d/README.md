@@ -25,6 +25,7 @@ the section (`--dry-run` previews, `--check` fails while fragments remain). This
 README is never folded.
 
 A fragment can retire an Unreleased bullet that this release replaces (an interim state that never
-shipped) with a line `Supersedes: "text from the old bullet"` anywhere in the file. Every bullet
-already in Unreleased that contains the text is removed; if none does, the fold fails. Bullets from
+shipped) with a line `Supersedes: "text from the old bullet"` anywhere in the file. The bullet
+already in Unreleased whose whole text equals it (whitespace aside) is removed; if none does, or the text
+is empty, the fold fails. Bullets from
 other fragments are never removed.

@@ -17,8 +17,8 @@ nothing is changed). Breaking bullets sort first in their subsection.
 
 A fragment can retire a bullet that already sits in Unreleased (for example one describing an
 interim behaviour that this release replaces) with a line ``Supersedes: "text"`` anywhere in the
-fragment: every Unreleased bullet whose text contains it is removed, and it is an error (exit 2)
-if none does. Bullets from other fragments are never removed.
+fragment: the Unreleased bullet whose whole text equals it (whitespace-insensitive) is removed, and it is an
+error (exit 2) if none does or the selector is empty. Bullets from other fragments are never removed.
 
 Identical bullets are dropped. Near-duplicates (the same feature described twice)
 are never merged; they are reported on stderr for a human to resolve, or abort
@@ -47,7 +47,7 @@ HEADINGS.update({"breaking": ("Changed", True), "breaking changes": ("Changed", 
 WIDTH = 80
 UNRELEASED_RE = re.compile(r"^## \[Unreleased\]\s*$")
 VERSION_HEAD_RE = re.compile(r"^## \[")
-SUPERSEDES_RE = re.compile(r'^Supersedes:\s*"(?P<text>.+)"\s*$')
+SUPERSEDES_RE = re.compile(r'^Supersedes:\s*"(?P<text>.*)"\s*$')
 SEMVER_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
 BREAKING_RE = re.compile(r"^\*\*Breaking\b", re.IGNORECASE)
 CODE_RE = re.compile(r"`([^`]+)`")
@@ -243,9 +243,13 @@ def build(root: Path, release: Optional[str], date: str, strict: bool):
             _, secs = parse_sections(body, f"changelog.d/{p.name}", True)
             parsed.append((f"changelog.d/{p.name}", secs))
             for text in directives:
+                wanted = " ".join(text.split())
+                if not wanted:
+                    raise FoldError(f"changelog.d/{p.name}: Supersedes: needs the text of the bullet it replaces "
+                                    "(the selector is empty)")
                 removed = 0
                 for name in existing:
-                    kept = [b for b in existing[name] if " ".join(text.split()) not in b.text]
+                    kept = [b for b in existing[name] if wanted != b.text]
                     removed += len(existing[name]) - len(kept)
                     existing[name] = kept
                 if not removed:

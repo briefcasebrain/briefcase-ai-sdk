@@ -398,6 +398,24 @@ def test_no_binary_for_this_os_runs_oci_bai_from_the_server_image(env, capsys, m
     assert f"oci-bai:       runs from {server}" in capsys.readouterr().out
 
 
+def test_a_record_without_an_image_id_refuses_the_container_client_instead_of_using_the_tag(
+        env, capsys, monkeypatch, tmp_path):
+    monkeypatch.setattr(install, "host_target", lambda: {"os": "darwin", "arch": "aarch64"})
+    env["platform"].release = build_release(env["key"], targets=(("linux", "x86_64"),), bundle_arch="aarch64")
+    assert _install("--code", "bci_good") == 0
+    state = json.loads(_engine.installed_path().read_text())
+    del state["installs"][state["current"]]["client"]["image_id"]
+    _engine.installed_path().write_text(json.dumps(state))
+    cohort = tmp_path / "project" / "cohort"
+    cohort.mkdir()
+    (cohort / "cohort.json").write_text("{}")
+    capsys.readouterr()
+    assert main(["env", "cohort", str(cohort), "--dry-run"]) == 1
+    err = capsys.readouterr().err
+    assert "no verified image ID" in err and "briefcase-ai engine install" in err
+    assert not any(a[0] == "run" for a in _docker(env))
+
+
 def test_no_binary_and_no_images_is_refused(env, capsys, monkeypatch):
     monkeypatch.setattr(install, "host_target", lambda: {"os": "darwin", "arch": "aarch64"})
     assert _install("--token", "bcl_good", "--no-images") == 1
@@ -806,8 +824,23 @@ def test_engine_up_refuses_while_a_4_4_stack_is_still_running(env, capsys, monke
     assert main(["engine", "up"]) == 1
     err = capsys.readouterr().err
     assert "4.4 stack" in err and "docker compose -p oci-jj down" in err
-    assert "oci-jj_pgdata" in err and "not migrated" in err
+    assert "oci-jj_pgdata" in err and "no data transfer" in err
     assert not any(a[0] == "compose" and "up" in a for a in _docker(env))
+
+
+def test_a_4_4_stack_under_a_custom_project_name_is_caught_by_container_name(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    monkeypatch.setenv("FAKE_DOCKER_LEGACY_CUSTOM", "1")
+    assert main(["engine", "up"]) == 1
+    err = capsys.readouterr().err
+    assert "mystack-oci-jj-server-1" in err and "no data transfer" in err
+
+
+def test_the_new_engines_own_containers_are_not_mistaken_for_a_4_4_stack(env, capsys):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    assert main(["engine", "up"]) == 0  # the fake lists briefcase-engine-oci-jj-server-1 under the name filter
 
 
 def test_engine_doctor_warns_about_a_running_4_4_stack_and_its_leftover_volumes(env, capsys, monkeypatch):
@@ -959,9 +992,14 @@ def test_compose_takes_minio_and_registry_from_the_manifest():
 
 def test_compose_fallback_third_party_images_are_pinned_by_digest():
     text = compose.render(dict(DIGESTS), "0.2.0")
-    for service in ("minio", "registry"):
-        ref = [line for line in _service(text, service).splitlines() if line.strip().startswith("image:")][0]
-        assert "@sha256:" in ref, ref
+
+    def ref(service):
+        return [line for line in _service(text, service).splitlines() if line.strip().startswith("image:")][0]
+
+    assert ref("registry").strip() == ("image: registry:2.8.3@sha256:"
+                                       "a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373")
+    assert ref("minio").strip() == ("image: bitnamilegacy/minio:2025.7.23@sha256:"
+                                    "8935e75fa5d11295c17171e4aa49efe390a1193cd7f12e4d21b92af9ffef09d7")
 
 
 def test_tls_compose_variant():
