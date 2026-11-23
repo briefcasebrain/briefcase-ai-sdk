@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString};
 
 /// Serialize a Rust value to a Python object through JSON.
-pub fn json_to_py<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<PyObject> {
+pub fn json_to_py<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<Py<PyAny>> {
     let text = serde_json::to_string(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let json = py.import("json")?;
     Ok(json.call_method1("loads", (text,))?.unbind())
@@ -17,7 +17,7 @@ pub fn json_to_py<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<Py
 /// JSON text for a Python object: a `str` is taken as JSON text already,
 /// anything else goes through `json.dumps` (NaN refused).
 pub fn py_to_json_text(obj: &Bound<'_, PyAny>) -> PyResult<String> {
-    if let Ok(s) = obj.downcast::<PyString>() {
+    if let Ok(s) = obj.cast::<PyString>() {
         return s.extract::<String>();
     }
     let json = obj.py().import("json")?;
@@ -28,7 +28,7 @@ pub fn py_to_json_text(obj: &Bound<'_, PyAny>) -> PyResult<String> {
 
 /// A signing key from a path (`str`) or a key file's bytes.
 pub fn load_signing_key(key: &Bound<'_, PyAny>) -> PyResult<SigningKey> {
-    if let Ok(bytes) = key.downcast::<PyBytes>() {
+    if let Ok(bytes) = key.cast::<PyBytes>() {
         return SigningKey::from_key_bytes(bytes.as_bytes())
             .map_err(|e| PyValueError::new_err(e.to_string()));
     }
@@ -67,7 +67,7 @@ pub fn ed25519_verify_digest(digest_hex: &str, signature: &str, public_x: &str) 
 
 /// Public JWK of a key (path or key-file bytes).
 #[pyfunction]
-pub fn ed25519_public_jwk(py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+pub fn ed25519_public_jwk(py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     json_to_py(py, &load_signing_key(key)?.public_jwk())
 }
 

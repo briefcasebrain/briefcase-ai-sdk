@@ -17,7 +17,7 @@ cd briefcase-ai-sdk
 pip install briefcase-ai[dev]
 ```
 
-3. For Rust development, ensure you have Rust 1.70+ installed:
+3. For Rust development, ensure you have Rust 1.89+ installed:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh

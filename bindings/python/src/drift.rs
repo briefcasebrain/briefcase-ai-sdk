@@ -27,7 +27,7 @@ impl PyDriftCalculator {
     /// keep running.
     fn calculate_drift(&self, py: Python<'_>, outputs: Vec<String>) -> PyResult<PyDriftMetrics> {
         let calculator = self.inner.clone();
-        let metrics = py.allow_threads(move || calculator.calculate_drift(&outputs));
+        let metrics = py.detach(move || calculator.calculate_drift(&outputs));
         Ok(PyDriftMetrics { inner: metrics })
     }
 
@@ -91,8 +91,8 @@ impl PyDriftMetrics {
 
     /// Get outliers as list of indices
     #[getter]
-    fn outliers(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn outliers(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for &index in &self.inner.outliers {
                 list.append(index)?;
@@ -129,8 +129,8 @@ impl PyDriftMetrics {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = pyo3::types::PyDict::new(py);
             dict.set_item("consistency_score", self.inner.consistency_score)?;
             dict.set_item("agreement_rate", self.inner.agreement_rate)?;

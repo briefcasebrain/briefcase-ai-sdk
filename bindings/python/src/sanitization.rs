@@ -35,8 +35,8 @@ impl PySanitizer {
     }
 
     /// Sanitize JSON object
-    fn sanitize_json(&self, data: PyObject) -> PyResult<PyJsonSanitizationResult> {
-        Python::with_gil(|py| {
+    fn sanitize_json(&self, data: Py<PyAny>) -> PyResult<PyJsonSanitizationResult> {
+        Python::attach(|py| {
             let json_value = crate::models::python_to_json_value(data, py)?;
             let result = self.inner.sanitize_json(&json_value);
             Ok(PyJsonSanitizationResult { inner: result })
@@ -50,10 +50,10 @@ impl PySanitizer {
     }
 
     /// Analyze PII in text
-    fn analyze_pii(&self, text: String) -> PyResult<PyObject> {
+    fn analyze_pii(&self, text: String) -> PyResult<Py<PyAny>> {
         let analysis = self.inner.analyze(&text);
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("has_pii", analysis.has_pii)?;
             dict.set_item("total_matches", analysis.total_matches)?;
@@ -170,8 +170,8 @@ impl PySanitizationResult {
 
     /// Get redactions as list
     #[getter]
-    fn redactions(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn redactions(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for redaction in &self.inner.redactions {
                 let py_redaction = PyRedaction {
@@ -196,8 +196,8 @@ impl PySanitizationResult {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
 
             dict.set_item("sanitized", self.sanitized())?;
@@ -236,8 +236,8 @@ impl PySanitizationResult {
 impl PyJsonSanitizationResult {
     /// Get sanitized JSON value
     #[getter]
-    fn sanitized(&self) -> PyObject {
-        Python::with_gil(|py| {
+    fn sanitized(&self) -> Py<PyAny> {
+        Python::attach(|py| {
             crate::models::json_value_to_python(self.inner.sanitized.clone(), py)
                 .unwrap_or_else(|_| py.None())
         })
@@ -250,8 +250,8 @@ impl PyJsonSanitizationResult {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("sanitized", self.sanitized())?;
             dict.set_item("redaction_count", self.redaction_count())?;
@@ -310,8 +310,8 @@ impl PyRedaction {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("pii_type", self.pii_type())?;
             dict.set_item("start_position", self.inner.start_position)?;

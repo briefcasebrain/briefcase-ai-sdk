@@ -137,8 +137,7 @@ where
     E: IntoPyErr + Send,
 {
     let runtime = get_runtime()?;
-    Python::with_gil(|py| py.allow_threads(|| runtime.block_on(future)))
-        .map_err(IntoPyErr::into_py_err)
+    Python::attach(|py| py.detach(|| runtime.block_on(future))).map_err(IntoPyErr::into_py_err)
 }
 
 /// Check if the global runtime is initialized
@@ -193,7 +192,7 @@ impl<T> BatchOutcome<T> {
         let Some(err) = self.error else {
             return Ok(self.successes);
         };
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let value = err.value(py);
             let _ = value.setattr("failed_indices", self.failed_indices);
             let _ = value.setattr("succeeded", self.successes.len());
@@ -221,7 +220,7 @@ where
 {
     fn block_on_python_partitioned(self) -> PyResult<BatchOutcome<T>> {
         let runtime = get_runtime()?;
-        let results = Python::with_gil(|py| py.allow_threads(|| runtime.block_on(self)));
+        let results = Python::attach(|py| py.detach(|| runtime.block_on(self)));
 
         let total = results.len();
         let mut successes = Vec::with_capacity(total);
@@ -249,7 +248,7 @@ where
                 total,
                 failures.join("; ")
             );
-            Python::with_gil(|py| PyErr::from_type(typed.get_type(py), summary))
+            Python::attach(|py| PyErr::from_type(typed.get_type(py), summary))
         });
 
         Ok(BatchOutcome {
@@ -268,7 +267,7 @@ mod tests {
     /// The runtime is a process global and `cargo test` runs these in parallel
     /// threads of one process, so only the first caller may initialize it.
     fn ensure_runtime() {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
         if !is_initialized() {
             let _ = init_runtime(RuntimeConfig::default());
         }
@@ -346,7 +345,7 @@ mod tests {
             })
             .unwrap_err();
         assert_eq!(seen, vec![1, 3]);
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let value = err.value(py);
             assert_eq!(
                 value
