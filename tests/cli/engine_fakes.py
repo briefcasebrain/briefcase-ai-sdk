@@ -539,6 +539,20 @@ if args[:1] == ["load"]:
         else:
             print("Loaded image ID: " + image_id)
     save(); sys.exit(0)
+def containers_now():
+    """[service, image id, compose file] of every running container of the project. Seeded from
+    FAKE_DOCKER_CONTAINERS (a JSON list of such triples) or, failing that, one server container per image id of
+    FAKE_DOCKER_SERVERS; `compose up` starts one container per service of the compose file and `down` stops all."""
+    servers_now()
+    raw = os.environ.get("FAKE_DOCKER_CONTAINERS")
+    if raw and state.get("containers_src") != raw:
+        state["containers_src"], state["containers"] = raw, json.loads(raw)
+        save()
+    if "containers" in state:
+        return state["containers"]
+    return [["oci-jj-server", i, ""] for i in state["servers"]]
+
+
 def servers_now():
     """Image ids of the running server container(s). Seeded from FAKE_DOCKER_SERVERS (re-seeded when it changes);
     `compose up` starts the server of the compose file's release (the image id its tag resolves to), and
@@ -549,12 +563,17 @@ def servers_now():
         save()
     return state["servers"]
 
+if args[:2] == ["context", "show"]:
+    print(os.environ.get("FAKE_DOCKER_CONTEXT", "default")); sys.exit(0)
+if args[:2] == ["context", "inspect"]:
+    print(os.environ.get("FAKE_DOCKER_HOST", "unix:///var/run/docker.sock")); sys.exit(0)
 if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in args):
-    for i, _ in enumerate(servers_now()):
+    for i, _ in enumerate(containers_now()):
         print("c%d" % i)
     sys.exit(0)
 if args[:1] == ["inspect"]:
-    print(servers_now()[int(args[-1][1:])]); sys.exit(0)
+    c = containers_now()[int(args[-1][1:])]
+    print("%s\t%s\t%s" % (c[1], c[0], c[2])); sys.exit(0)
 if args[:1] == ["ps"]:
     # `docker ps --filter label=com.docker.compose.service=oci-jj-server ...`: FAKE_DOCKER_PS holds
     # "project<TAB>container" lines, as Docker prints them with the Compose labels in the format.
@@ -614,11 +633,16 @@ if args[:1] == ["compose"]:
         servers_now()
         if "down" in args:
             state["servers"] = []
+            state["containers"] = []
         else:
-            text = open(args[args.index("-f") + 1]).read()
-            match = _re.search(r"oci-jj-server:\n(?:.*\n)*?\s+image: (\S+)", text)
-            ref = match.group(1) if match else None
-            state["servers"] = [state["refs"][ref]] if ref in state["refs"] else []
+            path = args[args.index("-f") + 1]
+            text = open(path).read()
+            started = []
+            for service, ref in _re.findall(r"^  (\S+):\n(?:    .*\n)*?    image: (\S+)", text, _re.M):
+                if ref in state["refs"]:
+                    started.append([service, state["refs"][ref], path])
+            state["containers"] = started
+            state["servers"] = [c[1] for c in started if c[0] == "oci-jj-server"]
         save()
     if "ps" in args:
         if "--quiet" in args:

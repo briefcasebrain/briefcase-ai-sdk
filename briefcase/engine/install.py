@@ -808,11 +808,39 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
     if "compose_used" not in state:
         state["compose_used"] = any(r.get("compose") for r in (state.get("installs") or {}).values())
     state["compose_used"] = bool(state["compose_used"]) or compose_file is not None  # sticky: volumes may exist
+    if compose_file is not None:  # the daemon this install's volumes live on
+        identity = docker_identity(runner, env)
+        known = list(state.get("docker_contexts") or [])
+        if identity and identity not in known:
+            known.append(identity)
+        state["docker_contexts"] = known
     state.setdefault("installs", {})[manifest.version] = record
     if opts.make_current or not state.get("current"):
         state["current"] = manifest.version
     save_state(state, env)
     return record
+
+
+def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = None) -> Optional[str]:
+    """Which Docker daemon ``docker`` talks to: the active context's name and endpoint (``DOCKER_HOST`` wins). The
+    volumes an install created live on that daemon; a probe made against another one proves nothing about them.
+    ``None`` when it cannot be established."""
+    env = os.environ if env is None else env
+    try:
+        name = runner(["docker", "context", "show"], capture_output=True, text=True)
+        if getattr(name, "returncode", 1) != 0:
+            return None
+        context = (name.stdout or "").strip() or "default"
+        host = env.get("DOCKER_HOST")
+        if not host:
+            info = runner(["docker", "context", "inspect", context, "--format", "{{.Endpoints.docker.Host}}"],
+                          capture_output=True, text=True)
+            if getattr(info, "returncode", 1) != 0:
+                return None
+            host = (info.stdout or "").strip()
+        return f"{context} {host}"
+    except (OSError, ValueError):
+        return None
 
 
 def set_current(version: str, env: Optional[Mapping[str, str]] = None, locked: bool = False) -> None:

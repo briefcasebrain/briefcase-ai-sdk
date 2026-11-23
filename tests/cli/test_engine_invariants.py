@@ -35,22 +35,29 @@ def _id(version, name):
     return "sha256:" + hashlib.sha256((version + name).encode()).hexdigest()
 
 
-def synthetic(env, installs, current):
-    """Write installed.json and the files of ``installs`` as an install would have, without running one."""
+def synthetic(env, installs, current, shared_server=False):
+    """Write installed.json and the files of ``installs`` as an install would have, without running one. With
+    ``shared_server`` every release's server image is the same one (they differ in the other services)."""
     home = env["home"] / "engine"
     home.mkdir(parents=True, exist_ok=True)
     (home / "engine.env").write_text("OCI_JJ_POSTGRES_PASSWORD=x\n")
     (home / "engine.env").chmod(0o600)
-    state = {"schema": 2, "current": current, "installs": {}, "compose_used": True}
+    (home / "tls").mkdir(exist_ok=True)
+    (home / "tls" / "ca.pem").write_text("x")
+    state = {"schema": 2, "current": current, "installs": {}, "compose_used": True,
+             "docker_contexts": ["default unix:///var/run/docker.sock"]}
     refs = {}
     for version in installs:
         directory = home / version
         directory.mkdir(parents=True, exist_ok=True)
         images = {n: f"localhost/briefcase-engine/{n}:{version}" for n in ("server", "gateway", "client")}
         ids = {n: _id(version, n) for n in images}
+        if shared_server:
+            ids["server"] = _id(A, "server")
         refs.update({images[n]: ids[n] for n in images})
         (directory / "docker-compose.yml").write_text(
-            f"services:\n  oci-jj-server:\n    image: {images['server']}\n    pull_policy: never\n")
+            f"services:\n  oci-jj-server:\n    image: {images['server']}\n    pull_policy: never\n"
+            f"  gateway:\n    image: {images['gateway']}\n    pull_policy: never\n")
         (directory / "engine-manifest.json").write_text("{}")
         state["installs"][version] = {
             "version": version, "compose": str(directory / "docker-compose.yml"), "env_file": str(home / "engine.env"),
@@ -70,34 +77,56 @@ def remove_docker(env, monkeypatch):
     monkeypatch.setenv("PATH", str(env["tmp"] / "bin"))
 
 
-def configure(env, monkeypatch, docker, volumes, running):
+def containers_for(version, shared_server=False):
+    path = str(_engine.engine_dir() / version / "docker-compose.yml")
+    server = _id(A if shared_server else version, "server")
+    return [["oci-jj-server", server, path], ["gateway", _id(version, "gateway"), path],
+            ["minio", "sha256:" + "m" * 64, path]]  # a sidecar image every release shares
+
+
+def configure(env, monkeypatch, docker, volumes, running, context="same", shared_server=False):
     if docker == "absent":
         remove_docker(env, monkeypatch)
     elif docker.startswith("fail:"):
         monkeypatch.setenv("FAKE_DOCKER_FAIL", docker[5:])
+    if context == "other":
+        monkeypatch.setenv("FAKE_DOCKER_CONTEXT", "remote")
+        monkeypatch.setenv("FAKE_DOCKER_HOST", "ssh://elsewhere")
     names = {"none": {}, "ours": {n: LABEL for n in VOLUME_NAMES}, "foreign": {VOLUME_NAMES[0]: {}}}[volumes]
     monkeypatch.setenv("FAKE_DOCKER_VOLUMES", json.dumps(names))
-    monkeypatch.setenv("FAKE_DOCKER_SERVERS", json.dumps({"none": [], "A": [_id(A, "server")],
-                                                          "B": [_id(B, "server")]}[running]))
+    running_rows = {
+        "none": [], "A": containers_for(A, shared_server), "B": containers_for(B, shared_server),
+        # the new server with the old gateway: a mix no install produced
+        "mixed": [containers_for(B)[0], containers_for(A)[1], containers_for(A)[2]],
+        "unrecognised": [["oci-jj-server", "sha256:" + "f" * 64, ""]],
+    }[running]
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(running_rows))
+    monkeypatch.setenv("FAKE_DOCKER_SERVERS", json.dumps([r[1] for r in running_rows if r[0] == "oci-jj-server"]))
 
 
 DOCKERS = ["ok", "absent", "fail:volume inspect", "fail:ps", "fail:inspect", "fail:compose down",
            "fail:compose up", "fail:volume rm"]
 VOLUMES = ["none", "ours", "foreign"]
-RUNNING = ["none", "A", "B"]
+RUNNING = ["none", "A", "B", "mixed", "unrecognised"]
 INSTALLS = ["one", "two"]
+IMAGES = ["distinct", "shared_server"]
+CONTEXTS = ["same", "other"]
 COMMANDS = ["up", "down", "down_volumes", "uninstall", "purge", "upgrade", "install"]
 
-ALL = [(d, v, r, i, c) for d in DOCKERS for v in VOLUMES for r in RUNNING for i in INSTALLS for c in COMMANDS
-       if not (r == "B" and i == "one")]  # B cannot run when it is not installed
-# A seeded, stratified sample of the product (about 800 combinations): three per (docker state, command) pair, so
-# every command meets every docker state, plus every upgrade with a running engine and every failing docker.
-_rng = random.Random(6)
+ALL = [(d, v, r, i, c, im, cx) for d in DOCKERS for v in VOLUMES for r in RUNNING for i in INSTALLS
+       for c in COMMANDS for im in IMAGES for cx in CONTEXTS
+       if not (r == "B" and i == "one") and not (im == "shared_server" and i == "one")]
+# A seeded, stratified sample of the product (about 4000 combinations): every command meets every docker state,
+# every running state, every image sharing and both contexts, several times each.
+_rng = random.Random(7)
 COMBOS = []
-for _d in DOCKERS:
-    for _c in COMMANDS:
-        COMBOS += _rng.sample([x for x in ALL if x[0] == _d and x[4] == _c], 3)
-COMBOS += [x for x in ALL if x[4] == "upgrade" and x[2] == "A" and x[1] == "ours" and x[3] == "one"]
+for _idx, _values in ((0, DOCKERS), (2, RUNNING), (5, IMAGES), (6, CONTEXTS)):
+    for _v in _values:
+        for _c in COMMANDS:
+            pool = [x for x in ALL if x[_idx] == _v and x[4] == _c]
+            COMBOS += _rng.sample(pool, min(len(pool), 2 if _idx in (0, 2) else 3))
+COMBOS += [x for x in ALL if x[4] == "upgrade" and x[2] == "A" and x[1] == "ours" and x[3] == "one"
+           and x[5] == "distinct" and x[6] == "same"]
 COMBOS = sorted(set(COMBOS))
 
 
@@ -114,15 +143,18 @@ def fake_state(env):
     return state
 
 
-@pytest.mark.parametrize("docker, volumes, running, installs, command", COMBOS,
+@pytest.mark.parametrize("docker, volumes, running, installs, command, images, context", COMBOS,
                          ids=["-".join(c).replace(" ", "_").replace(":", "_") for c in COMBOS])
-def test_lifecycle_invariants(env, monkeypatch, capsys, key, docker, volumes, running, installs, command):
-    synthetic(env, [A] if installs == "one" else [A, B], A)
+def test_lifecycle_invariants(env, monkeypatch, capsys, key, docker, volumes, running, installs, command, images,
+                              context):
+    shared = images == "shared_server"
+    synthetic(env, [A] if installs == "one" else [A, B], A, shared_server=shared)
     if command in ("upgrade", "install"):
         env["platform"].release = build_release(key, version=C)
         env["platform"].index = build_index(key, [C, B, A])
-    configure(env, monkeypatch, docker, volumes, running)
+    configure(env, monkeypatch, docker, volumes, running, context, shared)
     secrets = env["home"] / "engine" / "engine.env"
+    tls = env["home"] / "engine" / "tls"
     code = main(argv_for(command))
     capsys.readouterr()
     state = _engine.load_state()
@@ -131,14 +163,19 @@ def test_lifecycle_invariants(env, monkeypatch, capsys, key, docker, volumes, ru
     left = fake["volumes"] if "volumes" in fake else json.loads(os.environ["FAKE_DOCKER_VOLUMES"])
     ours_left = [n for n, labels in left.items() if labels.get("ai.briefcase.engine") == "1"]
 
-    # L1: the secrets went only because every engine volume is positively absent
-    if not secrets.exists():
+    # L1: the secrets and certificates went only because every volume is positively absent, on the daemon used
+    if not secrets.exists() or not tls.exists():
         assert docker not in ("absent", "fail:volume inspect"), "secrets deleted without docker answering"
         assert not ours_left, f"secrets deleted while {ours_left} remain"
+        assert context == "same", "secrets deleted on a daemon that is not the one the volumes live on"
+        assert secrets.exists() == tls.exists(), "secrets and certificates must go together"
     if command == "purge" and code != 0:
-        assert secrets.exists() and state.get("installs"), "a failed purge must keep the secrets and the record"
+        assert secrets.exists() and tls.exists() and (state.get("installs") or state.get("compose_used")), \
+            "a failed purge must keep the secrets, the certificates and the record"
     if command != "purge":
-        assert secrets.exists()
+        assert secrets.exists() and tls.exists()
+    if command in ("uninstall", "down", "down_volumes") and ours_left or volumes == "ours" and command == "uninstall":
+        assert state.get("compose_used"), "volumes outlive an ordinary uninstall, so the record of them must too"
 
     # L2: nothing was started without ownership of every volume it would mount
     ups = [a for a in log if a[:1] == ["compose"] and "up" in a]
@@ -146,12 +183,17 @@ def test_lifecycle_invariants(env, monkeypatch, capsys, key, docker, volumes, ru
         assert docker not in ("absent", "fail:volume inspect") and volumes != "foreign", \
             "containers were started without establishing who owns the volumes"
 
-    # L3: current is what runs; an error is a failure
-    servers = fake.get("servers")
+    # L3/L4: current is what runs; anything docker cannot establish is a failure that changes nothing
+    containers = fake.get("containers") if "containers" in fake else json.loads(os.environ["FAKE_DOCKER_CONTAINERS"])
     current = (state.get("installs") or {}).get(state.get("current") or "")
-    if code == 0 and servers and current:
-        assert current["image_ids"]["server"] in servers, \
-            f"current is {current['version']} but a different release is running"
+    servers = [c[1] for c in containers if c[0] == "oci-jj-server"]
+    if code == 0 and servers:
+        assert current is not None and current["image_ids"]["server"] in servers, \
+            "a command succeeded while the recorded current release is not the one that runs"
+    if command in ("upgrade", "install") and running in ("mixed", "unrecognised") and docker == "ok":
+        assert code != 0 and state["current"] == A, "an engine this install cannot recognise must not be replaced"
+    if command in ("uninstall", "purge") and running in ("mixed", "unrecognised") and docker == "ok":
+        assert code != 0 and A in state["installs"], "an engine that cannot be recognised must not be taken down"
     if command == "upgrade" and running == "A" and docker.startswith("fail:") and docker[5:] in (
             "ps", "inspect", "compose up", "volume inspect"):
         assert code != 0 and state["current"] == A, "an error during the restart must fail and keep A current"
@@ -160,19 +202,12 @@ def test_lifecycle_invariants(env, monkeypatch, capsys, key, docker, volumes, ru
             "a failed compose down must stop the uninstall before anything is deleted"
     if command in ("uninstall", "purge") and running == "A" and docker in ("fail:ps", "fail:inspect"):
         assert code != 0 and A in state["installs"], "not knowing what runs must not delete it"
-
-    # L4: releases are told apart by the server's image id
-    if command in ("uninstall", "purge") and installs == "two" and running == "B" and docker == "ok":
+    if command in ("uninstall", "purge") and installs == "two" and running == "B" and docker == "ok" \
+            and not shared and code == 0:
         assert not [a for a in log if a[:1] == ["compose"] and "down" in a], "took down the release that runs"
-        assert code == 0 or command == "purge" and volumes != "none"
-        if code == 0:
-            assert state["current"] == B, "current must follow what is running"
-
-    # the command's own success means what it says
+        assert state["current"] == B, "current must follow what is running"
     if command == "upgrade" and code == 0:
         assert state["current"] == C
-    if command == "install" and code == 0 and running in ("A", "B"):
-        assert state["current"] == (A if running == "A" else B) or state["current"] == C and running == "none"
 
 
 def test_an_upgrade_of_a_tls_install_stays_tls_unless_told_otherwise(env, capsys, key):
@@ -220,6 +255,9 @@ def test_a_retained_sidecar_of_the_old_release_does_not_make_it_the_running_one(
 
 def test_two_upgrades_at_once_leave_the_running_release_current(env, monkeypatch, key, capsys):
     import multiprocessing
+    import urllib.request
+
+    monkeypatch.setattr(urllib.request, "getproxies", lambda: {})  # macOS's proxy lookup is not fork-safe
 
     if "fork" not in multiprocessing.get_all_start_methods():
         pytest.skip("needs fork")
@@ -242,3 +280,101 @@ def test_two_upgrades_at_once_leave_the_running_release_current(env, monkeypatch
     state = _engine.load_state()
     assert state["current"] == B
     assert state["installs"][B]["image_ids"]["server"] in docker_state(env["log"])["servers"]
+
+
+def test_a_client_only_upgrade_works_without_docker(env, monkeypatch, key, capsys):
+    assert _install("--code", "bci_good", "--no-images") == 0
+    assert _engine.current_install()["compose"] is None
+    env["platform"].release = build_release(key, version=B)
+    remove_docker(env, monkeypatch)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--no-images"]) == 0
+    assert _engine.current_install()["version"] == B
+
+
+def test_a_tls_change_to_the_running_version_restarts_it(env, monkeypatch, key, capsys):
+    import shutil
+
+    if shutil.which("openssl") is None:
+        pytest.skip("needs openssl")
+    assert _install("--code", "bci_good") == 0
+    record = _engine.current_install()
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps([["oci-jj-server", record["image_ids"]["server"],
+                                                              record["compose"]]]))
+    env["platform"].release = build_release(key, version=A)
+    env["log"].unlink()
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) == 0
+    ups = [c["argv"] for c in calls(env["log"]) if c["argv"][:1] == ["compose"] and "up" in c["argv"]]
+    assert ups and _engine.current_install()["tls"] is True, "the running transport must follow the record"
+
+
+def test_an_ordinary_uninstall_keeps_a_tombstone_so_the_later_force_cannot_prove_there_were_no_volumes(
+        env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "none")
+    assert main(["engine", "uninstall", "--yes"]) == 0
+    state = _engine.load_state()
+    assert state["installs"] == {} and state["compose_used"] is True
+    assert state["docker_contexts"] == ["default unix:///var/run/docker.sock"]
+    assert (env["home"] / "engine" / "engine.env").exists()  # the passwords those volumes were created with
+    remove_docker(env, monkeypatch)
+    assert main(["engine", "uninstall", "--purge", "--force-without-docker", "--yes"]) == 1  # not provable
+    assert (env["home"] / "engine" / "engine.env").exists()
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 1  # docker still absent
+    assert (env["home"] / "engine" / "engine.env").exists()
+    monkeypatch.setenv("PATH", str(env["tmp"] / "bin") + os.pathsep + "/usr/bin:/bin")
+    from tests.cli.engine_fakes import install_fake_docker
+    install_fake_docker(env["tmp"] / "bin", env["log"], monkeypatch)
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0  # the daemon is back: volumes removed, then secrets
+    assert not (env["home"] / "engine" / "engine.env").exists() and not _engine.installed_path().exists()
+
+
+def test_a_purge_on_another_docker_daemon_is_refused(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none", context="other")
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 1
+    assert (env["home"] / "engine" / "engine.env").exists()
+    assert "not the one this install used" in capsys.readouterr().err
+
+
+def test_up_cannot_start_the_old_release_while_an_upgrade_is_moving_current(env, monkeypatch, key, capsys):
+    import multiprocessing
+    import time
+    import urllib.request
+
+    monkeypatch.setattr(urllib.request, "getproxies", lambda: {})  # macOS's proxy lookup is not fork-safe
+
+    from briefcase.cli import engine_commands
+
+    if "fork" not in multiprocessing.get_all_start_methods():
+        pytest.skip("needs fork")
+    synthetic(env, [A], A)
+    env["platform"].release = build_release(key, version=B)
+    configure(env, monkeypatch, "ok", "none", "A")
+    real = engine_commands.guard_start
+
+    def slow(record):  # the upgrade holds the lock here for a while
+        time.sleep(1.0)
+        return real(record)
+
+    monkeypatch.setattr(engine_commands, "guard_start", slow)
+    ctx = multiprocessing.get_context("fork")
+    results = ctx.Queue()
+
+    def upgrade():
+        results.put(main(["engine", "upgrade", "--yes", "--token", "bcl_good"]))
+
+    def up():
+        time.sleep(0.4)
+        results.put(main(["engine", "up"]))
+
+    procs = [ctx.Process(target=upgrade), ctx.Process(target=up)]
+    for proc in procs:
+        proc.start()
+    for proc in procs:
+        proc.join(120)
+        assert proc.exitcode == 0
+    assert sorted(results.get(timeout=5) for _ in procs) == [0, 0]
+    state = _engine.load_state()
+    assert state["current"] == B
+    servers = [c[1] for c in docker_state(env["log"])["containers"] if c[0] == "oci-jj-server"]
+    assert servers == [state["installs"][B]["image_ids"]["server"]], "what runs is not the current release"

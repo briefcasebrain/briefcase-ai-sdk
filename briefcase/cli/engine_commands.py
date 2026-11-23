@@ -465,16 +465,11 @@ def _install(args, upgrading: bool) -> int:
     previous = _engine.current_install()
     if upgrading and previous and not getattr(args, "tls", False) and not getattr(args, "no_tls", False):
         opts.tls = bool(previous.get("tls"))  # an upgrade keeps what was installed unless told otherwise
-    # An upgrade becomes current only once the engine has restarted onto it, and an install next to a release that
-    # is running (or may be: docker could not say) leaves that one current: current is what is running.
-    keep_current, running_ok = False, True
-    running_now: List[str] = []
-    uses_compose = any(isinstance(r, dict) and r.get("compose")
-                       for r in (_engine.load_state().get("installs") or {}).values())
-    if not upgrading and uses_compose:
-        running_ok, running_now = running_releases()
-        keep_current = not running_ok or bool(running_now)
-    opts.make_current = not upgrading and not keep_current
+    # Which release is current is decided after the install, under the install lock, from what actually runs
+    # (see _settle); until then an upgrade, or an install next to compose releases, leaves current alone.
+    uses_compose_before = any(isinstance(r, dict) and r.get("compose")
+                              for r in (_engine.load_state().get("installs") or {}).values())
+    opts.make_current = not upgrading and not uses_compose_before
     log = (lambda line: None) if as_json else print
     portal = _inst.portal(opts.platform_url)
     used_up = f"this install code is now used up; get a new one at {portal} and run the command it shows"
@@ -540,19 +535,9 @@ def _install(args, upgrading: bool) -> int:
         return _ux.fail(str(exc), fix=fix)
     except RuntimeError as exc:  # --tls without openssl
         return _ux.fail(str(exc), fix="install openssl, or install without --tls")
-    if upgrading:
-        stop_code = _restart_and_promote(opts, record, previous, log)
-        if stop_code is not None:
-            return stop_code
-    elif not running_ok and uses_compose and previous and previous.get("version") != record["version"]:
-        return _ux.fail(f"engine {record['version']} was installed, but docker could not say which release is "
-                        f"running, so {previous['version']} stays current until you check (`briefcase-ai engine "
-                        "doctor`) and run `briefcase-ai engine upgrade`", fix="briefcase-ai engine doctor")
-    elif keep_current and previous and previous.get("version") != record["version"]:
-        if running_now:  # current is what is running, whichever release that is
-            _inst.set_current(running_now[0], opts.env)
-        log(f"engine {running_now[0] if running_now else previous['version']} is running (or docker could not say) "
-            f"and stays current; `briefcase-ai engine upgrade` moves to {record['version']}")
+    stop_code = _settle(opts, record, previous, upgrading, log)
+    if stop_code is not None:
+        return stop_code
     if as_json:
         return _ux.print_json({"installed": record})
     where = Path(record["compose"]).parent if record.get("compose") else Path(record["manifest"]).parent
@@ -563,31 +548,47 @@ def _install(args, upgrading: bool) -> int:
     return 0
 
 
-def _restart_and_promote(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], log) -> Optional[int]:
-    """After an upgrade installed ``record``: restart the stack onto it if the previous release is the one running,
-    and make it current, in one lock interval, so what is current is what runs. Any docker error is a failure and
-    leaves the previous release current. Returns an exit code to stop with, or ``None`` (promoted)."""
+def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log) -> Optional[int]:
+    """After an install or upgrade wrote ``record``: decide, under the install lock and from what actually runs,
+    which release is current, and restart onto ``record`` when an upgrade (or a TLS change) needs it. Current is
+    what runs. Anything docker cannot establish (an error, an engine that matches no install, two installs that fit)
+    fails the command and leaves current as it was. Returns an exit code to stop with, or ``None``."""
     from briefcase import engine as _engine
     from briefcase.engine import install as _inst
 
     with _inst.engine_lock(opts.env):
-        ok, running = running_releases()
-        if not ok:
-            current = _engine.current_install(opts.env) or previous
-            return _ux.fail("could not tell whether the engine is running (docker failed), so it was not switched "
-                            f"to {record['version']}; {current['version'] if current else 'the old release'} "
-                            "is still current", fix="briefcase-ai engine doctor")
+        installs = _engine.load_state(opts.env).get("installs") or {}
+        if not any(isinstance(r, dict) and r.get("compose") for r in installs.values()):
+            # Client-only installs: there is no stack to ask docker about, so this works without docker.
+            _inst.set_current(record["version"], opts.env, locked=True)
+            return None
+        status, running, why = running_releases()
+        current = _engine.current_install(opts.env) or previous
+        keep = current["version"] if current else "the old release"
+        if status != "ok":
+            return _ux.fail(f"{why}, so engine {record['version']} was installed but not made current; {keep} is "
+                            "still current", fix="briefcase-ai engine doctor")
         others = [v for v in running if v != record["version"]]
-        if others:
+        tls_changed = bool(previous and previous.get("version") == record["version"]
+                           and bool(previous.get("tls")) != bool(record.get("tls")) and running)
+        if upgrading and (others or tls_changed):
             if not record.get("compose"):
-                return _ux.fail(f"engine {others[0]} is running and {record['version']} was installed without "
-                                "images, so it cannot take over", fix="briefcase-ai engine down")
+                return _ux.fail(f"engine {(others or running)[0]} is running and {record['version']} was installed "
+                                "without images, so it cannot take over", fix="briefcase-ai engine down")
             stop = guard_start(record)
             if stop is not None:
                 return stop
-            log(f"restarting onto {record['version']} (data volumes are kept)...")
+            log(f"restarting onto {record['version']}" + (" (TLS changed) " if tls_changed else " ")
+                + "(data volumes are kept)...")
             if _rc(_run(_compose(record, "up", "-d", "--remove-orphans"))) != 0:
                 return _ux.fail("the new engine did not start", fix="briefcase-ai engine logs")
+            _inst.set_current(record["version"], opts.env, locked=True)
+            return None
+        if not upgrading and others:  # an install next to a running release leaves that one current
+            _inst.set_current(others[0], opts.env, locked=True)
+            log(f"engine {others[0]} is running and stays current; `briefcase-ai engine upgrade` moves to "
+                f"{record['version']}")
+            return None
         _inst.set_current(record["version"], opts.env, locked=True)
     return None
 
@@ -704,49 +705,76 @@ def cmd_verify(args, store, engine, stack) -> int:
     return 0
 
 
-def server_image_ids() -> Tuple[bool, List[str]]:
-    """``(ok, image ids)`` of the running server container(s) of the engine Compose project. The server is the one
-    container whose image identifies the release (sidecars such as MinIO or the registry are shared across
-    releases and prove nothing). ``ok`` is false when docker could not answer."""
+def project_containers() -> Tuple[bool, List[Dict[str, str]]]:
+    """``(ok, containers)``: every running container of the engine Compose project as ``{image, service, config}``
+    (image id, Compose service, and the Compose file it was started from). ``ok`` is false when docker could not
+    answer."""
     from briefcase.engine import compose as engine_compose
 
     res = _run(["docker", "ps", "-q", "--no-trunc",
-                "--filter", f"label=com.docker.compose.project={engine_compose.PROJECT}",
-                "--filter", "label=com.docker.compose.service=oci-jj-server"], capture_output=True, text=True)
+                "--filter", f"label=com.docker.compose.project={engine_compose.PROJECT}"],
+               capture_output=True, text=True)
     if res is None or _rc(res) != 0:
         return False, []
-    ids = []
+    rows = []
+    fmt = ('{{.Image}}\t{{index .Config.Labels "com.docker.compose.service"}}\t'
+           '{{index .Config.Labels "com.docker.compose.project.config_files"}}')
     for container in (getattr(res, "stdout", "") or "").split():
-        inspected = _run(["docker", "inspect", "--format", "{{.Image}}", container], capture_output=True, text=True)
+        inspected = _run(["docker", "inspect", "--format", fmt, container], capture_output=True, text=True)
         if inspected is None or _rc(inspected) != 0:
             return False, []
-        ids.append((getattr(inspected, "stdout", "") or "").strip())
-    return True, ids
+        image, _, rest = (getattr(inspected, "stdout", "") or "").strip().partition("\t")
+        service, _, config = rest.partition("\t")
+        rows.append({"image": image, "service": service, "config": config})
+    return True, rows
+
+
+def running_releases() -> Tuple[str, List[str], str]:
+    """``(status, versions, why)``: which installed release is running. ``status`` is ``ok`` (``versions`` is empty
+    when nothing runs), ``error`` (docker could not say), ``unrecognised`` (something runs that matches no install)
+    or ``ambiguous`` (more than one install fits). A release fits when its server container runs the image recorded
+    for its server, every other container started from one of this SDK's images runs an image of that same release,
+    and, to tell releases that share every image apart, the Compose file matches. Sidecars shared between
+    releases and labels prove nothing on their own."""
+    from briefcase import engine as _engine
+
+    ok, rows = project_containers()
+    if not ok:
+        return "error", [], "docker could not list the engine containers"
+    if not rows:
+        return "ok", [], ""
+    installs = {v: r for v, r in (_engine.load_state().get("installs") or {}).items()
+                if isinstance(r, dict) and r.get("compose")}
+    known = {i for r in installs.values() for i in (r.get("image_ids") or {}).values()}
+    servers = [row for row in rows if row["service"] == "oci-jj-server"]
+    ours = {row["image"] for row in rows if row["image"] in known}
+    fits = []
+    for version, rec in installs.items():
+        ids = set((rec.get("image_ids") or {}).values())
+        if servers and all(row["image"] == (rec.get("image_ids") or {}).get("server") for row in servers) \
+                and ours <= ids:
+            fits.append(version)
+    if len(fits) > 1:
+        paths = {c for row in servers for c in row["config"].split(",")}
+        narrowed = [v for v in fits if str(Path(installs[v]["compose"])) in paths]
+        if len(narrowed) == 1:
+            fits = narrowed
+    if len(fits) == 1:
+        return "ok", fits, ""
+    if not fits:
+        return "unrecognised", [], ("an engine is running that matches no install (a different image, or a mix of "
+                                    "releases): this install did not start it")
+    return "ambiguous", [], f"releases {', '.join(sorted(fits))} share the same images and cannot be told apart"
 
 
 def running_install(record: Dict[str, Any]) -> Optional[bool]:
     """Is this release the one running? Every release uses the Compose project ``briefcase-engine``, so
-    ``compose down`` for one takes down whichever is up. The answer comes from the project's server container: its
-    image id against the one recorded for this release at install. ``None`` when docker could not say, which no
-    caller may treat as "no"."""
-    ok, ids = server_image_ids()
-    if not ok:
+    ``compose down`` for one takes down whichever is up. ``None`` when that cannot be established (docker failed, an
+    unrecognised or ambiguous engine runs), which no caller may treat as "no"."""
+    status, versions, _ = running_releases()
+    if status != "ok":
         return None
-    want = (record.get("image_ids") or {}).get("server")
-    return bool(want) and want in ids
-
-
-def running_releases() -> Tuple[bool, List[str]]:
-    """``(ok, versions)``: the installed releases whose server is running now. ``ok`` is false when docker could
-    not say."""
-    from briefcase import engine as _engine
-
-    ok, ids = server_image_ids()
-    if not ok:
-        return False, []
-    installs = _engine.load_state().get("installs") or {}
-    return True, sorted(v for v, rec in installs.items()
-                        if isinstance(rec, dict) and (rec.get("image_ids") or {}).get("server") in ids)
+    return record.get("version") in versions
 
 
 # --------------------------------------------------------------------------- up / down / logs
@@ -788,16 +816,21 @@ def _reinstall_fix(record: Dict[str, Any]) -> str:
 
 
 def cmd_up(args, store, engine, stack) -> int:
-    record = _require_stack(args)
-    if record is None:
+    from briefcase.engine import install as _inst
+
+    if _require_stack(args) is None:
         return 3 if _local_install() is None else 1
-    stop = guard_start(record)
-    if stop is not None:
-        return stop
-    argv = _compose(record, "up", "-d", "--remove-orphans")
-    if getattr(args, "wait", False):
-        argv += ["--wait", "--wait-timeout", "300"]
-    rc = _rc(_run(argv))
+    with _inst.engine_lock():  # not while an upgrade is moving current: the release is chosen under the lock
+        record = _require_stack(args)
+        if record is None:
+            return 1
+        stop = guard_start(record)
+        if stop is not None:
+            return stop
+        argv = _compose(record, "up", "-d", "--remove-orphans")
+        if getattr(args, "wait", False):
+            argv += ["--wait", "--wait-timeout", "300"]
+        rc = _rc(_run(argv))
     if rc != 0:
         return _ux.fail("docker compose up failed (see above)", fix="briefcase-ai engine doctor")
     print(f"engine {record['version']} started: gRPC {record['grpc_addr']}, registry gateway {record['gateway']}")
@@ -1091,15 +1124,9 @@ def _remove_install(version: str, purge: bool, force_without_docker: bool = Fals
     if last:
         # The volumes go whichever release created them (a client-only install can be the last one left after a
         # deferred cleanup), and the secrets only after every one is confirmed absent.
-        provable = force_without_docker and state.get("compose_used") is False
-        kept, problems = remove_engine_volumes(allow_no_docker=provable)
-        if force_without_docker and not provable:
-            problems.append("--force-without-docker is only allowed for an install that never created volumes, and "
-                            "this one's record does not prove that")
+        problems = _purge_problems(state, force_without_docker)
         if problems:
             return "blocked", _purge_blocked(problems)
-        if kept:
-            print(_kept_message(kept))
     docker = _install_mod.Docker(_runner())
     for ref in sorted(set((record.get("images") or {}).values())):
         docker.remove_image(ref)
@@ -1123,7 +1150,9 @@ def _remove_install(version: str, purge: bool, force_without_docker: bool = Fals
     elif purge:
         note = (f"engine {', '.join(others)} is still installed, so the shared secrets, certificates and data "
                 "volumes were kept")
-    if state["installs"]:
+    if state["installs"] or (state.get("compose_used") and not last):
+        # Volumes and secrets outlive an ordinary uninstall, so the record of that (and of which daemon holds them)
+        # stays: a tombstone with no installs. Only a purge that confirmed every volume absent forgets it.
         _install_mod.save_state(state)
     else:
         try:
@@ -1131,6 +1160,50 @@ def _remove_install(version: str, purge: bool, force_without_docker: bool = Fals
         except FileNotFoundError:
             pass
     return "removed", note
+
+
+def _purge_problems(state: Dict[str, Any], force_without_docker: bool) -> List[str]:
+    """Remove every engine volume and report why the secrets must nonetheless stay (empty list: all confirmed
+    absent, on the daemon the install used)."""
+    from briefcase.engine import install as _install_mod
+
+    provable = force_without_docker and state.get("compose_used") is False
+    kept, problems = remove_engine_volumes(allow_no_docker=provable)
+    if force_without_docker and not provable:
+        problems.append("--force-without-docker is only allowed for an install that never created volumes, and "
+                        "this one's record does not prove that")
+    recorded = list(state.get("docker_contexts") or [])
+    if recorded and not provable:
+        here = _install_mod.docker_identity(_runner())
+        if here is None or set(recorded) != {here}:
+            problems.append("the Docker daemon is not the one this install used (it used "
+                            f"{', '.join(recorded)}; now {here or 'unknown'}), so a probe here says nothing about "
+                            "its volumes")
+    if not problems and kept:
+        print(_kept_message(kept))
+    return problems
+
+
+def _purge_leftovers(force_without_docker: bool) -> int:
+    """``uninstall --purge`` when nothing is installed but an earlier uninstall left volumes and secrets behind."""
+    from briefcase import engine as _engine
+
+    state = _engine.load_state()
+    problems = _purge_problems(state, force_without_docker)
+    if problems:
+        return _ux.fail(_purge_blocked(problems), fix="fix what is named above, then: briefcase-ai engine "
+                                                      "uninstall --purge", code=1)
+    for path in (_engine.secrets_path(), _engine.engine_dir() / "tls"):
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        elif path.exists():
+            path.unlink()
+    try:
+        _engine.installed_path().unlink()
+    except FileNotFoundError:
+        pass
+    print("engine volumes, secrets and certificates removed.")
+    return 0
 
 
 def _purge_blocked(problems: List[str]) -> str:
@@ -1147,6 +1220,11 @@ def cmd_uninstall(args, store, engine, stack) -> int:
     from briefcase import engine as _engine
     from briefcase.engine import install as _install_mod
 
+    if _local_install() is None and getattr(args, "purge", False) and _engine.load_state().get("compose_used"):
+        from briefcase.engine import install as _install_mod2
+
+        with _install_mod2.engine_lock():
+            return _purge_leftovers(bool(getattr(args, "force_without_docker", False)))
     record = _require_local(args)
     if record is None:
         return 3
