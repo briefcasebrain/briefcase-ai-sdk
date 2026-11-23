@@ -545,6 +545,8 @@ if args[:2] == ["volume", "ls"]:
         if all(w.split("=", 1)[0] in labels and labels[w.split("=", 1)[0]] == w.split("=", 1)[1] for w in wanted):
             print(name)
     sys.exit(0)
+if args[:2] == ["volume", "rm"]:
+    sys.exit(0)  # recorded in the call log; the fake keeps no volume state
 if args[:2] == ["volume", "inspect"]:
     volumes = json.loads(os.environ.get("FAKE_DOCKER_VOLUMES") or "{}")
     name = args[-1]

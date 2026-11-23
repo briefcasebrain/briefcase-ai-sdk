@@ -1040,6 +1040,95 @@ def test_upgrade_needs_a_code_or_token_and_restarts_a_running_engine(env, capsys
     assert ups and "0.5.0" in ups[-1][ups[-1].index("-f") + 1]
 
 
+LABEL = {"ai.briefcase.engine": "1"}
+
+
+def _volumes(monkeypatch, **labels):
+    monkeypatch.setenv("FAKE_DOCKER_VOLUMES", json.dumps({f"briefcase-engine_{k}": v for k, v in labels.items()}))
+
+
+def _compose_calls(env):
+    return [a for a in _docker(env) if a[0] == "compose"]
+
+
+def test_down_volumes_removes_only_volumes_carrying_our_label_and_names_the_others(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    _volumes(monkeypatch, pgdata=LABEL, miniodata={})  # miniodata is a stopped 4.4 project's volume
+    env["log"].unlink()
+    capsys.readouterr()
+    assert main(["engine", "down", "--volumes", "--yes"]) == 0
+    out = capsys.readouterr().out
+    down = [a for a in _compose_calls(env) if "down" in a][0]
+    assert "-v" not in down and "--volumes" not in down
+    removed = [a[2] for a in _docker(env) if a[:2] == ["volume", "rm"]]
+    assert removed == ["briefcase-engine_pgdata"]
+    assert "briefcase-engine_miniodata" in out and "docker volume rm briefcase-engine_miniodata" in out
+
+
+def test_uninstall_purge_leaves_a_foreign_volume_and_names_it(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    _volumes(monkeypatch, pgdata={}, miniodata=LABEL)
+    env["log"].unlink()
+    capsys.readouterr()
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0
+    out = capsys.readouterr().out
+    down = [a for a in _compose_calls(env) if "down" in a][0]
+    assert "-v" not in down
+    assert [a[2] for a in _docker(env) if a[:2] == ["volume", "rm"]] == ["briefcase-engine_miniodata"]
+    assert "docker volume rm briefcase-engine_pgdata" in out
+
+
+def test_upgrade_restart_runs_the_foreign_volume_check_first(env, capsys, monkeypatch, key):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    env["platform"].release = build_release(key, version="0.5.0")
+    monkeypatch.setenv("FAKE_DOCKER_RUNNING", "abc123")
+    _volumes(monkeypatch, pgdata={})
+    env["log"].unlink()
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 1
+    assert "briefcase-engine_pgdata" in capsys.readouterr().err
+    assert not [a for a in _compose_calls(env) if "up" in a]
+
+
+def test_purge_keeps_shared_files_and_volumes_while_another_install_remains(env, capsys, monkeypatch, key):
+    assert _install("--code", "bci_good") == 0
+    state = json.loads(_engine.installed_path().read_text())
+    other = dict(state["installs"][VERSION], version="0.5.0")
+    state["installs"]["0.5.0"] = other
+    state["current"] = VERSION
+    _engine.installed_path().write_text(json.dumps(state))
+    _volumes(monkeypatch, pgdata=LABEL)
+    env["log"].unlink()
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0
+    assert (env["home"] / "engine" / "engine.env").exists()
+    assert not [a for a in _docker(env) if a[:2] == ["volume", "rm"]]
+    assert set(json.loads(_engine.installed_path().read_text())["installs"]) == {"0.5.0"}
+    assert "still installed" in capsys.readouterr().out
+
+
+def test_uninstall_decides_what_to_delete_after_taking_the_lock(env, capsys, monkeypatch):
+    """Another install finishes while this purge waits for the lock: its record and secrets survive."""
+    import contextlib
+
+    assert _install("--code", "bci_good") == 0
+    real_lock = install.engine_lock
+
+    @contextlib.contextmanager
+    def lock_then_other_install_lands(*args, **kwargs):
+        with real_lock(*args, **kwargs):
+            state = json.loads(_engine.installed_path().read_text())
+            state["installs"]["0.5.0"] = dict(state["installs"][VERSION], version="0.5.0")
+            state["current"] = "0.5.0"
+            _engine.installed_path().write_text(json.dumps(state))
+            yield
+
+    monkeypatch.setattr(install, "engine_lock", lock_then_other_install_lands)
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0
+    assert (env["home"] / "engine" / "engine.env").exists()
+    state = json.loads(_engine.installed_path().read_text())
+    assert set(state["installs"]) == {"0.5.0"} and state["current"] == "0.5.0"
+
+
 def test_run_logs_reads_the_verdict_worker_logs_when_the_release_has_one(env, capsys, key):
     from types import SimpleNamespace
 

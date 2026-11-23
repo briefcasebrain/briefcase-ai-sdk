@@ -164,7 +164,7 @@ def _require_local(args) -> Optional[Dict[str, Any]]:
     return record
 
 
-def _compose(record: Dict[str, Any], *args: str) -> List[str]:
+def _compose(record: Dict[str, Any], *args: str) -> List[str]:  # the one place a compose argv is built
     from briefcase.engine import compose
 
     return compose.compose_argv(Path(record["compose"]), Path(record["env_file"]), *args)
@@ -229,6 +229,53 @@ def foreign_volumes_message(names: List[str]) -> str:
     return (f"the volume(s) {', '.join(names)} already exist and were not created by this engine (they lack the "
             f"{_compose.ENGINE_LABEL} label), so they may hold another stack's data: look with {inspect}; if you "
             f"do not need that data, remove them with {remove}, then run `briefcase-ai engine up` again")
+
+
+def guard_start(record: Dict[str, Any]) -> Optional[int]:
+    """The checks every command that starts containers runs first (``up``, an upgrade's restart): the images are
+    the verified ones, no 4.4 stack is running on the same ports, and every volume that would be mounted was
+    created by this engine. Returns an exit code to stop with, or ``None``."""
+    drift = image_drift(record)
+    if drift:
+        for line in drift:
+            print(f"  {line}")
+        return _ux.fail("an engine image changed since it was verified at install; not starting it",
+                        fix=_reinstall_fix(record))
+    legacy = legacy_stack()
+    if legacy["projects"]:
+        first = next(iter(legacy["projects"]))
+        return _ux.fail(legacy_stack_message(legacy),
+                        fix=f"docker compose -p {first} down   # then: briefcase-ai engine up")
+    foreign = foreign_volumes()
+    if foreign:
+        return _ux.fail(foreign_volumes_message(foreign), fix="briefcase-ai engine doctor")
+    return None
+
+
+def teardown(record: Dict[str, Any], remove_volumes: bool) -> int:
+    """``compose down`` without ever passing ``-v`` (it would take a same-named volume of another stack with
+    it). With ``remove_volumes``, remove only the volumes carrying this engine's label, and name any other
+    volume of the same name that is left, with the command to remove it by hand."""
+    from briefcase.engine import compose as engine_compose
+
+    rc = _rc(_run(_compose(record, "down")))
+    if rc != 0 or not remove_volumes:
+        return rc
+    kept = []
+    for key in engine_compose.VOLUME_KEYS:
+        name = f"{engine_compose.PROJECT}_{key}"
+        label = '{{ index .Labels "' + engine_compose.ENGINE_LABEL + '" }}'
+        res = _run(["docker", "volume", "inspect", "--format", label, name], capture_output=True, text=True)
+        if _rc(res) != 0:
+            continue  # no such volume
+        if (getattr(res, "stdout", "") or "").strip() == "1":
+            _run(["docker", "volume", "rm", name])
+        else:
+            kept.append(name)
+    if kept:
+        print(f"left in place, not created by this engine: {', '.join(kept)}; remove by hand if you do not need "
+              "them: " + " && ".join(f"docker volume rm {n}" for n in kept))
+    return rc
 
 
 def _rc(result) -> int:
@@ -417,6 +464,9 @@ def _install(args, upgrading: bool) -> int:
         return _ux.fail(str(exc), fix="install openssl, or install without --tls")
     if upgrading and previous and previous.get("version") != record["version"] and record.get("compose") \
             and previous.get("compose") and _running(previous):
+        stop = guard_start(record)
+        if stop is not None:
+            return stop
         log(f"restarting onto {record['version']} (data volumes are kept)...")
         rc = _rc(_run(_compose(record, "up", "-d", "--remove-orphans")))
         if rc != 0:
@@ -575,20 +625,9 @@ def cmd_up(args, store, engine, stack) -> int:
     record = _require_stack(args)
     if record is None:
         return 3 if _local_install() is None else 1
-    drift = image_drift(record)
-    if drift:
-        for line in drift:
-            print(f"  {line}")
-        return _ux.fail("an engine image changed since it was verified at install; not starting it",
-                        fix=_reinstall_fix(record))
-    legacy = legacy_stack()
-    if legacy["projects"]:
-        first = next(iter(legacy["projects"]))
-        return _ux.fail(legacy_stack_message(legacy),
-                        fix=f"docker compose -p {first} down   # then: briefcase-ai engine up")
-    foreign = foreign_volumes()
-    if foreign:
-        return _ux.fail(foreign_volumes_message(foreign), fix="briefcase-ai engine doctor")
+    stop = guard_start(record)
+    if stop is not None:
+        return stop
     argv = _compose(record, "up", "-d", "--remove-orphans")
     if getattr(args, "wait", False):
         argv += ["--wait", "--wait-timeout", "300"]
@@ -604,15 +643,14 @@ def cmd_down(args, store, engine, stack) -> int:
     record = _require_stack(args)
     if record is None:
         return 3 if _local_install() is None else 1
-    argv = ["down"]
-    if getattr(args, "volumes", False):
+    volumes = bool(getattr(args, "volumes", False))
+    if volumes:
         answer = _ux.confirm("Delete the engine's data volumes (database, blobs, registry)?", default=False,
                              assume_yes=bool(getattr(args, "yes", False)))
         if not answer:
             return _ux.fail("not deleting data without confirmation", fix="briefcase-ai engine down --volumes --yes",
                             code=2 if answer is None else 1)
-        argv.append("-v")
-    rc = _rc(_run(_compose(record, *argv)))
+    rc = teardown(record, volumes)
     if rc != 0:
         return _ux.fail("docker compose down failed (see above)", fix="briefcase-ai engine doctor")
     _ux.print_next("briefcase-ai engine up", "to start it again")
@@ -858,35 +896,48 @@ def cmd_doctor(args, store, engine, stack) -> int:
 # --------------------------------------------------------------------------- uninstall
 
 
-def _remove_install(record: Dict[str, Any], purge: bool, images: List[str], version_dir: Path) -> None:
-    """Take the install down and out of installed.json (and, with ``purge``, delete the secrets file)."""
+def _remove_install(version: str, purge: bool) -> Optional[str]:
+    """Run under ``engine_lock``. Re-reads installed.json, so what is removed is decided now and not when the
+    plan was shown: only ``version``, and the shared files and volumes only when no other install remains.
+    Returns a note for the user, or ``None``."""
     from briefcase import engine as _engine
     from briefcase.engine import install as _install_mod
 
-    if record.get("compose"):
-        _run(_compose(record, "down", *(["-v"] if purge else [])))
-    docker = _install_mod.Docker(_runner())
-    for ref in images:
-        docker.remove_image(ref)
-    if version_dir.name == record["version"]:
-        shutil.rmtree(version_dir, ignore_errors=True)
     state = _engine.load_state()
-    state.get("installs", {}).pop(record["version"], None)
-    remaining = sorted(state.get("installs", {}))
-    state["current"] = remaining[-1] if remaining else None
-    if purge:
+    record = (state.get("installs") or {}).get(version)
+    if not isinstance(record, dict):
+        return f"engine {version} is no longer installed; nothing was changed"
+    others = [v for v in (state.get("installs") or {}) if v != version]
+    if record.get("compose"):
+        teardown(record, purge and not others)
+    docker = _install_mod.Docker(_runner())
+    for ref in sorted(set((record.get("images") or {}).values())):
+        docker.remove_image(ref)
+    version_dir = Path(record.get("manifest") or record.get("compose") or "").parent
+    if version_dir.name == version:
+        shutil.rmtree(version_dir, ignore_errors=True)
+    state["installs"].pop(version, None)
+    remaining = sorted(state["installs"])
+    if state.get("current") == version or state.get("current") not in state["installs"]:
+        state["current"] = remaining[-1] if remaining else None
+    note = None
+    if purge and not others:
         for path in (_engine.secrets_path(), _engine.engine_dir() / "tls"):
             if path.is_dir():
                 shutil.rmtree(path, ignore_errors=True)
             elif path.exists():
                 path.unlink()
-    if state.get("installs"):
+    elif purge:
+        note = (f"engine {', '.join(others)} is still installed, so the shared secrets, certificates and data "
+                "volumes were kept")
+    if state["installs"]:
         _install_mod.save_state(state)
     else:
         try:
             _engine.installed_path().unlink()
         except FileNotFoundError:
             pass
+    return note
 
 
 def cmd_uninstall(args, store, engine, stack) -> int:
@@ -901,7 +952,8 @@ def cmd_uninstall(args, store, engine, stack) -> int:
     version_dir = Path(record.get("manifest") or record.get("compose") or "").parent
     steps = []
     if record.get("compose"):
-        steps.append(f"docker compose down{' -v (deletes the engine data volumes)' if purge else ''}")
+        steps.append("docker compose down" + (" and remove the data volumes this engine created (others are left)"
+                                              if purge else ""))
     steps += [f"docker image rm {ref}" for ref in images]
     steps.append(f"delete {version_dir}")
     if purge:
@@ -917,8 +969,12 @@ def cmd_uninstall(args, store, engine, stack) -> int:
         return _ux.fail("not uninstalling without confirmation", fix="briefcase-ai engine uninstall --yes",
                         code=2 if answer is None else 1)
     with _install_mod.engine_lock():  # installed.json and engine.env are shared with every install
-        _remove_install(record, purge, images, version_dir)
+        note = _remove_install(record["version"], purge)
+    if note and "no longer installed" in note:
+        return _ux.fail(note, fix="briefcase-ai engine status", code=1)
     print(f"engine {record['version']} removed.")
+    if note:
+        print(note)
     _ux.print_next("briefcase-ai engine install", "to install it again")
     return 0
 
