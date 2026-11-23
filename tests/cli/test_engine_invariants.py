@@ -63,9 +63,16 @@ def synthetic(env, installs, current):
     docker_state_file.write_text(json.dumps({"refs": refs, "ids": list(refs.values())}))
 
 
+def remove_docker(env, monkeypatch):
+    """No docker on PATH at all: the fake is removed and PATH is cut down to its directory, so a real docker in
+    /usr/bin (as on CI runners) cannot answer."""
+    (env["tmp"] / "bin" / "docker").unlink()
+    monkeypatch.setenv("PATH", str(env["tmp"] / "bin"))
+
+
 def configure(env, monkeypatch, docker, volumes, running):
     if docker == "absent":
-        (env["tmp"] / "bin" / "docker").unlink()
+        remove_docker(env, monkeypatch)
     elif docker.startswith("fail:"):
         monkeypatch.setenv("FAKE_DOCKER_FAIL", docker[5:])
     names = {"none": {}, "ours": {n: LABEL for n in VOLUME_NAMES}, "foreign": {VOLUME_NAMES[0]: {}}}[volumes]
@@ -190,7 +197,7 @@ def test_purge_is_refused_without_docker_even_for_a_client_only_install_unless_i
     state["installs"][A].update(compose=None, images={}, image_ids={})
     state["compose_used"] = True  # an earlier release may have created volumes
     _engine.installed_path().write_text(json.dumps(state))
-    (env["tmp"] / "bin" / "docker").unlink()
+    remove_docker(env, monkeypatch)
     assert main(["engine", "uninstall", "--purge", "--yes"]) == 1
     assert (env["home"] / "engine" / "engine.env").exists()
     assert main(["engine", "uninstall", "--purge", "--force-without-docker", "--yes"]) == 1  # not provable
