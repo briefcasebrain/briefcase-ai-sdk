@@ -198,7 +198,7 @@ def overview(project_dir: Optional[str] = None) -> Dict[str, Any]:
             problems.append(f"{row['tool']}: the hook command points at a file that no longer exists")
         if loaded.policy is not None and loaded.fail_closed and not row["fail_closed"]:
             problems.append(f"{row['tool']}: the policy says fail_closed but the installed hook does not; "
-                            "run `briefcase-ai policy init` again")
+                            "run `briefcase-ai policy off` and then `briefcase-ai policy init --fail-closed`")
     last = _recent_problem()
     settings = dict(loaded.policy.settings) if loaded.policy is not None else None
     return {"files": files, "errors": [list(e) for e in loaded.errors], "hooks": hooks, "problems": problems,
@@ -374,9 +374,16 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
         print("warning: --capture-content writes the command, path or URL of every decision to "
               "~/.briefcase/policy/decisions.jsonl and sends it to the receiver.", file=sys.stderr)
     ctx = Context(scope=scope, endpoint=options.endpoint, mcp=False, telemetry=False,
-                  capture_content=options.capture_content, force=force, project_dir=Path.cwd())
-    plan = connect_engine.build_plan(tools, ctx, adapters)  # type: ignore[arg-type]
+                  capture_content=options.capture_content, force=force, project_dir=Path.cwd(), strict=True)
+    try:
+        plan = connect_engine.build_plan(tools, ctx, adapters)  # type: ignore[arg-type]
+    except edits.LegacyJournal as exc:
+        _error(str(exc))
+        return 1
     connect_engine.render_plan(plan, adapters, out)  # type: ignore[arg-type]
+    if plan.differs:
+        out("\nNothing was changed: a hook is installed with other settings.")
+        return 1
 
     if dry:
         out(f"\nDry run: {1 if write_policy else 0} policy file and {len(plan.changes)} tool file(s) would be "
@@ -405,7 +412,7 @@ def run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[s
             out(f"  backup {_tilde(backup)}")
         edits._atomic_write(policy_path, write_policy, 0o600 if not project else 0o644)
         out(f"  wrote  {_tilde(policy_path)}")
-    failures = connect_engine.apply_plan(plan, ctx, out) if plan.has_work else 0
+    failures = connect_engine.apply_plan(plan, ctx, out, capture_warning=False) if plan.has_work else 0
     if failures:
         out(f"\n{failures} step(s) failed; the rest were applied. Run `briefcase-ai policy status`.")
         return 1

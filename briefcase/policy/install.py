@@ -195,7 +195,10 @@ def installed() -> List[Dict[str, Any]]:
     """What the journal says is installed, checked against the files as they are now.
 
     One row per tool: ``{"tool", "files": [(ok, what)], "command", "fail_closed", "launcher_ok"}``."""
-    journal = edits.load_journal()
+    try:
+        journal = edits.load_journal()
+    except edits.LegacyJournal:
+        return []
     rows = []
     for tool in TOOLS:
         owner = PREFIX + tool

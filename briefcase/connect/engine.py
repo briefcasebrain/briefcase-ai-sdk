@@ -7,8 +7,12 @@ and the tests drive the same code.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import re
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -20,6 +24,23 @@ from briefcase.connect.edits import CHANGE, NOOP, REFUSED, Command, FileEdit, Ma
 
 Printer = Callable[[str], None]
 
+CAPTURE_WARNING = (
+    "warning: --capture-content turns on content export in the tools themselves. Prompts, tool "
+    "parameters and commands will leave the tool and reach the receiver. The receiver still "
+    "redacts them unless it is started with --keep-content."
+)
+
+
+@dataclass
+class Blocked:
+    """A target that is not written. ``blocker`` is ``foreign`` (present, not written by us), ``modified`` (ours
+    once, changed or gone since) or ``differs`` (ours and intact, but this invocation asked for other settings)."""
+
+    tool: str
+    kind: str
+    blocker: str
+    text: str
+
 
 @dataclass
 class Plan:
@@ -28,6 +49,11 @@ class Plan:
     commands: List[Command] = field(default_factory=list)
     done_commands: List[Command] = field(default_factory=list)
     manual: List[Manual] = field(default_factory=list)
+    blocked: List[Blocked] = field(default_factory=list)
+
+    @property
+    def differs(self) -> bool:
+        return any(b.blocker == "differs" for b in self.blocked)
 
     @property
     def changes(self) -> List[Resolved]:
@@ -56,20 +82,126 @@ def run_command(argv: List[str]) -> Tuple[int, str]:
     return done.returncode, ((done.stdout or "") + (done.stderr or "")).strip()
 
 
+def _undo_then_connect(tool: str) -> str:
+    if tool.startswith("policy:"):  # the enforcement hooks (briefcase.policy.install.PREFIX) have their own commands
+        name = tool[len("policy:"):]
+        return f"run `briefcase-ai policy off {name}` and then `briefcase-ai policy init {name}` again"
+    return f"run `briefcase-ai connect --undo {tool}` and then connect again"
+
+
+def _headers_sha(headers: Dict[str, str]) -> str:
+    return hashlib.sha256(json.dumps(sorted(headers.items())).encode("utf-8")).hexdigest()
+
+
+def _differences(rec: Dict[str, Any], kind: str, ctx: Any, edit: Optional[FileEdit]) -> List[str]:
+    """Which settings this invocation named differ from what the target was written with (names only; a header
+    value is never printed)."""
+    given = getattr(ctx, "given", {}) or {}
+    found = []
+    if "scope" in given and given["scope"] != rec.get("scope"):
+        found.append("scope")
+    if kind == "telemetry":
+        if "endpoint" in given and given["endpoint"] != rec.get("endpoint"):
+            found.append("endpoint")
+        if "headers" in given and _headers_sha(given["headers"]) != rec.get("headers_sha"):
+            found.append("headers")
+        if given.get("capture_content") and not rec.get("capture_content"):
+            found.append("capture-content")
+    if getattr(ctx, "strict", False) and edit is not None and not edits.same_content(edit, rec):
+        found.append("settings")
+    return found
+
+
+def _record(tool: str, kind: str, target: str, ctx: Any, **more: Any) -> Dict[str, Any]:
+    return {"tool": tool, "kind": kind, "scope": ctx.scope, "target": target, "endpoint": ctx.endpoint,
+            "headers_sha": _headers_sha(ctx.headers), "capture_content": bool(ctx.capture_content),
+            "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **more}
+
+
+def _plan_file(plan: Plan, item: FileEdit, ctx: Any, journal: Dict[str, Any]) -> None:
+    resolved = edits.resolve(item)
+    tkey = target_key(item.tool, item.kind, str(resolved.target))
+    rec = journal["targets"].get(tkey)
+    where = f"{item.path}"
+    if rec is None:
+        if edits.holds_any(item, resolved.old_text):
+            other = next((t["kind"] for t in journal["targets"].values()
+                          if t["tool"] == item.tool and t["target"] == str(resolved.target)), None)
+            plan.blocked.append(Blocked(item.tool, item.kind, "foreign", (
+                f"{where}: briefcase-ai wrote it for {other} and does not rewrite it; "
+                f"{_undo_then_connect(item.tool)}" if other else
+                f"{where}: already holds an entry briefcase did not write; it was left as it is (its contents are "
+                f"not shown). To let briefcase-ai manage it, remove it yourself and connect again")))
+            return
+        if resolved.status == REFUSED:
+            plan.manual.append(Manual(item.tool, f"Add to {item.path}", edits.snippet(item), resolved.reason))
+        plan.resolved.append(resolved)
+        return
+    if edits.content_hash(item.format, rec.get("ops", []), resolved.old_text) != rec.get("hash"):
+        plan.blocked.append(Blocked(item.tool, item.kind, "modified", (
+            f"{where}: modified since connect, so it is no longer treated as briefcase's and was left as it is; "
+            f"{_undo_then_connect(item.tool)}")))
+        return
+    diffs = _differences(rec, item.kind, ctx, item)
+    if diffs:
+        plan.blocked.append(Blocked(item.tool, item.kind, "differs", (
+            f"{where}: connected with other {', '.join(diffs)}; nothing was changed. To change it, "
+            f"{_undo_then_connect(item.tool)} with the new settings")))
+        return
+    plan.resolved.append(edits.Resolved(item, NOOP, resolved.target, old_text=resolved.old_text,
+                                        new_text=resolved.old_text, existed=True, reason="already connected"))
+
+
+def registration_state(argv: List[str], runner: Callable[[List[str]], Tuple[int, str]]) -> str:
+    """Does the tool's own registry still hold the command we registered? ``ok``, ``missing``, ``differs`` or
+    ``unknown`` (cannot tell: it is then taken to be as we left it)."""
+    if argv[:1] not in (["claude"], ["codex"]) or "--" not in argv:
+        return "unknown"
+    name = argv[5] if argv[:1] == ["claude"] else argv[3]
+    code, output = runner([argv[0], "mcp", "get", name])
+    if code != 0:
+        return "missing" if re.search(r"no mcp server|not found|does not exist", output, re.I) else "unknown"
+    return "ok" if all(token in output for token in argv[argv.index("--") + 1:]) else "differs"
+
+
+def _plan_command(plan: Plan, item: Command, ctx: Any, journal: Dict[str, Any],
+                  runner: Callable[[List[str]], Tuple[int, str]]) -> None:
+    tkey = target_key(item.tool, "mcp", command_target(item.argv))
+    rec = journal["targets"].get(tkey)
+    if rec is None:
+        plan.commands.append(item)
+        return
+    shown = mcp_payloads.shell(rec["argv"])
+    if registration_state(rec["argv"], runner) in ("missing", "differs"):
+        plan.blocked.append(Blocked(item.tool, "mcp", "modified", (
+            f"{shown}: the registration is gone or was changed since connect, so it is no longer treated as "
+            f"briefcase's and was left as it is; {_undo_then_connect(item.tool)}")))
+        return
+    diffs = _differences(rec, "mcp", ctx, None)
+    if diffs:
+        plan.blocked.append(Blocked(item.tool, "mcp", "differs", (
+            f"{shown}: connected with other {', '.join(diffs)}; nothing was changed. To change it, "
+            f"{_undo_then_connect(item.tool)} with the new settings")))
+        return
+    plan.done_commands.append(Command(item.tool, list(rec["argv"]), item.purpose, undo_hint=item.undo_hint))
+
+
 def build_plan(tools: List[str], ctx: Any, adapters: Optional[Dict[str, Adapter]] = None,
-               journal: Optional[Dict[str, Any]] = None) -> Plan:
+               journal: Optional[Dict[str, Any]] = None,
+               runner: Optional[Callable[[List[str]], Tuple[int, str]]] = None) -> Plan:
+    """What connecting ``tools`` would do. A target that is not present and not journalled is written; one that
+    is journalled and still exactly as written is reported as connected; every other case is left untouched."""
     adapters = adapters or registry()
     journal = journal if journal is not None else edits.load_journal()
+    runner = runner or run_command
     plan = Plan(tools=list(tools))
     for name in tools:
-        for item in adapters[name].plan(ctx[name] if isinstance(ctx, dict) else ctx):
+        mine = ctx[name] if isinstance(ctx, dict) else ctx
+        for item in adapters[name].plan(mine):
             if isinstance(item, FileEdit):
-                resolved = edits.resolve(item, journal)
-                if resolved.status == REFUSED:
-                    plan.manual.append(Manual(name, f"Add to {item.path}", edits.snippet(item), resolved.reason))
-                plan.resolved.append(resolved)
+                _plan_file(plan, item, mine, journal)
             elif isinstance(item, Command):
-                (plan.done_commands if _done(journal, item.tool, item.argv) else plan.commands).append(item)
+                _plan_command(plan, item, mine, journal, runner)
             else:
                 plan.manual.append(item)
     return plan
@@ -88,7 +220,7 @@ def render_plan(plan: Plan, adapters: Dict[str, Adapter], out: Printer) -> None:
                 out(f"  skip   {edit.path}: {resolved.reason} (snippet below)")
                 continue
             verb = "ok    " if resolved.status == NOOP else ("write " if resolved.existed else "create")
-            suffix = " (already set, nothing to do)" if resolved.status == NOOP else ""
+            suffix = f" ({resolved.reason or 'already set, nothing to do'})" if resolved.status == NOOP else ""
             out(f"  {verb} {edit.path}{suffix}")
             out(f"         {edit.purpose}")
             for note in edit.notes + resolved.warnings:
@@ -104,7 +236,11 @@ def render_plan(plan: Plan, adapters: Dict[str, Adapter], out: Printer) -> None:
         for command in plan.done_commands:
             if command.tool == name:
                 shown = True
-                out(f"  ok     {mcp_payloads.shell(command.argv)} (already run)")
+                out(f"  ok     {mcp_payloads.shell(command.argv)} (already connected)")
+        for blocked in plan.blocked:
+            if blocked.tool == name:
+                shown = True
+                out(f"  {'differs' if blocked.blocker == 'differs' else 'skip   '} {blocked.text}")
         for manual in plan.manual:
             if manual.tool == name:
                 shown = True
@@ -135,111 +271,75 @@ def identity(argv: List[str]) -> Dict[str, Any]:
     return {"profile": profile, "cwd": None if scope in ("user", "global") else os.getcwd()}
 
 
-def _same_registration(c: Dict[str, Any], tool: str, argv: List[str]) -> bool:
-    ident = identity(argv)
-    return (c["tool"] == tool and registration(c["argv"])[1] == registration(argv)[1]
-            and c.get("profile") == ident["profile"] and c.get("cwd") == ident["cwd"])
+def command_target(argv: List[str], ident: Optional[Dict[str, Any]] = None) -> str:
+    """The registry a registration command writes to: its name and scope, the profile and, for project and local
+    scope, the directory."""
+    ident = ident or identity(argv)
+    return "|".join([" ".join(registration(argv)[1]), str(ident["profile"]), str(ident["cwd"])])
 
 
-def _journalled(journal: Dict[str, Any], tool: str, argv: List[str]) -> Optional[Dict[str, Any]]:
-    """The journal entry of an earlier connect of this SDK for this exact registration (name, scope, profile and
-    directory), or ``None``."""
-    return next((c for c in journal.get("commands", []) if _same_registration(c, tool, argv)), None)
-
-
-def _done(journal: Dict[str, Any], tool: str, argv: List[str]) -> bool:
-    entry = _journalled(journal, tool, argv)
-    return entry is not None and list(entry["argv"]) == list(argv)
-
-
-def target_key(tool: str, kind: str, scope: str, target: str) -> str:
-    """The unit the journal reasons about: one tool, one purpose, one scope, one absolute target."""
-    return "|".join([tool, kind, scope, target])
+def target_key(tool: str, kind: str, target: str) -> str:
+    """The unit the journal reasons about: one tool, one purpose, one absolute file or registry."""
+    return "|".join([tool, kind, target])
 
 
 def apply_plan(plan: Plan, ctx: Any, out: Printer,
                runner: Optional[Callable[[List[str]], Tuple[int, str]]] = None,
-               skipped_is_failure: bool = False) -> int:
-    """Write the plan. Returns the number of failures. An MCP registration that someone else made is skipped
-    (not a failure) unless ``skipped_is_failure`` is set, as for ``mcp install``, whose whole job is that
-    registration."""
+               skipped_is_failure: bool = False, capture_warning: bool = True) -> int:
+    """Write the plan. Returns the number of failures. A registration that someone else made is skipped (not a
+    failure) unless ``skipped_is_failure`` is set, as for ``mcp install``, whose whole job is that registration.
+    Nothing that already exists is ever changed."""
     runner = runner or run_command
     journal = edits.load_journal()
     failures = 0
+    warned = False
     for resolved in plan.changes:
+        edit = resolved.edit
+        mine = ctx[edit.tool] if isinstance(ctx, dict) else ctx
+        if capture_warning and mine.capture_content and edit.kind == "telemetry" and not warned:
+            print(CAPTURE_WARNING, file=sys.stderr)
+            warned = True
         try:
             backup = edits.apply(resolved, journal)
         except (edits.EditRefused, OSError) as exc:
             failures += 1
-            out(f"  failed {resolved.edit.path}: {exc}")
+            out(f"  failed {edit.path}: {exc}")
             continue
         out(f"  wrote  {resolved.target}" + (f" (backup: {backup})" if backup else ""))
+        journal["targets"][target_key(edit.tool, edit.kind, str(resolved.target))] = _record(
+            edit.tool, edit.kind, str(resolved.target), mine, ops=edits.written_ops(resolved.applied),
+            hash=edits.content_hash(edit.format, edits.written_ops(resolved.applied), resolved.new_text))
     for command in plan.commands:
         code, output = runner(command.argv)
         if code != 0 and command.undo_hint and "already exists" in output:
+            # Someone else's entry: never touched, never printed (its args and env may hold credentials).
             scope, key = registration(command.argv)
             name = key[-1] if len(key) > 5 else (key[3] if len(key) > 3 else "")
-            ours = _journalled(journal, command.tool, command.argv)
-            if ours is not None:
-                # We registered it, so replacing it loses nothing of anyone else's.
-                out(f"  replace {mcp_payloads.shell(command.undo_hint)}")
-                if runner(command.undo_hint)[0] == 0:
-                    code, output = runner(command.argv)
-                    if code != 0:
-                        # Put back exactly what the journal says we wrote.
-                        if runner(list(ours["argv"]))[0] == 0:
-                            output = f"{output}; the previous registration was restored".strip("; ")
-                        else:
-                            output = (f"{output}; could not restore the previous registration, re-create it with: "
-                                      f"{mcp_payloads.shell(list(ours['argv']))}").strip("; ")
-            else:
-                # Someone else's entry: never touched, never printed (its args and env may hold credentials).
-                failures += 1 if skipped_is_failure else 0
-                out(f"  {'failed' if skipped_is_failure else 'skip  '} an MCP server named {name!r} is already "
-                    f"registered in {scope} scope and was not registered by briefcase, so it was left as it is; to "
-                    f"use briefcase-ai-mcp, run `{mcp_payloads.shell(command.undo_hint)}` and then "
-                    f"`{mcp_payloads.shell(command.argv)}`")
-                continue
+            failures += 1 if skipped_is_failure else 0
+            out(f"  {'failed' if skipped_is_failure else 'skip  '} an MCP server named {name!r} is already "
+                f"registered in {scope} scope and briefcase did not write it, so it was left as it is; to use "
+                f"briefcase-ai-mcp, run `{mcp_payloads.shell(command.undo_hint)}` and then "
+                f"`{mcp_payloads.shell(command.argv)}`")
+            continue
         if code != 0:
             failures += 1
             out(f"  failed {mcp_payloads.shell(command.argv)}: {output or f'exit {code}'}")
             continue
         out(f"  ran    {mcp_payloads.shell(command.argv)}")
-        journal["commands"] = [c for c in journal["commands"] if not _same_registration(c, command.tool,
-                                                                                        command.argv)]
-        journal["commands"].append({
-            "tool": command.tool, "argv": command.argv, "undo_hint": command.undo_hint, **identity(command.argv),
-            "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        })
-    touched = {r.edit.tool for r in plan.resolved if r.status in (CHANGE, NOOP)} | {
-        c.tool for c in plan.commands + plan.done_commands}
-    for resolved in plan.resolved:
-        if resolved.status not in (CHANGE, NOOP):
-            continue
-        edit, mine = resolved.edit, (ctx[resolved.edit.tool] if isinstance(ctx, dict) else ctx)
-        tkey = target_key(edit.tool, edit.kind, mine.scope, str(resolved.target))
-        journal.setdefault("targets", {})[tkey] = {
-            "tool": edit.tool, "kind": edit.kind, "scope": mine.scope, "target": str(resolved.target),
-            "endpoint": mine.endpoint, "capture_content": mine.capture_content,
-            "telemetry": edit.kind == "telemetry", "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        }
-    for name in touched:
-        mine = ctx[name] if isinstance(ctx, dict) else ctx
-        prior = journal["tools"].get(name) or {}
-        applied = mine.telemetry or not prior  # a telemetry-free run (mcp install) keeps what was recorded
-        journal["tools"][name] = {
-            "scope": mine.scope,
-            "endpoint": mine.endpoint if applied else prior.get("endpoint", mine.endpoint),
-            "capture_content": mine.capture_content if applied else prior.get("capture_content", False),
-            "telemetry": mine.telemetry or bool(prior.get("telemetry", False)),
-            "mcp": mine.mcp, "connected_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        }
+        mine = ctx[command.tool] if isinstance(ctx, dict) else ctx
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+        journal["commands"].append({"tool": command.tool, "argv": command.argv, "undo_hint": command.undo_hint,
+                                    **identity(command.argv), "at": stamp})
+        journal["targets"][target_key(command.tool, "mcp", command_target(command.argv))] = _record(
+            command.tool, "mcp", command_target(command.argv), mine, argv=command.argv,
+            undo_hint=command.undo_hint)
     edits.save_journal(journal)
     return failures
 
 
 def undo(tools: Optional[List[str]], out: Printer, dry_run: bool = False) -> int:
-    """Remove what connect wrote for ``tools`` (everything when ``None``).
+    """Remove what connect wrote for ``tools`` (everything when ``None``), but only where the file still holds
+    exactly what was written; what was changed since is left as it is and reported.
 
     Returns how many journalled files were visited."""
     journal = edits.load_journal()
@@ -268,11 +368,8 @@ def undo(tools: Optional[List[str]], out: Printer, dry_run: bool = False) -> int
             keep.append(command)
     if not dry_run:
         journal["commands"] = keep
-        for name in list(journal["tools"]):
-            if tools is None or name in tools:
-                del journal["tools"][name]
-        for key in [k for k, v in journal.get("targets", {}).items() if tools is None or v["tool"] in tools]:
-            del journal["targets"][key]  # an undone target must not lend its endpoint or capture to a new connect
+        for key in [k for k, v in journal["targets"].items() if tools is None or v["tool"] in tools]:
+            del journal["targets"][key]
         edits.save_journal(journal)
     return visited
 
@@ -288,12 +385,20 @@ def status(adapters: Optional[Dict[str, Adapter]] = None) -> List[Dict[str, Any]
         for path, entry in journal["files"].items():
             checks.extend(edits.check_entry(path, entry, name))
         commands = [c for c in journal["commands"] if c["tool"] == name]
-        connected = name in journal["tools"] or bool(checks or commands)
+        targets = [t for t in journal["targets"].values() if t["tool"] == name]
+        telemetry = [t for t in targets if t["kind"] == "telemetry"]
+        settings: Dict[str, Any] = {}
+        if targets:
+            settings = {"scope": targets[0]["scope"], "telemetry": bool(telemetry),
+                        "mcp": any(t["kind"] == "mcp" for t in targets),
+                        "capture_content": any(t.get("capture_content") for t in telemetry)}
+            if telemetry:
+                settings["endpoint"] = telemetry[0]["endpoint"]
         rows.append({
             "tool": name, "name": adapter.name, "mode": adapter.mode,
             "detected": detection.installed, "reasons": detection.reasons,
-            "connected": connected, "checks": checks, "commands": commands,
-            "settings": journal["tools"].get(name, {}),
+            "connected": bool(targets or checks or commands), "checks": checks, "commands": commands,
+            "settings": settings,
         })
     return rows
 
@@ -303,7 +408,11 @@ def doctor_checks(adapters: Optional[Dict[str, Adapter]] = None,
     """``(severity, label, detail)`` rows for ``briefcase-ai doctor --connect``."""
     adapters = adapters or registry()
     out: List[Tuple[str, str, str]] = []
-    rows = [row for row in status(adapters) if row["connected"]]
+    try:
+        rows = [row for row in status(adapters) if row["connected"]]
+    except edits.LegacyJournal as exc:
+        return [("fail", "connect", f"{exc.path} was written by an earlier build and is not read; remove what it "
+                 "recorded by hand, delete it and connect again (run `briefcase-ai connect` for the list)")]
     if not rows:
         return [("warn", "connect", "no tools connected yet; run: briefcase-ai connect")]
     endpoints = set()

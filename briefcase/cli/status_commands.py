@@ -94,11 +94,14 @@ def _split_checks(row: Dict[str, Any]):
 # --- built-in rows ------------------------------------------------------------
 
 def connect_rows() -> List[Dict[str, Any]]:
-    from briefcase.connect import engine
+    from briefcase.connect import edits, engine
     from briefcase.connect.adapters import registry
 
     adapters = registry()
-    rows = engine.status(adapters)
+    try:
+        rows = engine.status(adapters)
+    except edits.LegacyJournal:
+        return []
     for row in rows:
         row["needs_protobuf"] = bool(getattr(adapters[row["tool"]], "needs_protobuf", False))
     return rows

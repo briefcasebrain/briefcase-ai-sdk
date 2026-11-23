@@ -128,7 +128,7 @@ def _step(index: int, total: int, title: str, out: Callable[[str], Any]) -> None
 
 def _connect_args() -> Namespace:
     # The defaults of `briefcase-ai connect` with no flags.
-    return Namespace(tools=[], all=False, scope="user", endpoint=None, headers=[], mcp=True,
+    return Namespace(tools=[], all=False, scope=None, endpoint=None, headers=[], mcp=True,
                      capture_content=False, connect_dry_run=False, dry_run=False, undo=False,
                      yes=False, force=False, start=False, telemetry=True)
 

@@ -103,17 +103,22 @@ def test_off_keeps_the_users_own_settings_and_hooks(home, capsys):
     assert list(settings.parent.glob("settings.json.briefcase-bak-*")), "a backup is kept"
 
 
-def test_reinstall_with_fail_closed_replaces_our_entry_in_place(home, capsys, fake_bin):
+def test_reinstall_with_other_settings_changes_nothing_until_off(home, capsys, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
     assert init(tools=["claude-code"])[0] == 0
+    before, policy = files(home)["claude"].read_text(), (home / ".briefcase" / "policy.toml").read_text()
+    code, out = init(tools=["claude-code"], fail_closed=True, force=True)
+    assert code == 1 and "briefcase-ai policy off claude-code" in out
+    assert files(home)["claude"].read_text() == before  # the hook is not rewritten
+    assert (home / ".briefcase" / "policy.toml").read_text() == policy  # nor the policy replaced
+    assert not list((home / ".briefcase").glob("policy.toml.briefcase-bak-*"))
+    assert off(capsys)[0] == 0
+    assert not files(home)["claude"].exists()
     assert init(tools=["claude-code"], fail_closed=True, force=True)[0] == 0
     (entry,) = json.loads(files(home)["claude"].read_text())["hooks"]["PreToolUse"]
     handler = entry["hooks"][0]
     assert handler["onFailure"] == "block" and handler["command"].endswith("--enforce --fail-closed")
     assert "fail_closed = true" in (home / ".briefcase" / "policy.toml").read_text()
-    assert list((home / ".briefcase").glob("policy.toml.briefcase-bak-*")), "the replaced policy is backed up"
-    assert off(capsys)[0] == 0
-    assert not files(home)["claude"].exists()
 
 
 def test_fail_closed_field_is_left_out_for_claude_code_older_than_documented(home, fake_bin):
@@ -124,15 +129,16 @@ def test_fail_closed_field_is_left_out_for_claude_code_older_than_documented(hom
     assert "onFailure" not in handler and "older than 2.1.295" in out
 
 
-def test_off_removes_our_entry_even_after_it_was_edited(home, capsys):
+def test_off_leaves_an_entry_that_was_edited_after_install(home, capsys):
     assert init(tools=["claude-code"])[0] == 0
     settings = files(home)["claude"]
     doc = json.loads(settings.read_text())
     doc["hooks"]["PreToolUse"][0]["hooks"][0]["timeout"] = 30
     settings.write_text(json.dumps(doc))
+    edited = settings.read_text()
     code, out = off(capsys)
-    assert code == 0 and "had been edited" in out
-    assert not settings.exists()
+    assert code == 0 and "changed or removed after connect; left as it is" in out
+    assert settings.read_text() == edited
 
 
 def test_policy_off_leaves_connect_telemetry_and_connect_undo_removes_everything(home, capsys):

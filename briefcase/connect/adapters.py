@@ -36,6 +36,11 @@ def load_data() -> Dict[str, Any]:
     return json.loads(_DATA_FILE.read_text(encoding="utf-8"))
 
 
+class DefaultScope(str):
+    """The ``--scope`` default. It equals ``"user"``, and ``isinstance`` tells a scope that was typed from one
+    that was not, so a connected target is compared only against the settings the user named."""
+
+
 @dataclass
 class Context:
     scope: str = "user"
@@ -46,6 +51,11 @@ class Context:
     capture_content: bool = False
     force: bool = False
     project_dir: Path = field(default_factory=Path.cwd)
+    # The settings this invocation named on its command line (``scope``, ``endpoint``, ``headers``,
+    # ``capture_content``). A connected target is compared only against these; anything not named is "as it is".
+    given: Dict[str, Any] = field(default_factory=dict)
+    # Compare the whole content this invocation would write (for commands with no inherited settings).
+    strict: bool = False
 
 
 @dataclass

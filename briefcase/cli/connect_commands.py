@@ -13,13 +13,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from briefcase.connect import edits, engine
-from briefcase.connect.adapters import DEFAULT_ENDPOINT, Adapter, Context, registry, resolve_names
+from briefcase.connect.adapters import DEFAULT_ENDPOINT, Adapter, Context, DefaultScope, registry, resolve_names
 
-CAPTURE_WARNING = (
-    "warning: --capture-content turns on content export in the tools themselves. Prompts, tool "
-    "parameters and commands will leave the tool and reach the receiver. The receiver still "
-    "redacts them unless it is started with --keep-content."
-)
 RECEIVER_EXTRA = "pip install 'briefcase-ai[receiver]'"
 
 GROUP = "connect"
@@ -35,7 +30,7 @@ def register(sub) -> None:
     p.add_argument("tools", nargs="*", metavar="TOOL",
                    help="Tools to connect, or `list` / `status`. Default: every detected tool.")
     p.add_argument("--all", action="store_true", help="Every supported tool, detected or not.")
-    p.add_argument("--scope", choices=("user", "project"), default="user",
+    p.add_argument("--scope", choices=("user", "project"), default=DefaultScope("user"),
                    help="Write user-level config (default) or config in the current project.")
     p.add_argument("--endpoint", default=None, help=f"Receiver URL (default {DEFAULT_ENDPOINT}).")
     p.add_argument("--headers", action="append", default=[], metavar="K=V",
@@ -148,7 +143,10 @@ def run_undo(args, out=print) -> int:
         return 2
     dry = _dry_run(args)
     out("Undo plan:" if dry else "Undoing:")
-    visited = engine.undo(tools, out, dry_run=dry)
+    try:
+        visited = engine.undo(tools, out, dry_run=dry)
+    except edits.LegacyJournal as exc:
+        return _legacy(exc)
     if not visited:
         out("  nothing to undo (the journal has no entries" + (" for those tools)" if tools else ")"))
     elif not dry:
@@ -184,50 +182,40 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
             out("Name one explicitly (briefcase-ai connect claude-code) or see: briefcase-ai connect list")
             return 1
         out("Detected: " + ", ".join(adapters[name].name for name in tools))
-    journal = edits.load_journal()
-    explicit = bool(args.endpoint or headers or args.capture_content)
+    try:
+        journal = edits.load_journal()
+    except edits.LegacyJournal as exc:
+        return _legacy(exc)
     telemetry = getattr(args, "telemetry", True)
-    ctxs: Dict[str, Context] = {}
-    kept: List[Context] = []
-    for name in tools:
-        # Everything recorded about a tool is looked up by the exact target this invocation would write
-        # (scope and absolute file), never inherited from another project or file of the same tool.
-        known = _recorded_for_target(name, args.scope, adapters, journal)
-        ctx_for = Context(
-            scope=args.scope, headers=headers, mcp=args.mcp, force=getattr(args, "force", False),
-            project_dir=Path.cwd(),
-            endpoint=(args.endpoint or known.get("endpoint") or DEFAULT_ENDPOINT).rstrip("/"),
-            telemetry=telemetry,
-            capture_content=bool(args.capture_content or known.get("capture_content")),
-        )
-        # A connected target keeps its own destination, headers and capture setting unless one of those flags
-        # is given, but only when the file this scope and project writes already holds them.
-        if (known and known.get("telemetry") and not explicit and telemetry
-                and _telemetry_held(name, ctx_for, adapters, journal)):
-            ctx_for.telemetry = False
-            kept.append(ctx_for)
-        ctxs[name] = ctx_for
-    if kept:
-        out("Keeping the telemetry destination each tool already has: "
-            + ", ".join(f"{adapters[n].name} -> {c.endpoint}" for n, c in ctxs.items() if c in kept)
-            + " (pass --endpoint, --headers or --capture-content to change it)")
-    active = [c for c in ctxs.values() if c.telemetry]
-    local = [c for c in active + kept if c.endpoint == DEFAULT_ENDPOINT]
-    ctx = (local or active or list(ctxs.values()))[0]
-    if any(c.capture_content for c in ctxs.values()):
-        print(CAPTURE_WARNING, file=sys.stderr)
-    plan = engine.build_plan(tools, ctxs, adapters)
+    scope = getattr(args, "scope", None)
+    given: Dict[str, Any] = {}
+    if scope is not None and not isinstance(scope, DefaultScope):
+        given["scope"] = scope
+    if args.endpoint:
+        given["endpoint"] = args.endpoint.rstrip("/")
+    if headers:
+        given["headers"] = headers
+    if args.capture_content:
+        given["capture_content"] = True
+    ctxs = {name: Context(
+        scope=str(scope or "user"), headers=headers, mcp=args.mcp, force=getattr(args, "force", False),
+        project_dir=Path.cwd(), endpoint=(args.endpoint or DEFAULT_ENDPOINT).rstrip("/"), telemetry=telemetry,
+        capture_content=bool(args.capture_content), given=given) for name in tools}
+    plan = engine.build_plan(tools, ctxs, adapters, journal, runner=runner)
     engine.render_plan(plan, adapters, out)
     dry = _dry_run(args)
     # `mcp install` exists to register the server: an entry it may not touch is a failure for it (but only a
-    # skipped step for `connect`).
-    refused_mcp = mcp_only and any(r.status == edits.REFUSED and r.edit.kind == "mcp" for r in plan.resolved)
+    # skipped step for `connect`). Asking for other settings than a target was written with is a failure for both.
+    refused_mcp = mcp_only and (any(b.kind == "mcp" for b in plan.blocked) or any(
+        r.status == edits.REFUSED and r.edit.kind == "mcp" for r in plan.resolved))
+    blocked = 1 if (plan.differs or refused_mcp) else 0
 
     if not plan.has_work:
-        out("\nNothing to write: everything that can be set up automatically already is."
-            if any(r.status == edits.NOOP for r in plan.resolved) or plan.done_commands
-            else "\nNothing can be written automatically for these tools; follow the manual steps above.")
-        if refused_mcp and not dry:
+        if any(r.status == edits.NOOP for r in plan.resolved) or plan.done_commands:
+            out("\nNothing to write: everything that can be set up automatically is already connected.")
+        elif not plan.blocked:
+            out("\nNothing can be written automatically for these tools; follow the manual steps above.")
+        if blocked and not dry:
             return 1
     elif dry:
         out(f"\nDry run: {len(plan.changes)} file(s) would be written and {len(plan.commands)} "
@@ -244,7 +232,7 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
             out("Aborted; nothing was changed.")
             return 1
         failures = engine.apply_plan(plan, ctxs, out, runner=runner, skipped_is_failure=mcp_only)
-        failures += int(refused_mcp)
+        failures += blocked
         if failures:
             out(f"\n{failures} step(s) failed; the rest were applied. Run `briefcase-ai connect status`.")
         out("\nUndo any time with: briefcase-ai connect --undo")
@@ -253,51 +241,33 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
     if dry:
         return 0
 
-    if offer_receiver and (active or (local and getattr(args, "start", False))):
-        _receiver_step(plan, ctx, adapters, args, out, ask)
+    # The receiver the tools report to: what this run wrote, and with --start every telemetry tool it named.
+    reporting = {r.edit.tool for r in plan.changes if r.edit.kind == "telemetry"}
+    if getattr(args, "start", False):
+        reporting |= {name for name, c in ctxs.items() if c.telemetry}
+    endpoints = {_effective_endpoint(name, ctxs[name], journal) for name in sorted(reporting)}
+    if offer_receiver and endpoints:
+        _receiver_step(plan, DEFAULT_ENDPOINT if DEFAULT_ENDPOINT in endpoints else sorted(endpoints)[0],
+                       adapters, args, out, ask)
     return 0
 
 
-def _recorded_for_target(name: str, scope: str, adapters, journal: Dict[str, Any]) -> Dict[str, Any]:
-    """What the journal recorded for the telemetry target ``name`` would write at ``scope`` from here, or ``{}``."""
-    probe = Context(scope=scope, mcp=False, telemetry=True, project_dir=Path.cwd())
-    for resolved in engine.build_plan([name], probe, adapters, journal).resolved:
-        if resolved.edit.kind == "telemetry":
-            return journal.get("targets", {}).get(
-                engine.target_key(name, "telemetry", scope, str(resolved.target))) or {}
-    return {}
+def _legacy(exc: "edits.LegacyJournal") -> int:
+    print(f"error: {exc}", file=sys.stderr)
+    return 1
 
 
-def _telemetry_held(name: str, ctx: Context, adapters, journal: Dict[str, Any]) -> bool:
-    """Do the files that connecting ``name`` with ``ctx`` would write (for this scope and project) already hold
-    this tool's telemetry settings, as our journal recorded them?"""
-    import dataclasses
-
-    full = dataclasses.replace(ctx, telemetry=True, mcp=False)
-    plan = engine.build_plan([name], full, adapters, journal)
-    edits_planned = [r for r in plan.resolved if r.status != edits.REFUSED]
-    if not edits_planned:
-        return False
-    for resolved in edits_planned:
-        entry = journal["files"].get(str(resolved.target))
-        if not entry:
-            return False
-        ours = [op for op in entry["ops"] if op.get("tool") == name]
-        if not ours or not all(ok for ok, _ in edits.check_entry(str(resolved.target), entry, name)):
-            return False
-        edit = resolved.edit
-        if edit.format == "toml":
-            have = {t for op in ours for t in op.get("tables", [])}
-            if not set(edit.toml_tables) <= have:
-                return False
-        else:
-            have_paths = {tuple(op["path"]) for op in ours if "path" in op}
-            if not {tuple(op["path"]) for op in edit.ops} <= have_paths:
-                return False
-    return True
+def _effective_endpoint(name: str, ctx: Context, journal: Dict[str, Any]) -> str:
+    """Where ``name`` reports: the endpoint named on this command line, else the one its telemetry was written
+    with, else the default."""
+    if ctx.given.get("endpoint"):
+        return ctx.endpoint
+    recorded = [t["endpoint"] for t in journal["targets"].values()
+                if t["tool"] == name and t["kind"] == "telemetry"]
+    return recorded[0] if recorded else ctx.endpoint
 
 
-def _receiver_step(plan, ctx: Context, adapters, args, out, ask) -> None:
+def _receiver_step(plan, endpoint: str, adapters, args, out, ask) -> None:
     from briefcase.receiver import daemon, otlp
 
     needy = plan.needs_protobuf(adapters)
@@ -305,11 +275,11 @@ def _receiver_step(plan, ctx: Context, adapters, args, out, ask) -> None:
         out(f"\n{', '.join(needy)} send(s) OTLP as protobuf. To receive from them, run once:")
         out(f"  {RECEIVER_EXTRA}")
         out("(Claude Code is configured for http/json and Cursor uses hooks; both work without it.)")
-    if ctx.endpoint != DEFAULT_ENDPOINT:
-        out(f"\nTools now report to {ctx.endpoint}; make sure a receiver is listening there.")
+    if endpoint != DEFAULT_ENDPOINT:
+        out(f"\nTools now report to {endpoint}; make sure a receiver is listening there.")
         return
-    if daemon.probe(ctx.endpoint) is not None:
-        out(f"\nThe receiver is already running at {ctx.endpoint}.")
+    if daemon.probe(endpoint) is not None:
+        out(f"\nThe receiver is already running at {endpoint}.")
         return
     start = True if getattr(args, "start", False) else (
         None if args.yes else _confirm("Start the briefcase receiver in the background now?", False, ask=ask))
@@ -353,7 +323,8 @@ def _enforce_step(args) -> int:
     named = [name for name in resolve_names(args.tools) if name in install.TOOLS]
     print("\n== Policy ==")
     return policy_commands.run_init(Namespace(
-        tools=named, preset=getattr(args, "preset", None), scope=args.scope, fail_closed=False, portable=False,
+        tools=named, preset=getattr(args, "preset", None), scope=str(args.scope or "user"), fail_closed=False,
+        portable=False,
         capture_content=args.capture_content, endpoint=args.endpoint, force=getattr(args, "force", False),
         policy_dry_run=_dry_run(args), dry_run=False, yes=args.yes,
     ))

@@ -10,7 +10,7 @@ from __future__ import annotations
 import sys
 
 from briefcase.connect import mcp as payloads
-from briefcase.connect.adapters import registry, resolve_names, which
+from briefcase.connect.adapters import DefaultScope, registry, resolve_names, which
 
 LINK_TOOLS = ("cursor", "claude-code", "codex", "vscode-copilot")
 
@@ -46,7 +46,7 @@ def register(sub) -> None:
     msub = mcp.add_subparsers(dest="sub")
     install = msub.add_parser("install", help="Register briefcase-ai-mcp with detected (or named) tools.")
     install.add_argument("tools", nargs="*", help="Tools to set up (default: every detected tool).")
-    install.add_argument("--scope", choices=("user", "project"), default="user")
+    install.add_argument("--scope", choices=("user", "project"), default=DefaultScope("user"))
     install.add_argument("--dry-run", dest="connect_dry_run", action="store_true",
                          help="Show the plan and diff; write nothing.")
     install.add_argument("--yes", "-y", action="store_true", help="Do not ask for confirmation.")

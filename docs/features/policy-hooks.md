@@ -352,14 +352,14 @@ tools' settings is 10 s.
 | Nothing is ever blocked | `briefcase-ai policy status`. `OFF`: run `briefcase-ai policy init`. `ATTENTION ... failing open`: run `briefcase-ai policy check` and fix the line it names. `mode observe` in the status line: set `mode = "enforce"`. |
 | A command you expected to be denied is allowed | `briefcase-ai policy test -- <the command>` shows how it was read and which rule matched. Check "What each tool would do": some calls are not hooked in some tools. |
 | Everything is blocked with "fail_closed" | The policy is broken and `fail_closed = true`. `briefcase-ai policy check`, fix the line, or `briefcase-ai policy off`. |
-| Claude Code shows `PreToolUse:Bash hook error: ...` with `No such file or directory` or `can't open file` | The launcher moved (briefcase was reinstalled elsewhere or its virtualenv was deleted); `briefcase-ai policy status` says so. `briefcase-ai policy init` rewrites the hook. |
+| Claude Code shows `PreToolUse:Bash hook error: ...` with `No such file or directory` or `can't open file` | The launcher moved (briefcase was reinstalled elsewhere or its virtualenv was deleted); `briefcase-ai policy status` says so. Run `briefcase-ai policy off` and then `briefcase-ai policy init`; `init` does not rewrite a hook that is installed. |
 | An `ask` rule blocks in Codex or for Cursor file reads | Those cannot ask from a hook; `ask_fallback` (default `deny`) applies. Set `ask_fallback = "allow"` or make the rule `deny`/`allow`. |
 | Codex never runs the hook | Open `/hooks` in Codex and trust it; Codex skips new or changed hooks until you do. |
 | Cursor ignores the hook | Customize > Hooks and the Hooks output channel in Cursor; restart Cursor if `hooks.json` did not reload. |
 | `briefcase-ai policy check` says `no TOML parser on this Python` | Python 3.9 and 3.10 have no `tomllib`: `pip install tomli` in the environment briefcase runs from. Until then the hook fails open and says so. |
 | A project policy's `allow` has no effect | By design: a project policy can only restrict. `briefcase-ai policy check` lists it under "Ignored". |
 | Decisions never reach the receiver | `briefcase-ai receive --status`. The hook only reports when `--endpoint` was given or a receiver was started with `briefcase-ai receive`; `BRIEFCASE_POLICY_REPORT=0` turns reporting off. The local log is written either way. |
-| `briefcase-ai policy log` shows `#3f2a...` instead of commands | That is the keyed hash; reinstall with `briefcase-ai policy init --force --capture-content` to log the text. |
+| `briefcase-ai policy log` shows `#3f2a...` instead of commands | That is the keyed hash; run `briefcase-ai policy off`, then `briefcase-ai policy init --capture-content` to log the text. |
 
 ## How this was verified
 

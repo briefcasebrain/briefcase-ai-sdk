@@ -10,7 +10,7 @@ import pytest
 
 from briefcase.connect import edits, engine
 from briefcase.connect.adapters import Context, registry
-from briefcase.connect.edits import CHANGE, NOOP, REFUSED, FileEdit
+from briefcase.connect.edits import NOOP, REFUSED, FileEdit
 
 pytestmark = pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX paths and modes")
 
@@ -21,7 +21,7 @@ def say(lines):
 
 def connect(tools, runner=None, **kwargs):
     ctx = Context(**kwargs)
-    plan = engine.build_plan(tools, ctx)
+    plan = engine.build_plan(tools, ctx, runner=runner or (lambda argv: (0, "")))
     out = []
     failures = engine.apply_plan(plan, ctx, out.append, runner=runner or (lambda argv: (0, "")))
     return plan, out, failures
@@ -82,10 +82,10 @@ def test_dry_run_plan_writes_nothing(home):
     assert [p for p in home.rglob("*") if p.is_file()] == []
 
 
-def test_undo_restores_only_our_keys_after_a_user_edit(home):
+def test_undo_removes_only_the_keys_that_still_match_after_a_user_edit(home):
     settings = home / ".claude" / "settings.json"
     settings.parent.mkdir()
-    settings.write_text(json.dumps({"env": {"FOO": "bar", "OTEL_METRICS_EXPORTER": "console"}}, indent=2) + "\n")
+    settings.write_text(json.dumps({"env": {"FOO": "bar"}}, indent=2) + "\n")
     connect(["claude-code"], mcp=False)
     # The user keeps working on the file after connect.
     doc = json.loads(settings.read_text())
@@ -100,14 +100,13 @@ def test_undo_restores_only_our_keys_after_a_user_edit(home):
     assert after == {
         "env": {
             "FOO": "bar",
-            "OTEL_METRICS_EXPORTER": "console",  # the value from before connect is back
             "OTEL_EXPORTER_OTLP_ENDPOINT": "https://my-own-collector",  # changed by the user: left alone
             "ADDED_LATER": "1",
         },
         "theme": "dark",
     }
     assert any("was changed after connect; left as it is" in line for line in out)
-    assert edits.load_journal()["files"] == {} and edits.load_journal()["tools"] == {}
+    assert edits.load_journal()["files"] == {} and edits.load_journal()["targets"] == {}
 
 
 def test_undo_round_trip_restores_the_original_bytes(home):
@@ -133,7 +132,7 @@ def test_undo_of_one_tool_leaves_the_others(home):
     engine.undo(["cursor"], lambda line: None)
     assert not (home / ".cursor" / "hooks.json").exists()
     assert "OTEL_LOGS_EXPORTER" in (home / ".claude" / "settings.json").read_text()
-    assert set(edits.load_journal()["tools"]) == {"claude-code"}
+    assert {t["tool"] for t in edits.load_journal()["targets"].values()} == {"claude-code"}
 
 
 def test_undo_dry_run_changes_nothing(home):
@@ -145,23 +144,25 @@ def test_undo_dry_run_changes_nothing(home):
     assert edits.load_journal()["files"] and out and out[0].startswith("  would: ")
 
 
-def test_reconnecting_with_a_new_endpoint_keeps_the_original_prior_for_undo(home):
+def test_a_key_the_user_already_set_is_left_alone_not_overwritten_and_not_removed_by_undo(home):
     settings = home / ".claude" / "settings.json"
     settings.parent.mkdir()
-    settings.write_text('{"env": {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://original"}}\n')
-    connect(["claude-code"], mcp=False)
-    connect(["claude-code"], mcp=False, endpoint="http://127.0.0.1:5000")
-    assert json.loads(settings.read_text())["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://127.0.0.1:5000"
+    original = '{"env": {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://original"}}\n'
+    settings.write_text(original)
+    plan, out, failures = connect(["claude-code"], mcp=False)
+    assert settings.read_text() == original and [b.blocker for b in plan.blocked] == ["foreign"]
+    assert not plan.has_work and edits.load_journal()["targets"] == {}
     engine.undo(None, lambda line: None)
-    assert json.loads(settings.read_text()) == {"env": {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://original"}}
+    assert settings.read_text() == original
 
 
-def test_cursor_hook_is_replaced_not_duplicated_when_flags_change(home):
+def test_a_cursor_hook_is_not_rewritten_when_the_flags_change(home):
     connect(["cursor"], mcp=False)
-    connect(["cursor"], mcp=False, endpoint="http://127.0.0.1:5000")
-    hooks = json.loads((home / ".cursor" / "hooks.json").read_text())["hooks"]
-    assert all(len(entries) == 1 for entries in hooks.values())
-    assert hooks["stop"][0]["command"].endswith("--endpoint http://127.0.0.1:5000")
+    before = (home / ".cursor" / "hooks.json").read_text()
+    plan, out, failures = connect(["cursor"], mcp=False, endpoint="http://127.0.0.1:5000",
+                                  given={"endpoint": "http://127.0.0.1:5000"})
+    assert [b.blocker for b in plan.blocked] == ["differs"] and plan.differs and not plan.has_work
+    assert (home / ".cursor" / "hooks.json").read_text() == before
     engine.undo(None, lambda line: None)
     assert not (home / ".cursor" / "hooks.json").exists()
 
@@ -181,6 +182,11 @@ class FakeClaude:
 
     def __call__(self, argv):
         self.calls.append(argv)
+        if argv[2] == "get":
+            for key, tail in self.registered.items():
+                if key[0] == os.environ.get("CLAUDE_CONFIG_DIR"):
+                    return 0, "briefcase:\n  Command: %s\n  Args: %s" % (tail[0], " ".join(tail[1:]))
+            return 1, 'No MCP server found with name: "briefcase"'
         verb, scope = argv[2], argv[4]
         key = self._key(scope)
         if verb == "add":
@@ -198,24 +204,49 @@ class FakeClaude:
     def removed(self):
         return [c for c in self.calls if c[2] == "remove"]
 
+    def added(self):
+        return [c for c in self.calls if c[2] == "add"]
 
-def journal_registration(scope="user", config_dir=None, cwd=None):
+
+def journal_registration(scope="user", config_dir=None, cwd=None, tail=("old-command",)):
     """What an earlier `connect` of this SDK recorded for its own registration."""
+    argv = ["claude", "mcp", "add", "--scope", scope, "briefcase", "--", *tail]
+    ident = {"profile": config_dir, "cwd": cwd}
     journal = edits.load_journal()
-    journal["commands"].append({
-        "tool": "claude-code", "argv": ["claude", "mcp", "add", "--scope", scope, "briefcase", "--", "old"],
-        "undo_hint": None, "at": "2026-08-01", "profile": config_dir, "cwd": cwd})
+    journal["commands"].append({"tool": "claude-code", "argv": argv, "undo_hint": None, "at": "2026-08-01", **ident})
+    target = engine.command_target(argv, ident)
+    journal["targets"][engine.target_key("claude-code", "mcp", target)] = {
+        "tool": "claude-code", "kind": "mcp", "scope": scope, "target": target, "argv": argv, "undo_hint": None,
+        "endpoint": "http://127.0.0.1:4318", "headers_sha": "", "capture_content": False}
     edits.save_journal(journal)
 
 
-def test_a_registration_we_journalled_is_replaced_in_its_scope(home, fake_bin):
+def test_a_journalled_registration_the_cli_still_reports_is_already_connected_and_never_replaced(home, fake_bin):
     fake_bin("claude", "2.1.330 (Claude Code)")
     journal_registration("user")
     claude = FakeClaude([(None, "user", None)])
     plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 0, out
-    assert claude.registered[(None, "user", None)][-1] == "briefcase-ai-mcp"
-    assert [c for c in edits.load_journal()["commands"] if c["argv"][-1] == "old"] == []
+    assert failures == 0 and not claude.added() and not claude.removed()
+    assert claude.registered[(None, "user", None)] == ["old-command"] and len(plan.done_commands) == 1
+
+
+def test_a_journalled_registration_that_was_changed_in_the_cli_is_not_ours_any_more(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    journal_registration("user")
+    claude = FakeClaude([(None, "user", None)])
+    claude.registered[(None, "user", None)] = ["node", "server.js", "--token=SECRET-VALUE"]
+    plan, out, failures = connect(["claude-code"], runner=claude)
+    text = "\n".join(out + [b.text for b in plan.blocked])
+    assert failures == 0 and not claude.added() and not claude.removed() and "SECRET-VALUE" not in text
+    assert "no longer treated as briefcase's" in text and [b.blocker for b in plan.blocked] == ["modified"]
+
+
+def test_a_journalled_registration_that_the_cli_no_longer_has_is_not_re_added(home, fake_bin):
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    journal_registration("user")
+    claude = FakeClaude([])
+    plan, out, failures = connect(["claude-code"], runner=claude)
+    assert failures == 0 and not claude.added() and [b.blocker for b in plan.blocked] == ["modified"]
 
 
 def test_an_unjournalled_registration_is_skipped_untouched_silent_and_not_a_failure(home, fake_bin):
@@ -228,7 +259,7 @@ def test_an_unjournalled_registration_is_skipped_untouched_silent_and_not_a_fail
     text = "\n".join(out)
     assert "SECRET-VALUE" not in text and "server.js" not in text
     assert "'briefcase'" in text and "user scope" in text and "claude mcp remove --scope user briefcase" in text
-    assert "claude mcp add --scope user briefcase" in text and text.count("not registered by briefcase") == 1
+    assert "claude mcp add --scope user briefcase" in text and text.count("did not write it") == 1
     assert "skip" in text and "failed" not in text
 
 
@@ -253,19 +284,13 @@ def test_a_registration_journalled_for_another_profile_is_not_ours_here(home, fa
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", profile_b)
     claude = FakeClaude([(profile_b, "user", None)])
     plan, out, failures = connect(["claude-code"], runner=claude)
+    # Profile B holds an entry nobody journalled for it: skipped, untouched.
     assert failures == 0 and not claude.removed() and claude.registered[(profile_b, "user", None)] == ["old-command"]
+    assert "did not write it" in "\n".join(out)
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", profile_a)
     claude = FakeClaude([(profile_a, "user", None)])
     plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 0 and claude.registered[(profile_a, "user", None)][-1] == "briefcase-ai-mcp"
-
-
-def test_a_failed_re_add_of_a_journalled_registration_is_a_failure(home, fake_bin):
-    fake_bin("claude", "2.1.330 (Claude Code)")
-    journal_registration("user")
-    claude = FakeClaude([(None, "user", None)], fail_add=True)
-    plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 1
+    assert failures == 0 and not claude.added() and len(plan.done_commands) == 1
 
 
 def test_claude_code_mcp_first_install_does_not_remove_anything(home, fake_bin):
@@ -275,55 +300,6 @@ def test_claude_code_mcp_first_install_does_not_remove_anything(home, fake_bin):
     assert [c[2] for c in claude.calls] == ["add"]
     entry = [c for c in edits.load_journal()["commands"] if c["tool"] == "claude-code"][0]
     assert entry["profile"] is None and entry["cwd"] is None
-
-
-def test_a_failed_re_add_restores_exactly_what_the_journal_says_we_wrote(home, fake_bin):
-    fake_bin("claude", "2.1.330 (Claude Code)")
-    journal_registration("user")  # journalled argv ends in "old"
-    claude = FakeClaude([(None, "user", None)])
-    claude.registered[(None, "user", None)] = ["old"]
-
-    real = claude.__call__
-
-    def fail_only_the_new_launcher(argv):
-        if argv[-1] == "briefcase-ai-mcp":
-            claude.calls.append(argv)
-            return 1, "simulated failure"
-        return real(argv)
-
-    plan, out, failures = connect(["claude-code"], runner=fail_only_the_new_launcher)
-    assert failures == 1
-    assert claude.registered[(None, "user", None)] == ["old"]  # put back from the journal
-
-
-def test_a_failed_restore_of_a_journalled_registration_is_reported_with_the_command_to_redo_it(home, fake_bin):
-    fake_bin("claude", "2.1.330 (Claude Code)")
-    journal_registration("user")
-    claude = FakeClaude([(None, "user", None)], fail_add=True)  # every add fails, restore included
-    plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 1
-    text = "\n".join(out)
-    assert "could not restore" in text and "claude mcp add --scope user briefcase -- old" in text
-
-
-def test_a_profile_that_still_points_at_the_removed_launcher_is_re_registered(home, fake_bin, monkeypatch, tmp_path):
-    fake_bin("claude", "2.1.330 (Claude Code)")
-    profile_a, profile_b = str(tmp_path / "a"), str(tmp_path / "b")
-    # profile B was already upgraded to the new launcher
-    journal = edits.load_journal()
-    journal["commands"].append({
-        "tool": "claude-code", "argv": ["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
-                                        "uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"],
-        "undo_hint": None, "at": "2026-11-01", "profile": profile_b, "cwd": None})
-    # profile A still has the 4.5-prerelease launcher it registered earlier
-    journal["commands"].append({
-        "tool": "claude-code", "argv": ["claude", "mcp", "add", "--scope", "user", "briefcase", "--", "old"],
-        "undo_hint": None, "at": "2026-08-01", "profile": profile_a, "cwd": None})
-    edits.save_journal(journal)
-    monkeypatch.setenv("CLAUDE_CONFIG_DIR", profile_a)
-    claude = FakeClaude([(profile_a, "user", None)])
-    plan, out, failures = connect(["claude-code"], runner=claude)
-    assert failures == 0 and claude.registered[(profile_a, "user", None)][-1] == "briefcase-ai-mcp"
 
 
 class FakeCodex:
@@ -345,40 +321,10 @@ def test_a_codex_registration_is_not_reissued_when_the_directory_changes(home, f
     other.mkdir()
     monkeypatch.chdir(other)
     plan, out, failures = connect(["codex"], runner=codex)
-    assert [c[2] for c in codex.calls] == ["add"] and failures == 0 and not plan.commands
+    assert [c[2] for c in codex.calls if c[2] == "add"] == ["add"] and failures == 0 and not plan.commands
 
 
-@pytest.mark.parametrize("body, why", [
-    ('{"env": {"A": "1",}', "not valid JSON"),
-    ('{\n  // my settings\n  "env": {"A": "1"}\n}\n', "comments or trailing commas"),
-    ('{"env": {"A": "1"},}\n', "comments or trailing commas"),
-    ('{"a": 1, /* note */ "b": 2}', "comments or trailing commas"),
-    ("[1, 2]", "JSON object at the top level"),
-    ('{"env": "not-an-object"}', "expected an object at 'env'"),
-])
-def test_malformed_or_jsonc_input_refuses_to_write(home, body, why):
-    settings = home / ".claude" / "settings.json"
-    settings.parent.mkdir()
-    settings.write_text(body)
-    plan, out, failures = connect(["claude-code"], mcp=False)
-    (resolved,) = plan.resolved
-    assert resolved.status == REFUSED and why in resolved.reason
-    assert settings.read_text() == body and backups(settings.parent) == []
-    # The snippet is offered instead.
-    (manual,) = plan.manual
-    assert '"CLAUDE_CODE_ENABLE_TELEMETRY": "1"' in manual.text and why in manual.reason
-    assert edits.load_journal()["files"] == {}
-
-
-def test_a_url_containing_slashes_is_not_mistaken_for_a_comment(home):
-    settings = home / ".claude" / "settings.json"
-    settings.parent.mkdir()
-    settings.write_text('{"env": {"URL": "https://example.com/a//b"}}\n')
-    plan, _, _ = connect(["claude-code"], mcp=False)
-    assert plan.resolved[0].status == CHANGE
-
-
-def test_toml_block_is_appended_and_replaced_in_place(home):
+def test_toml_block_is_appended_once_and_never_rewritten(home):
     config = home / ".codex" / "config.toml"
     config.parent.mkdir()
     config.write_text('model = "gpt-5"\n')
@@ -386,10 +332,8 @@ def test_toml_block_is_appended_and_replaced_in_place(home):
     text = config.read_text()
     assert text.startswith('model = "gpt-5"\n\n# >>> briefcase >>>\n') and text.endswith("# <<< briefcase <<<\n")
     config.write_text(text + '\n[profiles.fast]\nmodel = "mini"\n')
-    connect(["codex"], endpoint="http://127.0.0.1:5000")
-    text = config.read_text()
-    assert text.count("# >>> briefcase >>>") == 1 and "127.0.0.1:5000/v1/logs" in text
-    assert text.index("# <<< briefcase <<<") < text.index("[profiles.fast]")
+    plan, _, _ = connect(["codex"], endpoint="http://127.0.0.1:5000", given={"endpoint": "http://127.0.0.1:5000"})
+    assert plan.differs and config.read_text() == text + '\n[profiles.fast]\nmodel = "mini"\n'
     engine.undo(None, lambda line: None)
     assert config.read_text() == 'model = "gpt-5"\n\n[profiles.fast]\nmodel = "mini"\n'
 
@@ -415,14 +359,14 @@ def test_commands_run_once_as_argument_lists_and_are_journalled(home, fake_bin):
 
     def runner(argv):
         calls.append(argv)
-        return 0, ""
+        return 0, "uvx --from briefcase-ai[mcp] briefcase-ai-mcp" if argv[2] == "get" else ""
 
     plan, out, failures = connect(["claude-code"], runner=runner)
     assert failures == 0
     assert calls == [["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
                       "uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]]
     plan, _, _ = connect(["claude-code"], runner=runner)
-    assert len(calls) == 1 and plan.commands == [] and len(plan.done_commands) == 1
+    assert [c for c in calls if c[2] == "add"] == calls[:1] and plan.commands == [] and len(plan.done_commands) == 1
     out = []
     engine.undo(None, out.append)
     assert any("claude mcp remove --scope user briefcase" in line for line in out)

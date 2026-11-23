@@ -2,7 +2,7 @@
 
 Nothing here rewrites a file wholesale. JSON files are parsed with the stdlib,
 only the named keys are changed, and unrelated keys keep their order. TOML
-files get one marker-delimited block that is appended or replaced in place.
+files get one marker-delimited block that is added once and never rewritten.
 Every write is preceded by a timestamped backup and recorded in a journal so
 ``--undo`` can restore exactly the keys that were set, even after the user has
 edited the file again.
@@ -21,7 +21,7 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 
 def _load_toml_module() -> Any:
@@ -38,7 +38,7 @@ _toml: Any = _load_toml_module()
 
 TOML_BEGIN = "# >>> briefcase >>>"
 TOML_END = "# <<< briefcase <<<"
-JOURNAL_VERSION = 1
+JOURNAL_VERSION = 2
 
 CHANGE, NOOP, REFUSED = "change", "noop", "refused"
 
@@ -84,10 +84,10 @@ class FileEdit:
 
     For ``format="json"``, ``ops`` is a list of ``{"op", "path", "value"}``
     dicts where ``op`` is ``set`` (assign), ``default`` (assign only when the
-    key is absent) or ``append`` (add ``value`` to a list unless present; an
-    ``owned_by`` substring replaces a stale item of ours instead of adding a
-    second one). For ``format="toml"``, ``toml_body`` is the text between the
-    markers and ``toml_tables`` the dotted table names it defines.
+    key is absent) or ``append`` (add ``value`` to a list unless present; the
+    ``owned_by`` substring marks an item as ours when looking for one already in the file).
+    For ``format="toml"``, ``toml_body`` is the text between the markers
+    and ``toml_tables`` the dotted table names it defines.
     """
 
     tool: str
@@ -98,8 +98,7 @@ class FileEdit:
     toml_body: str = ""
     toml_tables: Tuple[str, ...] = ()
     notes: List[str] = field(default_factory=list)
-    # What the edit is for: "telemetry" (also hooks that forward events) or "mcp". An "mcp" edit never overwrites
-    # an entry in the file that this SDK did not write.
+    # What the edit is for: "telemetry" (also hooks that forward events) or "mcp".
     kind: str = "telemetry"
 
 
@@ -136,6 +135,9 @@ class Resolved:
     existed: bool = False
     reason: str = ""
     warnings: List[str] = field(default_factory=list)
+    # Why this target is not written: "foreign" (present, not ours), "modified" (ours once, changed since),
+    # "differs" (ours and intact, but asked for other settings), or "" (nothing blocks it).
+    blocker: str = ""
 
 
 # --- path safety --------------------------------------------------------------
@@ -285,11 +287,8 @@ def _descend(doc: Dict[str, Any], keys: Sequence[str], create: bool,
     return node
 
 
-def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: str,
-                    owned: Optional[Set[Tuple[str, ...]]] = None) -> List[Dict[str, Any]]:
-    """Apply ``ops`` to ``doc`` in place; return journal entries for what changed. With ``owned`` (the key paths
-    this tool journalled in this file), a ``set`` over a different existing value at any other path is refused
-    without printing that value."""
+def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: str) -> List[Dict[str, Any]]:
+    """Apply ``ops`` to ``doc`` in place; return journal entries for what changed."""
     applied: List[Dict[str, Any]] = []
     for op in ops:
         kind, path, value = op["op"], list(op["path"]), op["value"]
@@ -298,18 +297,13 @@ def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: st
         assert parent is not None
         key = path[-1]
         if kind in ("set", "default"):
-            had = key in parent
-            if (owned is not None and kind == "set" and had and parent[key] != value
-                    and tuple(path) not in owned):
-                raise EditRefused(
-                    f"{'.'.join(path)!r} already holds an entry that briefcase did not write; it was left "
-                    "untouched (its contents are not shown)")
-            if had and (kind == "default" or parent[key] == value):
-                continue
-            entry = {
-                "op": "set", "tool": tool, "path": path, "value": value,
-                "had_prior": had, "prior": copy.deepcopy(parent.get(key)), "created": created,
-            }
+            if key in parent:
+                if kind == "default" or parent[key] == value:
+                    continue
+                raise EditRefused(f"{'.'.join(path)!r} already holds another value; it is never overwritten")
+            entry = {"op": "set", "tool": tool, "path": path, "value": value, "created": created}
+            if kind == "default":
+                entry["default"] = True
             parent[key] = copy.deepcopy(value)
             applied.append(entry)
         elif kind == "append":
@@ -322,19 +316,9 @@ def _apply_json_ops(doc: Dict[str, Any], ops: Sequence[Dict[str, Any]], tool: st
             if value in items:
                 continue
             entry = {"op": "append", "tool": tool, "path": path, "value": value, "created": created}
-            marker = op.get("owned_by")
-            stale = None
-            if marker:
-                entry["owned_by"] = marker
-                for index, item in enumerate(items):
-                    if marker in json.dumps(item):
-                        stale = index
-                        break
-            if stale is not None:
-                entry["replaced"] = copy.deepcopy(items[stale])
-                items[stale] = copy.deepcopy(value)
-            else:
-                items.append(copy.deepcopy(value))
+            if op.get("owned_by"):
+                entry["owned_by"] = op["owned_by"]
+            items.append(copy.deepcopy(value))
             applied.append(entry)
         else:  # pragma: no cover - programming error
             raise ValueError(f"unknown op {kind!r}")
@@ -374,33 +358,11 @@ def _toml_has_table(doc: Dict[str, Any], dotted: str) -> bool:
     return True
 
 
-_TABLE_HEADER = re.compile(r"^\[([^\]\n]+)\]\s*$", re.MULTILINE)
-
-
-def _kept_tables(old_block: str, replaced: Tuple[str, ...]) -> str:
-    """Tables of the existing managed block that this edit does not define (``[otel]`` when only the MCP
-    server is being registered), so a partial edit never drops settings an earlier connect wrote."""
-    inner = old_block.split("\n", 2)[2] if old_block.count("\n") >= 2 else ""
-    inner = inner.rsplit(TOML_END, 1)[0]
-    chunks = []
-    headers = list(_TABLE_HEADER.finditer(inner))
-    for index, header in enumerate(headers):
-        end = headers[index + 1].start() if index + 1 < len(headers) else len(inner)
-        if header.group(1).strip() not in replaced:
-            chunks.append(inner[header.start():end].strip("\n"))
-    return "\n\n".join(chunks)
-
-
 def _resolve_toml(edit: FileEdit, old: str) -> Tuple[str, str]:
     if _toml is None:
         raise EditRefused("no TOML parser is available on this Python (needs 3.11+ or `pip install tomli`)")
     match = _BLOCK_RE.search(old)
-    body = edit.toml_body
-    if match:
-        kept = _kept_tables(match.group(0), edit.toml_tables)
-        if kept:
-            body = body.rstrip() + "\n\n" + kept
-    block = toml_block(body)
+    block = toml_block(edit.toml_body)
     outside = old[:match.start()] + old[match.end():] if match else old
     try:
         parsed = _toml.loads(outside)
@@ -433,7 +395,7 @@ def snippet(edit: FileEdit) -> str:
     return json_snippet(edit.ops)
 
 
-def resolve(edit: FileEdit, journal: Optional[Dict[str, Any]] = None) -> Resolved:
+def resolve(edit: FileEdit) -> Resolved:
     """Evaluate ``edit`` against the current file without touching it."""
     try:
         target, warnings = _target_for(edit.path)
@@ -446,16 +408,13 @@ def resolve(edit: FileEdit, journal: Optional[Dict[str, Any]] = None) -> Resolve
             old = target.read_text(encoding="utf-8")
         if edit.format == "toml":
             new, block = _resolve_toml(edit, old)
-            applied = [{"op": "toml_block", "tool": edit.tool, "tables": list(edit.toml_tables)}]
+            applied = [{"op": "toml_block", "tool": edit.tool, "tables": list(edit.toml_tables),
+                        "hash": content_hash("toml", [], new)}]
             if new == old:
                 applied = []
         else:
             doc = _load_json(old, edit.path)
-            owned = None
-            if edit.kind == "mcp":
-                mine = ((journal or {}).get("files", {}).get(str(target)) or {}).get("ops", [])
-                owned = {tuple(o["path"]) for o in mine if o.get("tool") == edit.tool and "path" in o}
-            applied = _apply_json_ops(doc, edit.ops, edit.tool, owned)
+            applied = _apply_json_ops(doc, edit.ops, edit.tool)
             new = _dump_json(doc, old) if applied else old
     except EditRefused as exc:
         return Resolved(edit, REFUSED, target, old_text=old, existed=existed,
@@ -495,19 +454,49 @@ def render_diff(resolved: Resolved) -> str:
 
 # --- journal ------------------------------------------------------------------
 
+class LegacyJournal(RuntimeError):
+    """The journal was written by an earlier, unreleased build. Nothing in it is treated as owned."""
+
+    def __init__(self, path: Path, recorded: List[str]):
+        self.path, self.recorded = path, recorded
+        listing = "".join(f"\n  {item}" for item in recorded) or " (it lists no files)"
+        super().__init__(
+            f"{path} was written by an earlier build and is not read: nothing is changed. Remove by hand what "
+            f"that build wrote:{listing}\nthen delete {path} and run `briefcase-ai connect` again")
+
+
+def _recorded(data: Any) -> List[str]:
+    """What an earlier build's journal says it wrote: its files and its MCP registrations."""
+    import shlex
+
+    if not isinstance(data, dict):
+        return []
+    items = [str(path) for path in sorted(data.get("files") or {})]
+    for command in data.get("commands") or []:
+        try:
+            argv = command.get("undo_hint") or command.get("argv") or []
+            items.append("MCP registration, remove it with: " + shlex.join(str(a) for a in argv))
+        except AttributeError:
+            continue
+    return items
+
+
 def load_journal() -> Dict[str, Any]:
     path = journal_path()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(data, dict) and data.get("version") == JOURNAL_VERSION:
-            data.setdefault("files", {})
-            data.setdefault("commands", [])
-            data.setdefault("targets", {})
-            data.setdefault("tools", {})
-            return data
-    except (OSError, ValueError):
-        pass
-    return {"version": JOURNAL_VERSION, "files": {}, "commands": [], "tools": {}, "targets": {}}
+    except OSError:
+        data = None
+    except ValueError:
+        data = {}
+    if isinstance(data, dict) and data.get("version") == JOURNAL_VERSION:
+        data.setdefault("files", {})
+        data.setdefault("commands", [])
+        data.setdefault("targets", {})
+        return data
+    if data is not None:
+        raise LegacyJournal(path, _recorded(data))
+    return {"version": JOURNAL_VERSION, "files": {}, "commands": [], "targets": {}}
 
 
 def save_journal(journal: Dict[str, Any]) -> None:
@@ -516,45 +505,94 @@ def save_journal(journal: Dict[str, Any]) -> None:
     _atomic_write(path, json.dumps(journal, indent=2, ensure_ascii=False) + "\n", 0o600)
 
 
-def _op_key(op: Dict[str, Any]) -> str:
-    extra = json.dumps(op["value"], sort_keys=True) if op["op"] == "append" else ""
-    return json.dumps([op["op"], op.get("path"), extra])
-
-
 def _merge_ops(existing: List[Dict[str, Any]], applied: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Fold a new run's ops into the journal.
+    """Add a new run's ops to the journal. Nothing already journalled is ever rewritten: a target that is
+    present is left alone, so a new op never meets an old one for the same key."""
+    return list(existing) + list(applied)
 
-    When a key we already own is set again (say, a new endpoint), the journal
-    keeps the value from before the *first* connect as the prior, so undo
-    restores what the user had, not our own earlier value.
-    """
-    merged = list(existing)
-    for op in applied:
-        if op["op"] == "toml_block":
-            # An edit that defines only some tables (the MCP one) must not forget the others (otel).
-            tables = [t for o in merged if o["op"] == "toml_block" and o.get("tool") == op.get("tool")
-                      for t in o.get("tables", [])]
-            op = dict(op, tables=list(dict.fromkeys(tables + list(op.get("tables", [])))))
-            merged = [o for o in merged if o["op"] != "toml_block"] + [op]
+
+# --- what we wrote, as a hash --------------------------------------------------
+
+_ABSENT = object()
+
+
+def _sha(value: Any) -> str:
+    import hashlib
+
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _json_values(ops: Sequence[Dict[str, Any]], doc: Optional[Dict[str, Any]]) -> List[Any]:
+    out = []
+    for op in ops:
+        if op["op"] not in ("set", "append"):
             continue
-        if op["op"] == "append" and "replaced" in op:
-            stale = [o for o in merged if o["op"] == "append" and o.get("path") == op["path"]
-                     and o["value"] == op["replaced"]]
-            merged = [o for o in merged if o not in stale]
-            op = {k: v for k, v in op.items() if k != "replaced"}
-            # The containers the replaced entry created are still ours to prune.
-            op["created"] = [c for o in stale for c in o.get("created", [])] + op.get("created", [])
-        for index, old in enumerate(merged):
-            if old["op"] == op["op"] and _op_key(old) == _op_key(op):
-                if op["op"] == "set":
-                    op = dict(op, had_prior=old["had_prior"], prior=old["prior"])
-                op = dict(op, created=old.get("created", []) + [
-                    c for c in op.get("created", []) if c not in old.get("created", [])])
-                merged[index] = op
-                break
+        path = list(op["path"])
+        parent = _descend(doc, path[:-1], create=False) if doc is not None else None
+        current = parent.get(path[-1], _ABSENT) if parent is not None else _ABSENT
+        if op["op"] == "append":
+            present = isinstance(current, list) and op["value"] in current
+            out.append([path, op["value"] if present else None])
         else:
-            merged.append(op)
-    return merged
+            out.append([path, None if current is _ABSENT else current])
+    return out
+
+
+def content_hash(fmt: str, ops: Sequence[Dict[str, Any]], text: Optional[str]) -> Optional[str]:
+    """A hash of exactly what was written, as ``text`` holds it now: the managed block for TOML, the values at
+    ``ops``' key paths for JSON. ``None`` when the block or every key is absent."""
+    if text is None:
+        return None
+    if fmt == "toml":
+        match = _BLOCK_RE.search(text)
+        return _sha(match.group(0)) if match else None
+    try:
+        doc: Optional[Dict[str, Any]] = _load_json(text, Path("(target)")) if text.strip() else {}
+    except EditRefused:
+        doc = None
+    values = _json_values(ops, doc)
+    return _sha(values) if any(v[1] is not None for v in values) else None
+
+
+def written_ops(applied: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The key paths and values a write set, for :func:`content_hash` to check later."""
+    return [{"op": o["op"], "path": o["path"], "value": o["value"]} for o in applied
+            if o["op"] in ("set", "append") and not o.get("default")]
+
+
+def same_content(edit: FileEdit, rec: Dict[str, Any]) -> bool:
+    """Is what ``edit`` would write the same as what the record says was written? (A ``default`` key is in
+    neither: it is only ever set when absent.)"""
+    if edit.format == "toml":
+        return _sha(toml_block(edit.toml_body)) == rec.get("hash")
+    wanted = sorted(_sha([list(op["path"]), op["value"]]) for op in edit.ops if op["op"] in ("set", "append"))
+    wrote = sorted(_sha([list(op["path"]), op["value"]]) for op in rec.get("ops", []))
+    return wanted == wrote
+
+
+def holds_any(edit: FileEdit, text: Optional[str]) -> bool:
+    """Does the file already hold something at the places ``edit`` would write (whoever wrote it)?"""
+    if not text:
+        return False
+    if edit.format == "toml":
+        return bool(_BLOCK_RE.search(text))
+    try:
+        doc = _load_json(text, Path("(target)"))
+    except EditRefused:
+        return False
+    for op in edit.ops:
+        if op["op"] not in ("set", "append"):
+            continue
+        parent = _descend(doc, list(op["path"])[:-1], create=False)
+        if parent is None or op["path"][-1] not in parent:
+            continue
+        if op["op"] == "set":
+            return True
+        marker = op.get("owned_by") or ""
+        items = parent[op["path"][-1]]
+        if isinstance(items, list) and any(op["value"] == i or (marker and marker in json.dumps(i)) for i in items):
+            return True
+    return False
 
 
 # --- write --------------------------------------------------------------------
@@ -641,14 +679,6 @@ def check_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None) ->
         return [(False, f"{path}: file is gone")]
     if entry["format"] == "toml":
         results.append((bool(_BLOCK_RE.search(text)), f"{path}: briefcase block"))
-        tables = [t for o in ops if o["op"] == "toml_block" for t in o.get("tables", [])]
-        if tables and _toml is not None:
-            try:
-                parsed = _toml.loads(text)
-            except Exception:
-                parsed = None
-            for table in tables:
-                results.append((parsed is not None and _toml_has_table(parsed, table), f"{path}: [{table}]"))
         return results
     try:
         doc = _load_json(text, Path(path))
@@ -687,20 +717,27 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
     if entry["format"] == "toml":
         new = old
         match = _BLOCK_RE.search(old)
-        if match:
+        recorded = next((o.get("hash") for o in mine if o["op"] == "toml_block"), None)
+        if match and recorded and _sha(match.group(0)) != recorded:
+            messages.append(f"{path}: the briefcase block was changed after connect; left as it is")
+        elif match:
             # Also take back the blank line that was inserted ahead of the block.
             start = match.start() - 1 if old[:match.start()].endswith("\n\n") else match.start()
             new = old[:start] + old[match.end():]
         if not new.strip():
             new = ""
-        messages.append(f"{path}: removed the briefcase block" if new != old
-                        else f"{path}: briefcase block already removed")
+        if match and new == old:
+            pass
+        else:
+            messages.append(f"{path}: removed the briefcase block" if new != old
+                            else f"{path}: briefcase block already removed")
     else:
         try:
             doc = _load_json(old, target)
         except EditRefused as exc:
             return [f"{exc}; nothing was changed. Remove the briefcase keys by hand."], False
         created: List[List[str]] = []
+        untouched = copy.deepcopy(doc)
         for op in reversed(mine):
             dotted = ".".join(op["path"])
             created.extend(op.get("created", []))
@@ -711,24 +748,15 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
                 continue
             if op["op"] == "append":
                 items = parent[key] if isinstance(parent[key], list) else []
-                edited = [item for item in items
-                          if op.get("owned_by") and op["owned_by"] in json.dumps(item) and item != op["value"]]
                 if op["value"] in items:
                     items.remove(op["value"])
                     messages.append(f"{path}: removed our entry from {dotted}")
-                elif edited:
-                    # Ours by its marker (e.g. the hook command), edited after it was written.
-                    items.remove(edited[0])
-                    messages.append(f"{path}: removed our entry from {dotted} (it had been edited since)")
                 else:
-                    messages.append(f"{path}: our entry in {dotted} already removed")
+                    messages.append(f"{path}: our entry in {dotted} was changed or removed after connect; "
+                                    "left as it is")
             elif parent[key] == op["value"]:
-                if op.get("had_prior"):
-                    parent[key] = op["prior"]
-                    messages.append(f"{path}: restored {dotted}")
-                else:
-                    del parent[key]
-                    messages.append(f"{path}: removed {dotted}")
+                del parent[key]
+                messages.append(f"{path}: removed {dotted}")
             else:
                 messages.append(f"{path}: {dotted} was changed after connect; left as it is")
         # Containers created for this owner may still hold another owner's entries; remember
@@ -740,7 +768,7 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
             parent = _descend(doc, item[:-1], create=False)
             if parent is not None and item[-1] in parent and list(item) not in pending:
                 pending.append(list(item))
-        new = _dump_json(doc, old) if doc else ""
+        new = old if doc == untouched else (_dump_json(doc, old) if doc else "")
     if not dry_run:
         if new == old:
             pass
