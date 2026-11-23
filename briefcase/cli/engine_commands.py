@@ -858,6 +858,37 @@ def cmd_doctor(args, store, engine, stack) -> int:
 # --------------------------------------------------------------------------- uninstall
 
 
+def _remove_install(record: Dict[str, Any], purge: bool, images: List[str], version_dir: Path) -> None:
+    """Take the install down and out of installed.json (and, with ``purge``, delete the secrets file)."""
+    from briefcase import engine as _engine
+    from briefcase.engine import install as _install_mod
+
+    if record.get("compose"):
+        _run(_compose(record, "down", *(["-v"] if purge else [])))
+    docker = _install_mod.Docker(_runner())
+    for ref in images:
+        docker.remove_image(ref)
+    if version_dir.name == record["version"]:
+        shutil.rmtree(version_dir, ignore_errors=True)
+    state = _engine.load_state()
+    state.get("installs", {}).pop(record["version"], None)
+    remaining = sorted(state.get("installs", {}))
+    state["current"] = remaining[-1] if remaining else None
+    if purge:
+        for path in (_engine.secrets_path(), _engine.engine_dir() / "tls"):
+            if path.is_dir():
+                shutil.rmtree(path, ignore_errors=True)
+            elif path.exists():
+                path.unlink()
+    if state.get("installs"):
+        _install_mod.save_state(state)
+    else:
+        try:
+            _engine.installed_path().unlink()
+        except FileNotFoundError:
+            pass
+
+
 def cmd_uninstall(args, store, engine, stack) -> int:
     from briefcase import engine as _engine
     from briefcase.engine import install as _install_mod
@@ -885,30 +916,8 @@ def cmd_uninstall(args, store, engine, stack) -> int:
     if not answer:
         return _ux.fail("not uninstalling without confirmation", fix="briefcase-ai engine uninstall --yes",
                         code=2 if answer is None else 1)
-    if record.get("compose"):
-        _run(_compose(record, "down", *(["-v"] if purge else [])))
-    docker = _install_mod.Docker(_runner())
-    for ref in images:
-        docker.remove_image(ref)
-    if version_dir.name == record["version"]:
-        shutil.rmtree(version_dir, ignore_errors=True)
-    state = _engine.load_state()
-    state.get("installs", {}).pop(record["version"], None)
-    remaining = sorted(state.get("installs", {}))
-    state["current"] = remaining[-1] if remaining else None
-    if purge:
-        for path in (_engine.secrets_path(), _engine.engine_dir() / "tls"):
-            if path.is_dir():
-                shutil.rmtree(path, ignore_errors=True)
-            elif path.exists():
-                path.unlink()
-    if state.get("installs"):
-        _install_mod.save_state(state)
-    else:
-        try:
-            _engine.installed_path().unlink()
-        except FileNotFoundError:
-            pass
+    with _install_mod.engine_lock():  # installed.json and engine.env are shared with every install
+        _remove_install(record, purge, images, version_dir)
     print(f"engine {record['version']} removed.")
     _ux.print_next("briefcase-ai engine install", "to install it again")
     return 0

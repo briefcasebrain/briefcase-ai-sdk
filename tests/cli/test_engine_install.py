@@ -622,6 +622,74 @@ def test_installs_of_different_releases_never_overlap_at_the_shared_state_and_ke
     assert set(state["installs"]) == {VERSION, "0.5.0"}  # neither record was lost
 
 
+def test_uninstall_and_install_never_overlap_at_the_shared_state(env, offline, monkeypatch, key, tmp_path):
+    """Uninstall rewrites installed.json and the secrets file, so it takes the same lock as an install: both are
+    held for 0.5 s inside their shared-state section and at most one process may be in it."""
+    import multiprocessing
+    import time
+
+    from briefcase.cli import engine_commands
+
+    if "fork" not in multiprocessing.get_all_start_methods():
+        pytest.skip("needs fork")
+    assert _install(*_offline_args(offline)) == 0  # 0.4.0 is installed and will be removed
+    second = build_release(key, version="0.5.0").write(tmp_path / "downloads-0.5.0")
+    ctx = multiprocessing.get_context("fork")
+    inside, peak, results = ctx.Value("i", 0), ctx.Value("i", 0), ctx.Queue()
+
+    def enter():
+        with inside.get_lock():
+            inside.value += 1
+            peak.value = max(peak.value, inside.value)
+        time.sleep(0.5)
+
+    def leave():
+        with inside.get_lock():
+            inside.value -= 1
+
+    real_save, real_finish, real_remove = install._save_manifest, install._finish, engine_commands._remove_install
+
+    def slow_save(*args, **kwargs):
+        enter()
+        return real_save(*args, **kwargs)
+
+    def finish(*args, **kwargs):
+        try:
+            return real_finish(*args, **kwargs)
+        finally:
+            leave()
+
+    def remove(*args, **kwargs):
+        enter()
+        try:
+            return real_remove(*args, **kwargs)
+        finally:
+            leave()
+
+    monkeypatch.setattr(install, "_save_manifest", slow_save)
+    monkeypatch.setattr(install, "_finish", finish)
+    monkeypatch.setattr(engine_commands, "_remove_install", remove)
+
+    def installer():
+        results.put(_install("--bundle", str(second / "engine-images-0.5.0-x86_64.tar"),
+                             "--manifest", str(second / "engine-manifest.json")))
+
+    def remover():
+        time.sleep(0.1)
+        results.put(main(["engine", "uninstall", "--yes"]))
+
+    procs = [ctx.Process(target=installer), ctx.Process(target=remover)]
+    for proc in procs:
+        proc.start()
+    for proc in procs:
+        proc.join(120)
+        assert proc.exitcode == 0
+    assert sorted(results.get(timeout=5) for _ in procs) == [0, 0]
+    assert peak.value == 1, "an install and an uninstall were inside the shared-state section at once"
+    state = json.loads(_engine.installed_path().read_text())
+    assert set(state["installs"]) == {"0.5.0"}  # the install record survived and the removed one is gone
+
+
 def test_two_concurrent_offline_installs_of_one_release_both_end_verified(env, offline, monkeypatch):
     import multiprocessing
 
