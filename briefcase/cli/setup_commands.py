@@ -332,6 +332,7 @@ def front_door(help_text: str, modules: Optional[List[_discovery.CommandModule]]
     """``briefcase`` with no arguments: the guide on a first interactive run, otherwise the
     command list followed by the status screen, so the last line is the ``Next:`` suggestion.
     Always exits 0 when it does not prompt."""
+    _ux.print_banner(out)
     if _ux.is_interactive() and setup_state() is None:
         return run_setup(modules, out)
     out(help_text.rstrip("\n"))
@@ -347,4 +348,5 @@ def cmd_setup(args, store=None, engine=None, stack=None) -> int:
         print()
         status_commands.print_status()
         return 0
+    _ux.print_banner()
     return run_setup()

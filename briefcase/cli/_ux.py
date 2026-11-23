@@ -85,6 +85,25 @@ def is_tty(stream: Any = None) -> bool:
         return False
 
 
+PRODUCT = "Briefcase AI"
+TAGLINE = ("Compliance monitoring, auditing, and evaluating third-party artificial intelligence "
+           "systems and models.")
+
+
+def banner_text() -> str:
+    """The introductory two lines: the product name with its version, then what it is for."""
+    from briefcase import __version__
+
+    return f"{PRODUCT} {__version__}\n{TAGLINE}"
+
+
+def print_banner(out: Any = print) -> None:
+    """Print the banner when stdout is a terminal, so piped and parsed output stays clean."""
+    if is_tty(sys.stdout):
+        out(banner_text())
+        out("")
+
+
 def is_interactive() -> bool:
     """A person is at the keyboard and has not asked for a prompt-free run."""
     if _no_input or _truthy(os.environ.get(ENV_NO_INPUT)):

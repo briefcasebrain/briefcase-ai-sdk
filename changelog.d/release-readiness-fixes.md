@@ -1,5 +1,5 @@
 ### Added
-- `briefcase --version` prints the installed package version.
+- `briefcase --version` prints `Briefcase AI <version>`. On a terminal, `briefcase`, `briefcase setup` and `briefcase --help` open with a `Briefcase AI <version>` banner and a one-line description; nothing is printed to pipes or in `--json` output.
 
 ### Fixed
 - `briefcase exec` accepts `BRIEFCASE_EXPORTER=chain:PATH.db` and `--to chain:PATH.db`, the tamper-evident store that `briefcase.observe()` and `briefcase status` already name.

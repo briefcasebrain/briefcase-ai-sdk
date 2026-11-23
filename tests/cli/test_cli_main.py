@@ -28,15 +28,6 @@ def test_help_exits_zero():
     assert e.value.code == 0
 
 
-def test_version_flag_prints_the_package_version(capsys):
-    import briefcase
-
-    with pytest.raises(SystemExit) as e:
-        main(["--version"])
-    assert e.value.code == 0
-    assert capsys.readouterr().out.strip() == f"briefcase {briefcase.__version__}"
-
-
 def test_main_dry_run_end_to_end(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("BRIEFCASE_HOME", str(tmp_path))
     # Pin the subprocess engine: this asserts the resolved *oci-jj argv* is printed, which is the
@@ -58,3 +49,60 @@ def test_main_no_command_prints_the_command_list_and_status(shell_home, capsys):
     assert main([]) == 0
     out = capsys.readouterr().out
     assert "Start here:" in out and "briefcase status" in out
+
+
+TAGLINE = ("Compliance monitoring, auditing, and evaluating third-party artificial intelligence "
+           "systems and models.")
+
+
+def _tty(monkeypatch):
+    from briefcase.cli import _ux
+
+    monkeypatch.setattr(_ux, "is_tty", lambda stream=None: True)
+
+
+def test_version_names_the_mark(capsys):
+    import briefcase
+
+    with pytest.raises(SystemExit):
+        main(["--version"])
+    assert capsys.readouterr().out.strip() == f"Briefcase AI {briefcase.__version__}"
+
+
+def test_bare_briefcase_opens_with_the_banner_on_a_terminal(tmp_path, monkeypatch, capsys):
+    import briefcase
+
+    monkeypatch.setenv("BRIEFCASE_HOME", str(tmp_path))
+    _tty(monkeypatch)
+    assert main(["--no-input"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:2] == [f"Briefcase AI {briefcase.__version__}", TAGLINE]
+
+
+def test_help_opens_with_the_banner_on_a_terminal(monkeypatch, capsys):
+    import briefcase
+
+    _tty(monkeypatch)
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    assert capsys.readouterr().out.splitlines()[:2] == [f"Briefcase AI {briefcase.__version__}", TAGLINE]
+
+
+def test_no_banner_when_output_is_not_a_terminal(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("BRIEFCASE_HOME", str(tmp_path))
+    assert main(["--no-input"]) == 0
+    assert "Briefcase AI" not in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    assert "Briefcase AI" not in capsys.readouterr().out
+
+
+def test_parsed_output_never_carries_the_banner_even_on_a_terminal(tmp_path, monkeypatch, capsys):
+    import json
+
+    monkeypatch.setenv("BRIEFCASE_HOME", str(tmp_path))
+    _tty(monkeypatch)
+    assert main(["status", "--json"]) == 0
+    assert isinstance(json.loads(capsys.readouterr().out), dict)
+    assert main(["features", "--json"]) == 0
+    json.loads(capsys.readouterr().out)

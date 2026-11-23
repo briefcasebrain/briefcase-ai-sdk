@@ -90,7 +90,9 @@ class _GroupedParser(argparse.ArgumentParser):
         options.start_section("Global options")
         options.add_arguments([action for action in self._actions if action.option_strings])
         options.end_section()
+        banner = [_ux.banner_text(), ""] if _ux.is_tty(sys.stdout) else []
         return "\n".join([
+            *banner,
             formatter.format_help().rstrip("\n"),
             "",
             self.format_commands(),
@@ -107,7 +109,7 @@ def build_parser() -> _GroupedParser:
     from briefcase import __version__
 
     parser = _GroupedParser(prog="briefcase", description=DESCRIPTION)
-    parser.add_argument("--version", action="version", version=f"briefcase {__version__}")
+    parser.add_argument("--version", action="version", version=f"{_ux.PRODUCT} {__version__}")
     parser.add_argument("--server", help="oci-jj-server gRPC endpoint (default $OCI_JJ_SERVER).")
     parser.add_argument("--repo", help="oci-jj repository / image family (default $OCI_JJ_REPO).")
     parser.add_argument(
