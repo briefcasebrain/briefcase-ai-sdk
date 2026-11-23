@@ -26,3 +26,4 @@ df0ac74d0ef6b9a053ff15615d9b56fd6bf84145:tests/guardrails/test_content_detectors
 df0ac74d0ef6b9a053ff15615d9b56fd6bf84145:tests/guardrails/test_content_detectors.py:stripe-access-token:54
 adb196de4ca3a1741646db6fb959af41d0033bd0:.gitleaksignore:aws-access-token:13
 3df79ec72714384a17faf6c5e2c27bf116fa2a4f:tests/test_lakefs_client.py:generic-api-key:1
+fc50a4aa7055f6aad6a5c775dc8ce79ada33a597:js/auto/test/helpers.ts:generic-api-key:16
