@@ -3,7 +3,7 @@
      `briefcase features --markdown > docs/features/catalog.md`. -->
 # Feature catalog
 
-44 features · 5 groups. The same list, with
+45 features · 5 groups. The same list, with
 whether each feature is on for you, is in your terminal: `briefcase features`.
 
 ## Connect (10)
@@ -45,7 +45,7 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Policy for coding tools](../../docs/features/policy-hooks.md) | Allow, ask or deny what Claude Code, Cursor and Codex may run. | `briefcase policy init` | experimental |
 | [Spending budgets for LLM calls](../../docs/features/budgets.md) | Hard and soft spend limits per app, model or tenant, checked before each call. | `briefcase budget set daily --usd 20` | experimental |
 
-## Verify (9)
+## Verify (10)
 
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
@@ -55,6 +55,7 @@ whether each feature is on for you, is in your terminal: `briefcase features`.
 | [Decision replay](../../briefcase/replay/__init__.py) | Re-run a recorded decision and see whether the output still matches. | `briefcase features replay` | experimental |
 | [Evidence bundles and briefcase verify](../../docs/features/audit-bundle.md) | Hand an auditor one file that proves which decisions were recorded, unaltered. | `briefcase bundle create --from evidence.db --out evidence-bundle.zip` | experimental |
 | [Examiner bundle](../../briefcase/compliance/__init__.py) | Package a decision, its evidence and its policy version for an auditor. | `briefcase features compliance-bundle` | experimental |
+| [Provider API contract checks](../../docs/features/provider-contracts.md) | Provider capture, replay and budgets checked against published API specs. | `briefcase features provider-contracts` | experimental |
 | [Replay recorded LLM calls](../../docs/features/replay-recorded.md) | Re-run captured LLM calls and see what changed in answers, tokens and cost. | `briefcase replay explain runs.jsonl` | experimental |
 | [Tamper-evident decision store](../../docs/features/chained-store.md) | Records that cannot be edited, reordered or deleted without detection. | `briefcase verify evidence.db` | experimental |
 | [Tamper-evident hash chain](../../llms-full.txt) | Prove that stored records were not altered, removed or reordered. | `briefcase features integrity-chain` | experimental |

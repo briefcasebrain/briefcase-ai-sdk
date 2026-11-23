@@ -10,6 +10,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from briefcase.auto import auto, undo, _PATCHES
+from briefcase.auto import status as auto_status
 
 
 # Fixture: keep _PATCHES empty and patches reverted around every test
@@ -356,7 +357,7 @@ class TestAutoPageIndex:
         mock_pi.PageIndexClient = FakeClient
         mocker.patch.dict("sys.modules", {"pageindex": mock_pi})
 
-        tracer = auto("pageindex", async_capture=False)
+        tracer = auto("pageindex", async_capture=False, capture_content="full")
         assert FakeClient.chat_completions is not original
 
         client = FakeClient("a")
@@ -373,6 +374,39 @@ class TestAutoPageIndex:
 
         undo("pageindex")
         assert FakeClient.chat_completions is original
+
+    def test_pageindex_records_no_content_by_default(self, mocker, monkeypatch):
+        """Like the providers and ``briefcase exec``, a framework installed by
+        auto() records no prompt or completion content unless asked."""
+        monkeypatch.delenv("BRIEFCASE_CAPTURE_CONTENT", raising=False)
+
+        class FakeClient:
+            def chat_completions(self, messages, doc_id=None, **kw):
+                return {"choices": [{"message": {"content": "secret answer"}}]}
+
+            def get_tree(self, doc_id):
+                return {"tree": {"title": "secret title", "nodes": []}}
+
+        mock_pi = MagicMock()
+        mock_pi.PageIndexClient = FakeClient
+        mocker.patch.dict("sys.modules", {"pageindex": mock_pi})
+
+        tracer = auto("pageindex", async_capture=False)
+        FakeClient().chat_completions(
+            messages=[{"role": "user", "content": "secret question"}], doc_id="d1")
+        record = tracer.get_records()[0]
+        assert record["inputs"] == {} and record["outputs"] == {}
+        assert "secret" not in repr(record)
+        assert auto_status()["integrations"]["pageindex"]["capture_content"] == "none"
+        undo("pageindex")
+
+        monkeypatch.setenv("BRIEFCASE_CAPTURE_CONTENT", "full")
+        tracer = auto("pageindex", async_capture=False)
+        FakeClient().chat_completions(
+            messages=[{"role": "user", "content": "secret question"}], doc_id="d1")
+        assert tracer.get_records()[0]["outputs"] == {"content": "secret answer"}
+        assert auto_status()["integrations"]["pageindex"]["capture_content"] == "full"
+        undo("pageindex")
 
     def test_pageindex_concurrent_clients_do_not_cross(self, mocker):
         """Calls on different clients through one tracer stay attributed to
@@ -395,7 +429,7 @@ class TestAutoPageIndex:
         mock_pi = MagicMock()
         mock_pi.PageIndexClient = FakeClient
         mocker.patch.dict("sys.modules", {"pageindex": mock_pi})
-        tracer = auto("pageindex", async_capture=False)
+        tracer = auto("pageindex", async_capture=False, capture_content="full")
 
         results = {}
 

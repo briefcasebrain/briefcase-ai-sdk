@@ -182,6 +182,11 @@ def capture(
                          content with SHA-256 digests, counts, and type names; "none"
                          records shape only. In both non-full modes the error field
                          carries the exception class name, never the message.
+                         "full" is the default here, and only here: decorating
+                         your own function is the explicit choice to record it,
+                         whereas automatic capture (``briefcase.auto``,
+                         ``briefcase exec``, the receiver) records no content
+                         unless asked.
         redact:          Optional str -> str hook applied to the bounded
                          inputs/outputs/error text in "full" mode. Ignored in
                          other modes; when no exporter is configured the hook

@@ -67,6 +67,7 @@ DECISION_TYPE = "llm.google_genai.generate_content"
 _MODULE = "google.genai.models"
 _PARAMS = (
     "temperature", "top_p", "top_k", "max_output_tokens", "candidate_count", "seed",
+    "frequency_penalty", "presence_penalty",
 )
 
 

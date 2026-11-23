@@ -62,6 +62,15 @@ with `status: "cancelled"`. Records carry a `schema_version`, plus
 OpenTelemetry span is active. `capture(sample_rate=0.1)` records a fraction of
 calls.
 
+**Content rule.** Briefcase records prompt, completion and tool content only
+where someone chose to record it. Every automatic path (`briefcase.auto()`
+for frameworks and provider SDKs, `briefcase exec`, `connect` and the
+receiver, eval records) records none until you opt in with
+`capture_content="full"` (or `"hash"`), `--capture-content` / `--keep-content`,
+or `BRIEFCASE_CAPTURE_CONTENT=full`. `@capture` on your own function is itself
+that choice: it records the function's arguments and return value (pass
+`capture_content="hash"` or `"none"` to keep them out).
+
 `import briefcase` does not require the compiled core: the pure-Python surface
 (capture, exporters, controls, events, routing) works from a source checkout,
 and native-backed names raise a clear `ImportError` only when used.

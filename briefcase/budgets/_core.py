@@ -255,7 +255,10 @@ def reserve_cost(entry: Mapping[str, Any], input_tokens: int, output_tokens: int
 #: Usage counters billed as input in addition to ``prompt_tokens``.
 _EXTRA_INPUT = ("cache_read_input_tokens", "cache_creation_input_tokens",
                 "cache_write_input_tokens", "tool_use_prompt_token_count")
-_CACHE_WRITE = ("cache_creation_input_tokens", "cache_write_input_tokens")
+#: Cache writes, priced at the cache-write rate. The first two (Anthropic,
+#: Bedrock) are billed on top of ``prompt_tokens`` (see ``_EXTRA_INPUT``);
+#: OpenAI's ``cache_write_tokens`` is a part of ``prompt_tokens``.
+_CACHE_WRITE = ("cache_creation_input_tokens", "cache_write_input_tokens", "cache_write_tokens")
 #: Usage counters billed as output in addition to ``completion_tokens``.
 _EXTRA_OUTPUT = ("thoughts_token_count",)
 #: Discounted subsets of ``prompt_tokens`` (priced at the full input rate here).
@@ -289,7 +292,7 @@ def actual_cost(table: Any, entry: Mapping[str, Any], model: str,
     if tokens is None:
         return None
     inp, out = tokens
-    special = any(int(usage.get(k) or 0) for k in _EXTRA_INPUT + _DISCOUNTED)
+    special = any(int(usage.get(k) or 0) for k in _EXTRA_INPUT + _DISCOUNTED + _CACHE_WRITE)
     if not special:
         try:
             result = table.estimate(model, inp, out)

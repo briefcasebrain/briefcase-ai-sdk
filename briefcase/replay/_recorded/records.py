@@ -53,23 +53,33 @@ REQUIRED_KEY: Dict[str, str] = {
     "bedrock.converse": "messages",
 }
 
-# Request settings the instrumentation does NOT record. If the original call
-# set them, the replay sends the API default instead; they can be supplied
-# with --param.
+# Request settings that can change the answer and that the instrumentation
+# does NOT record. If the original call set them, the replay sends the API
+# default instead; they can be supplied with --param. Checked against each
+# provider's published spec (tests/contracts/test_replay_coverage_contract.py):
+# every request setting is recorded, listed here, or cannot change the answer.
 UNRECORDED_SETTINGS: Dict[str, Tuple[str, ...]] = {
     "openai.chat": ("response_format", "tool_choice", "stop", "parallel_tool_calls",
-                    "logit_bias", "prediction", "reasoning_effort (non-string)"),
+                    "logit_bias", "prediction", "reasoning_effort (non-string)",
+                    "web_search_options", "modalities", "audio", "functions", "function_call",
+                    "moderation"),
     "openai.responses": ("text (structured output format)", "tool_choice", "reasoning",
-                         "previous_response_id", "conversation", "include"),
-    "openai.completions": ("stop", "suffix", "logit_bias", "best_of"),
+                         "previous_response_id", "conversation", "include", "prompt",
+                         "max_tool_calls", "parallel_tool_calls", "context_management",
+                         "moderation", "image"),
+    "openai.completions": ("stop", "suffix", "logit_bias", "best_of", "echo"),
     "anthropic.messages": ("tool_choice", "stop_sequences", "thinking",
-                           "output_config (other than effort)"),
+                           "output_config (other than effort)", "container"),
     "google_genai.generate_content": ("config.tools", "config.tool_config",
                                       "config.response_mime_type", "config.response_schema",
+                                      "config.response_json_schema", "config.response_modalities",
                                       "config.safety_settings", "config.stop_sequences",
-                                      "config.thinking_config"),
+                                      "config.thinking_config", "config.cached_content",
+                                      "config.automatic_function_calling", "config.routing_config",
+                                      "config.model_selection_config"),
     "bedrock.converse": ("toolConfig", "inferenceConfig.stopSequences",
-                         "additionalModelRequestFields", "guardrailConfig"),
+                         "additionalModelRequestFields", "guardrailConfig", "outputConfig",
+                         "promptVariables"),
 }
 
 # Keys in model_parameters that are not request parameters.

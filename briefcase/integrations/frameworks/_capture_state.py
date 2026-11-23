@@ -5,9 +5,10 @@ records for ``get_records()`` / ``get_decisions()`` and, where the framework
 reports start and end separately, partial records for runs still in flight.
 This module gives them one implementation of three things:
 
-- :class:`CaptureOptions`: the content controls ``@briefcase.capture``
-  exposes (``capture_content`` and ``redact``), applied to the ``inputs``,
-  ``outputs`` and ``error`` of a record before it is stored or exported.
+- :class:`CaptureOptions`: the content controls (``capture_content`` and
+  ``redact``), applied to the ``inputs``, ``outputs`` and ``error`` of a
+  record before it is stored or exported. Like every automatic capture
+  path, a handler records no content unless ``capture_content`` asks for it.
 - :func:`bounded_records`: a ring buffer, so a long-lived handler keeps the
   most recent ``max_records`` records instead of growing without limit.
 - :class:`InflightStore`: a mapping with a size cap and a TTL, so a start
@@ -21,7 +22,7 @@ import json
 import threading
 import time
 from collections import OrderedDict, deque
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 from briefcase._logging import get_logger
 
@@ -29,6 +30,10 @@ logger = get_logger(__name__)
 
 # Mirrors briefcase.decorators.CAPTURE_CONTENT_MODES.
 CAPTURE_CONTENT_MODES = ("full", "hash", "none")
+
+#: What every automatic capture path (framework handlers, provider SDKs,
+#: ``briefcase exec``) records when nobody asked for content.
+DEFAULT_CAPTURE_CONTENT = "none"
 
 DEFAULT_MAX_RECORDS = 10_000
 DEFAULT_MAX_INFLIGHT = 10_000
@@ -54,14 +59,35 @@ def _stable_text(value: Any) -> str:
         return str(value)
 
 
+def normalize_capture_content(value: Union[bool, str, None]) -> str:
+    """Map a ``capture_content`` value onto a content mode.
+
+    Every automatic capture path takes the same values: ``False`` / ``None``
+    is ``"none"``, ``True`` is ``"full"``, and the mode strings
+    (``"none"``, ``"hash"``, ``"full"``) pass through.
+    """
+    if value is None or value is False:
+        return "none"
+    if value is True:
+        return "full"
+    if value in CAPTURE_CONTENT_MODES:
+        return str(value)
+    raise ValueError(
+        "capture_content must be a bool or one of "
+        f"{CAPTURE_CONTENT_MODES}, got {value!r}"
+    )
+
+
 class CaptureOptions:
-    """Content controls for handler records, matching ``@capture``.
+    """Content controls for handler and provider records.
 
     Args:
-        capture_content: ``"full"`` (default) keeps content, optionally
-            rewritten by ``redact``. ``"hash"`` replaces ``inputs`` and
-            ``outputs`` with a SHA-256 digest and a character count.
-            ``"none"`` drops them.
+        capture_content: ``"none"`` (default) drops ``inputs`` and
+            ``outputs`` and replaces the ``error`` text with
+            ``"<omitted>"``. ``"hash"`` replaces ``inputs`` and ``outputs``
+            with a SHA-256 digest and a character count. ``"full"`` keeps
+            content, optionally rewritten by ``redact``. ``True`` / ``False``
+            are accepted as ``"full"`` / ``"none"``, as for the providers.
         redact: Optional ``str -> str`` hook applied to every string inside
             ``inputs`` / ``outputs`` and to the ``error`` text in ``"full"``
             mode. Fails closed: if it raises, the string is replaced with
@@ -70,14 +96,10 @@ class CaptureOptions:
 
     def __init__(
         self,
-        capture_content: str = "full",
+        capture_content: Union[bool, str, None] = DEFAULT_CAPTURE_CONTENT,
         redact: Optional[Callable[[str], str]] = None,
     ) -> None:
-        if capture_content not in CAPTURE_CONTENT_MODES:
-            raise ValueError(
-                f"capture_content must be one of {CAPTURE_CONTENT_MODES}, "
-                f"got {capture_content!r}"
-            )
+        capture_content = normalize_capture_content(capture_content)
         if redact is not None and not callable(redact):
             raise TypeError("redact must be a callable str -> str")
         self.capture_content = capture_content

@@ -34,6 +34,8 @@ class _Exporter:
 
 
 def _handler(**kwargs):
+    # These tests check what the handler extracts, so they opt in to content.
+    kwargs.setdefault("capture_content", "full")
     exporter = _Exporter()
     handler = BriefcaseLlamaIndexHandler(exporter=exporter, async_capture=False, **kwargs)
     return handler, exporter

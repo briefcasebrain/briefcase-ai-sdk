@@ -135,7 +135,7 @@ def reset_state():
 
 def test_text_message_captured():
     """TextMessage events are captured as decision_type='text_message'."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     handler.attach()
 
     msg = _make_text_message(source="Alice", content="Hello world")
@@ -154,7 +154,7 @@ def test_text_message_captured():
 
 def test_tool_call_request_captured():
     """ToolCallRequestEvent is captured as decision_type='tool_call_request'."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     handler.attach()
 
     event = _make_tool_call_request(source="ToolAgent")
@@ -170,7 +170,7 @@ def test_tool_call_request_captured():
 
 def test_tool_call_execution_captured():
     """ToolCallExecutionEvent is captured as decision_type='tool_call_execution'."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     handler.attach()
 
     event = _make_tool_call_execution(source="Executor")
@@ -186,7 +186,7 @@ def test_tool_call_execution_captured():
 
 def test_tool_call_summary_captured():
     """ToolCallSummaryMessage is captured as decision_type='tool_call_summary'."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     handler.attach()
 
     msg = _make_tool_call_summary(source="Summarizer", content="All done")
@@ -217,7 +217,7 @@ def test_async_non_blocking():
             pass
 
     briefcase_setup(exporter=SlowExporter())
-    handler = AutoGenEventHandler(async_capture=True)
+    handler = AutoGenEventHandler(capture_content="full", async_capture=True)
     handler.attach()
 
     import time
@@ -236,7 +236,7 @@ def test_async_non_blocking():
 
 def test_error_in_emit_silent():
     """Exceptions during emit never propagate to the caller."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
 
     bad_record = logging.LogRecord(
         name=EVENT_LOGGER_NAME, level=logging.INFO,
@@ -251,14 +251,14 @@ def test_missing_dependency_raises():
     try:
         _mod._AUTOGEN_AVAILABLE = False
         with pytest.raises(ImportError, match="pip install"):
-            AutoGenEventHandler()
+            AutoGenEventHandler(capture_content="full")
     finally:
         _mod._AUTOGEN_AVAILABLE = original
 
 
 def test_context_version_in_records():
     """context_version appears on captured records."""
-    handler = AutoGenEventHandler(context_version="v9.1")
+    handler = AutoGenEventHandler(capture_content="full", context_version="v9.1")
     handler.attach()
 
     msg = _make_text_message()
@@ -316,7 +316,7 @@ def test_uninstall_without_install_is_noop():
 
 def test_clear_resets_records():
     """clear() resets all captured records."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     handler.attach()
 
     msg = _make_text_message()
@@ -332,7 +332,7 @@ def test_clear_resets_records():
 
 def test_get_records_returns_copy():
     """get_records() returns a copy."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     handler.attach()
 
     msg = _make_text_message()
@@ -349,7 +349,7 @@ def test_get_records_returns_copy():
 
 def test_decision_count_property():
     """decision_count reflects the captured record count."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     handler.attach()
     assert handler.decision_count == 0
 
@@ -363,7 +363,7 @@ def test_decision_count_property():
 
 def test_attach_and_detach():
     """attach() and detach() add and remove the handler from loggers."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     handler.attach()
 
     event_lg = logging.getLogger(EVENT_LOGGER_NAME)
@@ -375,7 +375,7 @@ def test_attach_and_detach():
 
 def test_unknown_event_captured_as_autogen_event():
     """Unknown event objects are captured as decision_type='autogen_event'."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
 
     class UnknownEvent:
         pass
@@ -390,7 +390,7 @@ def test_unknown_event_captured_as_autogen_event():
 
 def test_malformed_record_silent():
     """A LogRecord with a None msg does not raise."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     record = _make_log_record(None)
     handler.emit(record)  # must not raise
 
@@ -410,7 +410,7 @@ def test_sync_export():
             pass
 
     briefcase_setup(exporter=SyncExporter())
-    handler = AutoGenEventHandler(async_capture=False)
+    handler = AutoGenEventHandler(capture_content="full", async_capture=False)
     handler.attach()
 
     msg = _make_text_message()
@@ -424,7 +424,7 @@ def test_sync_export():
 
 def test_no_exporter_configured():
     """When no exporter is configured, _trigger_export is a no-op."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     # No exporter: must not raise
     handler._trigger_export({"decision_id": "x", "decision_type": "test"})
 
@@ -443,13 +443,13 @@ def test_export_failure_silent():
             pass
 
     briefcase_setup(exporter=BrokenExporter())
-    handler = AutoGenEventHandler(async_capture=False)
+    handler = AutoGenEventHandler(capture_content="full", async_capture=False)
     handler._trigger_export({"decision_id": "x", "decision_type": "test"})
 
 
 def test_handoff_message_captured():
     """HandoffMessage is captured as a control_message with subtype='handoff'."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     msg = _make_handoff_message(source="Alice", target="Bob")
     record = _make_log_record(msg)
     handler.emit(record)
@@ -462,7 +462,7 @@ def test_handoff_message_captured():
 
 def test_stop_message_captured():
     """StopMessage is captured as a control_message with subtype='stop'."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     msg = _make_stop_message()
     record = _make_log_record(msg)
     handler.emit(record)
@@ -475,7 +475,7 @@ def test_stop_message_captured():
 
 def test_traces_flag_false_skips_trace_records():
     """With capture_traces=False, TRACE_LOGGER_NAME records are skipped."""
-    handler = AutoGenEventHandler(capture_traces=False)
+    handler = AutoGenEventHandler(capture_content="full", capture_traces=False)
     handler.attach()
 
     msg = _make_text_message()
@@ -489,7 +489,7 @@ def test_traces_flag_false_skips_trace_records():
 
 def test_events_flag_false_skips_event_records():
     """With capture_events=False, EVENT_LOGGER_NAME records are skipped."""
-    handler = AutoGenEventHandler(capture_events=False)
+    handler = AutoGenEventHandler(capture_content="full", capture_events=False)
     handler.attach()
 
     msg = _make_text_message()
@@ -514,7 +514,7 @@ def test_install_missing_dependency():
 
 def test_no_context_version():
     """Records do NOT include a context_version key when not set."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     msg = _make_text_message()
     record = _make_log_record(msg)
     handler.emit(record)
@@ -525,7 +525,7 @@ def test_no_context_version():
 
 def test_string_msg_captured():
     """Plain string log messages are captured as autogen_event."""
-    handler = AutoGenEventHandler()
+    handler = AutoGenEventHandler(capture_content="full")
     record = _make_log_record("plain string message")
     handler.emit(record)
 
@@ -540,7 +540,7 @@ def test_string_msg_captured():
 # ---------------------------------------------------------------------------
 
 def test_a_lost_record_is_a_warning_that_names_the_event_logger(monkeypatch, caplog):
-    handler = AutoGenEventHandler(async_capture=False)
+    handler = AutoGenEventHandler(capture_content="full", async_capture=False)
 
     def boom(*a, **k):
         raise RuntimeError("record builder exploded")

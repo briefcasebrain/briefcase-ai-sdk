@@ -31,7 +31,7 @@ The scratch directory is shown as `/tmp/demo`.
 $ briefcase dataset from-records runs.jsonl --name lookups --where decision_type=lookup
 No dataset created: none of the 11 records in runs.jsonl became a case.
   8 of 11 records skipped: did not match --where
-  3 of 11 records skipped: captured without content — re-capture with content: @briefcase.capture(capture_content="full"), briefcase.auto("<provider>", capture_content=True), or `briefcase exec --capture-content full -- <command>`
+  3 of 11 records skipped: captured without content — re-capture with content: briefcase.auto("<provider or framework>", capture_content="full") or BRIEFCASE_CAPTURE_CONTENT=full, `briefcase exec --capture-content full -- <command>`, or @briefcase.capture(capture_content="full")
 [exit 1]
 
 $ briefcase dataset from-records runs.jsonl --name triage --where decision_type=triage,status=ok --dedupe
@@ -259,8 +259,8 @@ Export formats:
 
 ## Limits and failure modes
 
-- Records captured with `capture_content="hash"` or `"none"` (the default for provider
-  auto-instrumentation) hold no inputs or outputs; they are counted and skipped, never
+- Records captured with `capture_content="hash"` or `"none"` (the default for provider and
+  framework auto-instrumentation and `briefcase exec`) hold no inputs or outputs; they are counted and skipped, never
   turned into empty cases. A run that would produce zero cases exits 1 and writes nothing.
 - `@capture` stores reprs truncated at `max_input_chars` (default 1000). A repr that is not
   a Python literal (custom objects, truncated text) becomes `{"args_text": "..."}` and the
@@ -280,7 +280,7 @@ Export formats:
 | Symptom | Do this |
 |---|---|
 | `error: the native sanitizer … is not available` | Install a wheel with the native core (`pip install --force-reinstall briefcase-ai`), or accept unsanitized content with `--allow-unsanitized` |
-| `N of M records skipped: captured without content` | Re-capture with `@briefcase.capture(capture_content="full")`, `briefcase.auto("<provider>", capture_content=True)` or `briefcase exec --capture-content full -- <command>` |
+| `N of M records skipped: captured without content` | Re-capture with `briefcase.auto("<provider or framework>", capture_content="full")` (or `BRIEFCASE_CAPTURE_CONTENT=full`), `briefcase exec --capture-content full -- <command>`, or `@briefcase.capture(capture_content="full")` |
 | `No dataset created` | Read the skip lines; loosen `--where`, drop `status=ok`, or use `--reference none` |
 | `Unchanged: same cases as NAME@vN` | The filters produced the same cases; nothing to do |
 | `was modified after it was created` | Restore the file, or save the edit as a new version: `briefcase dataset import <file> --name NAME` |

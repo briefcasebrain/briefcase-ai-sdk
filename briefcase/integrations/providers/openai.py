@@ -35,11 +35,14 @@ Layout facts this module relies on, as found in 3.57.0:
   :mod:`._stainless`.
 - Usage fields: ``CompletionUsage`` (``prompt_tokens``, ``completion_tokens``,
   ``total_tokens``, ``prompt_tokens_details.cached_tokens`` /
-  ``.audio_tokens``, ``completion_tokens_details.reasoning_tokens`` /
+  ``.cache_write_tokens`` / ``.audio_tokens``, ``completion_tokens_details.reasoning_tokens`` /
   ``.audio_tokens`` / ``.accepted_prediction_tokens`` /
   ``.rejected_prediction_tokens``) and ``ResponseUsage`` (``input_tokens``,
-  ``output_tokens``, ``total_tokens``, ``input_tokens_details.cached_tokens``,
-  ``output_tokens_details.reasoning_tokens``).
+  ``output_tokens``, ``total_tokens``, ``input_tokens_details.cached_tokens`` /
+  ``.cache_write_tokens``, ``output_tokens_details.reasoning_tokens``).
+  ``cached_tokens`` and ``cache_write_tokens`` are parts of the prompt /
+  input count, recorded next to it (checked against the published OpenAPI
+  spec, ``tests/contracts``).
 
 Streaming usage (chat and legacy completions)
 ---------------------------------------------
@@ -124,7 +127,7 @@ _INJECTED_STREAM_OPTIONS: Dict[str, Any] = {"include_usage": True}
 
 _CHAT_PARAMS = (
     "temperature", "top_p", "max_tokens", "max_completion_tokens", "n", "seed",
-    "frequency_penalty", "presence_penalty", "reasoning_effort", "service_tier",
+    "frequency_penalty", "presence_penalty", "reasoning_effort", "service_tier", "verbosity",
 )
 _RESPONSES_PARAMS = (
     "temperature", "top_p", "max_output_tokens", "service_tier", "truncation",
@@ -146,6 +149,7 @@ def _completion_usage(usage: Any) -> Optional[Dict[str, Optional[int]]]:
         read(usage, "completion_tokens"),
         read(usage, "total_tokens"),
         cached_tokens=read(prompt_details, "cached_tokens"),
+        cache_write_tokens=read(prompt_details, "cache_write_tokens"),
         audio_prompt_tokens=read(prompt_details, "audio_tokens"),
         reasoning_tokens=read(completion_details, "reasoning_tokens"),
         audio_completion_tokens=read(completion_details, "audio_tokens"),
@@ -160,6 +164,7 @@ def _response_usage(usage: Any) -> Optional[Dict[str, Optional[int]]]:
         read(usage, "output_tokens"),
         read(usage, "total_tokens"),
         cached_tokens=read(usage, "input_tokens_details", "cached_tokens"),
+        cache_write_tokens=read(usage, "input_tokens_details", "cache_write_tokens"),
         reasoning_tokens=read(usage, "output_tokens_details", "reasoning_tokens"),
     )
 

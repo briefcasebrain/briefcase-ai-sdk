@@ -103,9 +103,10 @@ from typing import (
 from briefcase._export_mixin import ExportMixin
 from briefcase._logging import get_logger
 from briefcase.decorators import _build_record, _finalize_record
-from briefcase.integrations.frameworks._capture_state import (
+from briefcase.integrations.frameworks._capture_state import (  # noqa: F401
     CAPTURE_CONTENT_MODES,
     CaptureOptions,
+    normalize_capture_content,
 )
 from briefcase.integrations.providers import _correlation
 
@@ -135,22 +136,6 @@ SKIP = object()
 
 OnItem = Callable[[Any], Any]
 OnEnd = Callable[[bool, Optional[BaseException]], None]
-
-
-def normalize_capture_content(value: Union[bool, str, None]) -> str:
-    """Map the provider-facing ``capture_content`` value onto the content
-    modes the framework handlers use: ``False``/``None`` is ``"none"``,
-    ``True`` is ``"full"``, and the mode strings pass through."""
-    if value is None or value is False:
-        return "none"
-    if value is True:
-        return "full"
-    if value in CAPTURE_CONTENT_MODES:
-        return str(value)
-    raise ValueError(
-        "capture_content must be a bool or one of "
-        f"{CAPTURE_CONTENT_MODES}, got {value!r}"
-    )
 
 
 def jsonable(value: Any, limit: int = DEFAULT_MAX_CONTENT_CHARS, _depth: int = 0,

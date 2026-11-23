@@ -24,7 +24,7 @@ import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Deque, Dict, List, Optional
+from typing import Any, Callable, Deque, Dict, List, Optional, Union
 
 from briefcase._export_mixin import ExportMixin
 from briefcase._logging import get_logger
@@ -142,7 +142,7 @@ class BriefcaseLangChainHandler(ExportMixin):
         context_version: Optional[str] = None,
         async_capture: bool = True,
         exporter: Any = None,
-        capture_content: str = "full",
+        capture_content: Union[bool, str, None] = "none",
         redact: Optional[Callable[[str], str]] = None,
         max_records: Optional[int] = DEFAULT_MAX_RECORDS,
         max_inflight: Optional[int] = DEFAULT_MAX_INFLIGHT,
@@ -156,8 +156,10 @@ class BriefcaseLangChainHandler(ExportMixin):
             context_version: Optional version tag added to all decisions.
             async_capture: If True (default), export runs in the background.
             exporter: Briefcase exporter; falls back to the global config.
-            capture_content: ``"full"`` (default), ``"hash"`` or ``"none"``,
-                as for ``@briefcase.capture``.
+            capture_content: ``"none"`` (default) records no prompt,
+                completion or error text; ``"hash"`` records a SHA-256 digest
+                and a character count; ``"full"`` (or ``True``) records the
+                content. The same values as the provider integrations.
             redact: Optional ``str -> str`` hook applied to captured content
                 in ``"full"`` mode. Fails closed.
             max_records: Completed decisions kept for ``get_decisions()``

@@ -324,7 +324,8 @@ tested with.
   report is `null`, never `0`; `token_usage` is `null` when nothing was
   reported; anything not captured is named in `capture_limits`.
 - No prompt, completion, tool argument, `user` / `metadata` value, header or
-  API key is recorded unless `capture_content` is `full` (or `hash`). With
+  API key is recorded unless `capture_content` is `full` (or `hash`). The
+  rule for every capture path: Briefcase records prompt, completion and tool content only where someone chose to record it: every automatic path (framework handlers, provider SDKs, `briefcase exec`, `connect` and the receiver, eval records) records none until you opt in with `capture_content=`, `--capture-content` / `--keep-content` or `BRIEFCASE_CAPTURE_CONTENT`, while `@briefcase.capture` on your own function is itself that choice and records its arguments and return value (pass `capture_content="hash"` or `"none"` to keep them out). With
   `full`, each string is cut at 8,000 characters, one `inputs`/`outputs`
   value at 128,000, bytes become `<N bytes>`, other objects their type name.
 
@@ -430,11 +431,15 @@ in which case there is no link. A framework run whose end is never reported
 stops being a parent when the next run starts in that context, or after 15
 minutes.
 
-`briefcase.auto("langchain")` and the other framework handlers record full
-prompt and completion content by default; the provider integrations and
-`briefcase exec` record none. The first framework installed on that default
-says so once (WARNING and `UserWarning`). Pass `capture_content="none"` or
-set `BRIEFCASE_CAPTURE_CONTENT=none`.
+`briefcase.auto("langchain")` and the other framework handlers record no
+prompt, completion or error text by default, like the provider integrations
+and `briefcase exec`. They take the same values: `capture_content="full"`
+(or `True`), `"hash"`, or `"none"` (`False`, the default), passed to
+`auto(...)` or the handler constructor, or `BRIEFCASE_CAPTURE_CONTENT` when
+`auto()` is not given one. Up to 4.4.0 the framework handlers recorded full
+content by default; to keep that, pass
+`briefcase.auto("langchain", capture_content="full")` or set
+`BRIEFCASE_CAPTURE_CONTENT=full`.
 
 ### Patching and other libraries
 

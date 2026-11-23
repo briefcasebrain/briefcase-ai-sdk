@@ -1,0 +1,11 @@
+{
+  "id": "provider-contracts",
+  "title": "Provider API contract checks",
+  "verb": "verify",
+  "one_line": "Provider capture, replay and budgets checked against published API specs.",
+  "command": "briefcase features provider-contracts",
+  "docs_slug": "verify/provider-contracts",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "tests/contracts, offline and with no model call, against: OpenAI OpenAPI spec (github.com/openai/openai-openapi @2a24deae6f89, info.version 2.3.0, sha256 a778b243532405d1be219d83e8070c62f995b405fc2cf4897e261a8349fbfa2a); anthropic 2.12.0 request/response types as JSON Schema (Anthropic publishes no API spec; sha256 7bf73467c3bc549976b79a47a330199cdb81d7bfb0e4891c2956e7b0e332931b); Gemini API discovery document generativelanguage v1beta revision 20261122 (downloaded, not vendored; canonical-JSON sha256 1da18b6a4453002ba88e13b30ca576b1d8834f2171a58feb384581b935716d9d); botocore 1.44.9 bedrock-runtime 2023-09-30 service model (sha256 e1ba19360248bf7f114fd60989b9482f4da1085f7ef2c1c548e90e26ca17e273). SDKs on the wire: openai 3.57.0, anthropic 2.12.0, google-genai 3.6.1, boto3/botocore 1.44.9 (2026-11-23). Not covered: Azure OpenAI and Vertex AI variants, the Anthropic beta resource, InvokeModel bodies (model-specific, not in the AWS spec)."
+}

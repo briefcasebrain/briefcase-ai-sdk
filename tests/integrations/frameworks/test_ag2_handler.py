@@ -75,7 +75,7 @@ def reset_config():
 
 def test_message_send_captured():
     """process_message_before_send captures decision_type='message_send'."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent("Sender")
     recipient = _make_mock_agent("Recipient")
     tracer.instrument(agent)
@@ -91,7 +91,7 @@ def test_message_send_captured():
 
 def test_record_uses_wire_field_names():
     """Hook records carry the decision-record core field names."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent("WireAgent")
     tracer.instrument(agent)
 
@@ -106,7 +106,7 @@ def test_record_uses_wire_field_names():
 
 def test_message_context_captured():
     """process_all_messages_before_reply captures decision_type='message_context'."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent("ContextAgent")
     tracer.instrument(agent)
 
@@ -124,7 +124,7 @@ def test_message_context_captured():
 
 def test_state_update_captured():
     """update_agent_state captures decision_type='state_update'."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent("StateAgent")
     tracer.instrument(agent)
 
@@ -138,7 +138,7 @@ def test_state_update_captured():
 
 def test_instrument_registers_hooks():
     """instrument() registers hooks on the agent via register_hook."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -167,7 +167,7 @@ def test_async_non_blocking():
             pass
 
     briefcase_setup(exporter=SlowExporter())
-    tracer = AG2HookTracer(async_capture=True)
+    tracer = AG2HookTracer(capture_content="full", async_capture=True)
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -184,7 +184,7 @@ def test_async_non_blocking():
 
 def test_error_in_hook_silent():
     """Exceptions inside hooks never propagate to the caller."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -198,14 +198,14 @@ def test_missing_dependency_raises():
     try:
         _mod._AG2_AVAILABLE = False
         with pytest.raises(ImportError, match="pip install"):
-            AG2HookTracer()
+            AG2HookTracer(capture_content="full")
     finally:
         _mod._AG2_AVAILABLE = original
 
 
 def test_context_version_in_records():
     """context_version appears on captured records."""
-    tracer = AG2HookTracer(context_version="v4.2")
+    tracer = AG2HookTracer(capture_content="full", context_version="v4.2")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -233,7 +233,7 @@ def test_exporter_integration():
             pass
 
     briefcase_setup(exporter=RecordingExporter())
-    tracer = AG2HookTracer(async_capture=False)
+    tracer = AG2HookTracer(capture_content="full", async_capture=False)
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -259,7 +259,7 @@ def test_instrument_agent_convenience():
 
 def test_clear_resets_records():
     """clear() resets all captured records."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -275,7 +275,7 @@ def test_clear_resets_records():
 
 def test_get_records_returns_copy():
     """get_records() returns a copy, not the internal list."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -291,7 +291,7 @@ def test_get_records_returns_copy():
 
 def test_decision_count_property():
     """decision_count reflects the number of captured records."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
     assert tracer.decision_count == 0
@@ -307,7 +307,7 @@ def test_decision_count_property():
 
 def test_capture_messages_flag_false():
     """With capture_messages=False, no message hooks are registered."""
-    tracer = AG2HookTracer(capture_messages=False)
+    tracer = AG2HookTracer(capture_content="full", capture_messages=False)
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -317,7 +317,7 @@ def test_capture_messages_flag_false():
 
 def test_capture_llm_flag_false():
     """With capture_llm=False, no LLM safeguard hooks are registered."""
-    tracer = AG2HookTracer(capture_llm=False)
+    tracer = AG2HookTracer(capture_content="full", capture_llm=False)
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -327,7 +327,7 @@ def test_capture_llm_flag_false():
 
 def test_capture_tools_flag_false():
     """With capture_tools=False, no tool safeguard hooks are registered."""
-    tracer = AG2HookTracer(capture_tools=False)
+    tracer = AG2HookTracer(capture_content="full", capture_tools=False)
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -337,7 +337,7 @@ def test_capture_tools_flag_false():
 
 def test_truncation_applied():
     """Long message content truncates to max_input_chars."""
-    tracer = AG2HookTracer(max_input_chars=20)
+    tracer = AG2HookTracer(capture_content="full", max_input_chars=20)
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -353,7 +353,7 @@ def test_truncation_applied():
 
 def test_instrument_many():
     """instrument_many() instruments all provided agents."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agents = [_make_mock_agent(f"Agent{i}") for i in range(3)]
     tracer.instrument_many(agents)
 
@@ -376,7 +376,7 @@ def test_sync_export():
             pass
 
     briefcase_setup(exporter=SyncExporter())
-    tracer = AG2HookTracer(async_capture=False)
+    tracer = AG2HookTracer(capture_content="full", async_capture=False)
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -389,7 +389,7 @@ def test_sync_export():
 
 def test_no_exporter_configured():
     """When no exporter is configured, _trigger_export is a no-op."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     # No exporter: must not raise
     tracer._trigger_export({"decision_id": "x", "decision_type": "test"})
 
@@ -408,7 +408,7 @@ def test_export_failure_silent():
             pass
 
     briefcase_setup(exporter=BrokenExporter())
-    tracer = AG2HookTracer(async_capture=False)
+    tracer = AG2HookTracer(capture_content="full", async_capture=False)
     # Must not raise
     tracer._trigger_export({"decision_id": "x", "decision_type": "test"})
 
@@ -435,7 +435,7 @@ def test_string_message_extracted():
 
 def test_llm_input_captured():
     """safeguard_llm_inputs captures decision_type='llm_input'."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -448,7 +448,7 @@ def test_llm_input_captured():
 
 def test_tool_input_captured():
     """safeguard_tool_inputs captures decision_type='tool_input'."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -472,7 +472,7 @@ def test_require_ag2_raises_when_unavailable():
 
 def test_hooks_return_original_value():
     """All hooks return the original argument unmodified."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -484,7 +484,7 @@ def test_hooks_return_original_value():
 
 def test_no_context_version():
     """Records do NOT include a context_version key when not set."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -502,7 +502,7 @@ def test_no_context_version():
 
 def test_llm_output_captured():
     """safeguard_llm_outputs captures decision_type='llm_output'."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -515,7 +515,7 @@ def test_llm_output_captured():
 
 def test_tool_output_captured():
     """safeguard_tool_outputs captures decision_type='tool_output'."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -528,7 +528,7 @@ def test_tool_output_captured():
 
 def test_llm_output_returns_response_unmodified():
     """safeguard_llm_outputs returns the response unmodified."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -539,7 +539,7 @@ def test_llm_output_returns_response_unmodified():
 
 def test_tool_output_returns_result_unmodified():
     """safeguard_tool_outputs returns the tool_result unmodified."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -554,7 +554,7 @@ def test_tool_output_returns_result_unmodified():
 
 def test_hook_exception_swallowed_message_send(monkeypatch):
     """An exception inside the message_send hook is swallowed."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -568,7 +568,7 @@ def test_hook_exception_swallowed_message_send(monkeypatch):
 
 def test_hook_exception_swallowed_message_context(monkeypatch):
     """An exception inside the message_context hook is swallowed."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -581,7 +581,7 @@ def test_hook_exception_swallowed_message_context(monkeypatch):
 
 def test_hook_exception_swallowed_state_update(monkeypatch):
     """An exception inside the state_update hook is swallowed."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -594,7 +594,7 @@ def test_hook_exception_swallowed_state_update(monkeypatch):
 
 def test_hook_exception_swallowed_llm_input(monkeypatch):
     """An exception inside the llm_input hook is swallowed."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -607,7 +607,7 @@ def test_hook_exception_swallowed_llm_input(monkeypatch):
 
 def test_hook_exception_swallowed_tool_input(monkeypatch):
     """An exception inside the tool_input hook is swallowed."""
-    tracer = AG2HookTracer()
+    tracer = AG2HookTracer(capture_content="full")
     agent = _make_mock_agent()
     tracer.instrument(agent)
 
@@ -711,7 +711,7 @@ def test_safe_serialize_small_exception():
 def test_a_lost_record_is_a_warning_that_names_it(
     monkeypatch, caplog, hook_name, args, decision_type
 ):
-    tracer = AG2HookTracer(async_capture=False)
+    tracer = AG2HookTracer(capture_content="full", async_capture=False)
     agent = _make_mock_agent("Planner")
     tracer.instrument(agent)
 

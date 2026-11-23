@@ -11,8 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   provider records carry `parent_run_id` / `parent_framework` linking them to
   the framework run that made the call. `briefcase.auto.status()` reports what
   is patched or skipped and why. Opt-in OpenAI stream usage
-  (`stream_usage=True`), aiobotocore support, and a one-time warning when a
-  framework handler records full content by default.
+  (`stream_usage=True`) and aiobotocore support.
 - Zero-code Python instrumentation. `briefcase exec -- python app.py` runs an
   unmodified program with capture switched on. `briefcase.observe()` with no
   arguments resolves its destination from `BRIEFCASE_EXPORTER` (and

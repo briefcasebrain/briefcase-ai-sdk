@@ -18,7 +18,7 @@ content on**:
 ```python
 import briefcase
 briefcase.observe("runs.jsonl")
-briefcase.auto(capture_content=True)   # content is off by default; replay needs the request
+briefcase.auto(capture_content=True)   # content is off by default (or BRIEFCASE_CAPTURE_CONTENT=full); replay needs the request
 ```
 
 Start with `briefcase replay explain runs.jsonl` to see which records can be replayed and why
@@ -46,7 +46,7 @@ $ briefcase replay explain runs.jsonl
          - the stream was not read to the end when it was recorded, so the recorded output is partial
   no   #5 5555a7c2 anthropic.messages claude-haiku-test
          - the conversation ends in tool calls with no tool results (get_weather); replay never runs tools, so the request cannot be completed
-note (#0, #1, #2): capture does not record response_format, tool_choice, stop, parallel_tool_calls, logit_bias, prediction, reasoning_effort (non-string); if the original call set any of them, pass it with --param
+note (#0, #1, #2): capture does not record response_format, tool_choice, stop, parallel_tool_calls, logit_bias, prediction, reasoning_effort (non-string), web_search_options, modalities, audio, functions, function_call, moderation; if the original call set any of them, pass it with --param
 Next: briefcase replay run runs.jsonl --plan-only
 [exit 0]
 
@@ -171,11 +171,16 @@ and `explain` lists them per record. Pass them with `--param`:
 
 | API | Not recorded by capture |
 |---|---|
-| OpenAI chat | `response_format`, `tool_choice`, `stop`, `parallel_tool_calls`, `logit_bias`, `prediction` |
-| OpenAI Responses | `text` (structured output format), `tool_choice`, `reasoning`, `previous_response_id`, `conversation`, `include` |
-| Anthropic Messages | `tool_choice`, `stop_sequences`, `thinking`, `output_config` other than `effort` |
-| Gemini | `config.tools`, `tool_config`, `response_mime_type`, `response_schema`, `safety_settings`, `stop_sequences`, `thinking_config` |
-| Bedrock Converse | `toolConfig`, `inferenceConfig.stopSequences`, `additionalModelRequestFields`, `guardrailConfig` |
+| OpenAI chat | `response_format`, `tool_choice`, `stop`, `parallel_tool_calls`, `logit_bias`, `prediction`, `web_search_options`, `modalities`, `audio`, `functions`, `function_call`, `moderation` |
+| OpenAI Responses | `text` (structured output format), `tool_choice`, `reasoning`, `previous_response_id`, `conversation`, `include`, `prompt`, `max_tool_calls`, `parallel_tool_calls`, `context_management`, `moderation`, `image` |
+| OpenAI completions | `stop`, `suffix`, `logit_bias`, `best_of`, `echo` |
+| Anthropic Messages | `tool_choice`, `stop_sequences`, `thinking`, `output_config` other than `effort`, `container` |
+| Gemini | `config.tools`, `tool_config`, `response_mime_type`, `response_schema`, `response_json_schema`, `response_modalities`, `safety_settings`, `stop_sequences`, `thinking_config`, `cached_content`, `automatic_function_calling`, `routing_config`, `model_selection_config` |
+| Bedrock Converse | `toolConfig`, `inferenceConfig.stopSequences`, `additionalModelRequestFields`, `guardrailConfig`, `outputConfig`, `promptVariables` |
+
+Every request setting in each provider's published spec is either recorded, listed here, or
+cannot change the answer replay compares (for example `metadata`, `user`, `store`, cache keys);
+`tests/contracts` checks this against the pinned specs (`docs/features/provider-contracts.md`).
 
 A recorded parameter the installed SDK no longer accepts is reported, not silently dropped
 (for example `temperature` on `anthropic` 2.12.0, whose `create()` does not take it); drop it

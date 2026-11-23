@@ -30,6 +30,13 @@ Rules to follow when generating briefcase code:
   `briefcase.export_stats()` reports dropped/failed counts.
 - `import briefcase` works without the compiled core; only native-backed names
   (`briefcase.init`, `DecisionSnapshot`, `briefcase.replay`, …) need it.
+- Content rule: briefcase records prompt/completion/tool content only where
+  someone chose to. `briefcase.auto()` (frameworks and provider SDKs),
+  `briefcase exec`, `connect`/the receiver and eval records record none unless
+  given `capture_content="full"` (or `"hash"`; `True`/`False` also work),
+  `--capture-content` / `--keep-content`, or `BRIEFCASE_CAPTURE_CONTENT=full`.
+  `@capture` on your own function is that choice and records its arguments and
+  return value by default (`capture_content="hash"`/`"none"` to keep them out).
 - Never log or persist raw PII. Sanitize first:
   `from briefcase.sanitize import Sanitizer; Sanitizer().sanitize(text).sanitized`.
   For external-data snapshots, pass `ExternalDataTracker(sanitizer=Sanitizer())`.

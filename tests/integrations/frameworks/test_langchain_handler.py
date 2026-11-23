@@ -50,6 +50,8 @@ def _make_llm_response(text: str = "Hello") -> MagicMock:
 
 
 def _make_handler(**kwargs) -> BriefcaseLangChainHandler:
+    # These tests check what the handler extracts, so they opt in to content.
+    kwargs.setdefault("capture_content", "full")
     return BriefcaseLangChainHandler(**kwargs)
 
 
@@ -1144,6 +1146,7 @@ class _CollectingExporter:
 
 
 def _sync_handler(**kwargs):
+    kwargs.setdefault("capture_content", "full")
     exporter = _CollectingExporter()
     handler = BriefcaseLangChainHandler(exporter=exporter, async_capture=False, **kwargs)
     return handler, exporter

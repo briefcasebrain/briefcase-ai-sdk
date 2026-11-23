@@ -136,6 +136,23 @@ A cancelled or timed-out async call (`asyncio.wait_for`, task cancellation)
 still emits a record, with `status: "cancelled"`, and the cancellation
 re-raises.
 
+Content rule (one rule for every capture path): briefcase records prompt,
+completion and tool content only where someone chose to record it.
+
+```python
+@briefcase.capture                          # your own function: you chose to record it,
+def triage(ticket): ...                     # so args and return value are recorded
+                                            # (capture_content="hash"|"none" to keep them out)
+
+briefcase.auto()                            # frameworks + provider SDKs: NO content
+briefcase.auto("langchain", capture_content="full")   # opt in ("hash" = digests;
+                                            # True/False also accepted)
+# or BRIEFCASE_CAPTURE_CONTENT=full|hash|none, or `briefcase exec --capture-content full`
+```
+
+`connect` (`--capture-content`), `receive` (`--keep-content`) and eval records
+(`--capture-content`) follow the same rule.
+
 ------------------------------------------------------------------------------
 ## 4. PII sanitization
 
@@ -374,5 +391,9 @@ In code, the receiver is `briefcase.receiver.Receiver(exporter)` plus
   `capture_episodes(env, async_capture=False)`; `EvalRun` already defaults to
   synchronous export because batch jobs exit immediately.
 - `import briefcase.otel` fails: install `briefcase-ai[otel]`.
+- Framework/provider records have empty `inputs`/`outputs`: content capture is
+  off by default for `briefcase.auto()`; pass `capture_content="full"` or set
+  `BRIEFCASE_CAPTURE_CONTENT=full` (records written without it cannot be
+  replayed or turned into datasets).
 - Logging shows nothing: it's opt-in — call `enable_logging()` or set
   `BRIEFCASE_LOG_LEVEL`.

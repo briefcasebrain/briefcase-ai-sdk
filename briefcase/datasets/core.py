@@ -32,9 +32,10 @@ _CONTENT_FREE_KEYS = frozenset({
 _STREAM_KEYS = frozenset({"chunk_count", "stream_completed"})
 
 RECAPTURE_HINT = (
-    "re-capture with content: @briefcase.capture(capture_content=\"full\"), "
-    "briefcase.auto(\"<provider>\", capture_content=True), or "
-    "`briefcase exec --capture-content full -- <command>`"
+    "re-capture with content: briefcase.auto(\"<provider or framework>\", "
+    "capture_content=\"full\") or BRIEFCASE_CAPTURE_CONTENT=full, "
+    "`briefcase exec --capture-content full -- <command>`, or "
+    "@briefcase.capture(capture_content=\"full\")"
 )
 
 

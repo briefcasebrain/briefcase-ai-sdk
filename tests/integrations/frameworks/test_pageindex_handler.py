@@ -66,7 +66,7 @@ class TestCapturesTreeDepth:
     def test_captures_tree_depth(self):
         """pageindex.tree.depth equals the max depth of the tree (2 for SAMPLE_TREE)."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(
             messages=[{"role": "user", "content": "q"}],
             doc_id="doc-depth",
@@ -79,7 +79,7 @@ class TestCapturesTreeDepth:
         """depth=0 for a root with no children."""
         flat_tree = {"node_id": "root", "title": "Root", "nodes": []}
         client = _make_client(flat_tree)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-flat")
         records = tracer.get_records()
         assert records[0]["pageindex.tree.depth"] == 0
@@ -95,7 +95,7 @@ class TestCapturesTreeDepth:
             ],
         }
         client = _make_client(tree)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-single")
         records = tracer.get_records()
         assert records[0]["pageindex.tree.depth"] == 1
@@ -107,7 +107,7 @@ class TestCapturesNodesVisited:
     def test_captures_nodes_visited(self):
         """pageindex.tree.nodes_visited equals the total node count (4 for SAMPLE_TREE)."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-nodes")
         records = tracer.get_records()
         assert records[0]["pageindex.tree.nodes_visited"] == 4
@@ -116,7 +116,7 @@ class TestCapturesNodesVisited:
         """A single root node gives nodes_visited=1."""
         tree = {"node_id": "root", "title": "Root", "nodes": []}
         client = _make_client(tree)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-single-root")
         records = tracer.get_records()
         assert records[0]["pageindex.tree.nodes_visited"] == 1
@@ -128,7 +128,7 @@ class TestCapturesTraversalPath:
     def test_captures_traversal_path(self):
         """pageindex.tree.path is a non-empty string containing the root title."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-path")
         records = tracer.get_records()
         path = records[0]["pageindex.tree.path"]
@@ -139,7 +139,7 @@ class TestCapturesTraversalPath:
     def test_traversal_path_has_separator(self):
         """The path uses ' > ' as the separator between levels."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-sep")
         records = tracer.get_records()
         assert " > " in records[0]["pageindex.tree.path"]
@@ -151,7 +151,7 @@ class TestCapturesBacktrackCount:
     def test_captures_backtrack_count(self):
         """backtrack_count is always 0 (not available from the PageIndex API)."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-bt")
         records = tracer.get_records()
         assert records[0]["pageindex.tree.backtrack_count"] == 0
@@ -159,7 +159,7 @@ class TestCapturesBacktrackCount:
     def test_backtrack_count_type_int(self):
         """backtrack_count is an integer."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-bt2")
         records = tracer.get_records()
         assert isinstance(records[0]["pageindex.tree.backtrack_count"], int)
@@ -171,7 +171,7 @@ class TestCapturesDocId:
     def test_captures_doc_id(self):
         """pageindex.doc_id matches the doc_id passed to chat_completions()."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="pi-abc123")
         records = tracer.get_records()
         assert records[0]["pageindex.doc_id"] == "pi-abc123"
@@ -179,7 +179,7 @@ class TestCapturesDocId:
     def test_captures_doc_id_list(self):
         """When doc_id is a list, the first element is stored."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id=["doc-a", "doc-b"])
         records = tracer.get_records()
         assert records[0]["pageindex.doc_id"] == "doc-a"
@@ -189,7 +189,7 @@ class TestCapturesDocId:
         client = MagicMock()
         client.chat_completions.return_value = _make_chat_response()
         # fetch_tree_metadata=False so get_tree is not called with an empty doc_id
-        tracer = PageIndexTracer(client=client, async_capture=False, fetch_tree_metadata=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False, fetch_tree_metadata=False)
         tracer.chat_completions(messages=[], doc_id=None)
         records = tracer.get_records()
         assert records[0]["pageindex.doc_id"] == ""
@@ -201,7 +201,7 @@ class TestCapturesRetrievalMethod:
     def test_captures_retrieval_method(self):
         """pageindex.retrieval_method is 'tree_search'."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-rm")
         records = tracer.get_records()
         assert records[0]["pageindex.retrieval_method"] == "tree_search"
@@ -213,7 +213,7 @@ class TestWireShape:
     def test_record_uses_wire_field_names(self):
         """Records carry the decision-record core field names."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-wire")
         record = tracer.get_records()[0]
         for key in ("decision_id", "decision_type", "function_name", "inputs",
@@ -232,7 +232,7 @@ class TestGracefulWithoutPageindex:
         monkeypatch.setattr(ph, "_PageIndexClient", None)
 
         # Instantiation without api_key succeeds (no client created)
-        tracer = PageIndexTracer(api_key=None)
+        tracer = PageIndexTracer(capture_content="full", api_key=None)
         assert tracer._client is None
 
         # Calling chat_completions raises ImportError
@@ -244,7 +244,7 @@ class TestGracefulWithoutPageindex:
         import briefcase.integrations.frameworks.pageindex_handler as ph
         monkeypatch.setattr(ph, "_PAGEINDEX_AVAILABLE", False)
         mock_client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=mock_client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-x")
         assert len(tracer.get_records()) == 1
 
@@ -285,7 +285,7 @@ class TestAsyncNoBlock:
         mock_exporter.export = slow_export
 
         mock_client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=mock_client, async_capture=True)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=True)
 
         from briefcase.config import BriefcaseConfig
         BriefcaseConfig.reset()
@@ -316,7 +316,7 @@ class TestCaptureFailureSilent:
         mock_exporter.export = exploding_export
 
         mock_client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=mock_client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=False)
 
         from briefcase.config import BriefcaseConfig
         BriefcaseConfig.reset()
@@ -335,7 +335,7 @@ class TestCaptureFailureSilent:
         mock_client.chat_completions.return_value = _make_chat_response()
         mock_client.get_tree.side_effect = RuntimeError("tree fetch failed")
 
-        tracer = PageIndexTracer(client=mock_client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=False)
         result = tracer.chat_completions(messages=[], doc_id="doc-tree-err")
         assert result is not None
         records = tracer.get_records()
@@ -346,7 +346,7 @@ class TestCaptureFailureSilent:
     def test_export_attribute_error_silent(self):
         """An AttributeError in the exporter does not propagate."""
         mock_client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=mock_client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=False)
 
         from briefcase.config import BriefcaseConfig
         BriefcaseConfig.reset()
@@ -366,6 +366,7 @@ class TestContextVersionLinked:
         """context_version appears in every decision record."""
         client = _make_client(SAMPLE_TREE)
         tracer = PageIndexTracer(
+            capture_content="full",
             client=client, context_version="v2.1.3", async_capture=False
         )
         tracer.chat_completions(messages=[], doc_id="doc-cv")
@@ -375,7 +376,7 @@ class TestContextVersionLinked:
     def test_no_context_version_when_none(self):
         """When context_version is None, the key is absent from the record."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, context_version=None, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, context_version=None, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-nocv")
         records = tracer.get_records()
         assert "context_version" not in records[0]
@@ -395,7 +396,7 @@ class TestExporterCalled:
         mock_exporter.export = capturing_export
 
         mock_client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=mock_client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=False)
 
         from briefcase.config import BriefcaseConfig
         BriefcaseConfig.reset()
@@ -415,7 +416,7 @@ class TestExporterCalled:
         BriefcaseConfig.get().exporter = None
 
         mock_client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=mock_client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=False)
 
         try:
             tracer.chat_completions(messages=[], doc_id="doc-noexp")
@@ -515,7 +516,7 @@ class TestHelperFunctions:
 
     def test_fetch_tree_meta_no_doc_id(self):
         """_fetch_tree_meta with an empty doc_id returns an empty dict."""
-        tracer = PageIndexTracer(client=MagicMock(), async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=MagicMock(), async_capture=False)
         result = tracer._fetch_tree_meta("")
         assert result == {}
 
@@ -523,7 +524,7 @@ class TestHelperFunctions:
         """_fetch_tree_meta with no client returns an empty dict."""
         import briefcase.integrations.frameworks.pageindex_handler as ph
         monkeypatch.setattr(ph, "_PAGEINDEX_AVAILABLE", False)
-        tracer = PageIndexTracer(async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", async_capture=False)
         result = tracer._fetch_tree_meta("doc-id")
         assert result == {}
 
@@ -533,7 +534,7 @@ class TestHelperFunctions:
         mock_client.get_tree.return_value = {
             "data": {"node_id": "root", "title": "Root", "nodes": []}
         }
-        tracer = PageIndexTracer(client=mock_client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=False)
         result = tracer._fetch_tree_meta("doc-x")
         assert result["pageindex.tree.depth"] == 0
         assert result["pageindex.tree.nodes_visited"] == 1
@@ -542,19 +543,19 @@ class TestHelperFunctions:
         """A non-dict tree value in the response gives an empty dict."""
         mock_client = MagicMock()
         mock_client.get_tree.return_value = {"tree": None}
-        tracer = PageIndexTracer(client=mock_client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=False)
         result = tracer._fetch_tree_meta("doc-bad")
         assert result == {}
 
     def test_get_records_empty_initially(self):
         """No records exist before any calls."""
-        tracer = PageIndexTracer(client=MagicMock(), async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=MagicMock(), async_capture=False)
         assert tracer.get_records() == []
 
     def test_clear_resets_records(self):
         """clear() empties the record list."""
         client = _make_client(SAMPLE_TREE)
-        tracer = PageIndexTracer(client=client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=client, async_capture=False)
         tracer.chat_completions(messages=[], doc_id="doc-clear")
         assert len(tracer.get_records()) == 1
         tracer.clear()
@@ -564,7 +565,7 @@ class TestHelperFunctions:
         """get_tree() raises ImportError when no client is set."""
         import briefcase.integrations.frameworks.pageindex_handler as ph
         monkeypatch.setattr(ph, "_PAGEINDEX_AVAILABLE", False)
-        tracer = PageIndexTracer(async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", async_capture=False)
         with pytest.raises(ImportError, match="pageindex"):
             tracer.get_tree("doc-id")
 
@@ -572,7 +573,7 @@ class TestHelperFunctions:
         """chat_completions() raises ImportError when no client is set."""
         import briefcase.integrations.frameworks.pageindex_handler as ph
         monkeypatch.setattr(ph, "_PAGEINDEX_AVAILABLE", False)
-        tracer = PageIndexTracer(async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", async_capture=False)
         with pytest.raises(ImportError, match="pageindex"):
             tracer.chat_completions(messages=[], doc_id="x")
 
@@ -580,7 +581,7 @@ class TestHelperFunctions:
         """get_tree() passes through to the underlying client."""
         mock_client = MagicMock()
         mock_client.get_tree.return_value = {"tree": {}}
-        tracer = PageIndexTracer(client=mock_client, async_capture=False)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=False)
         tracer.get_tree("doc-delegate", node_summary=True)
         mock_client.get_tree.assert_called_once_with("doc-delegate", node_summary=True)
 
@@ -593,7 +594,8 @@ class TestErrorPropagation:
         mock_client = MagicMock()
         mock_client.chat_completions.side_effect = ValueError("API error")
 
-        tracer = PageIndexTracer(client=mock_client, async_capture=False, fetch_tree_metadata=False)
+        tracer = PageIndexTracer(capture_content="full", client=mock_client, async_capture=False,
+                                 fetch_tree_metadata=False)
         with pytest.raises(ValueError, match="API error"):
             tracer.chat_completions(messages=[], doc_id="doc-apierr")
 
@@ -607,6 +609,7 @@ class TestErrorPropagation:
         mock_client = MagicMock()
         mock_client.chat_completions.return_value = _make_chat_response()
         tracer = PageIndexTracer(
+            capture_content="full",
             client=mock_client, async_capture=False, fetch_tree_metadata=False
         )
         tracer.chat_completions(messages=[], doc_id="doc-notree")

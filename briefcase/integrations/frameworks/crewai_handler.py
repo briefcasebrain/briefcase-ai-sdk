@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from briefcase._export_mixin import ExportMixin
 from briefcase._logging import get_logger
@@ -146,7 +146,7 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
         max_input_chars: int = 10000,
         max_output_chars: int = 10000,
         exporter: Any = None,
-        capture_content: str = "full",
+        capture_content: Union[bool, str, None] = "none",
         redact: Optional[Callable[[str], str]] = None,
         max_records: Optional[int] = DEFAULT_MAX_RECORDS,
         max_inflight: Optional[int] = DEFAULT_MAX_INFLIGHT,

@@ -112,7 +112,7 @@ class PageIndexTracer(ExportMixin):
         client: Optional[Any] = None,
         fetch_tree_metadata: bool = True,
         exporter: Any = None,
-        capture_content: str = "full",
+        capture_content: Union[bool, str, None] = "none",
         redact: Optional[Callable[[str], str]] = None,
         max_records: Optional[int] = DEFAULT_MAX_RECORDS,
     ) -> None:

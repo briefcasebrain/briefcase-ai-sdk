@@ -145,6 +145,17 @@ def test_openai_cached_subset_is_not_double_counted(table):
     assert nano == pytest.approx((100 * IN + 10 * OUT) * 1e9, abs=2)
 
 
+def test_openai_cache_writes_are_part_of_the_prompt_and_priced_as_writes(table):
+    # OpenAI reports cache_write_tokens inside prompt_tokens (the published
+    # OpenAPI spec, tests/contracts): never billed twice, never at less
+    # than the cache-write rate.
+    entry = table.resolve("gpt-4o")[0]
+    nano, source = actual_cost(table, entry, "gpt-4o",
+                               {"prompt_tokens": 100, "completion_tokens": 10, "cache_write_tokens": 40})
+    assert source == "usage_upper_bound"
+    assert nano == pytest.approx((60 * IN + 40 * 2 * IN + 10 * OUT) * 1e9, abs=2)
+
+
 def test_long_context_tier_reserves_at_the_tier_price(table):
     entry = table.resolve("gemini-2.5-pro")[0]
     tier = entry["rate_card_extras"]["long_context_tiers"][0]

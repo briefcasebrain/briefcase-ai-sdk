@@ -44,7 +44,9 @@ Other layout facts, as found in 2.12.0:
   when it is exhausted, closed, or dropped.
 - ``parse()`` posts directly and is patched itself.
 - Usage fields: ``Message.usage`` (``input_tokens``, ``output_tokens``,
-  ``cache_read_input_tokens``, ``cache_creation_input_tokens``). In a
+  ``cache_read_input_tokens``, ``cache_creation_input_tokens``,
+  ``output_tokens_details.thinking_tokens``, recorded as
+  ``reasoning_tokens``: a part of ``output_tokens``, like OpenAI's). In a
   stream, ``message_start`` carries the input side and a *placeholder*
   ``output_tokens``; each ``message_delta`` carries the cumulative
   ``output_tokens`` and the ``stop_reason``. A stream that ended before its
@@ -118,6 +120,7 @@ def _usage(usage: Any) -> Optional[Dict[str, Optional[int]]]:
         read(usage, "output_tokens"),
         cache_read_input_tokens=read(usage, "cache_read_input_tokens"),
         cache_creation_input_tokens=read(usage, "cache_creation_input_tokens"),
+        reasoning_tokens=read(usage, "output_tokens_details", "thinking_tokens"),
     )
 
 
@@ -173,6 +176,7 @@ class _MessageStream(StreamState):
         self.output_tokens: Any = None
         self.cache_read: Any = None
         self.cache_creation: Any = None
+        self.thinking: Any = None
         #: message_start carries a placeholder output_tokens; only a
         #: message_delta makes the output count real.
         self.saw_delta = False
@@ -189,6 +193,10 @@ class _MessageStream(StreamState):
             value = read(usage, key)
             if isinstance(value, int) and not isinstance(value, bool):
                 setattr(self, attr, value)
+        if final:
+            value = read(usage, "output_tokens_details", "thinking_tokens")
+            if isinstance(value, int) and not isinstance(value, bool):
+                self.thinking = value
 
     def observe(self, event: Any) -> Any:
         kind = read(event, "type")
@@ -216,6 +224,7 @@ class _MessageStream(StreamState):
             self.input_tokens, self.output_tokens,
             cache_read_input_tokens=self.cache_read,
             cache_creation_input_tokens=self.cache_creation,
+            reasoning_tokens=self.thinking,
         )
         if self.want_content:
             info["content"] = {"content": self.get_text()}
@@ -248,6 +257,7 @@ class _SnapshotStream(StreamState):
             if isinstance(usage, dict):
                 usage["completion_tokens"] = None
                 usage["total_tokens"] = None
+                usage.pop("reasoning_tokens", None)
         else:
             self.finished = True
         return info

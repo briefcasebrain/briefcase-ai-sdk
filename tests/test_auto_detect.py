@@ -547,42 +547,64 @@ def test_unknown_skip_names_are_reported(installed, caplog):
     assert "langchian" in caplog.text and "not integrations" in caplog.text
 
 
-def test_framework_full_content_default_warns_once_and_env_turns_it_off(
-        installed, fake_install, mocker, monkeypatch, caplog):
+def test_framework_content_default_is_none_with_no_warning_and_env_opts_in(
+        installed, fake_install, mocker, monkeypatch, caplog, recwarn):
     import logging
 
-    mocker.patch.object(auto_mod, "_warned_framework_content", False)
     monkeypatch.delenv("BRIEFCASE_CAPTURE_CONTENT", raising=False)
     monkeypatch.setitem(auto_mod._FRAMEWORK_MODULES, "fake", "bc_fake_sdk")
     monkeypatch.setitem(auto_mod._FRAMEWORK_MODULES, "fake2", "bc_fake_sdk")
     mocker.patch.object(auto_mod, "_SUPPORTED", auto_mod._SUPPORTED | {"fake", "fake2"})
-    with caplog.at_level(logging.WARNING, logger="briefcase"):
+    with caplog.at_level(logging.INFO, logger="briefcase"):
         auto("fake")
-        auto("fake2")
-    warnings = [r.getMessage() for r in caplog.records if "FULL prompt" in r.getMessage()]
-    assert len(warnings) == 1
-    assert "capture_content='none'" in warnings[0] and "BRIEFCASE_CAPTURE_CONTENT=none" in warnings[0]
-    assert "capture_content" not in fake_install[0][1]  # the default itself is unchanged
+    # Nothing is passed: the handler's own default (no content) applies,
+    # and nothing is said about content.
+    assert "capture_content" not in fake_install[0][1]
+    assert "content" not in caplog.text.lower()
+    assert not [w for w in recwarn if "content" in str(w.message).lower()]
 
     undo()
     _PATCHES.clear()
-    caplog.clear()
-    mocker.patch.object(auto_mod, "_warned_framework_content", False)
-    with caplog.at_level(logging.WARNING, logger="briefcase"):
-        auto("fake", capture_content="full")  # stated explicitly: no warning
-        monkeypatch.setenv("BRIEFCASE_CAPTURE_CONTENT", "none")
-        auto("fake2")                          # the environment decides
-    assert not [r for r in caplog.records if "FULL prompt" in r.getMessage()]
-    assert fake_install[-1][1]["capture_content"] == "none"
+    with caplog.at_level(logging.INFO, logger="briefcase"):
+        monkeypatch.setenv("BRIEFCASE_CAPTURE_CONTENT", "full")
+        auto("fake2")                          # the environment opts in
+    assert fake_install[-1][1]["capture_content"] == "full"
+    assert not [w for w in recwarn if "content" in str(w.message).lower()]
 
 
-def test_providers_are_not_given_the_framework_warning(installed, fake_install, mocker, caplog):
-    import logging
+def test_framework_and_provider_content_options_are_the_same(installed, fake_install,
+                                                             monkeypatch):
+    monkeypatch.delenv("BRIEFCASE_CAPTURE_CONTENT", raising=False)
+    auto("langchain", capture_content=True)
+    auto("openai", capture_content=True)
+    assert fake_install[0][1]["capture_content"] is True
+    assert fake_install[1][1]["capture_content"] is True
 
-    mocker.patch.object(auto_mod, "_warned_framework_content", False)
-    with caplog.at_level(logging.WARNING, logger="briefcase"):
-        auto("openai")
-    assert "FULL prompt" not in caplog.text
+
+def test_handler_content_defaults_match_the_providers():
+    import inspect
+
+    from briefcase.integrations.frameworks import (
+        ag2_handler, autogen_handler, crewai_handler, langchain_handler,
+        llamaindex_handler, openai_agents_handler, pageindex_handler,
+    )
+    from briefcase.integrations.frameworks._capture_state import CaptureOptions
+    from briefcase.integrations.providers._base import ProviderInstrumentor
+
+    classes = [
+        ag2_handler.AG2HookTracer, autogen_handler.AutoGenEventHandler,
+        crewai_handler.CrewAIEventListener, langchain_handler.BriefcaseLangChainHandler,
+        llamaindex_handler.BriefcaseLlamaIndexHandler, openai_agents_handler.OpenAIAgentsTracer,
+        pageindex_handler.PageIndexTracer,
+    ]
+    provider_default = inspect.signature(ProviderInstrumentor).parameters["capture_content"].default
+    for cls in classes:
+        default = inspect.signature(cls.__init__).parameters["capture_content"].default
+        assert CaptureOptions(default).capture_content == "none", cls
+        assert CaptureOptions(provider_default).capture_content == "none"
+    assert CaptureOptions().capture_content == "none"
+    assert CaptureOptions(True).capture_content == "full"
+    assert CaptureOptions(False).capture_content == "none"
 
 
 def test_undo_leaves_a_later_third_party_patch_in_place(mocker, caplog):

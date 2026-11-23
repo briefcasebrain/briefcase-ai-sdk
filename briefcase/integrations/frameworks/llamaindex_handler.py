@@ -29,7 +29,7 @@ from __future__ import annotations
 import threading
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Deque, Dict, List, Optional
+from typing import Any, Callable, Deque, Dict, List, Optional, Union
 
 from briefcase._export_mixin import ExportMixin
 from briefcase._logging import get_logger
@@ -103,8 +103,9 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
     Completed decisions are kept in a ring buffer of ``max_records``. An
     event whose end never arrives is dropped from the in-flight table after
     ``inflight_ttl_seconds`` (or when ``max_inflight`` events are open) and
-    recorded with an ``abandoned`` error. ``capture_content`` and ``redact``
-    behave as for ``@briefcase.capture``.
+    recorded with an ``abandoned`` error. ``capture_content`` (default
+    ``"none"``: no content) and ``redact`` take the same values as the
+    provider integrations.
     """
 
     def __init__(
@@ -120,7 +121,7 @@ class BriefcaseLlamaIndexHandler(ExportMixin):
         context_version: Optional[str] = None,
         exporter: Any = None,
         async_capture: bool = True,
-        capture_content: str = "full",
+        capture_content: Union[bool, str, None] = "none",
         redact: Optional[Callable[[str], str]] = None,
         max_records: Optional[int] = DEFAULT_MAX_RECORDS,
         max_inflight: Optional[int] = DEFAULT_MAX_INFLIGHT,

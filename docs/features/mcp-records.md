@@ -645,7 +645,7 @@ A replay plan (nothing runs):
       "replayable": true,
       "reasons": [],
       "warnings": [
-        "capture does not record response_format, tool_choice, stop, parallel_tool_calls, logit_bias, prediction, reasoning_effort (non-string); if the original call set any of them, pass it with --param"
+        "capture does not record response_format, tool_choice, stop, parallel_tool_calls, logit_bias, prediction, reasoning_effort (non-string), web_search_options, modalities, audio, functions, function_call, moderation; if the original call set any of them, pass it with --param"
       ]
     },
     {

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from briefcase._export_mixin import ExportMixin
 from briefcase._logging import get_logger
@@ -109,7 +109,7 @@ class AG2HookTracer(ExportMixin):
         max_input_chars: int = 10000,
         max_output_chars: int = 10000,
         exporter: Any = None,
-        capture_content: str = "full",
+        capture_content: Union[bool, str, None] = "none",
         redact: Optional[Callable[[str], str]] = None,
         max_records: Optional[int] = DEFAULT_MAX_RECORDS,
     ):

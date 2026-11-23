@@ -65,15 +65,28 @@ def test_modes_match_capture_decorator():
         CaptureOptions(redact="nope")
 
 
+def test_default_records_no_content():
+    record = {"inputs": {"q": "secret"}, "outputs": {"a": "secret"}, "error": "secret"}
+    assert CaptureOptions().apply(record) == {
+        "inputs": {}, "outputs": {}, "error": "<omitted>",
+    }
+
+
+def test_bool_values_match_the_providers():
+    assert CaptureOptions(True).capture_content == "full"
+    assert CaptureOptions(False).capture_content == "none"
+    assert CaptureOptions(None).capture_content == "none"
+
+
 def test_passthrough_leaves_record_untouched():
     record = {"inputs": {"q": "secret"}, "outputs": {"a": 1}, "error": "boom"}
-    assert CaptureOptions().apply(record) == {
+    assert CaptureOptions("full").apply(record) == {
         "inputs": {"q": "secret"}, "outputs": {"a": 1}, "error": "boom",
     }
 
 
 def test_redact_reaches_nested_strings_and_spans():
-    options = CaptureOptions(redact=lambda text: text.replace("secret", "[X]"))
+    options = CaptureOptions("full", redact=lambda text: text.replace("secret", "[X]"))
     record = {
         "function_name": "secret-fn",
         "inputs": {"messages": [{"role": "user", "content": "my secret"}], "n": 3},
@@ -97,12 +110,12 @@ def test_redact_fails_closed():
     def broken(text):
         raise RuntimeError("redactor down")
 
-    record = CaptureOptions(redact=broken).apply(
+    record = CaptureOptions("full", redact=broken).apply(
         {"inputs": {"q": "secret"}, "outputs": {}, "error": "secret"}
     )
     assert record["inputs"] == {"q": "<redaction-failed>"}
     assert record["error"] == "<redaction-failed>"
-    assert CaptureOptions(redact=lambda t: None).content("secret") == "<redaction-failed>"
+    assert CaptureOptions("full", redact=lambda t: None).content("secret") == "<redaction-failed>"
 
 
 def test_hash_and_none_modes_drop_content():
@@ -196,7 +209,7 @@ def test_handlers_accept_capture_and_bound_options(handler_cls):
     params = inspect.signature(handler_cls.__init__).parameters
     for name in ("capture_content", "redact", "max_records"):
         assert name in params, f"{handler_cls.__name__} lacks {name}"
-    assert params["capture_content"].default == "full"
+    assert params["capture_content"].default == "none"
     assert params["redact"].default is None
 
     with pytest.raises(ValueError):
@@ -221,7 +234,7 @@ def test_handlers_with_inflight_state_accept_caps(handler_cls):
 def test_ag2_records_bounded_and_redacted():
     exporter = _Exporter()
     tracer = AG2HookTracer(
-        exporter=exporter, async_capture=False, max_records=3,
+        exporter=exporter, async_capture=False, max_records=3, capture_content="full",
         redact=lambda text: text.replace("card-number", "****"),
     )
     for i in range(10):
@@ -262,7 +275,8 @@ def test_crewai_abandoned_start_is_recorded_not_leaked():
 
 
 def test_openai_agents_abandoned_trace_and_span_caps():
-    tracer = OpenAIAgentsTracer(async_capture=False, max_inflight=2, exporter=_Exporter())
+    tracer = OpenAIAgentsTracer(async_capture=False, max_inflight=2, exporter=_Exporter(),
+                                capture_content="full")
 
     class Trace:
         def __init__(self, trace_id):

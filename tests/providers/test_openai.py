@@ -407,7 +407,7 @@ def test_responses_create(instrument, mem):
     assert record["function_name"] == "openai.responses.create"
     assert record["token_usage"] == {
         "prompt_tokens": 9, "completion_tokens": 6, "total_tokens": 15,
-        "cached_tokens": 1, "reasoning_tokens": 3,
+        "cached_tokens": 1, "cache_write_tokens": 0, "reasoning_tokens": 3,
     }
     assert record["finish_reason"] == "completed"
     assert record["response_id"] == "resp_1"

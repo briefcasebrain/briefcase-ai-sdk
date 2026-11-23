@@ -31,8 +31,11 @@ Supported frameworks:
     "autogen"         delegates to autogen_handler.install()
     "pageindex"       patches pageindex.PageIndexClient.chat_completions
 
+Content capture is off for every integration (frameworks and providers)
+unless capture_content (or BRIEFCASE_CAPTURE_CONTENT) asks for it.
+
 Supported providers (see briefcase.integrations.providers; one decision
-record per model call, content capture off unless capture_content is set):
+record per model call):
     "openai"          chat.completions / responses / completions / embeddings
     "anthropic"       messages.create / parse / stream (and beta.messages)
     "google-genai"    models.generate_content / generate_content_stream
@@ -108,7 +111,6 @@ _READY: List[str] = []
 _FAILED: Dict[str, str] = {}
 
 ENV_CAPTURE_CONTENT = "BRIEFCASE_CAPTURE_CONTENT"
-_warned_framework_content = False
 
 
 def _after_fork_in_child() -> None:
@@ -178,12 +180,12 @@ def auto(
                          ``max_records``). With no name only
                          ``capture_content`` and ``redact`` are accepted,
                          since they are the options every integration takes.
-                         ``capture_content`` defaults to ``"full"`` for
-                         frameworks and to off for providers; when it is not
+                         ``capture_content`` takes the same values for every
+                         integration (``False``/``"none"``, ``"hash"``,
+                         ``True``/``"full"``) and defaults to no content for
+                         frameworks and providers alike; when it is not
                          passed and ``BRIEFCASE_CAPTURE_CONTENT`` is set
-                         (``none`` / ``hash`` / ``full``), that value is used
-                         for both. A framework installed with the ``"full"``
-                         default logs one WARNING saying so.
+                         (``none`` / ``hash`` / ``full``), that value is used.
 
     Returns:
         The installed handler instance, or ``{name: handler_or_True}``.
@@ -270,11 +272,29 @@ def _differs(active: Dict[str, Any], explicit: Dict[str, Any]) -> List[str]:
 _UNSET: Any = object()
 
 
-def _framework_content_default(framework: str, kwargs: Dict[str, Any]) -> None:
+def _framework_content_mode(info: Dict[str, Any]) -> str:
+    """The content mode a framework handler runs with, for ``status()``."""
+    handler = info.get("handler")
+    options = getattr(handler, "_capture_options", None)
+    mode = getattr(options, "capture_content", None)
+    if isinstance(mode, str):
+        return mode
+    from briefcase.integrations.frameworks._capture_state import (
+        DEFAULT_CAPTURE_CONTENT,
+        normalize_capture_content,
+    )
+
+    value = info.get("options", {}).get("capture_content", DEFAULT_CAPTURE_CONTENT)
+    try:
+        return normalize_capture_content(value)
+    except ValueError:
+        return str(value)
+
+
+def _content_from_env(kwargs: Dict[str, Any]) -> None:
     """Resolve ``capture_content`` when it was not passed: the environment
-    variable if set, else the integration's own default. A framework left
-    on its full-content default says so once, loudly."""
-    global _warned_framework_content
+    variable if set, else the integration's own default, which for every
+    integration is no content."""
     if "capture_content" in kwargs:
         return
     raw = (os.environ.get(ENV_CAPTURE_CONTENT) or "").strip().lower()
@@ -286,29 +306,6 @@ def _framework_content_default(framework: str, kwargs: Dict[str, Any]) -> None:
             "briefcase.auto: ignoring %s=%r (expected none, hash or full).",
             ENV_CAPTURE_CONTENT, raw,
         )
-    if framework in _FRAMEWORK_MODULES and not _warned_framework_content:
-        _warned_framework_content = True
-        message = (
-            f"briefcase.auto({framework!r}): framework handlers record FULL prompt and "
-            "completion content by default. (Provider integrations and `briefcase exec` "
-            "record none.) To turn it off pass capture_content='none' (or 'hash') to "
-            f"auto(), or set {ENV_CAPTURE_CONTENT}=none; pass capture_content='full' to "
-            "keep it and silence this warning."
-        )
-        logger.warning(message)
-        _visible_warning(message)
-
-
-def _visible_warning(message: str) -> None:
-    """Also say it through ``warnings``: briefcase's logger is silent unless
-    the application configured logging, and this must not be missed. Never
-    raises, also under ``-W error``."""
-    try:
-        import warnings
-
-        warnings.warn(message, UserWarning, stacklevel=5)
-    except Exception:
-        pass
 
 
 def _auto_locked(framework, exporter, context_version, async_capture, kwargs):
@@ -340,7 +337,7 @@ def _auto_locked(framework, exporter, context_version, async_capture, kwargs):
     context_version = options.pop("context_version", None)
     async_capture = options.pop("async_capture", True)
     kwargs = options
-    _framework_content_default(framework, kwargs)
+    _content_from_env(kwargs)
     stored = dict(kwargs, exporter=exporter, context_version=context_version,
                   async_capture=async_capture)
 
@@ -683,8 +680,7 @@ def status() -> Dict[str, Any]:
                     if skipped:
                         entry["state"] = "partial"
                 else:
-                    entry["capture_content"] = info.get("options", {}).get(
-                        "capture_content", "full")
+                    entry["capture_content"] = _framework_content_mode(info)
             elif name in _PENDING:
                 entry["state"] = "pending"
                 entry["reason"] = f"waiting for 'import {_trigger_for(name)}'"

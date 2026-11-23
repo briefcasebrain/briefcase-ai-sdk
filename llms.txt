@@ -21,6 +21,13 @@ def classify(text: str) -> str:     # records inputs, outputs, timing, errors
 `@briefcase.capture` works without `briefcase.init()`. Call `observe(...)` (or
 `setup(exporter=...)`) once at startup, or records go nowhere.
 
+Content rule: briefcase records prompt, completion and tool content only where
+someone chose to. Automatic capture (`briefcase.auto()` for frameworks and
+provider SDKs, `briefcase exec`, `connect`/`receive`, eval records) records none
+unless given `capture_content="full"` (or `"hash"`), `--capture-content` /
+`--keep-content`, or `BRIEFCASE_CAPTURE_CONTENT=full`; `@capture` on your own
+function is that choice and records its arguments and return value.
+
 ## Core API
 - [README](README.md): install, quick example, extras table
 - [llms-full.txt](llms-full.txt): full copy-paste recipes (capture, exporters, sanitize, cost, drift, external data, logging)
