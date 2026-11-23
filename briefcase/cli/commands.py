@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+from pathlib import Path
 
 
 def _split_kv(item: str):
@@ -233,8 +234,24 @@ def cmd_run_logs(args, store, engine, stack=None) -> int:
     # oci-jj has no per-job log RPC; surface the verdict-worker container logs of the installed engine.
     from argparse import Namespace
 
+    from briefcase import engine as _engine
     from briefcase.cli import engine_commands
 
+    if os.environ.get("BRIEFCASE_OCIJJ_COMPOSE"):
+        print("note: BRIEFCASE_OCIJJ_COMPOSE is no longer read; `run logs` uses the engine installed with "
+              "`briefcase-ai engine install`", file=sys.stderr)
+    record = _engine.current_install() or {}
+    try:
+        compose_text = Path(record["compose"]).read_text(encoding="utf-8") if record.get("compose") else None
+    except OSError:
+        compose_text = None
+    if compose_text is not None and "\n  verdict-worker:\n" not in compose_text:
+        # The verdict worker is optional in a release; without it runs are scored elsewhere.
+        print(f"error: engine {record.get('version')} has no verdict worker, so there are no verdict logs",
+              file=sys.stderr)
+        print("Fix: briefcase-ai engine logs oci-jj-server   # or score the run yourself and record it with "
+              "`briefcase-ai run attach`", file=sys.stderr)
+        return 1
     return engine_commands.cmd_logs(
         Namespace(service="verdict-worker", follow=getattr(args, "follow", False), tail="200"),
         store, engine, None)

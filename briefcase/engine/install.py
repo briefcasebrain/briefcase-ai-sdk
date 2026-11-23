@@ -506,9 +506,10 @@ def complete_online(opts: InstallOptions, prepared: Prepared, *, runner=subproce
                 raise _trust.TrustError(f"the platform's bundle {key} differs from the signed manifest's",
                                         fix="do not install; report this to Briefcase support")
         archive = download(part["url"], install_dir / "download" / entry["file"], entry, fetch)
-        sig = None
-        if part.get("signature_url"):
-            sig = fetch_bytes(part["signature_url"], entry["signature"], _trust.MAX_SIGNATURE_BYTES, fetch)
+        if not part.get("signature_url"):
+            raise InstallError("the platform sent no signature for the image bundle; a release always has one, "
+                               "so this answer is incomplete", fix="try again, or contact Briefcase support")
+        sig = fetch_bytes(part["signature_url"], entry["signature"], _trust.MAX_SIGNATURE_BYTES, fetch)
         _verified(archive, entry, manifest, sig, **verify_kw)
         images, ids, method = _load_images(manifest, archive, docker, target, runner, which, log)
     return _finish(opts, manifest, install_dir, binary_path, binary_info, images, ids,

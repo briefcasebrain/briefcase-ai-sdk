@@ -170,6 +170,31 @@ def _compose(record: Dict[str, Any], *args: str) -> List[str]:
     return compose.compose_argv(Path(record["compose"]), Path(record["env_file"]), *args)
 
 
+LEGACY_PROJECT = "oci-jj"  # the Compose project of the 4.4 `briefcase stack`
+
+
+def legacy_stack() -> Dict[str, List[str]]:
+    """Containers and volumes left by the removed 4.4 ``briefcase stack`` (Compose project ``oci-jj``)."""
+    def names(argv: List[str]) -> List[str]:
+        res = _run(argv, capture_output=True, text=True)
+        return (getattr(res, "stdout", "") or "").split() if _rc(res) == 0 else []
+
+    label = f"label=com.docker.compose.project={LEGACY_PROJECT}"
+    return {"running": names(["docker", "ps", "--filter", label, "--format", "{{.Names}}"]),
+            "volumes": names(["docker", "volume", "ls", "--filter", label, "--format", "{{.Name}}"])}
+
+
+def legacy_stack_message(found: Dict[str, List[str]]) -> str:
+    parts = []
+    if found["running"]:
+        parts.append("a 4.4 stack is still running (Compose project oci-jj; it uses the same ports): stop it with "
+                     "`docker compose -p oci-jj down`")
+    if found["volumes"]:
+        parts.append(f"its data volumes ({', '.join(found['volumes'])}) are kept and not migrated: the new engine "
+                     "starts empty. Delete them with `docker volume rm` once you no longer need that data")
+    return "; ".join(parts)
+
+
 def _rc(result) -> int:
     return getattr(result, "returncode", 1) if result is not None else 1
 
@@ -520,6 +545,10 @@ def cmd_up(args, store, engine, stack) -> int:
             print(f"  {line}")
         return _ux.fail("an engine image changed since it was verified at install; not starting it",
                         fix=_reinstall_fix(record))
+    legacy = legacy_stack()
+    if legacy["running"]:
+        return _ux.fail(legacy_stack_message(legacy),
+                        fix="docker compose -p oci-jj down   # then: briefcase-ai engine up")
     argv = _compose(record, "up", "-d", "--remove-orphans")
     if getattr(args, "wait", False):
         argv += ["--wait", "--wait-timeout", "300"]
@@ -688,6 +717,10 @@ def doctor_checks(record: Optional[Dict[str, Any]], client_factory=None) -> List
         res = _run(["docker", "compose", "version", "--short"], capture_output=True, text=True)
         out.append((OK, "docker compose", (getattr(res, "stdout", "") or "").strip())
                    if _rc(res) == 0 else (FAIL, "docker compose", "the compose plugin is missing"))
+    if version:
+        legacy = legacy_stack()
+        if legacy["running"] or legacy["volumes"]:
+            out.append((WARN, "4.4 stack", legacy_stack_message(legacy)))
     keys = _trust.load_keys()
     out.append((OK, "release keys", ", ".join(k.key_id[:19] + "..." for k in keys)) if keys
                else (WARN, "release keys", _trust.NO_KEY_MESSAGE))

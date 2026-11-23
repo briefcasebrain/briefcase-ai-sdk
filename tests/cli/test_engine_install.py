@@ -135,7 +135,9 @@ def test_failure_after_redeeming_a_code_says_get_a_new_code(env, capsys):
 
 
 def test_tampered_bundle_after_redeeming_is_refused_and_says_new_code(env, capsys):
-    env["platform"].overrides[f"engine-images-{VERSION}-x86_64.tar"] = b"tampered bundle"
+    name = f"engine-images-{VERSION}-x86_64.tar"
+    good = env["release"].files[name]
+    env["platform"].overrides[name] = good[:-1] + bytes([good[-1] ^ 1])  # same length, one bit flipped
     assert _install("--code", "bci_good") == 1
     err = capsys.readouterr().err
     assert "does not match the signed manifest" in err and "used up; get a new one" in err
@@ -148,6 +150,25 @@ def test_docker_load_failure_after_redeeming_says_new_code(env, capsys, monkeypa
     monkeypatch.setenv("PATH", str(env["tmp"] / "bin"))  # a skopeo installed on the machine must not be found
     assert _install("--code", "bci_good") == 1
     assert "used up; get a new one" in capsys.readouterr().err
+
+
+def test_a_bundle_without_its_detached_signature_is_refused(env, capsys):
+    env["platform"].omit_bundle_sig = True
+    assert _install("--token", "bcl_good") == 1
+    assert "no signature for the image bundle" in capsys.readouterr().err
+    assert not any(a[0] == "load" for a in _docker(env))
+
+
+def test_check_file_rejects_a_same_length_change_without_a_signature(tmp_path, key, pinned):
+    release = build_release(key)
+    entry = release.manifest["bundles"][0]
+    path = tmp_path / entry["file"]
+    data = release.files[entry["file"]]
+    path.write_bytes(data[:-1] + bytes([data[-1] ^ 1]))
+    manifest = trust.load_manifest(release.files["engine-manifest.json"],
+                                   release.files["engine-manifest.json.sig"], trust.load_keys(trust.KEYS_DIR))
+    with pytest.raises(trust.TrustError, match="does not match"):
+        trust.check_file(path, entry, manifest, None)
 
 
 def test_answer_without_a_bundle_is_refused_unless_no_images(env, capsys):
@@ -686,6 +707,43 @@ def test_up_status_logs_down_drive_the_installed_compose(env, capsys):
     assert [a[a.index("--env-file") + 2] for a in compose_calls] == ["up", "logs", "down"]
 
 
+def test_engine_up_refuses_while_a_4_4_stack_is_still_running(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    monkeypatch.setenv("FAKE_DOCKER_LEGACY", "1")
+    env["log"].unlink()
+    assert main(["engine", "up"]) == 1
+    err = capsys.readouterr().err
+    assert "4.4 stack" in err and "docker compose -p oci-jj down" in err
+    assert "oci-jj_pgdata" in err and "not migrated" in err
+    assert not any(a[0] == "compose" and "up" in a for a in _docker(env))
+
+
+def test_engine_doctor_warns_about_a_running_4_4_stack_and_its_leftover_volumes(env, capsys, monkeypatch):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    monkeypatch.setenv("FAKE_DOCKER_LEGACY", "1")
+    main(["engine", "doctor", "--json"])
+    rows = {row["check"]: row for row in json.loads(capsys.readouterr().out)}
+    assert rows["4.4 stack"]["severity"] == "warn" and "docker compose -p oci-jj down" in rows["4.4 stack"]["detail"]
+    monkeypatch.delenv("FAKE_DOCKER_LEGACY")
+    monkeypatch.setenv("FAKE_DOCKER_LEGACY_VOLUMES", "1")
+    main(["engine", "doctor", "--json"])
+    rows = {row["check"]: row for row in json.loads(capsys.readouterr().out)}
+    assert rows["4.4 stack"]["severity"] == "warn" and "oci-jj_pgdata" in rows["4.4 stack"]["detail"]
+
+
+def test_run_logs_says_the_compose_override_is_no_longer_read(env, capsys, monkeypatch):
+    from types import SimpleNamespace
+
+    from briefcase.cli import commands
+
+    monkeypatch.setenv("BRIEFCASE_OCIJJ_COMPOSE", "/somewhere/docker-compose.yml")
+    store = SimpleNamespace(get_run=lambda run_id: {"id": run_id})
+    commands.cmd_run_logs(SimpleNamespace(id="demo", follow=False), store, None)
+    assert "BRIEFCASE_OCIJJ_COMPOSE is no longer read" in capsys.readouterr().err
+
+
 def test_uninstall_removes_install_and_purge_removes_secrets(env, capsys):
     assert _install("--code", "bci_good") == 0
     assert main(["engine", "uninstall", "--dry-run"]) == 0
@@ -714,11 +772,13 @@ def test_upgrade_needs_a_code_or_token_and_restarts_a_running_engine(env, capsys
     assert ups and "0.5.0" in ups[-1][ups[-1].index("-f") + 1]
 
 
-def test_run_logs_reads_the_verdict_worker_logs_of_the_installed_engine(env, capsys):
+def test_run_logs_reads_the_verdict_worker_logs_when_the_release_has_one(env, capsys, key):
     from types import SimpleNamespace
 
     from briefcase.cli import commands
+    from tests.cli.engine_fakes import IMAGE_NAMES
 
+    env["platform"].release = build_release(key, image_names=IMAGE_NAMES + ("verdict_worker",))
     assert _install("--code", "bci_good") == 0
     env["log"].unlink()
     store = SimpleNamespace(get_run=lambda run_id: {"id": run_id})
@@ -726,6 +786,26 @@ def test_run_logs_reads_the_verdict_worker_logs_of_the_installed_engine(env, cap
     argv = _docker(env)[-1]
     assert argv[:3] == ["compose", "--project-name", "briefcase-engine"]
     assert argv[argv.index("logs"):] == ["logs", "--tail", "200", "-f", "verdict-worker"]
+
+
+def test_run_logs_says_so_when_the_release_has_no_verdict_worker(env, capsys):
+    from types import SimpleNamespace
+
+    from briefcase.cli import commands
+
+    assert _install("--code", "bci_good") == 0
+    env["log"].unlink()
+    capsys.readouterr()
+    store = SimpleNamespace(get_run=lambda run_id: {"id": run_id})
+    assert commands.cmd_run_logs(SimpleNamespace(id="demo", follow=False), store, None) == 1
+    err = capsys.readouterr().err
+    assert "no verdict worker" in err and "briefcase-ai engine logs" in err
+    assert not any(a[0] == "compose" and "logs" in a for a in _docker(env))
+
+
+def test_the_fake_compose_fails_for_an_unknown_service(env):
+    assert _install("--code", "bci_good") == 0
+    assert main(["engine", "logs", "verdict-worker"]) == 1  # not in this release's compose file
 
 
 def test_run_logs_without_an_engine_says_to_install_it(shell_home, capsys, monkeypatch):
@@ -784,6 +864,13 @@ def test_compose_takes_minio_and_registry_from_the_manifest():
     text = compose.render(local, "0.4.0")
     assert "image: localhost/briefcase-engine/minio:0.4.0\n    pull_policy: never" in _service(text, "minio")
     assert "image: localhost/briefcase-engine/registry:0.4.0" in _service(text, "registry")
+
+
+def test_compose_fallback_third_party_images_are_pinned_by_digest():
+    text = compose.render(dict(DIGESTS), "0.2.0")
+    for service in ("minio", "registry"):
+        ref = [line for line in _service(text, service).splitlines() if line.strip().startswith("image:")][0]
+        assert "@sha256:" in ref, ref
 
 
 def test_tls_compose_variant():

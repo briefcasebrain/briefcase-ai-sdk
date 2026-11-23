@@ -231,7 +231,8 @@ def _status_row() -> Dict[str, str]:
                 "next": "briefcase-ai policy check"}
     tools = ", ".join(row["tool"] for row in info["hooks"])
     if not info["hooks"] and info["problems"] and "removed `briefcase` command" in info["problems"][0]:
-        return {"id": FEATURE_ID, "state": "attention", "detail": info["problems"][0], "next": "briefcase-ai policy init"}
+        return {"id": FEATURE_ID, "state": "attention", "detail": info["problems"][0],
+                "next": "briefcase-ai policy init"}
     if not info["hooks"]:
         detail = "policy file present, hooks not installed" if info["files"] else "not set up"
         return {"id": FEATURE_ID, "state": "off", "detail": detail, "next": "briefcase-ai policy init"}

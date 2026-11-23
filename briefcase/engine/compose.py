@@ -52,7 +52,8 @@ BLOB_BUCKET = "oci-jj-blobs"
 DATASET_BUCKET = "oci-jj-datasets"
 MINIO_IMAGE = ("bitnamilegacy/minio:2025.7.23"
                "@sha256:8935e75fa5d11295c17171e4aa49efe390a1193cd7f12e4d21b92af9ffef09d7")
-REGISTRY_IMAGE = "registry:2"
+REGISTRY_IMAGE = ("registry:2.8.3"
+                  "@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373")
 
 
 def _new_secret(key: str) -> str:

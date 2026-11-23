@@ -221,7 +221,8 @@ LINUX_TARGETS = (("linux", "x86_64"), ("linux", "aarch64"))
 def build_release(key: SigningKey, version: str = VERSION, *, targets=LINUX_TARGETS,
                   bundle_arch: str = "x86_64", schema_version: int = 2, min_sdk: str = "4.0.0",
                   key_id: Optional[str] = None, manifest_signer: Optional[SigningKey] = None,
-                  extra_images: Optional[Dict[str, Dict[str, str]]] = None) -> Release:
+                  extra_images: Optional[Dict[str, Dict[str, str]]] = None,
+                  image_names=IMAGE_NAMES) -> Release:
     files: Dict[str, bytes] = {}
     binaries = []
     for os_name, arch in targets:
@@ -230,7 +231,8 @@ def build_release(key: SigningKey, version: str = VERSION, *, targets=LINUX_TARG
         files[name], files[name + ".sig"] = data, key.sign(data)
         binaries.append({"os": os_name, "arch": arch, "file": name, "sha256": _sha(data), "size": len(data),
                          "signature": name + ".sig"})
-    bundle, info = make_oci_bundle(version=version, arch={"x86_64": "amd64", "aarch64": "arm64"}[bundle_arch])
+    oci_arch = {"x86_64": "amd64", "aarch64": "arm64"}[bundle_arch]
+    bundle, info = make_oci_bundle(names=image_names, version=version, arch=oci_arch)
     bname = f"engine-images-{version}-{bundle_arch}.tar"
     files[bname], files[bname + ".sig"] = bundle, key.sign(bundle)
     images = {name: {"repository": f"briefcase-engine/{name}", "digest": i["digest"]} for name, i in info.items()}
@@ -281,6 +283,7 @@ class FakePlatform:
         self.overrides: Dict[str, bytes] = {}
         self.omit_binary_sig = False
         self.omit_bundle = False
+        self.omit_bundle_sig = False
         platform = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -349,6 +352,8 @@ class FakePlatform:
                                         "sha256": bundle["sha256"], "size": bundle["size"]}
                     if platform.omit_bundle:
                         del answer["bundle"]
+                    elif platform.omit_bundle_sig:
+                        del answer["bundle"]["signature_url"]
                 return self._json(200, answer)
 
             def do_GET(self):
@@ -524,6 +529,14 @@ if args[:1] == ["load"]:
         else:
             print("Loaded image ID: " + image_id)
     save(); sys.exit(0)
+if args[:1] == ["ps"] and any("com.docker.compose.project=oci-jj" in a for a in args):
+    if os.environ.get("FAKE_DOCKER_LEGACY"):
+        print("oci-jj-oci-jj-server-1\noci-jj-postgres-1")
+    sys.exit(0)
+if args[:2] == ["volume", "ls"] and any("com.docker.compose.project=oci-jj" in a for a in args):
+    if os.environ.get("FAKE_DOCKER_LEGACY") or os.environ.get("FAKE_DOCKER_LEGACY_VOLUMES"):
+        print("oci-jj_pgdata\noci-jj_miniodata")
+    sys.exit(0)
 if args[:1] == ["run"]:
     sys.exit(0)
 if args[:1] == ["compose"]:
@@ -531,6 +544,12 @@ if args[:1] == ["compose"]:
         print("2.29.7"); sys.exit(0)
     if "exec" in args and os.environ.get("FAKE_DOCKER_EXEC_FAIL"):
         sys.stderr.write("service \"minio\" is not running\n"); sys.exit(1)
+    if "logs" in args:
+        service = args[-1]
+        if service != "logs" and not service.startswith("-") and not service.isdigit():
+            compose_text = open(args[args.index("-f") + 1]).read() if "-f" in args else ""
+            if compose_text and ("\n  %s:\n" % service) not in compose_text:
+                sys.stderr.write("no such service: %s\n" % service); sys.exit(1)
     if "ps" in args:
         if "--quiet" in args:
             print(os.environ.get("FAKE_DOCKER_RUNNING", "")); sys.exit(0)
