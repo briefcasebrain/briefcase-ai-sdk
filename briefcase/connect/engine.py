@@ -117,6 +117,49 @@ def render_plan(plan: Plan, adapters: Dict[str, Adapter], out: Printer) -> None:
             out("  nothing to do")
 
 
+_OUR_LAUNCHERS = ("briefcase-mcp", "briefcase-ai-mcp")
+
+
+def _registered_launcher(runner: Callable[[List[str]], Tuple[int, str]], name: str) -> Optional[List[str]]:
+    """``[command, *args]`` of the registered server ``name`` (``claude mcp get``), or ``None``."""
+    code, text = runner(["claude", "mcp", "get", name])
+    if code != 0:
+        return None
+    command, args = None, ""
+    for line in text.splitlines():
+        key, _, value = line.strip().partition(":")
+        if key == "Command":
+            command = value.strip()
+        elif key == "Args":
+            args = value.strip()
+    return [command, *args.split()] if command else None
+
+
+def _replace_registration(command: Command, runner: Callable[[List[str]], Tuple[int, str]],
+                          out: Printer) -> Tuple[int, str, bool]:
+    """The server name is taken. Replace it only when it is one of this SDK's own launchers (an earlier
+    version's registration), and put the old one back if adding the new one fails.
+    Returns ``(code, output, skipped)``."""
+    name = command.argv[5] if len(command.argv) > 5 else ""
+    existing = _registered_launcher(runner, name)
+    if existing is None:
+        return 1, "an MCP server with this name already exists and could not be inspected; left unchanged", False
+    if not any(part in _OUR_LAUNCHERS for part in existing):
+        found = f" (command: {' '.join(existing)})"
+        out(f"  skip   an MCP server named {name!r} is already registered{found} and was not created by briefcase; "
+            f"left unchanged. To use briefcase-ai-mcp instead, run: {mcp_payloads.shell(command.undo_hint or [])}")
+        return 0, "", True
+    previous = command.argv[:7] + existing
+    out(f"  replace {mcp_payloads.shell(command.undo_hint or [])}")
+    if runner(command.undo_hint or [])[0] != 0:
+        return 1, "could not remove the existing registration", False
+    code, output = runner(command.argv)
+    if code != 0:
+        runner(previous)  # put the old registration back
+        output = f"{output}; the previous registration was restored".strip("; ")
+    return code, output, False
+
+
 def apply_plan(plan: Plan, ctx: Context, out: Printer,
                runner: Optional[Callable[[List[str]], Tuple[int, str]]] = None) -> int:
     """Write the plan. Returns the number of failures."""
@@ -134,10 +177,9 @@ def apply_plan(plan: Plan, ctx: Context, out: Printer,
     for command in plan.commands:
         code, output = runner(command.argv)
         if code != 0 and command.undo_hint and "already exists" in output:
-            # An entry from an earlier SDK (different command, same server name): remove it, add again.
-            out(f"  replace {mcp_payloads.shell(command.undo_hint)}")
-            if runner(command.undo_hint)[0] == 0:
-                code, output = runner(command.argv)
+            code, output, skipped = _replace_registration(command, runner, out)
+            if skipped:
+                continue
         if code != 0:
             failures += 1
             out(f"  failed {mcp_payloads.shell(command.argv)}: {output or f'exit {code}'}")

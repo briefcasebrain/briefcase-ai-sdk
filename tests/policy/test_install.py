@@ -131,6 +131,53 @@ def test_a_4_4_hook_naming_the_old_command_is_replaced_by_policy_init(home, fake
     assert [c for c in commands if c.endswith("--enforce")] == ["briefcase-ai hook claude-code --enforce"]
 
 
+def _make_old_command(home):
+    """What a 4.4 portable install left in Claude Code's settings and the connect journal."""
+    from briefcase.connect import edits
+
+    init_ = init(tools=["claude-code"])
+    assert init_[0] == 0
+    settings = files(home)["claude"]
+    text = settings.read_text()
+    command = json.loads(text)["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    old = "briefcase hook claude-code --enforce"
+    settings.write_text(text.replace(json.dumps(command)[1:-1], old))
+    journal = edits.load_journal()
+    for entry in journal["files"].values():
+        for op in entry["ops"]:
+            if "value" in op and isinstance(op["value"], dict):
+                op["value"] = json.loads(json.dumps(op["value"]).replace(json.dumps(command)[1:-1], old))
+    edits.save_journal(journal)
+    return old
+
+
+def test_status_and_doctor_flag_a_hook_that_still_runs_the_removed_command(home, fake_bin):
+    from briefcase.cli import policy_commands
+
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    _make_old_command(home)
+    row = policy_commands.status()
+    assert row["state"] == "attention" and "removed `briefcase` command" in row["detail"]
+    assert row["next"] == "briefcase-ai policy init"
+    doctor = [r for r in policy_commands.doctor_checks() if r[0] != "ok"]
+    assert any("briefcase hook" in r[2] or "removed `briefcase` command" in r[2] for r in doctor)
+    assert init(tools=["claude-code"])[0] == 0  # the documented repair
+    assert policy_commands.status()["state"] == "on"
+
+
+def test_status_flags_a_machine_wide_managed_pack_that_still_runs_the_old_command(home, tmp_path, monkeypatch):
+    from briefcase.cli import policy_commands
+
+    managed_file = tmp_path / "managed-settings.d" / "10-briefcase.json"
+    managed_file.parent.mkdir()
+    managed_file.write_text(json.dumps({"hooks": {"PreToolUse": [{"hooks": [
+        {"type": "command", "command": "briefcase hook claude-code --enforce --fail-closed"}]}]}}))
+    monkeypatch.setattr(install, "SYSTEM_HOOK_FILES", (str(managed_file.parent),))
+    row = policy_commands.status()
+    assert row["state"] == "attention" and str(managed_file) in row["detail"]
+    assert "connect --managed" in row["detail"]
+
+
 def test_fail_closed_field_is_left_out_for_claude_code_older_than_documented(home, fake_bin):
     fake_bin("claude", "2.1.200 (Claude Code)")
     code, out = init(tools=["claude-code"], fail_closed=True)

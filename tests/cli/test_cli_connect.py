@@ -278,7 +278,8 @@ def test_mcp_install_writes_only_mcp_config(home, tmp_path, capsys):
     assert not (project / ".mcp.json").exists()
 
 
-def test_mcp_install_uses_the_installed_script_when_on_path(home, tmp_path):
+def test_mcp_install_uses_the_installed_script_when_on_path(home, tmp_path, monkeypatch):
+    monkeypatch.setattr(payloads, "launcher_works", lambda: True)
     fake_bin(tmp_path, "briefcase-ai-mcp", "")
     assert main(["mcp", "install", "cursor", "--yes"]) == 0
     assert json.loads((home / ".cursor" / "mcp.json").read_text()) == {
@@ -340,3 +341,24 @@ def test_receive_detach_passes_the_token_by_environment_not_argv(home, capsys, m
     assert seen["token"] == "s3cret" and "s3cret" not in seen["args"] and "--token" not in seen["args"]
     assert seen["to"] == str(home / ".briefcase" / "receiver" / "records.jsonl")
     assert "receiver started (pid 4242)" in capsys.readouterr().out
+
+
+def test_a_bare_connect_keeps_the_endpoint_recorded_by_the_earlier_connect(home, capsys):
+    assert main(["connect", "claude-code", "--no-mcp", "--yes", "--endpoint", "https://otel.example.com"]) == 0
+    settings = home / ".claude" / "settings.json"
+    assert json.loads(settings.read_text())["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == "https://otel.example.com"
+    capsys.readouterr()
+    assert main(["connect", "claude-code", "--no-mcp", "--yes"]) == 0
+    assert json.loads(settings.read_text())["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == "https://otel.example.com"
+    assert "Keeping the endpoint" in capsys.readouterr().out
+    assert main(["connect", "claude-code", "--no-mcp", "--yes", "--endpoint", "http://127.0.0.1:4318"]) == 0
+    assert json.loads(settings.read_text())["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://127.0.0.1:4318"
+
+
+def test_mcp_install_for_codex_without_the_binary_keeps_the_otel_table(home):
+    assert main(["connect", "codex", "--no-mcp", "--yes", "--endpoint", "https://otel.example.com"]) == 0
+    config = home / ".codex" / "config.toml"
+    assert "https://otel.example.com" in config.read_text()
+    assert main(["mcp", "install", "codex", "--yes"]) == 0
+    text = config.read_text()
+    assert "[otel]" in text and "https://otel.example.com" in text and "mcp_servers.briefcase" in text

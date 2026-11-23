@@ -184,8 +184,15 @@ def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: b
             out("Name one explicitly (briefcase-ai connect claude-code) or see: briefcase-ai connect list")
             return 1
         out("Detected: " + ", ".join(adapters[name].name for name in tools))
+    endpoint = args.endpoint
+    if not endpoint:
+        recorded = {entry.get("endpoint") for name, entry in edits.load_journal()["tools"].items()
+                    if name in tools and entry.get("endpoint")}
+        if len(recorded) == 1 and recorded != {DEFAULT_ENDPOINT}:
+            endpoint = recorded.pop()
+            out(f"Keeping the endpoint recorded by the earlier connect: {endpoint} (pass --endpoint to change it)")
     ctx = Context(
-        scope=args.scope, endpoint=(args.endpoint or DEFAULT_ENDPOINT).rstrip("/"), headers=headers,
+        scope=args.scope, endpoint=(endpoint or DEFAULT_ENDPOINT).rstrip("/"), headers=headers,
         mcp=args.mcp, telemetry=getattr(args, "telemetry", True),
         capture_content=args.capture_content, force=getattr(args, "force", False), project_dir=Path.cwd(),
     )

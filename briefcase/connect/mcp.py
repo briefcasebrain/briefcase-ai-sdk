@@ -19,11 +19,22 @@ CURSOR_DEEPLINK = "cursor://anysphere.cursor-deeplink/mcp/install"
 UVX_CONFIG = {"command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]}
 
 
+def launcher_works() -> bool:
+    """The ``briefcase-ai-mcp`` script ships with every install, but it only runs when the ``mcp``
+    extra is installed in the same environment."""
+    import importlib.util
+
+    try:
+        return importlib.util.find_spec("mcp") is not None
+    except (ImportError, ValueError):
+        return False
+
+
 def server_config(which: Optional[Callable[[str], Optional[str]]] = None) -> Dict[str, Any]:
     """``briefcase-ai-mcp`` when it is on PATH, else a ``uvx`` one-liner that
     needs nothing installed beforehand."""
     which = which or shutil.which
-    if which("briefcase-ai-mcp"):
+    if which("briefcase-ai-mcp") and launcher_works():
         return {"command": "briefcase-ai-mcp"}
     return {"command": UVX_CONFIG["command"], "args": list(UVX_CONFIG["args"])}
 

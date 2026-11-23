@@ -190,11 +190,18 @@ def overview(project_dir: Optional[str] = None) -> Dict[str, Any]:
     problems: List[str] = []
     for source, path, text in loaded.errors:
         problems.append(f"{path or source}: {text}")
+    managed_old = install.managed_files_with_removed_command()
+    for path in managed_old:
+        problems.append(f"{path} still runs the removed `briefcase` command, so enforcement on this machine is off; "
+                        "regenerate the pack with `briefcase-ai connect --managed --out DIR` and redeploy it")
     for row in hooks:
+        if row.get("removed_command"):
+            problems.append(f"{row['tool']}: the hook still runs the removed `briefcase` command, so it fails open; "
+                            "run `briefcase-ai policy init`")
         missing = [what for ok, what in row["files"] if not ok]
         if missing:
             problems.append(f"{row['tool']}: hook entry no longer present ({'; '.join(missing)})")
-        if not row["launcher_ok"]:
+        if not row["launcher_ok"] and not row.get("removed_command"):
             problems.append(f"{row['tool']}: the hook command points at a file that no longer exists")
         if loaded.policy is not None and loaded.fail_closed and not row["fail_closed"]:
             problems.append(f"{row['tool']}: the policy says fail_closed but the installed hook does not; "
@@ -223,6 +230,8 @@ def _status_row() -> Dict[str, str]:
         return {"id": FEATURE_ID, "state": "attention", "detail": f"could not read policy state: {exc}",
                 "next": "briefcase-ai policy check"}
     tools = ", ".join(row["tool"] for row in info["hooks"])
+    if not info["hooks"] and info["problems"] and "removed `briefcase` command" in info["problems"][0]:
+        return {"id": FEATURE_ID, "state": "attention", "detail": info["problems"][0], "next": "briefcase-ai policy init"}
     if not info["hooks"]:
         detail = "policy file present, hooks not installed" if info["files"] else "not set up"
         return {"id": FEATURE_ID, "state": "off", "detail": detail, "next": "briefcase-ai policy init"}
@@ -250,7 +259,8 @@ def doctor_checks() -> List[Any]:
     info = overview()
     rows: List[Any] = []
     if not info["hooks"] and not info["files"]:
-        return [("ok", "policy", "not set up (briefcase-ai policy init)")]
+        stale = [("fail", "policy hook command", p) for p in info["problems"] if "removed `briefcase` command" in p]
+        return stale or [("ok", "policy", "not set up (briefcase-ai policy init)")]
     for entry in info["files"]:
         rows.append(("ok" if entry["valid"] else "fail", f"policy {entry['source']}",
                      _tilde(entry["path"]) + ("" if entry["valid"] else ": invalid, run `briefcase-ai policy check`")))
@@ -264,6 +274,8 @@ def doctor_checks() -> List[Any]:
             rows.append(("ok", f"policy hook {row['tool']}",
                          f"{len(row['files'])} entry(ies) present" + (", fail-closed" if row["fail_closed"] else "")))
     for problem in info["problems"]:
+        if "removed `briefcase` command" in problem:
+            rows.append(("fail", "policy hook command", problem))
         if "fail_closed" in problem:
             rows.append(("warn", "policy fail_closed", problem))
     if info["last_hook_error"]:

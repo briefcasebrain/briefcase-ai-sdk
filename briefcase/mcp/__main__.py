@@ -1,6 +1,15 @@
-"""Run the briefcase MCP server: ``python -m briefcase.mcp``."""
+"""Run the briefcase MCP server: ``briefcase-ai-mcp`` or ``python -m briefcase.mcp``."""
+import sys
 
-from briefcase.mcp.server import main
+
+def main() -> None:
+    try:
+        from briefcase.mcp.server import main as serve
+    except ImportError as exc:
+        print(f"briefcase-ai-mcp: {exc}", file=sys.stderr)
+        raise SystemExit(1)
+    serve()
+
 
 if __name__ == "__main__":
     main()
