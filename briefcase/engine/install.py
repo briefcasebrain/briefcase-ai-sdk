@@ -8,19 +8,18 @@ for automation (``--token bcl_...``):
 
 1. ``POST <platform>/v1/engine/install``. The platform checks the account is entitled, redeems
    the code (single use, 15 minutes) and answers with presigned download URLs (5 minutes) for
-   the manifest, its signature and this machine's ``oci-bai`` build, plus a short-lived,
-   pull-only ECR credential.
+   the manifest, its signature, this machine's ``oci-bai`` build and its image bundle.
 2. Download the manifest and its signature, verify them (pinned key, schema 2,
    ``min_sdk_version``), then download the binary and check its size, sha256 and, when the
    platform sends its ``.sig`` URL, its own signature.
-3. ``docker login --password-stdin`` to the ECR endpoint, ``docker pull <endpoint>/<repo>@<digest>``
-   for every image the signed manifest names, tag each as ``localhost/briefcase-engine/<name>:<version>``,
-   ``docker logout`` (always). Pulling by digest makes the manifest signature cover the images.
+3. Download the image bundle, check its size, sha256 and signature, then install it exactly as
+   the offline path does (below).
 4. Write the compose stack, generate per-install secrets once, record the install.
 
 Offline (``--bundle FILE --manifest FILE``): verify the manifest and the bundle locally,
 ``docker load`` it (``skopeo`` as a fallback), check every loaded image is the one the manifest
-pins, tag, write the stack. No network.
+pins, tag each as ``localhost/briefcase-engine/<name>:<version>``, write the stack. No network.
+Both ways share :func:`_load_images`.
 
 A release without an ``oci-bai`` build for this OS/architecture (macOS builds may be absent) is
 still installed: the commands that run ``oci-bai`` then run it from the engine's server image
@@ -163,7 +162,7 @@ def request_install(platform: str, *, code: Optional[str] = None, token: Optiona
         if exc.code == 503:
             raise InstallError(f"the platform cannot serve engine downloads right now{detail_s}",
                                fix="ask the platform's operator to finish the engine setup "
-                                   "(S3, ECR and KMS settings)") from exc
+                                   "(release storage settings)") from exc
         raise InstallError(f"the platform answered HTTP {exc.code}{detail_s}",
                            fix=f"try again later, or get the engine at {page}") from exc
     except urllib.error.URLError as exc:
@@ -182,14 +181,11 @@ def request_install(platform: str, *, code: Optional[str] = None, token: Optiona
 def check_response(data: Any) -> None:
     if not isinstance(data, dict):
         raise InstallError("the platform's answer is not a JSON object")
-    missing = [k for k in ("version", "manifest_url", "manifest_sig_url", "registry") if not data.get(k)]
+    missing = [k for k in ("version", "manifest_url", "manifest_sig_url") if not data.get(k)]
     if missing:
         raise InstallError(f"the platform's answer lacks {', '.join(missing)}")
     for key in ("manifest_url", "manifest_sig_url"):
         _check_url(data[key], key)
-    registry = data["registry"]
-    if not isinstance(registry, dict) or not all(registry.get(k) for k in ("endpoint", "username", "password")):
-        raise InstallError("the platform's answer has no usable registry credential (endpoint, username, password)")
     for key in ("binary", "bundle"):
         part = data.get(key)
         if part is not None:
@@ -198,14 +194,6 @@ def check_response(data: Any) -> None:
             _check_url(part["url"], key)
             if part.get("signature_url"):
                 _check_url(part["signature_url"], key + " signature")
-
-
-def registry_host(endpoint: str) -> str:
-    """``https://123.dkr.ecr.us-east-1.amazonaws.com/`` -> ``123.dkr.ecr.us-east-1.amazonaws.com``."""
-    text = str(endpoint).strip()
-    if "://" in text:
-        text = urllib.parse.urlsplit(text).netloc
-    return text.rstrip("/")
 
 
 # --------------------------------------------------------------------------- download
@@ -358,20 +346,6 @@ class Docker:
     def has_image(self, ref: str) -> bool:
         return self.image_id(ref) is not None
 
-    def login(self, registry: str, username: str, password: str) -> None:
-        res = self._run(["login", registry, "--username", username, "--password-stdin"],
-                        input=password, capture_output=True, text=True)
-        if res is None or getattr(res, "returncode", 1) != 0:
-            raise InstallError(f"docker login {registry} failed: {self._err(res)}")
-
-    def logout(self, registry: str) -> None:
-        self._run(["logout", registry], capture_output=True, text=True)
-
-    def pull(self, ref: str) -> None:
-        res = self._run(["pull", ref], capture_output=True, text=True)
-        if res is None or getattr(res, "returncode", 1) != 0:
-            raise InstallError(f"docker pull {ref} failed: {self._err(res)}")
-
     def tag(self, source: str, target: str) -> None:
         res = self._run(["tag", source, target], capture_output=True, text=True)
         if res is None or getattr(res, "returncode", 1) != 0:
@@ -455,15 +429,10 @@ def plan_steps(opts: InstallOptions, manifest: Optional[_trust.Manifest] = None,
         steps.append(f"no oci-bai build for {target['os']}/{target['arch']}: run it from the server image")
     if not opts.skip_images:
         names = sorted(manifest.images) if manifest else ["<each engine image>"]
-        if opts.mode == "bundle":
-            steps.append("docker load the bundle (skopeo if docker cannot), check every image is the one "
-                         "the manifest pins")
-        else:
-            steps.append("docker login <ECR endpoint> --username AWS --password-stdin (short-lived, pull-only)")
-            steps.extend(f"docker pull <ECR>/{manifest.images[n]['repository']}@{manifest.images[n]['digest']}"
-                         if manifest else f"docker pull <ECR>/briefcase-engine/{n}@<digest from the manifest>"
-                         for n in names)
-            steps.append("docker logout <ECR endpoint>")
+        if opts.mode != "bundle":
+            steps.append("download the image bundle for " + target["arch"] + ", check its size, sha256 and signature")
+        steps.append(f"docker load the bundle (skopeo if docker cannot), check every image ({', '.join(names)}) "
+                     "is the one the manifest pins")
         steps.append(f"tag the images {LOCAL_PREFIX}/<name>:{version}")
     steps.append(f"write {install_dir / 'docker-compose.yml'}")
     steps.append(f"generate secrets once in {_engine.secrets_path(env)} (mode 0600)")
@@ -526,32 +495,24 @@ def complete_online(opts: InstallOptions, prepared: Prepared, *, runner=subproce
 
     images: Dict[str, str] = {}
     ids: Dict[str, str] = {}
-    endpoint = None
+    method = None
     if not opts.skip_images:
-        endpoint = registry_host(response["registry"]["endpoint"])
-        remote = {name: f"{endpoint}/{image['repository']}@{image['digest']}"
-                  for name, image in sorted(manifest.images.items())}
-        missing = [ref for ref in remote.values() if not docker.has_image(ref)]
-        if missing:
-            registry = response["registry"]
-            docker.login(endpoint, str(registry["username"]), str(registry["password"]))
-            try:
-                for ref in missing:
-                    docker.pull(ref)
-                    log(f"pulled {ref}")
-            finally:
-                docker.logout(endpoint)
-        else:
-            log("all images already present")
-        for name, ref in remote.items():
-            images[name] = stable_ref(name, manifest.version)
-            docker.tag(ref, images[name])
-            image_id = docker.image_id(images[name])
-            if not image_id:
-                raise InstallError(f"image {name} is not in Docker after the pull")
-            ids[name] = image_id
+        entry = _bundle_entry(manifest, target)
+        part = response.get("bundle")
+        if not part:
+            raise InstallError(f"the platform sent no image bundle download for {target['arch']}")
+        for key in ("sha256", "size"):
+            if part.get(key) is not None and part[key] != entry[key]:
+                raise _trust.TrustError(f"the platform's bundle {key} differs from the signed manifest's",
+                                        fix="do not install; report this to Briefcase support")
+        archive = download(part["url"], install_dir / "download" / entry["file"], entry, fetch)
+        sig = None
+        if part.get("signature_url"):
+            sig = fetch_bytes(part["signature_url"], entry["signature"], _trust.MAX_SIGNATURE_BYTES, fetch)
+        _verified(archive, entry, manifest, sig, **verify_kw)
+        images, ids, method = _load_images(manifest, archive, docker, target, runner, which, log)
     return _finish(opts, manifest, install_dir, binary_path, binary_info, images, ids,
-                   {"registry": endpoint, "load_method": "pull" if images else None}, runner, log, target)
+                   {"load_method": method}, runner, log, target)
 
 
 # --------------------------------------------------------------------------- offline
@@ -619,6 +580,24 @@ def offline_install(opts: InstallOptions, *, runner=subprocess.run, which: Calla
         else:
             log(f"{bentry['file']} is not next to the manifest; pass --binary FILE to install the client binary")
 
+    images, ids, method = _load_images(manifest, bundle_path, docker, target, runner, which, log)
+    return _finish(opts, manifest, install_dir, binary_path, binary_info, images, ids,
+                   {"load_method": method}, runner, log, target)
+
+
+def _bundle_entry(manifest: _trust.Manifest, target: Mapping[str, str]) -> Dict[str, Any]:
+    for entry in manifest.data["bundles"]:
+        if entry["arch"] == target["arch"]:
+            return entry
+    raise InstallError(f"engine {manifest.version} has no image bundle for {target['arch']}",
+                       fix="use --no-images for the client binary only, or install on a supported architecture")
+
+
+def _load_images(manifest: _trust.Manifest, bundle_path: Path, docker: Docker, target: Mapping[str, str],
+                 runner, which: Callable, log: Callable[[str], Any]
+                 ) -> Tuple[Dict[str, str], Dict[str, str], str]:
+    """Load a verified bundle into Docker and tag each image: ``(images, ids, method)``. The one
+    image-install path, used by both the online and the offline install."""
     layout = _bundle.open_layout(bundle_path)
     expected = _bundle.expected_images(layout, manifest.images, target["arch"])
     stable = {item.name: stable_ref(item.name, manifest.version) for item in expected}
@@ -647,8 +626,7 @@ def offline_install(opts: InstallOptions, *, runner=subprocess.run, which: Calla
         log("note: the bundle is a `docker save` archive without registry digests; images were matched by "
             "image ID (the bundle itself is covered by the signed manifest)")
     log(f"loaded {len(images)} images with {method}")
-    return _finish(opts, manifest, install_dir, binary_path, binary_info, images, ids,
-                   {"registry": None, "load_method": method}, runner, log, target)
+    return images, ids, method
 
 
 # --------------------------------------------------------------------------- shared

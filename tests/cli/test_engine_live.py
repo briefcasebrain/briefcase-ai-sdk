@@ -7,7 +7,7 @@ BRIEFCASE_ENGINE_LIVE_DOCKER=1 — a real Docker daemon (``DOCKER_HOST`` or the 
   throwaway signing key is pinned from Python, as in the offline tests.
 
 BRIEFCASE_ENGINE_LIVE=1 — the real portal flow: needs a platform (BRIEFCASE_PLATFORM_URL) with
-  the engine configured (S3, ECR, KMS), an entitled account's BRIEFCASE_LICENSE_TOKEN, Docker, and
+  the engine configured (release storage), an entitled account's BRIEFCASE_LICENSE_TOKEN, Docker, and
   an SDK build that bundles the production release key. BRIEFCASE_ENGINE_LIVE_UP=1 also starts the
   engine and calls it over gRPC (needs the `engine` extra).
 

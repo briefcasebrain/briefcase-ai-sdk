@@ -24,18 +24,16 @@ Install the engine from http://127.0.0.1:PORT:
   - POST http://127.0.0.1:PORT/v1/engine/install: redeem the install code (single use)
   - download engine-manifest.json + .sig and verify them against the pinned release key
   - download the oci-bai build for linux/x86_64, check size, sha256 and signature -> $E/home/.briefcase/engine/<version>/bin/oci-bai
-  - docker login <ECR endpoint> --username AWS --password-stdin (short-lived, pull-only)
-  - docker pull <ECR>/briefcase-engine/<each engine image>@<digest from the manifest>
-  - docker logout <ECR endpoint>
+  - download the image bundle for x86_64, check its size, sha256 and signature
+  - docker load the bundle (skopeo if docker cannot), check every image (<each engine image>) is the one the manifest pins
   - tag the images localhost/briefcase-engine/<name>:<version>
   - write $E/home/.briefcase/engine/<version>/docker-compose.yml
   - generate secrets once in $E/home/.briefcase/engine/engine.env (mode 0600)
   - record the install in $E/home/.briefcase/engine/installed.json
 manifest for engine 0.4.0 verified (key sha256:e3c42cbf051c1b65a5317f85c31cddc5027bf4cc6bf57fa3be25b8eadfb52c25)
 oci-bai-0.4.0-linux-x86_64.tar.gz verified (signature and sha256)
-pulled 123456789012.dkr.ecr.us-east-1.amazonaws.com/briefcase-engine/gateway@sha256:ac4444961d60aebc1f233c5e467755483e0f52c48fa61ec3c0c625acfe591318
-...
-pulled 123456789012.dkr.ecr.us-east-1.amazonaws.com/briefcase-engine/workers@sha256:a3c7521ebb99a54e0f7e11eadeffd36fc7d928f3b7787bcf6e2cc6e7a2a787f6
+engine-images-0.4.0-x86_64.tar verified (signature and sha256)
+loaded 5 images with docker load
 engine 0.4.0 installed in $E/home/.briefcase/engine/0.4.0 (verified with key sha256:e3c42cbf051c1b65a5317f85c31cddc5027bf4cc6bf57fa3be25b8eadfb52c25)
   client: $E/home/.briefcase/engine/0.4.0/bin/oci-bai
 Next: briefcase engine up
@@ -125,7 +123,7 @@ at `briefcase engine` and uses the engine install when there is one.
 | Compose file | `~/.briefcase/engine/<version>/docker-compose.yml` |
 | Secrets: Postgres superuser and `oci_jj_app` passwords, MinIO root credentials, the internal worker token, your tenant and read-only tokens, dedup HMAC key | `~/.briefcase/engine/engine.env`, mode 0600, generated once and reused by every upgrade |
 | Install record (version, key id, image digests and IDs) | `~/.briefcase/engine/installed.json` |
-| Images | Docker's image store, tagged `localhost/briefcase-engine/<name>:<version>`. The short-lived ECR password lives in Docker's credential store only between `docker login --password-stdin` and the `docker logout` that always follows. |
+| Images | Docker's image store, tagged `localhost/briefcase-engine/<name>:<version>`. The downloaded bundle stays in `~/.briefcase/engine/<version>/download/` so a re-run reuses it. |
 
 The stack is oci-jj's single-box layout: Postgres + Apache AGE, MinIO, a backing registry, the
 server, gateway, reconstructor and workers (plus the verdict worker when the release has it).
@@ -159,8 +157,7 @@ engine's security model (oci-jj e89ddbf, 8a52297, be043d9):
 
 `briefcase engine down` stops it; `briefcase engine uninstall` removes it;
 `briefcase engine uninstall --purge` also deletes the data. On the platform, revoking the
-licence token or the account's entitlement stops new installs at once; ECR passwords already
-issued expire within 12 hours.
+licence token or the account's entitlement stops new installs at once.
 
 ## Without an install
 
@@ -229,8 +226,8 @@ read-only"), and another tenant's refs are "unknown ref".
 
 ## Verification and the release key
 
-Every engine release is signed with one AWS KMS key (ECDSA P-256) by `cosign sign-blob
---tlog-upload=false`: nothing goes to a public transparency log. The signed
+Every engine release is signed with one ECDSA P-256 key, held by the release operator, as base64
+DER ECDSA over the SHA-256 of each file: nothing goes to a public transparency log. The signed
 `engine-manifest.json` (schema 2) names the key (`key_id` = `sha256:` + hex of the SHA-256 of the
 DER public key), every file with its sha256, size and signature, and every image by digest.
 
@@ -241,9 +238,9 @@ DER public key), every file with its sha256, size and signature, and every image
 - an unknown `schema_version`, or a `min_sdk_version` above this SDK;
 - any file whose size, sha256 or signature does not match.
 
-Images are pulled by digest from the signed manifest (`<ecr>/<repository>@<digest>`), so the
-manifest signature covers them; offline, every loaded image ID is checked against the bundle's
-OCI index. The images are then tagged `localhost/briefcase-engine/<name>:<version>` and the
+The image bundle is downloaded (or given with `--bundle`), its size, sha256 and signature are
+checked against the signed manifest, and every loaded image ID is checked against the bundle's
+OCI index; online and offline installs share that one path. The images are then tagged `localhost/briefcase-engine/<name>:<version>` and the
 compose file uses those tags with `pull_policy: never` (a `docker load`-ed image has no registry
 digest to reference); `engine up` and `engine doctor` refuse an image whose tag no longer points
 at the ID verified at install.
@@ -295,8 +292,7 @@ it downloads itself carry none).
 ## Limits and failure modes
 
 - No release key ships in this SDK build yet: install refuses until one is published.
-- Presigned download links last 5 minutes and ECR passwords 12 hours; an install code lasts
-  15 minutes and works once.
+- Presigned download links last 5 minutes; an install code lasts 15 minutes and works once.
 - `engine install` needs Docker unless `--no-images` (client binary only).
 - Third-party images (`minio`, `registry:2`) come from Docker Hub at the first `engine up` unless
   the release manifest and bundle carry them; an air-gapped host needs them in the bundle.
@@ -314,7 +310,7 @@ it downloads itself carry none).
   an OCI layout without `manifest.json` ("invalid archive: does not contain a manifest.json"),
   so bundles must carry the `manifest.json` that `docker save` writes; the containerd store loads
   either.
-- Not run: the real portal, S3, ECR or KMS, a real `cosign`, a real release bundle (fixtures follow
+- Not run: the real portal and its object storage, a real `cosign`, a real release bundle (fixtures follow
   oci-jj 6d1db6a `scripts/release/engine_release.py`), macOS.
 
 ## Troubleshooting
@@ -326,7 +322,7 @@ it downloads itself carry none).
 | `your account isn't entitled to the engine` | Request access at https://observe.briefcasebrain.io/engine |
 | `the install code has expired` / `was already used` / `is now used up` | Get a new install code at https://observe.briefcasebrain.io/engine |
 | `the licence token has expired` / `did not accept the licence token` | Create a new licence token on the Engine page |
-| `cannot serve engine downloads right now` | The platform's operator has not finished the engine setup (S3, ECR, KMS) |
+| `cannot serve engine downloads right now` | The platform's operator has not finished the engine setup (release storage) |
 | `signed by key ..., which this SDK does not trust` | Upgrade the SDK; if it is current, do not install that file |
 | `signature does not verify` / `does not match the signed manifest` | Download again from the portal; do not install the file |
 | `needs briefcase-ai X or newer` / `schema_version` | `pip install -U 'briefcase-ai[engine]'` |

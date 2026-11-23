@@ -7,5 +7,5 @@
   "docs_slug": "connect/engine",
   "status": "experimental",
   "requires_extra": null,
-  "verified_against": "Offline: throwaway P-256 key signing in the cosign blob format, fake platform (install codes, presigned downloads), fake docker/skopeo/xattr/cosign, with and without cryptography. Real: docker load of a signed OCI archive on Docker 29.10 (classic vfs and containerd stores). Not run: the real portal, S3, ECR, KMS, cosign, macOS; no release key ships yet."
+  "verified_against": "Offline: throwaway P-256 key signing in the cosign blob format, fake platform (install codes, presigned downloads), fake docker/skopeo/xattr/cosign, with and without cryptography. Real: docker load of a signed OCI archive on Docker 29.10 (classic vfs and containerd stores). Not run: the real portal and its object storage, cosign, macOS; no release key ships yet."
 }

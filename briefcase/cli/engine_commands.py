@@ -793,15 +793,6 @@ def cmd_uninstall(args, store, engine, stack) -> int:
         return 3
     purge = bool(getattr(args, "purge", False))
     images = sorted(set((record.get("images") or {}).values()))
-    if record.get("registry"):
-        # The by-digest references the pull left behind.
-        manifest = Path(record.get("manifest") or "")
-        try:
-            data = json.loads(manifest.read_text(encoding="utf-8"))
-            images += sorted(f"{record['registry']}/{img['repository']}@{img['digest']}"
-                             for img in data.get("images", {}).values())
-        except (OSError, ValueError, AttributeError, KeyError):
-            pass
     version_dir = Path(record.get("manifest") or record.get("compose") or "").parent
     steps = []
     if record.get("compose"):

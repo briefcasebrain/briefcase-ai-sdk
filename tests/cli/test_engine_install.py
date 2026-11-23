@@ -15,7 +15,7 @@ from briefcase.cli.__main__ import main
 from briefcase.engine import compose, install, trust
 
 from tests.cli.engine_fakes import (
-    ENDPOINT, OPENSSL, REGISTRY_PASSWORD, VERSION, FakePlatform, SigningKey, build_index, build_release, calls,
+    OPENSSL, VERSION, FakePlatform, SigningKey, build_index, build_release, calls,
     docker_state, install_fake_tools, make_docker_archive,
 )
 
@@ -62,14 +62,10 @@ def _docker(env):
     return [c["argv"] for c in calls(env["log"])]
 
 
-def _remote(release, name):
-    return f"{ENDPOINT}/briefcase-engine/{name}@{release.manifest['images'][name]['digest']}"
-
-
 # --------------------------------------------------------------------------- online
 
 
-def test_install_with_code_verifies_pulls_by_digest_and_records(env, capsys):
+def test_install_with_code_downloads_verifies_loads_the_bundle_and_records(env, capsys):
     assert _install("--code", "bci_good") == 0
     out = capsys.readouterr().out
     assert f"engine {VERSION} installed" in out and "Next: briefcase engine up" in out
@@ -81,7 +77,9 @@ def test_install_with_code_verifies_pulls_by_digest_and_records(env, capsys):
     downloads = env["platform"].downloads()
     assert downloads and all(r[2] == "" for r in downloads)  # presigned URLs get no auth header
     names = [r[1].split("?")[0].rsplit("/", 1)[-1] for r in downloads]
+    bundle_name = f"engine-images-{VERSION}-x86_64.tar"
     assert names.index("engine-manifest.json") < names.index(f"oci-bai-{VERSION}-linux-x86_64.tar.gz")
+    assert bundle_name in names and bundle_name + ".sig" in names
 
     record = _engine.current_install()
     release = env["release"]
@@ -91,19 +89,13 @@ def test_install_with_code_verifies_pulls_by_digest_and_records(env, capsys):
     assert record["binary"] == str(binary) and os.access(binary, os.X_OK)
     assert record["binary_file"]["verified_by"] == "signature"
 
-    docker = calls(env["log"])
-    login = next(c for c in docker if c["argv"][0] == "login")
-    assert login["argv"] == ["login", ENDPOINT, "--username", "AWS", "--password-stdin"]
-    assert login["stdin"] == REGISTRY_PASSWORD
-    argvs = [c["argv"] for c in docker]
-    assert not any(REGISTRY_PASSWORD in " ".join(a) for a in argvs)  # never in argv
-    pulls = [a[1] for a in argvs if a[0] == "pull"]
-    assert sorted(pulls) == sorted(_remote(release, n) for n in release.manifest["images"])
-    logout = argvs.index(["logout", ENDPOINT])
-    assert logout > max(i for i, a in enumerate(argvs) if a[0] == "pull")
-    tags = {a[2]: a[1] for a in argvs if a[0] == "tag"}
-    for name in release.manifest["images"]:
-        assert tags[f"localhost/briefcase-engine/{name}:{VERSION}"] == _remote(release, name)
+    argvs = _docker(env)
+    downloaded = env["home"] / "engine" / VERSION / "download" / bundle_name
+    assert ["load", "-i", str(downloaded)] in argvs
+    assert not any(a[0] in ("login", "pull", "logout") for a in argvs)
+    assert record["load_method"] == "docker load" and "registry" not in record
+    for name, image_info in env["release"].images.items():
+        assert record["image_ids"][name] == image_info["config"]
     assert record["images"]["server"] == f"localhost/briefcase-engine/server:{VERSION}"
     assert record["image_digests"]["server"] == release.manifest["images"]["server"]["digest"]
 
@@ -118,7 +110,7 @@ def test_install_with_code_verifies_pulls_by_digest_and_records(env, capsys):
     secrets = env["home"] / "engine" / "engine.env"
     assert stat.S_IMODE(secrets.stat().st_mode) == 0o600
     values = _engine.read_env_file(secrets)
-    assert set(compose.SECRET_KEYS) <= set(values) and REGISTRY_PASSWORD not in secrets.read_text()
+    assert set(compose.SECRET_KEYS) <= set(values)
     settings = _engine.client_settings()
     assert settings["source"] == "local install" and settings["token"] == compose.tenant_token(values)
 
@@ -142,12 +134,42 @@ def test_failure_after_redeeming_a_code_says_get_a_new_code(env, capsys):
     assert not list((env["home"] / "engine" / VERSION / "download").glob("oci-bai*"))  # bad file removed
 
 
-def test_docker_pull_failure_after_redeeming_logs_out_and_says_new_code(env, capsys, monkeypatch):
-    monkeypatch.setenv("FAKE_DOCKER_PULL_FAIL", "1")
+def test_tampered_bundle_after_redeeming_is_refused_and_says_new_code(env, capsys):
+    env["platform"].overrides[f"engine-images-{VERSION}-x86_64.tar"] = b"tampered bundle"
     assert _install("--code", "bci_good") == 1
     err = capsys.readouterr().err
-    assert "docker pull" in err and "used up; get a new one" in err
-    assert _docker(env)[-1] == ["logout", ENDPOINT]
+    assert "does not match the signed manifest" in err and "used up; get a new one" in err
+    assert not any(a[0] == "load" for a in _docker(env)) and _engine.current_install() is None
+
+
+def test_docker_load_failure_after_redeeming_says_new_code(env, capsys, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_LOAD_FAIL", "1")
+    (env["tmp"] / "bin" / "skopeo").unlink()
+    assert _install("--code", "bci_good") == 1
+    assert "used up; get a new one" in capsys.readouterr().err
+
+
+def test_answer_without_a_bundle_is_refused_unless_no_images(env, capsys):
+    env["platform"].omit_bundle = True
+    assert _install("--token", "bcl_good") == 1
+    assert "sent no image bundle download for x86_64" in capsys.readouterr().err
+    assert _install("--token", "bcl_good", "--no-images") == 0
+
+
+def test_a_registry_in_the_answer_is_not_used(env, capsys):
+    real = install.request_install
+
+    def with_registry(*a, **kw):
+        data = real(*a, **kw)
+        data["registry"] = {"endpoint": "https://registry.invalid", "username": "u", "password": "p"}
+        return data
+
+    install.request_install = with_registry
+    try:
+        assert _install("--token", "bcl_good") == 0
+    finally:
+        install.request_install = real
+    assert not any(a[0] in ("login", "pull", "logout") for a in _docker(env))
 
 
 def test_token_install_is_idempotent(env, capsys, monkeypatch):
@@ -157,6 +179,8 @@ def test_token_install_is_idempotent(env, capsys, monkeypatch):
     post = env["platform"].posts()[0]
     assert post[2] == "Bearer bcl_good" and "code" not in post[3]
     binary_gets = len([r for r in env["platform"].downloads() if "oci-bai" in r[1] and ".sig" not in r[1]])
+    bundle_gets = len([r for r in env["platform"].downloads() if "engine-images" in r[1] and ".sig" not in r[1]])
+    assert bundle_gets == 1
     env["log"].unlink()
     assert _install() == 0
     assert "already installed" in capsys.readouterr().out
@@ -164,6 +188,8 @@ def test_token_install_is_idempotent(env, capsys, monkeypatch):
                 if "oci-bai" in r[1] and ".sig" not in r[1]]) == binary_gets  # the verified file was reused
     assert not any(a[0] in ("login", "pull") for a in _docker(env))
     assert (env["home"] / "engine" / "engine.env").read_text() == first
+    assert len([r for r in env["platform"].downloads()
+                if "engine-images" in r[1] and ".sig" not in r[1]]) == bundle_gets  # the bundle was reused
 
 
 def test_binary_without_signature_url_is_checked_against_the_signed_manifest(env, capsys):
@@ -204,7 +230,7 @@ def test_manifest_checks(env, capsys, tmp_path, change, message):
     err = capsys.readouterr().err
     assert message in err and "Traceback" not in err
     assert "Fix:" in err and _engine.current_install() is None
-    assert not any(a[0] == "pull" for a in _docker(env))
+    assert not any(a[0] in ("pull", "load") for a in _docker(env))
 
 
 def test_no_bundled_key_refuses_before_redeeming(env, capsys, monkeypatch, tmp_path):
@@ -282,8 +308,9 @@ def test_dry_run_with_a_token_shows_the_signed_plan(env, capsys):
     assert main(["engine", "install", "--token", "bcl_good", "--dry-run", "--json"]) == 0
     plan = json.loads(capsys.readouterr().out)
     assert plan["version"] == VERSION and plan["key_id"] == env["key"].key_id
-    digest = env["release"].manifest["images"]["server"]["digest"]
-    assert f"docker pull <ECR>/briefcase-engine/server@{digest}" in plan["steps"]
+    assert any(step.startswith("download the image bundle for x86_64") for step in plan["steps"])
+    assert any(step.startswith("docker load the bundle") for step in plan["steps"])
+    assert not any("ECR" in step or "docker login" in step or "docker pull" in step for step in plan["steps"])
     assert not any(a[0] in ("login", "pull") for a in _docker(env))
     assert not (env["home"] / "engine" / VERSION / "docker-compose.yml").exists()
 
@@ -309,16 +336,11 @@ def test_expired_download_link(env, capsys):
     assert "expire after 5 minutes" in capsys.readouterr().err
 
 
-def test_login_failure_still_logs_out(env, capsys, monkeypatch):
-    monkeypatch.setenv("FAKE_DOCKER_LOGIN_FAIL", "1")
-    assert _install("--token", "bcl_good") == 1
-    assert f"docker login {ENDPOINT} failed" in capsys.readouterr().err
-
-
 # --------------------------------------------------------------------------- no binary for this OS / macOS
 
 
-def test_no_binary_for_this_os_runs_oci_bai_from_the_server_image(env, capsys, monkeypatch, tmp_path):
+def test_no_binary_for_this_os_runs_oci_bai_from_the_server_image(env, capsys, monkeypatch, tmp_path, key):
+    env["platform"].release = build_release(key, targets=(("linux", "x86_64"),), bundle_arch="aarch64")
     monkeypatch.setattr(install, "host_target", lambda: {"os": "darwin", "arch": "aarch64"})
     assert _install("--code", "bci_good") == 0
     out = capsys.readouterr().out
@@ -356,7 +378,8 @@ def test_no_binary_and_no_images_is_refused(env, capsys, monkeypatch):
 
 
 def test_quarantine_is_removed_only_after_verification(env, capsys, monkeypatch, key):
-    env["platform"].release = build_release(key, targets=(("linux", "x86_64"), ("darwin", "aarch64")))
+    env["platform"].release = build_release(key, targets=(("linux", "x86_64"), ("darwin", "aarch64")),
+                                            bundle_arch="aarch64")
     monkeypatch.setattr(install, "host_target", lambda: {"os": "darwin", "arch": "aarch64"})
     monkeypatch.setattr(install, "is_macos", lambda: True)
     monkeypatch.setenv("FAKE_QUARANTINE", "1")
@@ -637,9 +660,9 @@ def test_uninstall_removes_install_and_purge_removes_secrets(env, capsys):
     assert not (env["home"] / "engine" / VERSION).exists()
     assert not (env["home"] / "engine" / "engine.env").exists()
     removed = {a[2] for a in _docker(env) if a[:2] == ["image", "rm"]}
-    release = env["release"]
-    for name in release.manifest["images"]:
-        assert f"localhost/briefcase-engine/{name}:{VERSION}" in removed and _remote(release, name) in removed
+    for name in env["release"].manifest["images"]:
+        assert f"localhost/briefcase-engine/{name}:{VERSION}" in removed
+    assert not any("@sha256:" in ref for ref in removed)
 
 
 def test_upgrade_needs_a_code_or_token_and_restarts_a_running_engine(env, capsys, monkeypatch, key):

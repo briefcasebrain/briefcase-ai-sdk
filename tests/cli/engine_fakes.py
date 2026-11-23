@@ -30,8 +30,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 VERSION = "0.4.0"
-ENDPOINT = "123456789012.dkr.ecr.us-east-1.amazonaws.com"
-REGISTRY_PASSWORD = "ecr_short_lived_password_eyJwYXlsb2Fk"
 IMAGE_NAMES = ("server", "gateway", "workers", "postgres", "reconstructor")
 OCI_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 OCI_INDEX = "application/vnd.oci.image.index.v1+json"
@@ -282,6 +280,7 @@ class FakePlatform:
         self.expired_paths = set()
         self.overrides: Dict[str, bytes] = {}
         self.omit_binary_sig = False
+        self.omit_bundle = False
         platform = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -339,8 +338,6 @@ class FakePlatform:
                     "version": rel.version,
                     "manifest_url": platform.presigned("engine-manifest.json"),
                     "manifest_sig_url": platform.presigned("engine-manifest.json.sig"),
-                    "registry": {"endpoint": f"https://{ENDPOINT}", "username": "AWS",
-                                 "password": REGISTRY_PASSWORD, "expires_at": "2026-11-23T12:00:00Z"},
                 }
                 if binary:
                     answer["binary"] = {"url": platform.presigned(binary["file"])}
@@ -348,7 +345,10 @@ class FakePlatform:
                         answer["binary"]["signature_url"] = platform.presigned(binary["signature"])
                 if bundle:
                     answer["bundle"] = {"url": platform.presigned(bundle["file"]),
-                                        "signature_url": platform.presigned(bundle["signature"])}
+                                        "signature_url": platform.presigned(bundle["signature"]),
+                                        "sha256": bundle["sha256"], "size": bundle["size"]}
+                    if platform.omit_bundle:
+                        del answer["bundle"]
                 return self._json(200, answer)
 
             def do_GET(self):
@@ -490,9 +490,7 @@ if tool == "cosign":
     sys.exit(0 if res.returncode == 0 else 1)
 
 # docker
-if args[:1] == ["login"]:
-    stdin = sys.stdin.read()
-elif args[:1] == ["compose"] and "exec" in args:
+if args[:1] == ["compose"] and "exec" in args:
     stdin = "sha256:" + hashlib.sha256(sys.stdin.buffer.read()).hexdigest()
 else:
     stdin = ""
@@ -508,16 +506,6 @@ if args[:2] == ["image", "inspect"]:
     print(found); sys.exit(0)
 if args[:2] == ["image", "rm"]:
     state["refs"].pop(args[-1], None); save(); sys.exit(0)
-if args[:1] == ["login"]:
-    if os.environ.get("FAKE_DOCKER_LOGIN_FAIL"):
-        sys.stderr.write("unauthorized: authentication required\n"); sys.exit(1)
-    print("Login Succeeded"); sys.exit(0)
-if args[:1] == ["pull"]:
-    ref = args[-1]
-    if os.environ.get("FAKE_DOCKER_PULL_FAIL"):
-        sys.stderr.write("denied: not authorized\n"); sys.exit(1)
-    image_id = "sha256:" + hashlib.sha256(ref.split("@")[-1].encode()).hexdigest()
-    state["ids"].append(image_id); state["refs"][ref] = image_id; save(); sys.exit(0)
 if args[:1] == ["tag"]:
     found = resolve(args[1])
     if found is None:

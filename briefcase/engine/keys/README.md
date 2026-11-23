@@ -17,10 +17,10 @@ no environment variable, no platform response. A key is added by shipping it in 
   openssl pkey -pubin -in release-XXXX.pub -outform DER | sha256sum
   ```
 
-The production key is the AWS KMS key `alias/briefcase-engine-release` (`ECC_NIST_P256`,
-`SIGN_VERIFY`). Export its public key with
-`aws kms get-public-key --key-id alias/briefcase-engine-release --query PublicKey --output text | base64 -d | openssl pkey -pubin -inform DER -out release.pub`,
-compute the id, rename the file, and commit it here. The portal shows the same key and key id.
+The production key is an ECDSA P-256 key held by the release operator. A signature is base64 of a
+DER ECDSA signature over the SHA-256 of the file (what `openssl dgst -sha256 -sign key.pem FILE | base64`
+writes). Take the public key as PEM (`openssl pkey -in key.pem -pubout -out release.pub`), compute
+the id, rename the file, and commit it here. The portal shows the same key and key id.
 
 ## No key yet
 
@@ -29,7 +29,7 @@ bundled in this SDK build". That is intended: there is no way to install an unve
 
 ## Rotation
 
-1. Create the new KMS key. Do not sign anything with it yet.
+1. Create the new signing key. Do not sign anything with it yet.
 2. Add its `release-<newid>.pub` here next to the old one and release the SDK.
 3. Once users have that SDK (set `min_sdk_version` in new manifests to it), sign new releases
    with the new key. Old releases stay verifiable with the old key.

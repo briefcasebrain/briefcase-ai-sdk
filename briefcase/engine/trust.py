@@ -1,14 +1,14 @@
 """The engine's trust root: pinned release keys, blob signatures and the signed manifest.
 
-Engine releases are signed with one asymmetric KMS key (ECDSA P-256) through
-``cosign sign-blob --key awskms:///... --tlog-upload=false``. Nothing goes to a public
+Engine releases are signed with one ECDSA P-256 key held by the release operator
+(``cosign sign-blob --tlog-upload=false`` format). Nothing goes to a public
 transparency log, so what makes a release trustworthy is exactly one thing: the signature
 verifies against a public key that ships inside this SDK, in ``briefcase/engine/keys/``.
 
 * A **key** is a PEM ``SubjectPublicKeyInfo`` file named ``release-*.pub`` in that directory.
   Its id is ``"sha256:" + hex(sha256(DER SubjectPublicKeyInfo))``, computed here from the
   file's contents (the file name is only a label).
-* A **signature** is what ``cosign sign-blob --output-signature`` writes: base64 of an
+* A **signature** is base64 of an
   ASN.1 DER ECDSA signature over the SHA-256 digest of the file. It is checked in pure
   Python with ``cryptography`` (the ``engine`` extra); only when ``cryptography`` cannot be
   imported does this module fall back to ``cosign verify-blob --key``.
