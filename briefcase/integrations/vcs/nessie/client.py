@@ -107,7 +107,7 @@ class NessieClient(VcsClientBase):
 
         self.timeout = timeout
         self._staged: List[Dict[str, Any]] = []
-        if self.endpoint.split(":", 1)[0].lower() not in ("http", "https"):
+        if (self.endpoint or "").split(":", 1)[0].lower() not in ("http", "https"):
             raise ValueError(f"Nessie endpoint must be http(s): {self.endpoint!r}")
         self._has_provider = not self.mock
 
@@ -127,7 +127,7 @@ class NessieClient(VcsClientBase):
         params: Optional[Dict[str, str]] = None,
         body: Optional[Dict[str, Any]] = None,
     ) -> Any:
-        url = self.endpoint.rstrip("/") + path
+        url = (self.endpoint or "").rstrip("/") + path
         if params:
             url += "?" + urllib.parse.urlencode(params)
         headers = {"Accept": "application/json"}

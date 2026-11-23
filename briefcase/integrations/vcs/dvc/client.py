@@ -161,7 +161,7 @@ class DvcClient(VcsClientBase):
 
         try:
             sha = git_commit_version(
-                self.repo_path,
+                self.repo_path or "",
                 message,
                 paths=None if self.add_all else self._commit_paths(),
                 timeout=self.command_timeout,

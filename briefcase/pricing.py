@@ -126,7 +126,7 @@ def parse_document(text: str, source: str) -> Dict[str, Any]:
             v = entry.get(key)
             if not _is_num(v):
                 err(key, f"{label}: {key} is required and must be a number")
-            elif not math.isfinite(v) or v < 0:
+            elif not math.isfinite(v) or v < 0:  # type: ignore[arg-type, operator]  # _is_num holds here
                 err(key, f"{label}: {key} must be finite and not negative (got {v!r})")
         cw = entry.get("context_window")
         if not isinstance(cw, int) or isinstance(cw, bool) or cw <= 0:

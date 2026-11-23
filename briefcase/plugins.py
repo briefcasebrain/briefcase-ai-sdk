@@ -210,7 +210,7 @@ def _raw_entry_points() -> List[Tuple[str, str, str, Optional[str], Optional[str
         return []
     from importlib import metadata
 
-    out = []
+    out: List[Tuple[str, str, str, Optional[str], Optional[str], Any]] = []
     if sys.version_info >= (3, 10):
         try:
             everything = metadata.entry_points()

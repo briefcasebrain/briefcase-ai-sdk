@@ -454,8 +454,12 @@ def test_an_interpreter_that_cannot_import_briefcase_is_left_alone(tmp_path):
     (installed / "sitecustomize.py").write_text(
         (Path(BOOTSTRAP_DIR) / "sitecustomize.py").read_text())
     (tmp_path / "site-packages" / "foreign_pkg.py").write_text("X = 1\n")
+    # An installed briefcase would be importable here, so a stub that fails to import shadows it.
+    shadow = tmp_path / "shadow" / "briefcase"
+    shadow.mkdir(parents=True)
+    (shadow / "__init__.py").write_text("raise ImportError('briefcase is not installed for this interpreter')\n")
     env = _child_env(BRIEFCASE_AUTO="1")
-    env["PYTHONPATH"] = str(installed)  # briefcase itself is not importable
+    env["PYTHONPATH"] = os.pathsep.join([str(tmp_path / "shadow"), str(installed)])
     result = subprocess.run(
         [sys.executable, "-c", "import sys\ntry:\n    import foreign_pkg\n    print('LEAKED')\n"
                                "except ImportError:\n    print('clean')"],

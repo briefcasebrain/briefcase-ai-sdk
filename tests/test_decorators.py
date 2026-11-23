@@ -7,7 +7,7 @@ import time
 import pytest
 from unittest.mock import MagicMock
 
-from briefcase.decorators import capture
+from briefcase.decorators import HAS_OTEL, capture
 
 
 #  Helper
@@ -812,6 +812,8 @@ class TestCaptureCorrelation:
 
     def test_active_otel_span_context_is_recorded(self):
         trace = pytest.importorskip("opentelemetry.trace")
+        if not HAS_OTEL:  # another test module may have put a stand-in in sys.modules
+            pytest.skip("the real opentelemetry-api is not installed")
         exp = _make_exporter()
 
         @capture(exporter=exp, async_capture=False)

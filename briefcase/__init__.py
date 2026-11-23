@@ -94,7 +94,7 @@ _LAZY_ATTRS = {"budget": ("briefcase.budgets", "budget"),
 _native_getattr = globals().get("__getattr__")
 
 
-def __getattr__(name: str):  # noqa: F811
+def __getattr__(name: str):  # type: ignore[no-redef]  # noqa: F811
     """``briefcase.budget`` / ``briefcase.budget_scope`` load the budgets package on first
     use, so importing briefcase does not pay for it."""
     target = _LAZY_ATTRS.get(name)

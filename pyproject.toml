@@ -211,6 +211,18 @@ module = [
     "duckdb.*",
     "pachyderm_sdk.*",
     "nacl.*",
+    # Provider SDKs and store clients the instrumentation imports only when installed.
+    "openai.*",
+    "anthropic.*",
+    "google.genai.*",
+    "google",
+    "redis.*",
+    "psycopg.*",
+    "pymysql.*",
+    "pydantic.*",
+    "cryptography.*",
+    "pytest.*",
+    "tomllib",
 ]
 ignore_missing_imports = true
 # Do not analyze inside third-party packages: several ship py.typed and use

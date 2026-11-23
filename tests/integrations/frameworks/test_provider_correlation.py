@@ -208,7 +208,11 @@ def real_llama_index():
     for key in saved:
         del sys.modules[key]
     try:
-        if importlib.util.find_spec("llama_index.core") is None:
+        try:
+            installed = importlib.util.find_spec("llama_index.core") is not None
+        except ModuleNotFoundError:  # find_spec imports the parent package, which may be absent
+            installed = False
+        if not installed:
             pytest.skip("llama-index-core is not installed")
         yield importlib.import_module("llama_index.core.callbacks")
     finally:

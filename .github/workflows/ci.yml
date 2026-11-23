@@ -327,7 +327,8 @@ jobs:
 
   python:
     name: Python (pytest)
-    runs-on: ubuntu-latest
+    # ubuntu-latest (26.04) has no CPython 3.9 in setup-python's manifest.
+    runs-on: ubuntu-24.04
     needs: python-wheel
     strategy:
       fail-fast: false
@@ -354,7 +355,7 @@ jobs:
         # path; without them those tests skip silently and CI never runs them.
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-mock pytest-asyncio pytest-subtests \
+          pip install pytest pytest-mock pytest-asyncio pytest-subtests jsonschema \
             "moto[kms,glue,s3]>=5" "pyiceberg[sql-sqlite,pyiceberg-core]>=0.9" "pyarrow>=14"
           pip install target/wheels/*.whl
 

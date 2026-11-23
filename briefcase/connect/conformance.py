@@ -37,6 +37,8 @@ def describe(name: str, installed: Optional[str], entry: Optional[Dict[str, Any]
     have, want = parse_version(installed), parse_version(tested)
     if have is None:
         return "warn", f"{head}; could not determine your installed version"
+    if want is None:
+        return "warn", f"{head}; the tested version is not a version number"
     if have == want:
         return "ok", f"{head}; your version {installed} matches"
     if have > want:

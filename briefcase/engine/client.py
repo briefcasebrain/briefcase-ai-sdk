@@ -48,7 +48,7 @@ def descriptor_files() -> Dict[str, Any]:
 
 
 def vendored_services() -> List[str]:
-    out = []
+    out: List[str] = []
     for fdp in descriptor_files().values():
         out.extend(f"{fdp.package}.{svc.name}" for svc in fdp.service)
     return out

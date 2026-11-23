@@ -380,7 +380,7 @@ def cmd_import(args, store=None, engine=None, stack=None) -> int:
 
 def _validate_layers() -> List[str]:
     errors: List[str] = []
-    docs = []
+    docs: List[Any] = []
     try:
         docs.append(("packaged", None, pr.parse_document(pr.packaged_text(), "briefcase/data/pricing/v1.json")))
     except pr.PricingError as exc:

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import os
 import subprocess
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from briefcase.cli import _ux
 from briefcase.engine import cli_support as cs
@@ -101,7 +101,7 @@ def register(sub) -> None:
 # --------------------------------------------------------------------------- local-work commands
 
 
-def _run(argv: List[str], env: Dict[str, str] = None) -> int:
+def _run(argv: List[str], env: Optional[Dict[str, str]] = None) -> int:
     try:
         return subprocess.run(argv, env={**os.environ, **(env or {})}).returncode
     except FileNotFoundError:

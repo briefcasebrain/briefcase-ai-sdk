@@ -66,7 +66,7 @@ def _llamaindex_handler():
     from briefcase.integrations.frameworks.llamaindex_handler import BriefcaseLlamaIndexHandler
 
     exporter = _LlamaIndexRecords()
-    return BriefcaseLlamaIndexHandler(exporter=exporter, async_capture=False), exporter
+    return BriefcaseLlamaIndexHandler(exporter=exporter, async_capture=False, capture_content="full"), exporter
 
 
 def test_llamaindex_standalone_events_are_exported():

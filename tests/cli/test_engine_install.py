@@ -145,6 +145,7 @@ def test_tampered_bundle_after_redeeming_is_refused_and_says_new_code(env, capsy
 def test_docker_load_failure_after_redeeming_says_new_code(env, capsys, monkeypatch):
     monkeypatch.setenv("FAKE_DOCKER_LOAD_FAIL", "1")
     (env["tmp"] / "bin" / "skopeo").unlink()
+    monkeypatch.setenv("PATH", str(env["tmp"] / "bin"))  # a skopeo installed on the machine must not be found
     assert _install("--code", "bci_good") == 1
     assert "used up; get a new one" in capsys.readouterr().err
 
@@ -469,6 +470,7 @@ def test_offline_install_falls_back_to_skopeo(env, offline, capsys, monkeypatch)
 def test_offline_docker_load_failure_without_skopeo(env, offline, capsys, monkeypatch):
     monkeypatch.setenv("FAKE_DOCKER_LOAD_FAIL", "1")
     (env["tmp"] / "bin" / "skopeo").unlink()
+    monkeypatch.setenv("PATH", str(env["tmp"] / "bin"))  # a skopeo installed on the machine must not be found
     assert _install(*_offline_args(offline)) == 1
     err = capsys.readouterr().err
     assert "docker load" in err and "Docker to 25 or newer" in err
