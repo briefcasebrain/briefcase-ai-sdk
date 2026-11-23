@@ -236,8 +236,8 @@ def test_shipped_key_directory_has_readme_and_no_key():
     (["--code", "bci_expired"], "the install code has expired", "Get a new install code at {url}/engine"),
     (["--code", "bci_noent"], "your account isn't entitled to the engine", "Request access at {url}/engine"),
     (["--token", "bcl_noent"], "your account isn't entitled to the engine", "Request access at {url}/engine"),
-    (["--token", "bcl_expired"], "the licence token has expired", "{url}/settings/api-keys"),
-    (["--token", "bcl_bogus"], "did not accept the licence token", "{url}/settings/api-keys"),
+    (["--token", "bcl_expired"], "the licence token has expired", "create a new engine licence token at {url}/engine"),
+    (["--token", "bcl_bogus"], "did not accept the licence token", "or create one at {url}/engine"),
     (["--token", "bcl_slow"], "retry in 42 seconds", None),
     (["--token", "bcl_noconfig"], "cannot serve engine downloads right now", "operator"),
 ])

@@ -33,7 +33,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and managed settings are never rewritten; the snippet is printed instead.
   Claude Desktop/Cowork, Copilot CLI, Cline, Windsurf and opencode are
   print-only, and Gemini CLI is experimental. Prompt and tool content is
-  enabled in a tool only with `--capture-content`.
+  enabled in a tool only with `--capture-content` (Copilot CLI then gets
+  `OTEL_INSTRUMENTATION_GENAI_CAPTURE_CONTENT=SPAN_ONLY`). Tested against Claude
+  Code 2.1.330 and Codex CLI 0.171.0.
 - `briefcase receive`: a stdlib OTLP/HTTP receiver (default `127.0.0.1:4318`)
   that turns Claude Code, Cowork, Codex and Copilot telemetry and Cursor hook
   events into decision records and sends them to any exporter (`--to console`,
@@ -41,10 +43,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   input and host paths are dropped and `user.email` is hashed unless
   `--keep-content` is given. A non-loopback `--host` requires `--token`.
   `--detach`, `--stop` and `--status` manage a background instance.
-- `receiver` extra (`opentelemetry-proto`) for OTLP/protobuf, which Codex and
-  Copilot send. Claude Code is configured for `http/json`, so
-  `pip install briefcase-ai && briefcase connect && briefcase receive` needs no
-  extra for it.
+- `receiver` extra (`opentelemetry-proto`) for OTLP/protobuf, which Codex CLI
+  sends. Claude Code and Copilot CLI (`http/json` by default) need no extra, so
+  `pip install briefcase-ai && briefcase connect && briefcase receive` works
+  for them as is.
 - `briefcase mcp install` and `briefcase mcp link <tool>`: per-tool install
   payloads for `briefcase-mcp` (Cursor deeplink, `claude mcp add`,
   `codex mcp add`, `code --add-mcp`, project `.mcp.json` / `.cursor/mcp.json` /
@@ -92,14 +94,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   remains the submodule), and the exporter classes are importable from
   `briefcase` directly.
 - `GatewayConfig.run_sync_in_thread` (default `True`).
-
 - `NessieClient` now talks to a Nessie server over its REST v1 API (read
   content, staged writes, commit with `expectedHash`).
-- Framework handlers accept `capture_content`, `redact`, `max_records`, and
-  (LangChain, LlamaIndex, CrewAI, OpenAI Agents) `max_inflight` /
-  `inflight_ttl_seconds`. The LangChain handler exports failed chains and
-  standalone LLM/tool/retriever runs, reads `usage_metadata`, and captures
-  streamed tokens.
+- Framework handlers accept `capture_content` (off by default, see Changed),
+  `redact`, `max_records`, and (LangChain, LlamaIndex, CrewAI, OpenAI Agents)
+  `max_inflight` / `inflight_ttl_seconds`. The LangChain handler exports failed
+  chains and standalone LLM/tool/retriever runs, reads `usage_metadata`, and
+  captures streamed tokens.
 - `CostCalculator.load_pricing_json` / `load_pricing_file` (Rust and Python)
   load user-supplied model prices; `add_model` / `remove_model` are exposed to
   Python. New sanitizer detectors: JWT, bearer tokens, IPv6, IBAN, and
@@ -111,6 +112,346 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `briefcase.mcp` supports `mcp` 2.x as well as 1.x.
 - TypeScript decision records and Gateway records in both languages carry
   `schema_version` "1.1".
+- Budgets (`briefcase.budgets`): hard and soft spending limits on LLM calls, in
+  USD and/or tokens, per app, per model, or per tenant/user/session/key
+  (`budgets.budget_scope(tenant="acme")`), over calendar UTC windows (hour, day,
+  month) or a total. Each call reserves its maximum cost before it is sent
+  (input estimate + output cap, at the packaged prices) and settles to the
+  provider's reported usage afterwards; unknown usage keeps the reservation
+  (`cost_source: "reserved"`). `on_exceed` = `block` (`BudgetExceeded` before
+  sending), `warn`, or `degrade` (switch to a cheaper model). Unpriced models:
+  `unpriced = "warn"` (default) / `"allow"` / `"block"`.
+- Budget stores: in-process (default), Redis (atomic Lua reserve/settle) and SQL
+  (SQLite, PostgreSQL, MySQL; conditional `UPDATE`, retried on deadlocks),
+  tested against real Redis 7, PostgreSQL 16 and MySQL 8 servers including two
+  processes.
+- `briefcase budget set|unset|show|status|test` and `~/.briefcase/budgets.toml`
+  (`$BRIEFCASE_BUDGETS_FILE`); a `briefcase status` row that turns to attention
+  above 80%.
+- Content guardrails (`briefcase.guardrails.content`): PII/secret checks (native
+  Sanitizer when importable plus pure-Python detectors for `password=`/`secret=`
+  assignments, `Authorization`/`Bearer` credentials, PEM/OpenSSH/PGP private
+  keys, international and national phone numbers), prompt-injection heuristics
+  on tool and retrieved content (`content.retrieved(text)`, pluggable
+  `classifier=`), and output policies (regex, JSON schema, callable). Effects
+  `block` / `redact` / `warn`; redaction keeps the SDK object's type; `block`
+  checks fail closed when the checker raises. Streams: final-text checks,
+  optional per-chunk early stop.
+- `briefcase guard test|show|init` and `~/.briefcase/guard.toml`
+  (`$BRIEFCASE_GUARD_FILE`); a `briefcase status` row.
+- Call hooks for provider auto-instrumentation
+  (`briefcase.integrations.providers._base.add_call_hook`): `before(ctx)` /
+  `after(ctx, outcome)` around every instrumented openai, anthropic,
+  google-genai and Bedrock call, including streams; nothing runs when no hook is
+  registered.
+- Provider records gain optional fields `budget_effect`, `budget_scope`,
+  `budget_checks`, `cost_usd`, `cost_source`, `cost_reserved_usd`,
+  `budget_degraded_from`, `guard_effect`, `guard_findings`, `guard_limits`.
+- `controls.Gateway`: `GatewayConfig(budgets=...)` and `invoke(...,
+  budget=BudgetRequest(...))`, new outcome reason `budget_exceeded` and
+  `Outcome.budget`.
+- `briefcase` with no arguments is now a front door. The first time on a
+  terminal it runs a guided setup: one question (AI coding tools, an app that
+  calls LLMs, or a team rollout), then two or three steps that call the existing
+  commands (`connect`, `receive --detach`, `exec`), each with its own
+  confirmation. Completion is remembered in `~/.briefcase/setup.json` only after
+  the guide was finished or skipped; `briefcase setup` runs it again. Without a
+  terminal, or with `--no-input` / `BRIEFCASE_NO_INPUT=1`, it prints the command
+  list and the status screen and exits 0.
+- `briefcase status [--json]`: one screen showing connected coding tools, the
+  receiver and its request counters, MCP registration and where records go,
+  ending with exactly one `Next:` suggestion. Command modules can add a row with
+  an optional `status()` hook.
+- `briefcase features [ID] [--verb V] [--json] [--markdown]`: the feature
+  catalog, grouped by Connect, Capture, Enforce, Verify and Review, generated
+  from one JSON manifest per feature in `briefcase/_features/`. `briefcase
+  features <id>` shows the docs link and whether the feature is active on this
+  machine. `briefcase.features.load_catalog()` reads the manifests through
+  `importlib.resources`, skips malformed files with a warning and ignores
+  unknown keys. Manifests are seeded for the 23 features that already existed.
+- `briefcase completion bash|zsh|fish`: a completion script generated from the
+  installed commands, with no new dependency.
+- Command auto-discovery: every `briefcase/cli/*_commands.py` module with a
+  `register(subparsers)` function is registered without editing `__main__.py`. A
+  module declares its help group with `GROUP` (and optionally its position with
+  `ORDER`). A module that fails to import is skipped, and `--debug` names it.
+- `briefcase/cli/_ux.py`: shared helpers for the `Next:` line, errors with a
+  `Fix:` command, `--json` output, prompts, and terminal and `NO_COLOR`
+  detection.
+- Global flags `--debug` (tracebacks, skipped modules; also `BRIEFCASE_DEBUG=1`)
+  and `--no-input`.
+- `docs/features/`: the three entry points, the contributor protocol (command
+  modules, status hooks, manifests) and a generated catalog page.
+- Adapter conformance harness (`python -m scripts.conformance
+  run|drift|scrub|merge|changes`): installs the latest Claude Code, Codex CLI,
+  Gemini CLI and Copilot CLI into an isolated prefix and temp HOME, runs
+  `briefcase connect --yes`, checks the result with each tool's own commands,
+  and records a level (`docs-only` < `config-accepted` < `telemetry-verified`)
+  with tool version and date.
+- Docs-drift check: `briefcase/connect/conformance.json` lists the strings each
+  adapter depends on; `python -m scripts.conformance drift` fetches each
+  `docs_url` and reports expectations that vanished (network failures are
+  "unknown").
+- Captured-payload corpus `tests/receiver/fixtures/real/` with a scrubber and
+  tests; seeded with Claude Code 2.1.330 telemetry emitted by the real binary.
+- `.github/workflows/conformance.yml`: nightly and manual run, per-tool matrix,
+  report artifact, one tracking issue on a level change or failure. Never runs
+  on pull requests.
+- `briefcase doctor --connect` shows the last known conformance level per tool
+  and flags an installed version newer than the tested one
+  (`briefcase/connect/conformance-report.json`).
+- `briefcase dataset from-records FILE.jsonl --name NAME`: turn captured
+  decision records into an immutable, content-addressed evaluation dataset
+  version, with `--where` filters (globs; `status`, `model`, `prompt_name`,
+  `prompt_version` keys), seeded `--sample`, `--dedupe`, `--reference
+  recorded|none` and `--redact-fields`. Records captured without content are
+  counted and explained, never turned into empty cases. Content is run through
+  `briefcase.sanitize` when the native extension is present; otherwise
+  `--allow-unsanitized` is required and the output says so.
+- `briefcase dataset show|diff|export|import`: inspect and compare versions;
+  export as hand-editable JSONL, inspect-ai `Sample` JSONL, or an lm-eval docs
+  file plus task YAML (experimental); re-import edited JSONL with errors
+  reported by line. `briefcase dataset list` also lists local versions and takes
+  `--json`; `dataset register` / `list` behave as before.
+- `briefcase eval run --dataset NAME[@v] --target module:function`: score a
+  function per case offline with `exact`, `contains`, `json` or a custom scorer,
+  `--concurrency`, CI gates (exit 1): `--fail-under X` for a single target,
+  `--fail-under X --gate TARGET` to gate named targets when comparing several,
+  and `--no-regression BASELINE [--tolerance T]` to fail when another target
+  scores below the baseline; `--fail-under` with several targets and no `--gate`
+  is a usage error (exit 2), a results table split by prompt version with the
+  worst failures first. Results are `eval.case` / `eval.run` records logged
+  through `EvalRun` (content as SHA-256 digests unless `--capture-content`).
+- `briefcase.prompts`: `prompt(name, template)` gives a template a content-hash
+  version; records made while it is used carry `prompt_name` and
+  `prompt_version`. `briefcase prompt list|show|diff`.
+- `status()` hooks for `briefcase status`: dataset count and the last eval
+  result.
+- `briefcase engine install|up|down|status|logs|doctor|upgrade|uninstall`:
+  install the licensed Briefcase engine (oci-jj) from the gated portal
+  (https://observe.briefcasebrain.io/engine): `engine install --code bci_...`
+  (single-use install code), `--token bcl_...` (automation), or offline
+  `--bundle FILE --manifest FILE` (`docker load`, `skopeo` fallback, no
+  network). The online flow calls `POST /v1/engine/install`, downloads from
+  presigned URLs, logs in to ECR with a short-lived password on stdin, pulls
+  every image by digest from the signed manifest and logs out. A digest-verified
+  single-box compose with generated secrets, required gRPC auth and an optional
+  `--tls`.
+- Release verification: manifest v2 (`schema_version`, `key_id`,
+  `min_sdk_version`, files with sha256/size/signature, images by digest) signed
+  with an ECDSA P-256 KMS key via `cosign sign-blob --tlog-upload=false`,
+  checked in Python with `cryptography` (or `cosign verify-blob --key` without
+  it) against release keys pinned in `briefcase/engine/keys/release-*.pub`. No
+  override exists. This build ships no key yet, so install refuses with "no
+  trusted release key is bundled in this SDK build".
+- `briefcase engine verify FILE [--signature S] [--manifest M]`: check a
+  manually downloaded file against the pinned key; prints the key id.
+- `engine status` shows the key id the install was verified with and, given a
+  licence token, whether a newer release exists (`GET /v1/engine/index`).
+  `engine up`/`doctor` refuse an image whose local tag no longer points at the
+  image verified at install.
+- Releases ship `oci-bai` for Linux only; on macOS (or any OS without a build)
+  the install still succeeds and the commands that need `oci-bai` run it from
+  the verified server image with `docker run`. A verified macOS build, should
+  one ship, has `com.apple.quarantine` removed only after verification.
+- `briefcase graph
+  log|diff|search|provenance|whodepends|show|explain|resolve|referrers|optimize`
+  (Review) and `briefcase env
+  push|cohort|compose|checkout|mount|bookmark|undo|gc` (Capture).
+- `briefcase run attach ID --result verdict.json`, `briefcase dataset publish
+  NAME FILE` (tenant-scoped `s3://` dataset in the local engine), `briefcase
+  verify --graph REF` (engine fsck).
+- The `engine` extra (`grpcio`, `protobuf`, `cryptography`) and the vendored
+  Apache-2.0 gRPC contract in `briefcase/engine/_proto` (regenerate with
+  `scripts/engine/regen_proto.py`).
+- Engine commands are listed in `--help`, `briefcase features` and `briefcase
+  status` without an install, marked "engine not installed — `briefcase engine
+  install`", and exit 3 when run.
+- Hash scheme `jcs-1`: RFC 8785 canonical JSON in Python
+  (`briefcase.integrity.canonical_json_v2`, `canonical_bytes`,
+  `parse_canonical_text`), TypeScript (`canonicalJsonV2`, `canonicalBytes` in
+  `@briefcase-ai/runtime/integrity`) and Rust
+  (`briefcase_core::integrity::canonical_json_v2`), byte-identical across the
+  three, floats included. Integers a double cannot hold exactly are rejected,
+  never rounded. Golden vectors `tests/vectors/canonical_json_v2.json` (RFC 8785
+  examples, published JCS test data, floats, large integers, astral keys,
+  escapes) are asserted by all three languages and in the `canonical-vectors` CI
+  job.
+- `hash_scheme` on every hash-carrying structure: `HashChainEntry` (Python and
+  TypeScript; absent means `json-sorted-1`), chained-store entries and
+  checkpoints, bundle manifests. Verifiers dispatch on it.
+  `HashChainAppender(..., hash_scheme="jcs-1")` / `{ hashScheme: "jcs-1" }` opts
+  a chain in; the default stays `json-sorted-1`.
+- Tamper-evident store (Rust feature `chain`):
+  `SqliteBackend::with_chain(ChainConfig)` / `SqliteBackend(path, chained=True,
+  signing_key=..., checkpoint_every=100)` in Python. Each saved decision or
+  `append_record` gets `seq`, `prev_hash` and `entry_hash` in one immediate
+  transaction (no forks across processes); overwrites and deletes are refused.
+  Merkle checkpoints every N entries or on demand, Ed25519-signed with keys
+  interchangeable with `briefcase.integrity.signing`. `verify` / `verify_chain`
+  report broken links, missing ranges, modified entries, checkpoint and
+  signature failures, unexpected keys, and truncation against an externally kept
+  checkpoint (`against_checkpoint`). `inclusion_proof(seq)`.
+- `briefcase.observe("chain:evidence.db")` and
+  `briefcase.exporters.ChainedSqliteExporter` (`BRIEFCASE_SIGNING_KEY`,
+  `BRIEFCASE_CHECKPOINT_EVERY`); a checkpoint is written on shutdown.
+- `briefcase verify PATH` for a chained store, chain JSONL or evidence bundle of
+  any version: plain-language verdict, `--json`, `--against CHECKPOINT`,
+  `--key`, `--kms`, `--save-checkpoint`; exit 0 intact, 1 tampered or
+  incomplete, 2 usage. Pure Python, read-only.
+- One evidence bundle format (`briefcase.compliance.bundle`, `briefcase-bundle`
+  format 2): a ZIP with manifest (file hashes, RFC 8785 `content_hash`, sealed
+  signer list, signatures), records (one or many; a sealed routing decision is a
+  bundle whose records are the decision, policy and evidence), chain entries
+  with Merkle proofs, checkpoints, public keys and a `README.txt` on what it
+  does and does not prove. One verifier, `verify_bundle`, dispatching on format
+  version, hash scheme and signer type, also accepts the released format-1
+  `ExaminerBundle` JSON.
+- Pluggable signers (`briefcase.compliance.signers`): `Ed25519Signer` (key files
+  / JWK), `KmsSigner` (AWS KMS, same key-id and signing-algorithm metadata as
+  `SignedExaminerBundle`), a `Signer` protocol and `register_verifier` for
+  others. Verifiers pin keys; KMS is only called when the caller passes a client
+  (`--kms`).
+- `briefcase bundle create|verify|inspect|keygen`: create from a chained store
+  (select by session, workflow, trace or time) or re-package a format-1 examiner
+  JSON (its KMS signature is kept and still checked); `--sign-key` accepts key
+  files and `kms:KEY_ID`.
+- `ExaminerBundle.to_bundle(path, signers=...)` / `from_bundle(path)`;
+  `SignedExaminerBundle.build_and_sign` / `verify_signature` accept
+  `kms_client=`; `briefcase.compliance.migrate_legacy`, `inspect_bundle`,
+  `write_bundle`.
+- TypeScript: `verifyBundle`, `readZip` in `@briefcase-ai/runtime/integrity`:
+  format-2 verifier (files, seal, Ed25519 via `node:crypto`, checkpoints, Merkle
+  proofs); KMS signatures are reported unchecked and format 1 is not read.
+- `briefcase.integrity.merkle`, `briefcase.integrity.keys`,
+  `briefcase.integrity.evidence`.
+- `status()` hook for `briefcase status` (`chained-store`).
+- Plugin entry points (`briefcase.plugins`, plugin API 1): installed packages
+  can add exporters (`briefcase.exporters`, used by `observe("NAME:TARGET")` and
+  `BRIEFCASE_EXPORTER`), bitemporal backends (`briefcase.bitemporal_backends`,
+  `get_backend(NAME)`), VCS providers (`briefcase.vcs_providers`,
+  `get_provider(NAME)`), receiver sources (`briefcase.receiver_sources`, `POST
+  /v1/sources/NAME`), `briefcase connect` adapters
+  (`briefcase.connect_adapters`), guardrails (`briefcase.guardrails`,
+  `make(NAME)`), CLI commands (`briefcase.cli_commands`) and feature cards
+  (`briefcase.features`). Plugins are imported only when their name is used
+  (`briefcase --help` imports none), a broken one is skipped with one warning
+  naming its package, built-in names always win, and `BRIEFCASE_PLUGINS=off` /
+  `BRIEFCASE_PLUGINS_DISABLE=...` turn them off. A plugin may declare
+  `BRIEFCASE_PLUGIN_API`; an unsupported version is refused with the upgrade
+  command.
+- `briefcase plugins [list|show NAME] [--json]`, and `briefcase doctor
+  --plugins` (the default `briefcase doctor` adds a plugins section only when a
+  plugin is installed).
+- `briefcase-mcp` tools over recorded decisions, all read-only:
+  `search_decisions`, `get_decision` (content only with `include_content=true`,
+  capped), `get_trace` (tree with durations, tokens and cost; provider records
+  under framework runs counted once), `summarize_usage` (recorded vs
+  `briefcase.pricing`-estimated vs unpriced cost), `explain_policy_decision`,
+  `verify_records` (hash chain and payload hashes; bitemporal SQLite content
+  hashes), `replay_plan` (plans only, never runs) and `drift_check`. Reads the
+  receiver's records, a `.jsonl` `BRIEFCASE_EXPORTER`, `BRIEFCASE_MCP_RECORDS`
+  or a `path` confined to the home directory or `BRIEFCASE_MCP_ROOTS`. Works
+  with mcp 1.x and 2.x.
+- `briefcase.bitemporal.backends.get_backend` / `open_backend` /
+  `available_backends` and `briefcase.integrations.vcs.get_provider` /
+  `available_providers`: name-based lookup of the built-in backends and
+  providers.
+- `briefcase policy` (init, check, test, log, off, status): allow, ask or deny
+  what Claude Code, Cursor and Codex CLI may run. A `PreToolUse` / `before*`
+  hook decides in-process against `~/.briefcase/policy.toml` (presets `observe`,
+  `guarded`, `strict`; project and system policy layers that can only make it
+  stricter), with shell analysis that follows quoting, chaining, substitutions,
+  `sh -c`, `eval`, `sudo`/`env` wrappers and here-documents, and path rules that
+  resolve `..` and symlinks. Fails open by default and says so in `briefcase
+  status`; `fail_closed = true` blocks instead. Claude Code 2.1.330 verified end
+  to end; Cursor and Codex from their documentation.
+- `briefcase hook claude-code|codex|cursor --enforce`: the hook entry point,
+  always exit 0, with the verdict as each tool's documented JSON.
+- `briefcase connect --enforce` (connect plus `policy init`) and `briefcase
+  connect --managed --out DIR`: a rollout pack for administrators (Claude Code
+  `managed-settings.d` drop-in and macOS profile, Cursor enterprise
+  `hooks.json`, Codex system `hooks.json`, labelled templates for the rest, and
+  a README per OS). Nothing is written to system paths.
+- Receiver: `POST /v1/policy/decisions` turns hook decisions into
+  `policy.tool_call` records (rule id and effect; command and path only as a
+  keyed hash unless content capture is on).
+- `briefcase.policy.guardrail.ToolPolicyEnv`: the same policy as a guardrails
+  `GuardrailEnv`.
+- Versioned pricing data: `briefcase/data/pricing/v1.json` (39 models with
+  `aliases` and null provenance fields, extracted mechanically from `cost.rs`)
+  and `unpriced.json` (ids of common models with no shipped price).
+- `briefcase.pricing`: layered loading (packaged < `~/.briefcase/pricing.json` <
+  `$BRIEFCASE_PRICING_FILE` < explicit), line-anchored validation, `apply()`
+  into a native `CostCalculator`, staleness helpers, and a pure-Python
+  `estimate()` for flat per-token pricing that raises "needs native extension"
+  for anything else.
+- `briefcase pricing list|show|set|unset|import|check`; `check --records FILE`
+  lists the models in your records that have no price.
+- `scripts/pricing/extract.py`, `generate.py --check` and a cargo oracle, plus
+  drift tests tying the JSON to `cost.rs` and
+  `js/controls/src/bedrock/pricing.ts`.
+- Provider API contract tests (`tests/contracts`,
+  `docs/features/provider-contracts.md`): the provider instrumentation, the
+  replay executors, the budget token caps and the datasets/eval flow are
+  checked, offline and with no model call, against OpenAI's published OpenAPI
+  spec, the anthropic 2.12.0 request/response types (Anthropic publishes no API
+  spec), the Gemini API discovery document (downloaded, not vendored) and
+  botocore's Bedrock Runtime service model. Specs are pinned with source URL,
+  retrieval date, SHA-256 and licence in `tests/contracts/specs/manifest.json`;
+  `scripts/refresh_provider_specs.py` and a weekly workflow report upstream
+  drift. CI runs the suite; `jsonschema` joins the `dev` extra.
+- `briefcase replay run|explain|diff` and `briefcase.replay.recorded`: replay
+  LLM calls captured by `briefcase.auto(capture_content=True)` from a JSONL
+  file, through the user's installed OpenAI, Anthropic, google-genai or Bedrock
+  SDK (`--executor auto`) or a no-network cassette (`--executor cassette`).
+  Shows a plan with per-model counts and a token bound and asks before live
+  calls (`--yes`, `--max-calls`, `--limit`, `--sample`, `--concurrency`,
+  `--max-retries`). Compares answers at exact, normalized, JSON-structural and
+  optional `--scorer` levels, with structural tool-call comparison, unified
+  diffs, and token, cost and latency deltas. Records that cannot be replayed
+  (content off or hashed, truncated or binary content, partial streams,
+  unanswered tool calls, failed originals) are reported with the reason. What-if
+  replays with `--model`, `--param`, `--drop-param`. Replays are not re-captured
+  as decisions and never run tools.
+- `briefcase drift baseline save|check` and `briefcase drift baselines`, plus
+  `briefcase.drift.baseline`: save a content-free baseline profile to
+  `~/.briefcase/baselines/<name>.json` and compare a later window against it:
+  PSI and two-sample KS for latency, output tokens and output length; mean
+  tokens and cost per call; error, refusal and finish-reason rates
+  (two-proportion z test); model mix and categorical output shift
+  (Jensen-Shannon, chi-square); character n-gram lexical drift; optional
+  `embed=` hook. Signals under `min_n` records are refused, not scored.
+  `--fail-on attention` makes it a CI gate.
+- Feature manifests `replay-recorded` (verify) and `drift-baseline` (review),
+  with `status()` hooks for `briefcase status`.
+- `@briefcase-ai/auto` (new npm package, `js/auto`): zero-code decision capture
+  for Node. `node --import @briefcase-ai/auto/register app.js` (or `observe()` +
+  `auto()` in code) records one decision per `openai`, `@anthropic-ai/sdk`,
+  `@google/genai` and `@aws-sdk/client-bedrock-runtime` call, with the same
+  field names and `decision_type` values as Python's `briefcase.auto()`.
+  Destinations and environment variables match `briefcase.observe()`: console,
+  `*.jsonl`, `http(s)://` batches (`{"records": [...]}`), and OTLP/HTTP JSON.
+  Content capture is off by default. `withWorkflow()` and an active
+  OpenTelemetry span are carried into records as `workflow_id` / `trace_id`.
+  Requires Node 26 or later (`engines.node` `>=26`, like the other TypeScript
+  packages; tested on 26.0.0 and 26.13.1). SDKs are patched lazily, when the
+  application loads each copy (a `module.registerHooks` load hook), so startup
+  with all four SDKs installed costs about +36 ms p50; `auto({ eager: true })` /
+  `BRIEFCASE_AUTO_EAGER=1` load every installed copy up front, and `status()`
+  reports a provider whose SDK is installed but not loaded yet as `waiting`.
+  `@google/genai` clients created before `auto()` are recorded too (one record
+  per call, except non-streamed automatic function calling on such a client,
+  which gives one record per model round). Worker threads are instrumented by
+  the preload; their records are forwarded to the main thread's destination as
+  each call finishes, so they survive `worker.terminate()`.
+- `instrument(client)` (also accepts the client classes): instruments the SDK
+  copy a client belongs to, for SDKs bundled into the application.
+- `@briefcase-ai/auto/esbuild`: `briefcaseAuto()` esbuild plugin that keeps
+  bundled SDKs recordable, and `SDK_PACKAGES` for `external`.
+- A warning (once per provider) and `status().providers[i].unrecordedRequests`
+  when a provider request is made by an SDK copy that is not instrumented (e.g.
+  bundled).
 
 ### Changed
 - **Breaking:** `briefcase exec` refuses `python -I/-E/-S` (override with
@@ -118,10 +459,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   malformed OTLP endpoint or an unsupported OTLP protocol.
 - **Breaking:** the OTLP protocol defaults to `http/protobuf` and is no longer
   guessed from the port number.
-- `briefcase receive` reads `BRIEFCASE_EXPORTER_TOKEN`; `BRIEFCASE_EXPORT_TOKEN`
-  still works with a deprecation warning.
-- Decision records carry `schema_version` "1.2" (adds optional
-  `prompt_name`, `prompt_version`, `parent_run_id`, `parent_framework`).
 - **Breaking:** VCS clients, `BranchManager`, `StagedArtifactClient.from_env`,
   `VersionedEmbeddingPipeline`, and `InstrumentedRetriever` no longer return
   placeholder data unless `mock=True`. They raise `ImportError` (missing
@@ -139,6 +476,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   restores propagation).
 - **Breaking:** `briefcase.auto.auto()` raises `ImportError` for a framework
   that is not installed.
+- **Breaking:** framework handlers (`briefcase.auto("langchain")`,
+  `"llamaindex"`, `"crewai"`, `"openai-agents"`, `"autogen"`, `"ag2"`,
+  `"pageindex"`, and the handler classes themselves) record no prompt,
+  completion or error text by default, like the provider integrations,
+  `briefcase exec`, `connect`/the receiver and eval records. They take the
+  providers' values (`capture_content="full"`/`True`, `"hash"`,
+  `"none"`/`False`) and `BRIEFCASE_CAPTURE_CONTENT` through `auto()`. The
+  one-time "records FULL content" warning is gone. `@briefcase.capture` is
+  unchanged: decorating your own function is the opt-in and records its
+  arguments and return value. Migration: `briefcase.auto("langchain",
+  capture_content="full")` or `BRIEFCASE_CAPTURE_CONTENT=full`.
+- **Breaking:** `@briefcase-ai/controls`, `@briefcase-ai/runtime` and
+  `@briefcase-ai/native` now declare `engines.node` as `>=26` (was `>=20.19`,
+  and `>= 12.22` for native). Node 26 is the Active LTS; Node 20 reached end of
+  life on 2026-04-30. The code uses nothing newer than `AbortSignal.any` (Node
+  20.3), so no later 26.x minor is required.
+- `briefcase receive` reads `BRIEFCASE_EXPORTER_TOKEN`; `BRIEFCASE_EXPORT_TOKEN`
+  still works with a deprecation warning.
+- Decision records carry `schema_version` "1.2" (adds optional `prompt_name`,
+  `prompt_version`, `parent_run_id`, `parent_framework`); `prompt_name` and
+  `prompt_version` are set by `briefcase.prompts` (see Added) and are also in
+  the golden schema fixture.
 - `briefcase.guardrails.framework` is now a package; every public name is
   re-exported. `VectorGuardrailEnv` evaluates in a thread pool,
   `AuditWrapper` is a ring buffer with a `dropped` count, and `SyncAdapter`
@@ -190,6 +549,78 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `import briefcase` no longer requires the compiled core. Pure-Python
   features work without it; native-backed names raise an `ImportError` that
   says how to get the core when first used.
+- `briefcase --help` lists commands under "Start here", Connect, Capture,
+  Enforce, Verify, Review and Evaluate instead of one flat list. `briefcase
+  <command> --help` is unchanged.
+- `briefcase` with no arguments exits 0 (it used to print help and exit 2). A
+  command group without a subcommand, such as `briefcase run`, still exits 2 and
+  now prints that group's help instead of the top-level help.
+- An unexpected error in a command prints one `error:` line and a `Fix:` line
+  and exits 1; the traceback needs `--debug`. `briefcase features | head` no
+  longer ends in a broken-pipe traceback.
+- The `dataset`, `secret`, `run`, `stack` and `doctor` parsers moved out of
+  `__main__.py` into discovered modules (`job_commands.py`, `stack_commands.py`,
+  `doctor_commands.py`) with the same names, flags, defaults and handlers.
+- Dataset promotion sanitizes dictionary keys as well as values.
+- The gRPC client builds messages from the vendored contract instead of server
+  reflection (`BRIEFCASE_GRPC_REFLECTION=1` keeps reflection) and finds a local
+  engine install on its own.
+- `briefcase secret` says what it is for: the engine uses only
+  `OCI_JJ_AUTH_TOKEN`.
+- `run submit` says "was not submitted" when the engine refuses a run.
+- SQLite schema migration 2 adds the empty `chain_entries`, `chain_checkpoints`
+  and `chain_meta` tables (with UPDATE/DELETE guard triggers) to every database
+  the core opens. Plain databases behave exactly as before; releases before this
+  one ignore the tables.
+- `briefcase-core` enables `serde_json`'s `float_roundtrip` feature so stored
+  floats parse back to the exact double (needed to re-verify hashes). Float
+  parsing is slightly slower.
+- `JsonlHashChainStore` writes a `hash_scheme` field only for non-default
+  schemes, so `json-sorted-1` lines are byte-identical to earlier releases.
+- `SignedExaminerBundle` signs and verifies through `KmsSigner` /
+  `kms_verify_raw`; behaviour and the format-1 JSON are unchanged (no
+  deprecation).
+- Not breaking: apart from the `canonical_json` key-escaping fix listed under
+  Fixed, existing hashes, chains, bundles and defaults are unchanged. Data
+  written with `jcs-1` (including any chained store) cannot be verified by
+  releases older than this one.
+- CI tests the TypeScript packages on Node 26 only (previously 20.19 and 22);
+  the next even line is added when it ships. Single-version jobs, `publish.yml`
+  and `conformance.yml` use Node 26.
+- `briefcase --help` has a "Plugins" group; `briefcase mcp install` and
+  `briefcase mcp link` list the server's tools.
+- `briefcase.features.load_catalog(plugins=False)`: plugin feature cards are
+  added only when asked for (`briefcase features` does; `--markdown` and
+  `briefcase --help` counts do not).
+- Provider records gain usage counters the specs define and capture dropped:
+  `token_usage.cache_write_tokens` (OpenAI chat and Responses; a part of
+  `prompt_tokens`, priced by budgets at the cache-write rate) and
+  `token_usage.reasoning_tokens` for Anthropic
+  (`output_tokens_details.thinking_tokens`, a part of `completion_tokens`).
+  OpenAI chat records `verbosity`, google-genai records `frequency_penalty` and
+  `presence_penalty`.
+- `briefcase replay explain` names more request settings that capture does not
+  record and that change the answer (OpenAI `web_search_options`, `modalities`,
+  `audio`, `functions`, `function_call`, `moderation`; Responses `prompt`,
+  `max_tool_calls`, `parallel_tool_calls`, `context_management`, `moderation`,
+  `image`; completions `echo`; Anthropic `container`; Gemini
+  `response_json_schema`, `response_modalities`, `cached_content`,
+  `automatic_function_calling`, `routing_config`, `model_selection_config`;
+  Bedrock `outputConfig`, `promptVariables`), so a replay that sends the API
+  default instead is flagged.
+- `briefcase.replay` and `briefcase.drift` resolve their native names
+  (`ReplayEngine`, `ReplayPolicy`, `ReplayResult`, `ReplayStats`,
+  `DriftCalculator`, `DriftMetrics`) on first use, so the new pure-Python
+  submodules import without the compiled core. Using a native name without the
+  core still raises the same `ImportError` (now at `from briefcase.replay import
+  ReplayEngine` rather than at `import briefcase.replay`).
+- The minimum supported Rust version is now 1.89 (was 1.85); CI builds on
+  exactly that toolchain.
+- The Python binding moves from pyo3 0.24 to 0.29, which also removes the two
+  pyo3 advisory ignores from `deny.toml`.
+
+### Deprecated
+- `briefcase stack`: use `briefcase engine` (one release).
 
 ### Fixed
 - `briefcase.observe("https://...")` sends `BRIEFCASE_EXPORTER_TOKEN` as the
@@ -252,11 +683,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The MCP `how_to` tool and `briefcase://llms-full.txt` resource returned only
   a link when installed from a wheel, because the guide lived outside the
   package. It now ships as `briefcase/mcp/llms-full.txt`.
-- `briefcase.replay`'s import error told users to install the `replay` extra,
-  which is empty; it now explains that the compiled core is missing.
+- `briefcase.replay`'s native-name `ImportError` told users to install the
+  `replay` extra, which is empty; it now explains that the compiled core is
+  missing.
 - README, AGENTS.md, `llms.txt`, and `llms-full.txt` now list the same extras
   as `pyproject.toml` for "installs third-party packages" versus "empty
   grouping".
+- `briefcase connect --undo` reported a hook entry that had been edited after it
+  was written as "already removed" and left it in place; it now recognises its
+  own entry by its marker. Undoing two owners of one file (connect telemetry and
+  policy hooks in Cursor's `hooks.json`) no longer leaves an empty `"hooks": {}`
+  behind.
+
+### Security
+- RUSTSEC-2026-0459 (SQLite page-cache disclosure through a crafted `-wal` file)
+  is cleared by upgrading rusqlite 0.38 to 0.41 (libsqlite3-sys 0.39, SQLite
+  3.54).
+- RUSTSEC-2026-0592 (stack overflow in `Url::origin()`) is cleared by `url`
+  2.5.9.
+- RUSTSEC-2026-0176 and RUSTSEC-2026-0177 (pyo3 `nth`/`nth_back` out-of-bounds
+  reads) are cleared by pyo3 0.29.
 
 ## [4.4.0] - 2026-08-16
 
@@ -290,7 +736,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `BitemporalRecord.content_hash` and the examiner bundle's canonical encoding
   now route through `briefcase.integrity.canonical_json_compat`. Byte-identical
   to previous releases (pinned by tests); stored hashes do not change.
-
 
 ## [4.2.0] - 2026-08-16
 

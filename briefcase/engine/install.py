@@ -146,7 +146,7 @@ def request_install(platform: str, *, code: Optional[str] = None, token: Optiona
             raise InstallError(f"the install code {reason}; install codes work once, for 15 minutes",
                                fix=f"Get a new install code at {page}") from exc
         if exc.code == 401:
-            settings = platform + "/settings/api-keys"
+            settings = page
             if "expired" in (err_code + detail).lower():
                 raise InstallError(f"the licence token has expired{detail_s}",
                                    fix=f"create a new engine licence token at {settings}") from exc

@@ -138,7 +138,7 @@ briefcase receive     # local OTLP receiver: their telemetry becomes briefcase d
 a backup, and `briefcase connect --undo` removes exactly what it wrote.
 Prompts, responses, tool input, e-mail addresses and host paths are redacted
 unless you opt in (`--capture-content` / `--keep-content`). Claude Code and
-Cursor work on a bare install; Codex and Copilot send protobuf, which needs
+Cursor work on a bare install; Codex and VS Code Copilot send protobuf, which needs
 `pip install 'briefcase-ai[receiver]'`. `briefcase mcp link cursor` prints a
 one-click install link for the MCP server. Per-tool details:
 [`docs/integrations/`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/docs/integrations/README.md).

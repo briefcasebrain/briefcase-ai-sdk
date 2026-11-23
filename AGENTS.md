@@ -71,7 +71,7 @@ briefcase connect --undo     # removes exactly what connect wrote
 
 - `connect` never enables prompt or tool content unless given `--capture-content`,
   and the receiver redacts content, e-mail and host paths unless given `--keep-content`.
-- Codex and Copilot send OTLP/protobuf: `pip install 'briefcase-ai[receiver]'`.
+- Codex and VS Code Copilot send OTLP/protobuf: `pip install 'briefcase-ai[receiver]'`. Copilot CLI sends OTLP/JSON and works on a bare install.
 - `briefcase mcp install` / `briefcase mcp link <tool>` set up the `briefcase-mcp` server.
 - Details: `docs/integrations/README.md`.
 

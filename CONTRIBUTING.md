@@ -104,6 +104,40 @@ narrower run silently compiles out every PII-redaction test.
 5. Update documentation if your change affects public APIs.
 6. Follow existing code style and conventions.
 
+## Changelog
+
+Do not edit `CHANGELOG.md` in a feature PR; parallel PRs would conflict on the
+`## [Unreleased]` section. Add a fragment instead: one Markdown file per change
+in `changelog.d/` (for example `changelog.d/my-feature.md`), using Keep a
+Changelog headings and `- ` bullets:
+
+```markdown
+### Added
+- `briefcase thing --flag`: what it does, in one or two sentences.
+
+### Changed
+- **Breaking:** what changed and how to migrate.
+```
+
+Headings are `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed` and
+`Security`; a `### Breaking` heading is also accepted and becomes a
+`**Breaking:**` entry under Changed. Anything else is rejected. See
+`changelog.d/README.md`.
+
+At release time, fold the fragments and cut the release:
+
+```bash
+python scripts/changelog_fold.py --dry-run               # preview; resolve any reported near-duplicates
+python scripts/changelog_fold.py --release X.Y.Z         # fold, rename Unreleased to X.Y.Z, add a fresh Unreleased
+python scripts/version_sync.py set --version X.Y.Z       # bump every version string
+python scripts/version_sync.py check
+python scripts/changelog_fold.py --check                 # exits 1 while any fragment is left
+```
+
+`changelog_fold.py` never merges near-duplicates for you: it lists them on
+stderr, and you reconcile them in `CHANGELOG.md` by hand. `--date YYYY-MM-DD`
+overrides the release date (default: today).
+
 ## Commit Messages
 
 Use clear, descriptive commit messages. Prefix with the area of change when helpful:
