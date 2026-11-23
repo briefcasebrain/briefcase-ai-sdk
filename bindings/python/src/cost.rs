@@ -134,14 +134,14 @@ impl PyCostCalculator {
         model_b: String,
         input_tokens: u32,
         output_tokens: u32,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         match self.inner.compare_models(
             &model_a,
             &model_b,
             input_tokens as usize,
             output_tokens as usize,
         ) {
-            Ok(comparison) => Python::with_gil(|py| {
+            Ok(comparison) => Python::attach(|py| {
                 let dict = pyo3::types::PyDict::new(py);
                 dict.set_item("cheaper_model", &comparison.cheaper_model)?;
                 dict.set_item("savings", comparison.savings)?;
@@ -162,9 +162,9 @@ impl PyCostCalculator {
     }
 
     /// Get models under cost threshold per 1k tokens
-    fn get_models_under_cost(&self, max_cost_per_1k: f64) -> PyResult<PyObject> {
+    fn get_models_under_cost(&self, max_cost_per_1k: f64) -> PyResult<Py<PyAny>> {
         let models = self.inner.get_models_under_cost(max_cost_per_1k);
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for model in models {
                 list.append(&model.model_name)?;
@@ -174,9 +174,9 @@ impl PyCostCalculator {
     }
 
     /// Get models by provider
-    fn get_models_by_provider(&self, provider: String) -> PyResult<PyObject> {
+    fn get_models_by_provider(&self, provider: String) -> PyResult<Py<PyAny>> {
         let models = self.inner.get_models_by_provider(&provider);
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for model in models {
                 list.append(&model.model_name)?;
@@ -197,9 +197,9 @@ impl PyCostCalculator {
     }
 
     /// Get all available models
-    fn get_available_models(&self) -> PyResult<PyObject> {
+    fn get_available_models(&self) -> PyResult<Py<PyAny>> {
         let models = self.inner.get_all_models();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for model in models {
                 list.append(&model.model_name)?;
@@ -340,8 +340,8 @@ impl PyCostEstimate {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("model_name", &self.inner.model_name)?;
             dict.set_item("currency", &self.inner.currency)?;
@@ -419,8 +419,8 @@ impl PyBudgetStatus {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("status", self.status())?;
             dict.set_item("current_spend", self.inner.spent_usd)?;

@@ -18,8 +18,8 @@ pub struct PyBufferedBackend {
 #[pymethods]
 impl PyBufferedBackend {
     #[new]
-    fn new(backend: PyObject, buffer_size: usize) -> PyResult<Self> {
-        Python::with_gil(|py| {
+    fn new(backend: Py<PyAny>, buffer_size: usize) -> PyResult<Self> {
+        Python::attach(|py| {
             let inner: Arc<dyn StorageBackend> =
                 if let Ok(sqlite) = backend.bind(py).extract::<PyRef<PySqliteBackend>>() {
                     Arc::new(sqlite.inner.clone())
@@ -77,9 +77,9 @@ impl PyBufferedBackend {
 
     /// Query the wrapped backend. Buffered decisions are not visible until
     /// they are flushed.
-    fn query(&self, query: PyRef<PySnapshotQuery>) -> PyResult<PyObject> {
+    fn query(&self, query: PyRef<PySnapshotQuery>) -> PyResult<Py<PyAny>> {
         let snapshots = self.inner.query(query.inner.clone()).block_on_python()?;
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for s in snapshots {
                 list.append(Py::new(py, PySnapshot { inner: s })?)?;
@@ -104,9 +104,9 @@ impl PyBufferedBackend {
     /// partial batch.
     fn __exit__(
         &self,
-        _exc_type: PyObject,
-        _exc_value: PyObject,
-        _traceback: PyObject,
+        _exc_type: Py<PyAny>,
+        _exc_value: Py<PyAny>,
+        _traceback: Py<PyAny>,
     ) -> PyResult<bool> {
         self.flush()?;
         Ok(false)
@@ -195,40 +195,40 @@ impl PySqliteBackend {
         py: Python<'_>,
         record_id: String,
         record: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let value: serde_json::Value = serde_json::from_str(&py_to_json_text(record)?)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         let inner = self.inner.clone();
         let entry = py
-            .allow_threads(move || inner.append_record(&record_id, &value))
+            .detach(move || inner.append_record(&record_id, &value))
             .map_err(|e| e.into_py_err())?;
         json_to_py(py, &entry)
     }
 
     /// Write a checkpoint over every entry since the previous one; returns
     /// the latest checkpoint as a dict (None for an empty chain).
-    fn checkpoint(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn checkpoint(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let inner = self.inner.clone();
         let cp = py
-            .allow_threads(move || inner.checkpoint())
+            .detach(move || inner.checkpoint())
             .map_err(|e| e.into_py_err())?;
         json_to_py(py, &cp)
     }
 
     /// The newest chain entry as a dict, or None.
-    fn chain_head(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn chain_head(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let head = self.inner.chain_head().map_err(|e| e.into_py_err())?;
         json_to_py(py, &head)
     }
 
     /// Every checkpoint, oldest first, as dicts.
-    fn checkpoints(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn checkpoints(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let cps = self.inner.checkpoints().map_err(|e| e.into_py_err())?;
         json_to_py(py, &cps)
     }
 
     /// Merkle inclusion proof of entry `seq` (None until a checkpoint covers it).
-    fn inclusion_proof(&self, py: Python<'_>, seq: u64) -> PyResult<PyObject> {
+    fn inclusion_proof(&self, py: Python<'_>, seq: u64) -> PyResult<Py<PyAny>> {
         let proof = self
             .inner
             .inclusion_proof(seq)
@@ -246,7 +246,7 @@ impl PySqliteBackend {
         py: Python<'_>,
         against_checkpoint: Option<&Bound<'_, PyAny>>,
         expected_key_id: Option<String>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let anchor = match against_checkpoint {
             None => None,
             Some(obj) => Some(
@@ -264,7 +264,7 @@ impl PySqliteBackend {
         };
         let inner = self.inner.clone();
         let report = py
-            .allow_threads(move || inner.verify_chain(&options))
+            .detach(move || inner.verify_chain(&options))
             .map_err(|e| e.into_py_err())?;
         json_to_py(py, &report)
     }
@@ -307,9 +307,9 @@ impl PySqliteBackend {
             .map(|d| PyDecisionSnapshot { inner: d })
     }
 
-    fn query(&self, query: PyRef<PySnapshotQuery>) -> PyResult<PyObject> {
+    fn query(&self, query: PyRef<PySnapshotQuery>) -> PyResult<Py<PyAny>> {
         let snapshots = self.inner.query(query.inner.clone()).block_on_python()?;
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for s in snapshots {
                 list.append(Py::new(py, PySnapshot { inner: s })?)?;

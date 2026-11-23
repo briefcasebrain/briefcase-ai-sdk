@@ -144,8 +144,8 @@ pub struct PyInput {
 #[pymethods]
 impl PyInput {
     #[new]
-    fn new(name: String, value: PyObject, data_type: String) -> PyResult<Self> {
-        Python::with_gil(|py| {
+    fn new(name: String, value: Py<PyAny>, data_type: String) -> PyResult<Self> {
+        Python::attach(|py| {
             let json_value = python_to_json_value(value, py)?;
             Ok(Self {
                 inner: Input::new(name, json_value, data_type),
@@ -159,8 +159,8 @@ impl PyInput {
     }
 
     #[getter]
-    fn value(&self) -> PyObject {
-        Python::with_gil(|py| {
+    fn value(&self) -> Py<PyAny> {
+        Python::attach(|py| {
             json_value_to_python(self.inner.value.clone(), py).unwrap_or_else(|_| py.None())
         })
     }
@@ -170,8 +170,8 @@ impl PyInput {
         &self.inner.data_type
     }
 
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("name", &self.inner.name)?;
             dict.set_item("value", json_value_to_python(self.inner.value.clone(), py)?)?;
@@ -190,8 +190,8 @@ pub struct PyOutput {
 #[pymethods]
 impl PyOutput {
     #[new]
-    fn new(name: String, value: PyObject, data_type: String) -> PyResult<Self> {
-        Python::with_gil(|py| {
+    fn new(name: String, value: Py<PyAny>, data_type: String) -> PyResult<Self> {
+        Python::attach(|py| {
             let json_value = python_to_json_value(value, py)?;
             Ok(Self {
                 inner: Output::new(name, json_value, data_type),
@@ -210,8 +210,8 @@ impl PyOutput {
     }
 
     #[getter]
-    fn value(&self) -> PyObject {
-        Python::with_gil(|py| {
+    fn value(&self) -> Py<PyAny> {
+        Python::attach(|py| {
             json_value_to_python(self.inner.value.clone(), py).unwrap_or_else(|_| py.None())
         })
     }
@@ -226,8 +226,8 @@ impl PyOutput {
         self.inner.confidence
     }
 
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("name", &self.inner.name)?;
             dict.set_item("value", json_value_to_python(self.inner.value.clone(), py)?)?;
@@ -261,9 +261,9 @@ impl PyModelParameters {
     fn with_parameter<'a>(
         mut slf: PyRefMut<'a, Self>,
         key: String,
-        value: PyObject,
+        value: Py<PyAny>,
     ) -> PyResult<PyRefMut<'a, Self>> {
-        let json_val = Python::with_gil(|py| python_to_json_value(value, py))?;
+        let json_val = Python::attach(|py| python_to_json_value(value, py))?;
         slf.inner = slf.inner.clone().with_parameter(key, json_val);
         Ok(slf)
     }
@@ -279,8 +279,8 @@ impl PyModelParameters {
     }
 
     #[getter]
-    fn parameters(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn parameters(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             for (k, v) in &self.inner.parameters {
                 dict.set_item(k, json_value_to_python(v.clone(), py)?)?;
@@ -368,8 +368,8 @@ impl PyExecutionContext {
     }
 
     #[getter]
-    fn dependencies(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn dependencies(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             for (k, v) in &self.inner.dependencies {
                 dict.set_item(k, v)?;
@@ -384,8 +384,8 @@ impl PyExecutionContext {
     }
 
     #[getter]
-    fn environment_variables(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn environment_variables(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             for (k, v) in &self.inner.environment_variables {
                 dict.set_item(k, v)?;
@@ -498,8 +498,8 @@ impl PyDecisionSnapshot {
     }
 
     #[getter]
-    fn inputs(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn inputs(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for input in &self.inner.inputs {
                 let py_input = PyInput {
@@ -512,8 +512,8 @@ impl PyDecisionSnapshot {
     }
 
     #[getter]
-    fn outputs(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn outputs(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for output in &self.inner.outputs {
                 let py_output = PyOutput {
@@ -526,8 +526,8 @@ impl PyDecisionSnapshot {
     }
 
     #[getter]
-    fn tags(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn tags(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             for (k, v) in &self.inner.tags {
                 dict.set_item(k, v)?;
@@ -599,8 +599,8 @@ impl PySnapshot {
     }
 
     #[getter]
-    fn decisions(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn decisions(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for decision in &self.inner.decisions {
                 let py_decision = PyDecisionSnapshot {
@@ -671,7 +671,7 @@ fn python_type_name(any: &Bound<'_, PyAny>) -> String {
 
 /// Helper function to convert Python objects to serde_json::Value.
 /// Raises TypeError for values (or dict keys) that have no JSON equivalent.
-pub fn python_to_json_value(obj: PyObject, py: Python<'_>) -> PyResult<serde_json::Value> {
+pub fn python_to_json_value(obj: Py<PyAny>, py: Python<'_>) -> PyResult<serde_json::Value> {
     if obj.is_none(py) {
         return Ok(serde_json::Value::Null);
     }
@@ -701,7 +701,7 @@ pub fn python_to_json_value(obj: PyObject, py: Python<'_>) -> PyResult<serde_jso
             });
     }
     // Handle dict
-    if let Ok(dict) = obj.downcast_bound::<pyo3::types::PyDict>(py) {
+    if let Ok(dict) = obj.cast_bound::<pyo3::types::PyDict>(py) {
         let mut map = serde_json::Map::new();
         for (k, v) in dict.iter() {
             let key = k.extract::<String>().map_err(|_| {
@@ -716,7 +716,7 @@ pub fn python_to_json_value(obj: PyObject, py: Python<'_>) -> PyResult<serde_jso
         return Ok(serde_json::Value::Object(map));
     }
     // Handle list
-    if let Ok(list) = obj.downcast_bound::<pyo3::types::PyList>(py) {
+    if let Ok(list) = obj.cast_bound::<pyo3::types::PyList>(py) {
         let mut arr = Vec::new();
         for item in list.iter() {
             arr.push(python_to_json_value(item.unbind(), py)?);
@@ -724,7 +724,7 @@ pub fn python_to_json_value(obj: PyObject, py: Python<'_>) -> PyResult<serde_jso
         return Ok(serde_json::Value::Array(arr));
     }
     // Handle tuple
-    if let Ok(tuple) = obj.downcast_bound::<pyo3::types::PyTuple>(py) {
+    if let Ok(tuple) = obj.cast_bound::<pyo3::types::PyTuple>(py) {
         let mut arr = Vec::new();
         for item in tuple.iter() {
             arr.push(python_to_json_value(item.unbind(), py)?);
@@ -754,7 +754,7 @@ pub fn python_to_json_value(obj: PyObject, py: Python<'_>) -> PyResult<serde_jso
 }
 
 /// Helper function to convert serde_json::Value to Python objects
-pub fn json_value_to_python(value: serde_json::Value, py: Python<'_>) -> PyResult<PyObject> {
+pub fn json_value_to_python(value: serde_json::Value, py: Python<'_>) -> PyResult<Py<PyAny>> {
     match value {
         serde_json::Value::Null => Ok(py.None()),
         serde_json::Value::Bool(b) => {

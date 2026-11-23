@@ -5,7 +5,7 @@ use briefcase_core::client::{BriefcaseClient, ClientConfig, ValidatedClient};
 use pyo3::prelude::*;
 
 /// Validated client information returned by the server.
-#[pyclass(name = "ValidatedClient")]
+#[pyclass(name = "ValidatedClient", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyValidatedClient {
     pub client_id: String,
