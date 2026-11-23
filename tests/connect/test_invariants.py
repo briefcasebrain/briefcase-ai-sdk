@@ -75,13 +75,13 @@ class FakeCLI:
                 return 0, ""
         if argv[0] == "codex" and argv[2] == "add":  # replaces silently, in the profile's config.toml
             path = self.w.codex_dir() / "config.toml"
-            text = path.read_text() if path.exists() else ""
+            text = open(path, newline="").read() if path.exists() else ""  # the tool keeps line endings
             text = re.sub(r"\[mcp_servers\.briefcase\]\n(?:[^\[\n].*\n?)*", "", text)
             tail = argv[argv.index("--") + 1:]
             text += '[mcp_servers.briefcase]\ncommand = %s\nargs = %s\n' % (
                 json.dumps(tail[0]), json.dumps(tail[1:]))
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
+            open(path, "w", newline="").write(text)
             return 0, ""
         if argv[0] == "code" and argv[1] == "--add-mcp":  # replaces silently
             payload = json.loads(argv[2])
@@ -162,6 +162,11 @@ JSON_SEEDS = {
         "capture_on": json.dumps({"env": {"OTEL_LOG_USER_PROMPTS": "1"}}, indent=2) + "\n",
         "headers_on": json.dumps({"env": {"OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer " + SECRET}}) + "\n",
         "wrong_types": '{"env": "nope"}\n',
+        "raw_bodies": json.dumps({"env": {"OTEL_LOG_RAW_API_BODIES": "1"}}) + "\n",
+        "helper": json.dumps({"otelHeadersHelper": "/bin/get-token"}) + "\n",
+        "per_signal": json.dumps({"env": {"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": "https://elsewhere.example.com"}}) + "\n",
+        "duplicate_keys": '{"env": {"A": "1"}, "env": {"B": "2"}}\n',
+        "crlf": '{\r\n  "model": "opus"\r\n}\r\n',
     },
     "vscode-copilot": {
         "unrelated": '{\n    "editor.fontSize": 14\n}\n',
@@ -169,12 +174,17 @@ JSON_SEEDS = {
         "partial": '{"github.copilot.chat.otel.enabled": false}\n',
         "capture_on": '{"github.copilot.chat.otel.captureContent": true}\n',
         "wrong_types": "[1, 2]\n",
+        "otel_other": '{"github.copilot.chat.otel.logLevel": "debug"}\n',
+        "duplicate_keys": '{"a": 1, "a": 2}\n',
+        "crlf": '{\r\n    "editor.fontSize": 14\r\n}\r\n',
     },
     "cursor": {
         "unrelated": json.dumps({"version": 1, "hooks": {"stop": [{"command": "./mine.sh"}]}}, indent=2) + "\n",
         "compact_secret": '{"hooks":{"stop":[{"command":"x --token=%s"}]}}' % SECRET,
         "partial": '{"version": 2}\n',
         "wrong_types": '{"hooks": []}\n',
+        "duplicate_keys": '{"hooks": {}, "hooks": {"stop": []}}\n',
+        "crlf": '{\r\n  "version": 1\r\n}\r\n',
     },
     "codex": {
         "unrelated": 'model = "gpt-5"\n\n[tui]\nnotifications = true\n',
@@ -184,11 +194,14 @@ JSON_SEEDS = {
         "headers_on": '[otel]\nexporter = { otlp-http = { endpoint = "https://x", headers = { "Authorization" = '
                       '"Bearer %s" } } }\n' % SECRET,
         "wrong_types": "model = \n",
+        "toml_multiline": 'developer_instructions = """\nfirst\n[otel]\nsecond\n"""\nmodel = "gpt-5"\n',
+        "crlf": 'model = "gpt-5"\r\n\r\n[tui]\r\nnotifications = true\r\n',
     },
 }
 OWNED_STATES = ["ours", "ours_edited", "ours_reformatted", "ours_in_unrelated"]
 REGISTRY_STATES = ["registry_foreign", "registry_ours_replaced"]
 PROFILE_STATES = ["other_profile", "relative_profile"]
+POLICY_STATES = ["policy_installed", "policy_installed_copy", "policy_installed_edited"]
 STATES = ["absent", "empty"] + OWNED_STATES + REGISTRY_STATES + PROFILE_STATES
 
 
@@ -197,6 +210,7 @@ def states_for(tool):
     out += OWNED_STATES
     out += [s for s in REGISTRY_STATES if tool != "cursor"]
     out += [s for s in PROFILE_STATES if tool in ("claude-code", "codex")]
+    out += [s for s in POLICY_STATES if tool in POLICY_TOOLS]
     return out
 
 
@@ -253,6 +267,29 @@ def seed(world, tool, state):
             edit_owned(world, tool, "edited")
         elif state == "ours_reformatted":
             edit_owned(world, tool, "reformatted")
+    elif state in POLICY_STATES:
+        assert world.run(["policy", "init", tool, "--yes"])[0] == 0
+        hooks_file = world.telemetry_file(tool) if tool != "codex" else world.codex_dir() / "hooks.json"
+        doc = json.loads(hooks_file.read_text())
+        needle = f" {tool} --enforce"
+
+        def walk(node):
+            if isinstance(node, list):
+                for item in list(node):
+                    if isinstance(item, dict) and needle in json.dumps(item):
+                        clone = json.loads(json.dumps(item).replace('"timeout": ', '"timeout": 9'))
+                        if state == "policy_installed_edited":
+                            node[node.index(item)] = clone
+                        elif state == "policy_installed_copy":
+                            node.append(clone)
+                    else:
+                        walk(item)
+            elif isinstance(node, dict):
+                for value in node.values():
+                    walk(value)
+        if state != "policy_installed":
+            walk(doc)
+            hooks_file.write_text(json.dumps(doc, indent=2) + "\n")
     elif state == "registry_foreign":
         foreign_registry(world, tool)
     elif state == "registry_ours_replaced":
@@ -328,6 +365,25 @@ def marker_present(world, tool):
     return False
 
 
+def namespace_keys(tool, text):
+    """Keys in the tool's telemetry namespace, judged here and not from the adapter's own lists."""
+    try:
+        if tool == "codex":
+            from briefcase.connect import edits
+            return ["otel"] if "otel" in edits._toml.loads(text) else []
+        doc = json.loads(text)
+    except Exception:
+        return []
+    if tool == "claude-code":
+        env = doc.get("env") if isinstance(doc.get("env"), dict) else {}
+        return [k for k in env if k.upper().startswith("OTEL_")] + [k for k in doc if k.lower().startswith("otel")]
+    if tool == "vscode-copilot":
+        return [k for k in doc if k.lower().startswith("github.copilot.chat.otel")]
+    if tool == "gemini-cli":
+        return list(doc.get("telemetry", {}))
+    return []
+
+
 def effective_exports(world, tool):
     """(captures content, sends a credential) according to the tool's own settings file as it is now."""
     path = world.telemetry_file(tool)
@@ -387,7 +443,8 @@ def test_invariants(tmp_path, monkeypatch, tool, state, name):
             assert opcodes(old, new) <= {"insert"}, f"{rel}: a write changed bytes it does not own"
         else:
             if new is None:
-                assert state.startswith("ours") and state != "ours_in_unrelated", f"{rel} deleted by undo"
+                assert (state.startswith("ours") and state != "ours_in_unrelated") or state in POLICY_STATES, \
+                    f"{rel} deleted by undo"
             else:
                 assert opcodes(old, new) <= {"delete"}, f"{rel}: undo changed bytes it did not write"
     # I1: registry
@@ -424,6 +481,8 @@ def test_invariants(tmp_path, monkeypatch, tool, state, name):
         assert marker_present(world, tool)
     if "Enforcement is off" in out:
         assert not marker_present(world, tool)
+    if name.startswith("policy_init") and code == 0 and "--dry-run" not in argv:
+        assert marker_present(world, tool), "policy init succeeded but no enforcement hook is on disk"
     if name == "policy_off" and code == 0 and "No policy hooks are installed" not in out:
         assert not marker_present(world, tool)
 
@@ -439,6 +498,13 @@ def test_invariants(tmp_path, monkeypatch, tool, state, name):
             pytest.fail("existing content capture now exports to the new endpoint")
         if creds and was_creds and not asked_headers:
             pytest.fail("an existing credential now goes to the new endpoint")
+    if kind == WRITE and wrote_telemetry and tool != "cursor" and not name.startswith("policy"):
+        rel = str(world.telemetry_file(tool).relative_to(world.root))
+        existing = namespace_keys(tool, before["files"].get(rel, (b"",))[0].decode("utf-8", "replace"))
+        assert not existing, f"wrote telemetry next to existing telemetry settings {existing}"
+    if state == "duplicate_keys" and kind == WRITE:
+        rel = str(world.telemetry_file(tool).relative_to(world.root))
+        assert after["files"][rel] == before["files"][rel], "an ambiguous document was edited"
     if tool == "cursor" and kind == WRITE:
         path = world.telemetry_file("cursor")
         if path.exists():
@@ -521,10 +587,29 @@ def test_a_table_the_tool_inserts_inside_our_markers_is_not_ours_and_survives_un
     assert '[projects."/x"]' in left and "[otel]" not in left
 
 
+ROUND_TRIP = [(t, st) for t in TOOLS for st in ("unrelated", "compact_secret", "crlf", "toml_multiline")
+              if st in JSON_SEEDS[t]]
+
+
+@pytest.mark.parametrize("tool, state", ROUND_TRIP)
+def test_undo_returns_the_file_to_its_original_bytes_whatever_it_held(tmp_path, monkeypatch, tool, state):
+    world = World(tmp_path, monkeypatch)
+    seed(world, tool, state)
+    path = world.telemetry_file(tool)
+    original = path.read_bytes()
+    assert world.run(["connect", tool, "--yes", "--no-mcp"])[0] == 0
+    assert path.read_bytes() != original
+    assert world.run(["connect", "--undo", tool])[0] == 0
+    assert path.read_bytes() == original, "undo must give back exactly the user's bytes"
+    if state == "toml_multiline":
+        from briefcase.connect import edits
+        assert "[otel]" in path.read_text() and edits._toml.loads(path.read_text())["model"] == "gpt-5"
+
+
 @pytest.mark.parametrize("tool", ["claude-code", "codex", "cursor", "vscode-copilot"])
 def test_undo_returns_the_file_to_its_original_bytes(tmp_path, monkeypatch, tool):
     world = World(tmp_path, monkeypatch)
-    seed(world, tool, "unrelated" if tool != "vscode-copilot" else "unrelated")
+    seed(world, tool, "unrelated")
     path = world.telemetry_file(tool)
     original = path.read_bytes()
     assert world.run(["connect", tool, "--yes", "--no-mcp"])[0] == 0

@@ -116,6 +116,13 @@ class FileEdit:
     # truthy capture key or a present credential key would combine with our endpoint to send prompts or an
     # existing credential somewhere new, so the write is refused unless this invocation asked for that.
     watch: List[Tuple[List[str], str]] = field(default_factory=list)
+    # The tool's whole telemetry namespace in this file, as ``(object path, key prefix)`` (prefix ``""`` = every key,
+    # matched case-insensitively). Any existing key in it that this edit does not itself write blocks the write:
+    # only what we can account for is allowed to combine with our endpoint.
+    namespace: List[Tuple[List[str], str]] = field(default_factory=list)
+    # The edit writes a credential the user supplied: the file ends up 0600, existing files included.
+    secret: bool = False
+    toml_added_newline: bool = False  # set by resolve: the file had no final newline and we added one
 
 
 @dataclass
@@ -259,12 +266,31 @@ def _detect_indent(text: str) -> Any:
     return "\t" if lead.startswith("\t") else len(lead)
 
 
+def read_text(path: Path) -> str:
+    """The file's text with its line endings exactly as stored (``Path.read_text`` would turn CRLF into LF and a
+    write-back would then change every line)."""
+    with open(path, "r", encoding="utf-8", newline="") as handle:
+        return handle.read()
+
+
+def _no_duplicates(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
+    seen: Dict[str, Any] = {}
+    for key, value in pairs:
+        if key in seen:
+            raise ValueError("duplicate key")
+        seen[key] = value
+    return seen
+
+
 def _load_json(text: str, path: Path) -> Dict[str, Any]:
     if not text.strip():
         return {}
     try:
-        doc = json.loads(text)
+        doc = json.loads(text, object_pairs_hook=_no_duplicates)
     except ValueError as exc:
+        if str(exc) == "duplicate key":
+            raise EditRefused(f"{path} has the same key twice in one object; readers disagree on which one wins, "
+                              "so it is not edited. Fix it, or add the snippet by hand")
         try:
             json.loads(_strip_jsonc(text))
         except ValueError:
@@ -420,9 +446,13 @@ def _resolve_toml(edit: FileEdit, old: str) -> Tuple[str, str]:
     if found:
         raise EditRefused(f"{edit.path} already defines [{next(iter(found))}]; it is never rewritten")
     block = toml_block(edit.toml_body)
+    nl = "\r\n" if "\r\n" in old else "\n"
+    if nl != "\n":
+        block = block.replace("\n", nl)
     if old.strip():
-        lead = old if old.endswith("\n") else old + "\n"
-        new = lead + ("" if lead.endswith("\n\n") else "\n") + block  # only ever adds bytes
+        lead = old if old.endswith("\n") else old + nl
+        edit.toml_added_newline = not old.endswith("\n")
+        new = lead + ("" if lead.endswith(nl + nl) else nl) + block  # only ever adds bytes
     else:
         new = old + block
     try:
@@ -432,32 +462,70 @@ def _resolve_toml(edit: FileEdit, old: str) -> Tuple[str, str]:
     return new, block
 
 
-def _toml_remove(old: str, tables: Sequence[str]) -> str:
+def _toml_remove(old: str, tables: Sequence[str], added_newline: bool = False) -> str:
     """``old`` without the named tables (and their sub-tables), and without our marker lines when nothing else is
-    left between them. Everything else, including tables a tool put inside our markers, stays byte for byte."""
+    left between them. Everything else, including tables a tool put inside our markers, stays byte for byte. A
+    ``[name]`` line inside a multi-line string is not a header. The caller checks the result parses back to exactly
+    ``old`` minus those tables."""
     lines = old.splitlines(keepends=True)
     keep: List[str] = []
     skipping = False
+    inside: Optional[str] = None  # the delimiter of the multi-line string we are in
     for line in lines:
         stripped = line.strip()
-        if stripped.startswith((TOML_BEGIN, TOML_END)):
+        if inside is None and stripped.startswith((TOML_BEGIN, TOML_END)):
             skipping = False
             keep.append(line)
             continue
-        header = _TOML_HEADER.match(line)
+        header = _TOML_HEADER.match(line) if inside is None else None
         if header:
             name = ".".join(part.strip().strip("\"'") for part in header.group(1).split("."))
             skipping = any(name == t or name.startswith(t + ".") for t in tables)
         if not skipping:
             keep.append(line)
+        for delimiter in ('"""', "'''"):
+            count = line.count(delimiter)
+            if inside == delimiter and count % 2 == 1:
+                inside = None
+            elif inside is None and count % 2 == 1:
+                inside = delimiter
     text = "".join(keep)
-
     out = text
     for match in reversed(list(_BLOCK_RE.finditer(text))):
         inner = match.group(0).splitlines()[1:-1]
         if all(not ln.strip() or ln.strip().startswith("#") for ln in inner):
-            start = match.start() - 1 if out[:match.start()].endswith("\n\n") else match.start()
+            start = match.start()
+            before = out[:start]
+            for nl in ("\r\n", "\n"):
+                if before.endswith(nl + nl):
+                    start -= len(nl)
+                    break
             out = out[:start] + out[match.end():]
+    if added_newline and out.endswith("\r\n"):
+        out = out[:-2]
+    elif added_newline and out.endswith("\n"):
+        out = out[:-1]
+    return out
+
+
+def _without_tables(doc: Dict[str, Any], tables: Sequence[str]) -> Dict[str, Any]:
+    import copy as _copy
+
+    out = _copy.deepcopy(doc)
+    for table in tables:
+        parts = table.split(".")
+        node: Any = out
+        for part in parts[:-1]:
+            node = node.get(part) if isinstance(node, dict) else None
+        if isinstance(node, dict):
+            node.pop(parts[-1], None)
+            # an emptied parent that only existed for our table goes with it
+            if len(parts) > 1 and not node:
+                parent: Any = out
+                for part in parts[:-2]:
+                    parent = parent.get(part) if isinstance(parent, dict) else None
+                if isinstance(parent, dict) and parent.get(parts[-2]) == {}:
+                    parent.pop(parts[-2], None)
     return out
 
 
@@ -479,11 +547,12 @@ def resolve(edit: FileEdit) -> Resolved:
     old = ""
     try:
         if existed:
-            old = target.read_text(encoding="utf-8")
+            old = read_text(target)
         if edit.format == "toml":
             new, block = _resolve_toml(edit, old)
             applied = [{"op": "toml_block", "tool": edit.tool, "tables": list(edit.toml_tables),
-                        "hash": content_hash("toml", [], new, edit.toml_tables)}]
+                        "hash": content_hash("toml", [], new, edit.toml_tables),
+                        "added_newline": edit.toml_added_newline}]
             if new == old:
                 applied = []
         else:
@@ -509,6 +578,7 @@ def resolve(edit: FileEdit) -> Resolved:
 def _json_apply_text(old: str, applied: Sequence[Dict[str, Any]]) -> str:
     """``old`` with each applied op inserted as text: every byte already in the file stays where it is."""
     text = old
+    nl = "\r\n" if "\r\n" in old else "\n"
     for entry in applied:
         root = jsontext.parse(text)
         path = list(entry["path"])
@@ -516,7 +586,7 @@ def _json_apply_text(old: str, applied: Sequence[Dict[str, Any]]) -> str:
         if entry["op"] == "append":
             arr = jsontext.find(root, path)
             if arr is not None and arr.kind == "array":
-                text = jsontext.append_item(text, arr, value)
+                text = jsontext.append_item(text, arr, value, nl)
                 continue
             value = [value]
         depth = len(path) - 1
@@ -530,7 +600,7 @@ def _json_apply_text(old: str, applied: Sequence[Dict[str, Any]]) -> str:
         missing = path[depth:]
         for key in reversed(missing[1:]):
             value = {key: value}
-        text = jsontext.insert_member(text, parent, missing[0], value)
+        text = jsontext.insert_member(text, parent, missing[0], value, nl)
     return text
 
 
@@ -543,6 +613,25 @@ def mask_secrets(line: str) -> str:
     if not match or match.group("value").strip() in ("{", "[", "{}", "[]"):
         return line
     return f"{match.group('head')}\"***\"{match.group('comma')}"
+
+
+def secret_parts(values: Sequence[str]) -> List[str]:
+    """Every string that must never be printed: each supplied secret value, and its tokens of 6+ characters."""
+    parts: List[str] = []
+    for value in values:
+        value = str(value)
+        if value:
+            parts.append(value)
+            parts += [tok for tok in re.split(r"[\s,;=]+", value) if len(tok) >= 6 and tok.lower() not in (
+                "bearer", "basic", "token")]
+    return sorted(set(parts), key=len, reverse=True)
+
+
+def redact(text: str, secrets: Sequence[str]) -> str:
+    """``text`` with every supplied secret replaced; the one function all printing of our own output goes through."""
+    for part in secrets:
+        text = text.replace(part, "***")
+    return text
 
 
 def render_diff(resolved: Resolved) -> str:
@@ -684,27 +773,27 @@ def same_content(edit: FileEdit, rec: Dict[str, Any]) -> bool:
 
 
 def exposure(edit: FileEdit, text: Optional[str], given: Dict[str, Any]) -> List[str]:
-    """Dotted names (never values) of the file's existing capture and credential keys that this invocation did not
-    ask for and that would combine with the endpoint ``edit`` writes."""
-    if not text or not edit.watch or edit.format != "json":
+    """Dotted names (never values) of existing keys in the tool's telemetry namespace that this edit does not write
+    itself. Those would combine with the endpoint ``edit`` writes (a header, a helper command, a per-signal
+    endpoint, a capture switch), so the write is refused; the only keys allowed are the ones we can account for."""
+    if not text or edit.format != "json" or not (edit.namespace or edit.watch):
         return []
     try:
         doc = _load_json(text, Path("(target)"))
     except EditRefused:
         return []
-    found = []
-    for path, what in edit.watch:
-        parent = _descend(doc, list(path)[:-1], create=False)
-        if parent is None or path[-1] not in parent:
+    ours = {tuple(op["path"]) for op in edit.ops}
+    found: List[str] = []
+    for parent_path, prefix in edit.namespace:
+        parent = _descend(doc, list(parent_path), create=False) if parent_path else doc
+        if not isinstance(parent, dict):
             continue
-        value = parent[path[-1]]
-        if what == "capture":
-            risky = value is True or (isinstance(value, str) and value.strip().lower() in ("1", "true", "yes", "on"))
-            asked = bool(given.get("capture_content"))
-        else:
-            risky = value not in (None, "", {}, [])
-            asked = bool(given.get("headers"))
-        if risky and not asked:
+        for key in parent:
+            if key.lower().startswith(prefix.lower()) and tuple(list(parent_path) + [key]) not in ours:
+                found.append(".".join(list(parent_path) + [key]))
+    for path, _what in edit.watch:  # keys named explicitly, wherever they are
+        parent = _descend(doc, list(path)[:-1], create=False)
+        if parent is not None and path[-1] in parent and tuple(path) not in ours and ".".join(path) not in found:
             found.append(".".join(path))
     return found
 
@@ -791,7 +880,7 @@ def write_checked(target: Path, text: str, expect: Optional[str], mode: int) -> 
                 pass
         return
     try:
-        current = target.read_text(encoding="utf-8")
+        current = read_text(target)
     except (OSError, UnicodeDecodeError):
         raise EditRefused(f"{target} changed after the preview; it was not touched") from None
     if current != expect:
@@ -811,8 +900,8 @@ def apply(resolved: Resolved, journal: Dict[str, Any]) -> Optional[Path]:
     backup: Optional[Path] = None
     mode = 0o600
     if resolved.existed:
-        mode = target.stat().st_mode & 0o7777
-        if target.read_text(encoding="utf-8") != resolved.old_text:
+        mode = 0o600 if resolved.edit.secret else target.stat().st_mode & 0o7777  # a credential: never group/world
+        if read_text(target) != resolved.old_text:
             raise EditRefused(f"{target} changed after the preview; it was not touched")
         backup = backup_path(target)
         shutil.copy2(str(target), str(backup))
@@ -857,7 +946,7 @@ def check_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None) ->
     if not ops:
         return results
     try:
-        text = Path(path).read_text(encoding="utf-8")
+        text = read_text(Path(path))
     except OSError:
         return [(False, f"{path}: file is gone")]
     if entry["format"] == "toml":
@@ -916,7 +1005,8 @@ def _prune_json(text: str, created: Sequence[Sequence[str]]) -> str:
 
 
 def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
-               dry_run: bool = False, keep_unremoved: bool = False) -> Tuple[List[str], bool]:
+               dry_run: bool = False, keep_unremoved: bool = False,
+               stats: Optional[Dict[str, int]] = None) -> Tuple[List[str], bool]:
     """Remove the journalled keys of ``tool`` (all tools when ``None``) from ``path`` as text deletions, only where
     the file still holds exactly what we wrote; everything else, including later user edits, stays byte for byte.
     With ``keep_unremoved`` what could not be removed stays in the journal.
@@ -932,7 +1022,7 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
     if not target.exists():
         entry["ops"] = rest
         return [f"{path}: already gone"], not rest
-    old = target.read_text(encoding="utf-8")
+    old = read_text(target)
     retained: List[Dict[str, Any]] = []
     pending: List[List[str]] = []
     if entry["format"] == "toml":
@@ -946,8 +1036,19 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
                 messages.append(f"{path}: {', '.join(tables)} was changed after connect; left as it is")
                 retained.append(op)
             else:
-                new = _toml_remove(new, tables)
-                messages.append(f"{path}: removed {', '.join(tables)}")
+                candidate = _toml_remove(new, tables, bool(op.get("added_newline")))
+                try:
+                    exact = _toml.loads(candidate) == _without_tables(_toml.loads(new), tables)
+                except Exception:
+                    exact = False
+                if not exact:
+                    messages.append(f"{path}: {', '.join(tables)} cannot be removed without risking the rest of "
+                                    "the file (the text around it does not parse back identically), so nothing "
+                                    "was changed; remove those tables by hand")
+                    retained.append(op)
+                else:
+                    new = candidate
+                    messages.append(f"{path}: removed {', '.join(tables)}")
         if not new.strip():
             new = ""
     else:
@@ -962,6 +1063,8 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
             created.extend(op.get("created", []))
             new, outcome = _remove_json(new, op)
             if outcome == "removed":
+                if stats is not None:
+                    stats["removed"] = stats.get("removed", 0) + 1
                 messages.append(f"{path}: removed {dotted}" if op["op"] == "set"
                                 else f"{path}: removed our entry from {dotted}")
             elif outcome == "gone":
@@ -983,7 +1086,7 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
             if empty and entry.get("created_file") and not rest and not retained:
                 backup = backup_path(target)
                 shutil.copy2(str(target), str(backup))
-                if target.read_text(encoding="utf-8") == old:
+                if read_text(target) == old:
                     target.unlink()
                     messages.append(f"{path}: deleted (briefcase created it and nothing else is in it)")
             else:

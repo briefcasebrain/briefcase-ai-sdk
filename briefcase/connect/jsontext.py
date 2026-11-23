@@ -150,46 +150,46 @@ def _unit(text: str) -> Optional[int]:
     return 1 if match.group(1).startswith("\t") else len(match.group(1))
 
 
-def _render(value: Any, unit: Optional[int], indent: str) -> str:
+def _render(value: Any, unit: Optional[int], indent: str, nl: str = "\n") -> str:
     text = json.dumps(value, indent=unit, ensure_ascii=False)
-    return text.replace("\n", "\n" + indent) if unit else text
+    return text.replace("\n", nl + indent) if unit else text
 
 
 def _multiline(text: str, node: Node, first: int) -> bool:
     return "\n" in text[node.start:first]
 
 
-def insert_member(text: str, obj: Node, key: str, value: Any) -> str:
+def insert_member(text: str, obj: Node, key: str, value: Any, nl: str = "\n") -> str:
     unit = _unit(text)
     base = _line_indent(text, obj.start)
     pad = base + (("\t" if "\t" in base else " " * unit) if unit else "")
-    member = f"{json.dumps(key, ensure_ascii=False)}: {_render(value, unit, pad)}"
+    member = f"{json.dumps(key, ensure_ascii=False)}: {_render(value, unit, pad, nl)}"
     if not obj.members:
         if unit and "\n" in text[:obj.start] + text[obj.end:]:
-            return text[:obj.start + 1] + "\n" + pad + member + "\n" + base + text[obj.end - 1:]
+            return text[:obj.start + 1] + nl + pad + member + nl + base + text[obj.end - 1:]
         return text[:obj.start + 1] + member + text[obj.end - 1:]
     last = obj.members[-1]
     if _multiline(text, obj, obj.members[0].start):
         pad = _line_indent(text, obj.members[0].start)
-        member = f"{json.dumps(key, ensure_ascii=False)}: {_render(value, unit, pad)}"
-        return text[:last.value.end] + ",\n" + pad + member + text[last.value.end:]
+        member = f"{json.dumps(key, ensure_ascii=False)}: {_render(value, unit, pad, nl)}"
+        return text[:last.value.end] + "," + nl + pad + member + text[last.value.end:]
     return text[:last.value.end] + ", " + member + text[last.value.end:]
 
 
-def append_item(text: str, arr: Node, value: Any) -> str:
+def append_item(text: str, arr: Node, value: Any, nl: str = "\n") -> str:
     unit = _unit(text)
     base = _line_indent(text, arr.start)
     pad = base + (("\t" if "\t" in base else " " * unit) if unit else "")
     if not arr.items:
-        item = _render(value, unit, pad)
+        item = _render(value, unit, pad, nl)
         if unit and "\n" in text[:arr.start] + text[arr.end:]:
-            return text[:arr.start + 1] + "\n" + pad + item + "\n" + base + text[arr.end - 1:]
+            return text[:arr.start + 1] + nl + pad + item + nl + base + text[arr.end - 1:]
         return text[:arr.start + 1] + item + text[arr.end - 1:]
     last = arr.items[-1]
     if _multiline(text, arr, arr.items[0].start):
         pad = _line_indent(text, arr.items[0].start)
-        return text[:last.end] + ",\n" + pad + _render(value, unit, pad) + text[last.end:]
-    return text[:last.end] + ", " + _render(value, unit, pad) + text[last.end:]
+        return text[:last.end] + "," + nl + pad + _render(value, unit, pad, nl) + text[last.end:]
+    return text[:last.end] + ", " + _render(value, unit, pad, nl) + text[last.end:]
 
 
 def _remove_span(text: str, container: Node, index: int, spans: List[tuple]) -> str:

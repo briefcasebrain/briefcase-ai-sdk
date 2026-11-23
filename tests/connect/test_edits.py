@@ -185,7 +185,8 @@ class FakeClaude:
         if argv[2] == "get":
             for key, tail in self.registered.items():
                 if key[0] == os.environ.get("CLAUDE_CONFIG_DIR"):
-                    return 0, "briefcase:\n  Command: %s\n  Args: %s" % (tail[0], " ".join(tail[1:]))
+                    head = "briefcase:\n  Scope: User config (available in all your projects)\n  Type: stdio\n"
+                    return 0, head + "  Command: %s\n  Args: %s" % (tail[0], " ".join(tail[1:]))
             return 1, 'No MCP server found with name: "briefcase"'
         verb, scope = argv[2], argv[4]
         key = self._key(scope)
@@ -366,7 +367,8 @@ def test_commands_run_once_as_argument_lists_and_are_journalled(home, fake_bin):
         if argv[2] == "get":
             if not any(c[2] == "add" for c in calls):
                 return 1, 'No MCP server found with name: "briefcase"'
-            return 0, "briefcase:\n  Command: uvx\n  Args: --from briefcase-ai[mcp] briefcase-ai-mcp"
+            head = "briefcase:\n  Scope: User config (available in all your projects)\n  Type: stdio\n"
+            return 0, head + "  Command: uvx\n  Args: --from briefcase-ai[mcp] briefcase-ai-mcp"
         return 0, ""
 
     plan, out, failures = connect(["claude-code"], runner=runner)

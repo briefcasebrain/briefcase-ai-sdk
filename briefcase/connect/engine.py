@@ -53,6 +53,7 @@ class Plan:
     manual: List[Manual] = field(default_factory=list)
     blocked: List[Blocked] = field(default_factory=list)
     endpoints: Dict[str, str] = field(default_factory=dict)  # where each tool's telemetry target reports
+    secrets: List[str] = field(default_factory=list)  # supplied values that are never printed, anywhere
 
     @property
     def differs(self) -> bool:
@@ -246,6 +247,7 @@ def build_plan(tools: List[str], ctx: Any, adapters: Optional[Dict[str, Adapter]
     plan = Plan(tools=list(tools))
     for name in tools:
         mine = ctx[name] if isinstance(ctx, dict) else ctx
+        plan.secrets = edits.secret_parts(list(plan.secrets) + list((getattr(mine, "headers", None) or {}).values()))
         try:
             items = adapters[name].plan(mine)
         except ProfileError as exc:
@@ -261,7 +263,12 @@ def build_plan(tools: List[str], ctx: Any, adapters: Optional[Dict[str, Adapter]
     return plan
 
 
+def redacting(out: Printer, secrets: List[str]) -> Printer:
+    return (lambda text: out(edits.redact(text, secrets))) if secrets else out
+
+
 def render_plan(plan: Plan, adapters: Dict[str, Adapter], out: Printer) -> None:
+    out = redacting(out, plan.secrets)
     for name in plan.tools:
         adapter = adapters[name]
         tag = "" if adapter.mode == "automatic" else f" [{adapter.mode}]"
@@ -345,6 +352,7 @@ def apply_plan(plan: Plan, ctx: Any, out: Printer,
     ``mcp install``, whose whole job is that registration. Nothing that already exists is ever changed, and
     every file write goes through :func:`edits.write_checked`."""
     runner = runner or run_command
+    out = redacting(out, plan.secrets)
     journal = edits.load_journal()
     failures = 0
     warned = False
@@ -402,7 +410,8 @@ def apply_plan(plan: Plan, ctx: Any, out: Printer,
 
 
 def undo(tools: Optional[List[str]], out: Printer, dry_run: bool = False, keep_unremoved: bool = False,
-         runner: Optional[Callable[[List[str]], Tuple[int, str]]] = None) -> int:
+         runner: Optional[Callable[[List[str]], Tuple[int, str]]] = None,
+         retained: Optional[List[str]] = None, removed: Optional[Dict[str, int]] = None) -> int:
     """Remove what connect wrote for ``tools`` (everything when ``None``), but only where the file still holds
     exactly what was written; what was changed since is left as it is and reported. A registration is checked
     against the tool's registry first, and the command to remove it is printed qualified with the profile (and
@@ -417,9 +426,15 @@ def undo(tools: Optional[List[str]], out: Printer, dry_run: bool = False, keep_u
         owners = {op.get("tool") for op in entry["ops"]}
         for tool in (sorted(t for t in owners if t) if tools is None else [t for t in tools if t in owners]):
             visited += 1
-            messages, done = edits.undo_entry(path, entry, tool, dry_run=dry_run, keep_unremoved=keep_unremoved)
+            stats: Dict[str, int] = {}
+            messages, done = edits.undo_entry(path, entry, tool, dry_run=dry_run, keep_unremoved=keep_unremoved,
+                                              stats=stats)
+            if removed is not None:
+                removed[tool] = removed.get(tool, 0) + stats.get("removed", 0)
             for message in messages:
                 out(("  would: " if dry_run else "  ") + message)
+            if not done and retained is not None:
+                retained.append(tool)  # what could not be removed (also in a dry run: the status must match)
             if done and not dry_run:
                 del journal["files"][path]
                 break

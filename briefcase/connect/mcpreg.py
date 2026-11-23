@@ -79,7 +79,11 @@ def _codex_file() -> Path:
     return _adapters.profile_path("codex", "user_config") or (edits.home() / ".codex" / "config.toml")
 
 
-def _vscode_file() -> Path:
+def _vscode_file() -> Optional[Path]:
+    """The user ``mcp.json`` of the VS Code that ``code`` starts, or ``None`` when that cannot be told (a portable
+    install, or a data directory chosen some other way)."""
+    if os.environ.get("VSCODE_PORTABLE"):
+        return None
     settings = _adapters.registry()["vscode-copilot"].path("user_settings")
     return settings.with_name("mcp.json")
 
@@ -107,7 +111,10 @@ def lookup(argv: List[str], runner: Runner) -> Tuple[str, Optional[Dict[str, Any
         entry = servers[name]
         return (PRESENT, entry) if isinstance(entry, dict) else (UNKNOWN, None)
     if argv[:1] == ["code"]:
-        state, doc = _read_json(_vscode_file())
+        where = _vscode_file()
+        if where is None:
+            return UNKNOWN, None
+        state, doc = _read_json(where)
         if state != PRESENT or doc is None:
             return state, None
         servers = doc.get("servers")
@@ -135,9 +142,22 @@ def lookup(argv: List[str], runner: Runner) -> Tuple[str, Optional[Dict[str, Any
                 env_lines += 1
         if "Command" not in fields or fields.get("Type", "stdio") != "stdio" or "URL" in fields:
             return UNKNOWN, None
-        args = fields.get("Args", "")
-        # The CLI prints the argument list on one line, so compare the joined text exactly.
-        return PRESENT, {"command": fields["Command"], "args_text": args, "env": {"_": 1} if env_lines else {}}
+        # The CLI prints the argument list on one line. It is read back as a list; if the line does not survive a
+        # round trip (quotes, or spaces that split differently) the arguments are not known and neither is ownership.
+        args_text = fields.get("Args", "").strip()
+        try:
+            args = shlex.split(args_text)
+        except ValueError:
+            return UNKNOWN, None
+        if " ".join(args) != args_text:
+            return UNKNOWN, None
+        scope = fields.get("Scope", "").lower()
+        kind = "user" if scope.startswith("user") else "project" if scope.startswith("project") else \
+            "local" if scope.startswith("local") else None
+        if kind is None:
+            return UNKNOWN, None
+        env = {"_": 1} if env_lines else {}
+        return PRESENT, {"command": fields["Command"], "args": args, "scope": kind, "env": env}
     return UNKNOWN, None
 
 
@@ -149,8 +169,11 @@ def owned(recorded_argv: List[str], runner: Runner) -> str:
         return state
     want = expected_entry(recorded_argv)
     if recorded_argv[:1] == ["claude"]:
-        same = (entry.get("command") == want.get("command")
-                and entry.get("args_text") == " ".join(want.get("args", [])) and not entry.get("env"))
+        recorded_scope = recorded_argv[4] if len(recorded_argv) > 4 else "user"
+        if any(re.search(r"\s", a) for a in want.get("args", [])):
+            return UNKNOWN  # the CLI's one-line listing cannot tell these arguments apart
+        same = (entry.get("command") == want.get("command") and entry.get("args") == want.get("args", [])
+                and entry.get("scope") == recorded_scope and not entry.get("env"))
     else:
         same = _entry_matches(entry, want)
     return OURS if same else DIFFERS

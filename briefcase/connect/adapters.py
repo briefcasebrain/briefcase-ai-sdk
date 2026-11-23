@@ -93,6 +93,13 @@ _PROFILE_FILES = {
 def profile_path(tool: str, key: str) -> Optional[Path]:
     """The file ``key`` of ``tool`` lives in under the profile the environment selects, or ``None`` when no
     profile variable is set. A variable that is set but cannot be resolved is refused, never ignored."""
+    if (tool, key) == ("vscode-copilot", "user_settings") and sys.platform.startswith("linux"):
+        xdg = os.environ.get("XDG_CONFIG_HOME")  # VS Code puts its user data under it when set
+        if xdg:
+            base = Path(xdg).expanduser()
+            if not base.is_absolute():
+                raise ProfileError("XDG_CONFIG_HOME is set but is not an absolute path; nothing was written")
+            return base / "Code" / "User" / "settings.json"
     spec = _PROFILE_FILES.get((tool, key))
     if spec is None:
         return None
@@ -270,7 +277,8 @@ class ClaudeCode(Adapter):
                 self.id, self.path("user_settings"), "json",
                 "Turn on Claude Code's OpenTelemetry export and point it at the briefcase receiver",
                 ops=[{"op": "set", "path": ["env", key], "value": value} for key, value in env.items()],
-                notes=notes,
+                notes=notes, secret=bool(ctx.headers),
+                namespace=[(["env"], "OTEL_"), ([], "otel")],
                 watch=[(["env", key], "capture") for key in (
                     "OTEL_LOG_USER_PROMPTS", "OTEL_LOG_TOOL_DETAILS", "OTEL_LOG_TOOL_CONTENT")]
                 + [(["env", key], "credential") for key in (
@@ -438,6 +446,7 @@ class VSCodeCopilot(Adapter):
                 "Turn on Copilot Chat's OpenTelemetry export and point it at the briefcase receiver",
                 ops=[{"op": "set", "path": [key], "value": value} for key, value in self.settings(ctx).items()],
                 notes=notes, watch=[(["github.copilot.chat.otel.captureContent"], "capture")],
+                namespace=[([], "github.copilot.chat.otel.")],
             ))
         if ctx.mcp:
             config = mcp_payloads.server_config(which)
@@ -502,9 +511,9 @@ class GeminiCLI(Adapter):
         if ctx.scope == "project":
             path = ctx.project_dir / self.data["files"]["project_settings"]
             return [FileEdit(self.id, path, "json", purpose, ops=ops, notes=notes,
-                             watch=[(["telemetry", "logPrompts"], "capture")])]
+                             watch=[(["telemetry", "logPrompts"], "capture")], namespace=[(["telemetry"], "")])]
         edit = FileEdit(self.id, self.path("user_settings"), "json", purpose, ops=ops, notes=notes,
-                        watch=[(["telemetry", "logPrompts"], "capture")])
+                        watch=[(["telemetry", "logPrompts"], "capture")], namespace=[(["telemetry"], "")])
         if edit.path.exists():
             return [edit]
         return [Manual(self.id, "Add to .gemini/settings.json in a project (or run with --scope project)",
