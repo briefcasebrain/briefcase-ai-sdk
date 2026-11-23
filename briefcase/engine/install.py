@@ -30,6 +30,7 @@ fake platform and a fake ``docker``.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import platform as _platform
@@ -37,6 +38,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -44,6 +46,11 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+
+try:
+    import fcntl
+except ImportError:  # Windows
+    fcntl = None  # type: ignore[assignment]
 
 from briefcase import engine as _engine
 from briefcase.engine import bundle as _bundle
@@ -564,46 +571,82 @@ def offline_install(opts: InstallOptions, *, runner=subprocess.run, which: Calla
     manifest, sig, entry, _how = verified or verify_offline(opts, verify_kw)
     install_dir = _engine.engine_dir(env) / manifest.version
     _save_manifest(install_dir, manifest, sig)
-    # The files are copied into a private directory and verified there, so what Docker loads is
-    # exactly what was checked even if the originals change after the first check or the prompt.
-    stage_dir = install_dir / "download"
-    bundle_path, how = _stage_verified(bundle_path, stage_dir, entry, manifest, _find_sig(bundle_path, entry),
-                                       **verify_kw)
-    log(f"manifest for engine {manifest.version} verified (key {manifest.key_id}); bundle "
-        + ("signature verified" if how == "signature" else "sha256 matches the signed manifest (no .sig next to it)"))
+    with _version_lock(install_dir):
+        # Files are copied into a directory made for this run alone (0700) and verified there, so what
+        # Docker loads is exactly what was checked even if the originals change or another install of
+        # the same release runs at the same time. The copies are removed when this run ends.
+        stage_dir = Path(tempfile.mkdtemp(prefix="stage-", dir=_private_dir(install_dir / "download")))
+        try:
+            staged_bundle, how = _stage_verified(bundle_path, stage_dir, entry, manifest,
+                                                 _find_sig(bundle_path, entry), **verify_kw)
+            log(f"manifest for engine {manifest.version} verified (key {manifest.key_id}); bundle "
+                + ("signature verified" if how == "signature"
+                   else "sha256 matches the signed manifest (no .sig next to it)"))
+            binary_path, binary_info = None, None
+            bentry = _binary_entry(manifest, target)
+            if bentry is not None:
+                # Next to the manifest or next to the original bundle, whichever has it.
+                candidates = [Path(opts.binary)] if opts.binary else \
+                    [manifest_path.with_name(bentry["file"]), bundle_path.with_name(bentry["file"])]
+                found = next((p for p in candidates if p.is_file()), None)
+                if found is None and opts.binary:
+                    raise InstallError(f"{opts.binary} does not exist", code=2)
+                if found is not None:
+                    staged, bhow = _stage_verified(found, stage_dir, bentry, manifest, _find_sig(found, bentry),
+                                                   **verify_kw)
+                    binary_path, binary_info = _install_binary(staged, install_dir, bentry, bhow, runner, which,
+                                                               log)
+                else:
+                    log(f"{bentry['file']} is not next to the manifest or the bundle; pass --binary FILE to "
+                        "install the client binary")
+            images, ids, method = _load_images(manifest, staged_bundle, docker, target, runner, which, log)
+        finally:
+            shutil.rmtree(stage_dir, ignore_errors=True)
+        return _finish(opts, manifest, install_dir, binary_path, binary_info, images, ids,
+                       {"load_method": method}, runner, log, target)
 
-    binary_path, binary_info = None, None
-    bentry = _binary_entry(manifest, target)
-    if bentry is not None:
-        candidates = [Path(opts.binary)] if opts.binary else \
-            [manifest_path.with_name(bentry["file"]), bundle_path.with_name(bentry["file"])]
-        found = next((p for p in candidates if p.is_file()), None)
-        if found is None and opts.binary:
-            raise InstallError(f"{opts.binary} does not exist", code=2)
-        if found is not None:
-            staged, bhow = _stage_verified(found, stage_dir, bentry, manifest, _find_sig(found, bentry), **verify_kw)
-            binary_path, binary_info = _install_binary(staged, install_dir, bentry, bhow, runner, which, log)
-        else:
-            log(f"{bentry['file']} is not next to the manifest; pass --binary FILE to install the client binary")
 
-    images, ids, method = _load_images(manifest, bundle_path, docker, target, runner, which, log)
-    return _finish(opts, manifest, install_dir, binary_path, binary_info, images, ids,
-                   {"load_method": method}, runner, log, target)
+def _private_dir(path: Path) -> Path:
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(path, 0o700)
+    return path
+
+
+@contextlib.contextmanager
+def _version_lock(install_dir: Path):
+    """One install of a release at a time on this machine (installs of other releases are not blocked)."""
+    install_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if fcntl is None:  # Windows: no advisory lock available; the per-run directory still keeps runs apart
+        yield
+        return
+    with open(install_dir / ".install.lock", "a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def _stage_verified(src: Path, stage_dir: Path, entry: Mapping[str, Any], manifest: _trust.Manifest,
                     signature: Optional[bytes], **verify_kw) -> Tuple[Path, str]:
-    """Copy ``src`` into the private ``stage_dir`` and verify the copy: ``(copy, how)``."""
-    stage_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chmod(stage_dir, 0o700)
+    """Copy ``src`` into the private ``stage_dir`` and verify the copy: ``(copy, how)``. Refuses before copying
+    when the disk cannot hold it, and never leaves a partial file behind."""
+    size = os.path.getsize(src)
+    free = shutil.disk_usage(stage_dir).free
+    if free < size + (64 << 20):
+        raise InstallError(f"not enough free disk space to stage {src.name}: it needs about {size >> 20} MiB "
+                           f"and {free >> 20} MiB are free in {stage_dir}", fix="free some space, then re-run")
     dest = stage_dir / entry["file"]
-    tmp = dest.with_name(dest.name + ".staging")
-    if tmp.exists():
-        tmp.unlink()
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "wb") as out, open(src, "rb") as source:
-        shutil.copyfileobj(source, out, 1 << 20)
-    os.replace(tmp, dest)
+    try:
+        fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as out, open(src, "rb") as source:
+            shutil.copyfileobj(source, out, 1 << 20)
+    except OSError as exc:
+        try:
+            dest.unlink()
+        except OSError:
+            pass
+        raise InstallError(f"could not copy {src.name} into {stage_dir}: {exc}", fix="free some space, then re-run")
     return dest, _verified(dest, entry, manifest, signature, **verify_kw)
 
 

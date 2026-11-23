@@ -446,7 +446,7 @@ def test_offline_install_loads_the_bundle_and_checks_every_image(env, offline, c
     assert "bundle signature verified" in out and "loaded 5 images with docker load" in out
     assert env["platform"].requests == []  # no network
     argvs = _docker(env)
-    assert [a for a in argvs if a[0] == "load"][0][-1].endswith(f"download/engine-images-{VERSION}-x86_64.tar")
+    assert [a for a in argvs if a[0] == "load"][0][-1].endswith(f"/engine-images-{VERSION}-x86_64.tar")
     assert not any(a[0] in ("login", "pull", "logout") for a in argvs)
     record = _engine.current_install()
     info = env["release"].images
@@ -482,16 +482,105 @@ def test_offline_install_with_the_containerd_image_store(env, offline, capsys, m
     assert _engine.current_install()["image_ids"]["postgres"] == info["postgres"]["digest"]
 
 
-def test_offline_install_loads_a_private_verified_copy_not_the_original_path(env, offline, capsys):
+def _record_loads(monkeypatch):
+    """Wrap the image loader to note, at load time, where the archive is and who can reach its directory."""
+    seen = []
+    real = install._load_images
+
+    def spy(manifest, bundle_path, *args, **kwargs):
+        directory = os.path.dirname(str(bundle_path))
+        seen.append({"path": str(bundle_path), "dir_mode": stat.S_IMODE(os.stat(directory).st_mode),
+                     "sha": trust.sha256_file(install.Path(bundle_path))})
+        return real(manifest, bundle_path, *args, **kwargs)
+
+    monkeypatch.setattr(install, "_load_images", spy)
+    return seen
+
+
+def test_offline_install_loads_a_private_verified_copy_and_removes_it_afterwards(env, offline, monkeypatch):
     bundle = offline / f"engine-images-{VERSION}-x86_64.tar"
+    seen = _record_loads(monkeypatch)
     assert _install(*_offline_args(offline)) == 0
-    loads = [a for a in _docker(env) if a[0] == "load"]
-    assert len(loads) == 1 and loads[0][-1] != str(bundle)
-    staged = loads[0][-1]
-    assert staged.startswith(str(env["home"] / "engine" / VERSION / "download"))
-    assert stat.S_IMODE(os.stat(os.path.dirname(staged)).st_mode) == 0o700
-    wanted = env["release"].manifest["bundles"][0]["sha256"]
-    assert trust.sha256_file(install.Path(staged)) == wanted
+    assert len(seen) == 1 and seen[0]["path"] != str(bundle)
+    assert seen[0]["path"].startswith(str(env["home"] / "engine" / VERSION / "download"))
+    assert seen[0]["dir_mode"] == 0o700
+    assert seen[0]["sha"] == env["release"].manifest["bundles"][0]["sha256"]
+    assert not os.path.exists(seen[0]["path"]) and not os.path.exists(os.path.dirname(seen[0]["path"]))
+
+
+def test_each_offline_install_stages_into_its_own_directory(env, offline, monkeypatch):
+    seen = _record_loads(monkeypatch)
+    assert _install(*_offline_args(offline)) == 0
+    assert _install(*_offline_args(offline)) == 0
+    assert len({os.path.dirname(item["path"]) for item in seen}) == 2
+
+
+def test_a_failed_offline_install_leaves_no_staged_archive(env, offline, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_LOAD_FAIL", "1")
+    (env["tmp"] / "bin" / "skopeo").unlink()
+    monkeypatch.setenv("PATH", str(env["tmp"] / "bin"))
+    assert _install(*_offline_args(offline)) == 1
+    download = env["home"] / "engine" / VERSION / "download"
+    assert not download.exists() or list(download.rglob("*")) == []
+
+
+def test_offline_install_checks_free_space_before_copying(env, offline, monkeypatch, capsys):
+    monkeypatch.setattr(install.shutil, "disk_usage", lambda path: type("U", (), {"free": 1024})())
+    assert _install(*_offline_args(offline)) == 1
+    assert "not enough free disk space" in capsys.readouterr().err
+    download = env["home"] / "engine" / VERSION / "download"
+    assert not download.exists() or list(download.rglob("*")) == []
+
+
+def test_a_copy_that_fails_midway_leaves_no_partial_file(env, offline, monkeypatch, capsys):
+    def full_disk(src, dst, length=0):
+        dst.write(b"partial")
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(install.shutil, "copyfileobj", full_disk)
+    assert _install(*_offline_args(offline)) == 1
+    download = env["home"] / "engine" / VERSION / "download"
+    assert not download.exists() or list(download.rglob("*")) == []
+
+
+def test_the_client_archive_next_to_the_bundle_is_found_when_the_manifest_is_elsewhere(env, offline, tmp_path):
+    manifest_dir = tmp_path / "manifest-only"
+    manifest_dir.mkdir()
+    for name in ("engine-manifest.json", "engine-manifest.json.sig"):
+        (manifest_dir / name).write_bytes((offline / name).read_bytes())
+        (offline / name).unlink()
+    binary = f"oci-bai-{VERSION}-linux-x86_64.tar.gz"
+    assert (offline / binary).exists() and not (manifest_dir / binary).exists()
+    args = ["--bundle", str(offline / f"engine-images-{VERSION}-x86_64.tar"),
+            "--manifest", str(manifest_dir / "engine-manifest.json")]
+    assert _install(*args) == 0
+    assert _engine.current_install()["binary"]
+
+
+def test_two_concurrent_offline_installs_of_one_release_both_end_verified(env, offline, monkeypatch):
+    import multiprocessing
+
+    if "fork" not in multiprocessing.get_all_start_methods():
+        pytest.skip("needs fork")
+    ctx = multiprocessing.get_context("fork")
+    results = ctx.Queue()
+
+    def worker():
+        code = _install(*_offline_args(offline))
+        results.put((code, _engine.current_install() is not None))
+
+    procs = [ctx.Process(target=worker) for _ in range(2)]
+    for proc in procs:
+        proc.start()
+    for proc in procs:
+        proc.join(120)
+        assert proc.exitcode == 0
+    outcomes = [results.get(timeout=5) for _ in procs]
+    assert outcomes == [(0, True), (0, True)]
+    loads = [a[-1] for a in _docker(env) if a[0] == "load"]
+    assert len(loads) == 2 and len({os.path.dirname(p) for p in loads}) == 2
+    download = env["home"] / "engine" / VERSION / "download"
+    assert not download.exists() or list(download.rglob("*")) == []
 
 
 def test_offline_bundle_changed_after_the_first_check_is_refused_before_docker_sees_it(
@@ -515,7 +604,9 @@ def test_offline_install_falls_back_to_skopeo(env, offline, capsys, monkeypatch)
     assert _install(*_offline_args(offline)) == 0
     assert "trying skopeo" in capsys.readouterr().out
     copies = [c["argv"] for c in calls(env["log"], "skopeo")]
-    bundle = env["home"] / "engine" / VERSION / "download" / f"engine-images-{VERSION}-x86_64.tar"
+    staged = [c["argv"][2] for c in calls(env["log"], "skopeo") if c["argv"][0] == "copy"][0]
+    assert staged.startswith("oci-archive:" + str(env["home"] / "engine" / VERSION / "download"))
+    bundle = staged[len("oci-archive:"):].rsplit(":briefcase-engine/", 1)[0]
     assert ["copy", "--quiet", f"oci-archive:{bundle}:briefcase-engine/server:{VERSION}",
             f"docker-daemon:localhost/briefcase-engine/server:{VERSION}"] in copies
     assert _engine.current_install()["load_method"] == "skopeo"
