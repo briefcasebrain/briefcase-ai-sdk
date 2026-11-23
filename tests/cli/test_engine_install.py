@@ -7,6 +7,7 @@ SHA-256); the test pins it by pointing `trust.KEYS_DIR` at a temp directory. A f
 import json
 import os
 import stat
+from pathlib import Path
 
 import pytest
 
@@ -817,8 +818,7 @@ def test_engine_verify(env, offline, capsys):
     assert result["key_id"] == env["key"].key_id and result["key_file"].startswith("release-")
     index = build_index(env["key"], [VERSION])
     (offline / "index.json").write_bytes(index["index.json"])
-    (offline / "index.json.sig").write_bytes(index["index.json.sig"])
-    assert main(["engine", "verify", str(offline / "index.json")]) == 0
+    assert main(["engine", "verify", str(offline / "index.json")]) == 0  # one object: no .sig to look for
     assert "checked: signature" in capsys.readouterr().out
     binary = offline / f"oci-bai-{VERSION}-linux-x86_64.tar.gz"
     assert main(["engine", "verify", str(binary)]) == 0  # its .sig alone
@@ -889,6 +889,81 @@ def test_status_shows_key_and_newer_version(env, capsys, monkeypatch, key):
     env["platform"].index["index.json"] = env["platform"].index["index.json"].replace(b"0.5.0", b"9.9.9")
     assert main(["engine", "status", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["update"]["checked"] is False  # bad signature: not trusted
+
+
+VECTOR = Path(__file__).parent / "testdata" / "index-envelope"
+
+
+def _pin_vector(tmp_path, monkeypatch, also=None):
+    """Trust the vector's public key, as a temporary key, next to the test key."""
+    keys_dir = tmp_path / "vector-keys"
+    keys_dir.mkdir()
+    key_id = (VECTOR / "key_id.txt").read_text().strip()
+    (keys_dir / f"release-{key_id[7:23]}.pub").write_bytes((VECTOR / "public.pem").read_bytes())
+    if also is not None:
+        also.pin(keys_dir)
+    monkeypatch.setattr(trust, "KEYS_DIR", keys_dir)
+    return key_id
+
+
+def test_the_index_envelope_vector_from_the_release_tooling_opens_with_its_key(tmp_path, monkeypatch):
+    """Both files come from oci-jj/scripts/release/testdata/index-envelope (its own test checks them with
+    openssl); here the SDK's reader must agree."""
+    key_id = _pin_vector(tmp_path, monkeypatch)
+    index, key = trust.open_index((VECTOR / "envelope.json").read_bytes(), trust.require_keys())
+    assert key.key_id == key_id and index["key_id"] == key_id
+    assert [v["version"] for v in index["versions"]] == ["0.2.0", "0.1.0-rc.1"]
+    with pytest.raises(trust.TrustError, match="does not verify"):
+        trust.open_index((VECTOR / "envelope-tampered.json").read_bytes(), trust.require_keys())
+
+
+def test_an_index_envelope_is_refused_whole_and_its_payload_never_used(tmp_path, monkeypatch, key):
+    _pin_vector(tmp_path, monkeypatch)
+    good = json.loads((VECTOR / "envelope.json").read_bytes())
+
+    def refused(doc, match):
+        with pytest.raises(trust.TrustError, match=match):
+            trust.open_index(json.dumps(doc).encode(), trust.require_keys())
+
+    refused(dict(good, key_id=key.key_id), "does not trust")  # a well-formed key id that is not pinned
+    refused({k: v for k, v in good.items() if k != "signature"}, "malformed")
+    refused(dict(good, extra=1), "malformed")
+    refused(dict(good, schema_version=1), "schema_version")
+    refused(dict(good, payload=["not", "a", "string"]), "malformed")
+    refused(dict(good, signature="not base64!"), "malformed")
+    refused(dict(good, signature=good["signature"][:-8] + "AAAAAAAA"), "does not verify")
+    # Signed correctly, but the payload names another key than the envelope does.
+    other = build_index(key, ["1.0.0"])
+    forged = json.loads(other["index.json"])
+    refused(dict(good, payload=forged["payload"]), "does not verify")
+    with pytest.raises(trust.TrustError, match="malformed"):
+        trust.open_index(b"not json", trust.require_keys())
+    with pytest.raises(trust.TrustError, match="malformed"):
+        trust.open_index(b"[]", trust.require_keys())
+
+
+def test_a_payload_that_names_another_key_than_its_envelope_is_refused(tmp_path, monkeypatch, key):
+    _pin_vector(tmp_path, monkeypatch, also=key)
+    doc = json.loads(build_index(key, ["1.0.0"])["index.json"])
+    payload = json.loads(doc["payload"])
+    payload["key_id"] = (VECTOR / "key_id.txt").read_text().strip()
+    text = json.dumps(payload)
+    doc["payload"], doc["signature"] = text, key.sign(text.encode("utf-8")).decode("ascii")
+    with pytest.raises(trust.TrustError, match="different key"):
+        trust.open_index(json.dumps(doc).encode(), trust.require_keys())
+
+
+def test_status_reads_the_index_from_the_one_object_the_platform_points_at(env, capsys, monkeypatch, key, tmp_path):
+    assert _install("--code", "bci_good") == 0
+    capsys.readouterr()
+    monkeypatch.setenv("BRIEFCASE_LICENSE_TOKEN", "bcl_good")
+    env["platform"].index = {"index.json": (VECTOR / "envelope.json").read_bytes()}
+    _pin_vector(tmp_path, monkeypatch, also=key)
+    assert main(["engine", "status", "--json"]) == 0
+    update = json.loads(capsys.readouterr().out)["update"]
+    assert update == {"checked": True, "latest": "0.2.0", "update_available": False}
+    asked = [r[1] for r in env["platform"].requests if r[0] == "GET"]
+    assert "/v1/engine/index" in asked and not [p for p in asked if p.endswith(".sig") and "index" in p]
 
 
 def test_doctor_and_up_detect_a_replaced_image(env, capsys, monkeypatch):

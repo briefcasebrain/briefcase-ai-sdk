@@ -108,12 +108,28 @@ Then `briefcase-ai engine up`, `briefcase-ai engine status`, and the engine comm
 | `engine upgrade --code C \| --token T [--version X]` | Installs the newest release (or the code's) and restarts onto it when the engine is running; the release becomes the current one only after the restart guard passed and `compose up` succeeded, so a refused or failed upgrade can simply be run again. Secrets and data volumes are kept. |
 | `engine uninstall [--purge] [--dry-run]` | Removes the images and the version directory, and takes the stack down only when that release is the one running (releases share one Compose project; another release's containers are left up). `--purge` also deletes the data volumes and then the secrets and certificates, but only when no other release is installed and every engine volume is confirmed gone; if one cannot be removed, nothing is deleted, the secrets included, the command exits 1 and says why. |
 
+## The signed release index
+
+`engine status` (with a licence token) and `engine upgrade` learn the newest version from `releases/index.json`,
+which is a single object, not a file plus a `.sig`:
+
+```json
+{"schema_version": 2, "key_id": "sha256:<hex>", "payload": "<the index document, as JSON text>", "signature": "<base64>"}
+```
+
+`signature` is the base64 DER ECDSA P-256 signature, over the SHA-256 of the `payload` string's UTF-8 bytes, of
+the release key named by `key_id`. The SDK takes the key from the ones it ships (an unknown `key_id` is refused),
+verifies the signature over the payload string exactly as it appears in the envelope, and only then parses it as
+the index (its own `key_id` must match). A bad signature, an unknown key or a malformed envelope is a trust
+error and nothing in the payload is used. `briefcase-ai engine verify index.json` checks a downloaded copy the
+same way; it needs no `.sig`. Per-version manifests are unchanged.
+
 ## What it writes or sends, and where
 
 | What | Where |
 | --- | --- |
 | Install code (in the body) or licence token (bearer), `{os, arch, version}` | `POST <platform>/v1/engine/install`. Nothing about your machine beyond OS and architecture. |
-| Licence token (bearer), only for `engine status` with a token | `GET <platform>/v1/engine/index` (newest version; signed `index.json`) |
+| Licence token (bearer), only for `engine status` with a token | `GET <platform>/v1/engine/index` (newest version). It answers with one presigned `index_url`; that object is the whole signed index (see below). |
 | Downloads | presigned S3 URLs from the platform (5-minute expiry), fetched with no credentials |
 | Verified release manifest and signature | `~/.briefcase/engine/<version>/engine-manifest.json(.sig)` |
 | `oci-bai` client binary | `~/.briefcase/engine/<version>/bin/oci-bai` (download kept in `<version>/download/`) |

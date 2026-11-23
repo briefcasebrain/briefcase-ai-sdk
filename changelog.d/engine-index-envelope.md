@@ -1,0 +1,2 @@
+### Changed
+- The engine release index is read as one signed object (`releases/index.json` with its `payload` and `signature` inside, verified against a pinned release key) instead of an index file plus `index.json.sig`: `engine status`, `engine upgrade` and `engine verify index.json` need no separate signature, and an unknown key, a bad signature or a malformed envelope is refused before anything in it is used.

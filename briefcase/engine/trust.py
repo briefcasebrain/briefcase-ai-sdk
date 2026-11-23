@@ -232,6 +232,66 @@ def verify_with_any(data: Data, signature: bytes, keys: Sequence[ReleaseKey], **
     return None
 
 
+# --------------------------------------------------------------------------- release index
+
+INDEX_ENVELOPE_SCHEMA = 2
+INDEX_SCHEMA = 1
+MAX_INDEX_PAYLOAD = 1 << 20
+_INDEX_FIELDS = frozenset({"schema_version", "key_id", "payload", "signature"})
+_STD_BASE64 = re.compile(r"^[A-Za-z0-9+/]+={0,2}$")
+
+
+def _fail_index(what: str) -> TrustError:
+    return TrustError(f"the release index is malformed: {what}",
+                      fix="try again later; do not use this index, and report it to Briefcase support if it persists")
+
+
+def open_index(raw: bytes, keys: Sequence[ReleaseKey], **kw) -> Tuple[Dict[str, Any], ReleaseKey]:
+    """Open ``releases/index.json``: ONE object ``{schema_version: 2, key_id, payload, signature}`` whose
+    ``payload`` is the exact text of the index document and whose ``signature`` is base64 DER ECDSA P-256 over
+    the SHA-256 of that text's UTF-8 bytes. Returns ``(index document, the pinned key that signed it)``.
+
+    The envelope's ``key_id`` must name a pinned key and the signature must verify over the payload string as
+    it appears in the envelope; only then is the payload parsed, and its own ``key_id`` must agree. Anything
+    else is a :class:`TrustError` and nothing from the payload is used."""
+    if len(raw) > MAX_INDEX_PAYLOAD * 2:
+        raise _fail_index("it is too large")
+    try:
+        envelope = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        raise _fail_index("it is not JSON") from None
+    if not isinstance(envelope, dict) or set(envelope) != _INDEX_FIELDS:
+        raise _fail_index("it is not an object with exactly schema_version, key_id, payload and signature")
+    schema = envelope["schema_version"]
+    if type(schema) is not int or schema != INDEX_ENVELOPE_SCHEMA:
+        raise TrustError(f"the release index has schema_version {schema!r}; this SDK understands only "
+                         f"{INDEX_ENVELOPE_SCHEMA}", fix="pip install -U 'briefcase-ai[engine]'")
+    key_id, payload, signature = envelope["key_id"], envelope["payload"], envelope["signature"]
+    if not isinstance(key_id, str) or not _KEY_ID.match(key_id):
+        raise _fail_index("key_id is not sha256:<64 hex digits>")
+    if not isinstance(payload, str) or not 2 <= len(payload) <= MAX_INDEX_PAYLOAD:
+        raise _fail_index("payload is not a string of a sensible size")
+    if not isinstance(signature, str) or not 80 <= len(signature) <= 128 or not _STD_BASE64.match(signature):
+        raise _fail_index("signature is not base64")
+    key = next((k for k in keys if k.key_id == key_id), None)
+    if key is None:
+        raise TrustError(f"the release index is signed by key {key_id}, which this SDK does not trust",
+                         fix="pip install -U 'briefcase-ai[engine]'; if it is current, do not use that index")
+    if not verify_blob(payload.encode("utf-8"), signature.encode("ascii"), key, **kw):
+        raise TrustError(f"the release index's signature does not verify with its key {key_id}",
+                         fix="try again later; do not use this index")
+    try:
+        index = json.loads(payload)
+    except ValueError:
+        raise _fail_index("its payload is not JSON") from None
+    if not isinstance(index, dict) or index.get("key_id") != key_id:
+        raise _fail_index("its payload names a different key than the envelope")
+    if index.get("schema_version") != INDEX_SCHEMA:
+        raise TrustError(f"the release index document has schema_version {index.get('schema_version')!r}; this "
+                         f"SDK understands only {INDEX_SCHEMA}", fix="pip install -U 'briefcase-ai[engine]'")
+    return index, key
+
+
 # --------------------------------------------------------------------------- versions
 
 

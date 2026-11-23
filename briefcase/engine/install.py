@@ -827,8 +827,9 @@ def set_current(version: str, env: Optional[Mapping[str, str]] = None) -> None:
 def latest_version(platform: str, token: str, *, opener: Callable = urllib.request.urlopen,
                    fetch: Callable = _open, timeout: float = 5.0, verify_kw: Optional[Dict[str, Any]] = None
                    ) -> Dict[str, Any]:
-    """The newest release from the platform's signed index (``GET /v1/engine/index`` with a
-    licence token -> presigned ``index_url`` + ``index_sig_url``). Raises on any failure."""
+    """The newest release from the platform's signed index (``GET /v1/engine/index`` with a licence token ->
+    a presigned ``index_url`` of ONE object: the index text and its signature, see ``trust.open_index``).
+    Raises on any failure."""
     keys = _trust.require_keys()
     req = urllib.request.Request(platform.rstrip("/") + INDEX_PATH, method="GET",
                                  headers={"Authorization": f"Bearer {token}", "Accept": "application/json",
@@ -840,13 +841,9 @@ def latest_version(platform: str, token: str, *, opener: Callable = urllib.reque
         raise InstallError(f"the platform answered HTTP {exc.code}") from exc
     except (urllib.error.URLError, OSError, ValueError) as exc:
         raise InstallError(f"cannot reach the platform ({exc})") from exc
-    raw = fetch_bytes(data.get("index_url", ""), "index.json", _trust.MAX_MANIFEST_BYTES, fetch)
-    sig = fetch_bytes(data.get("index_sig_url", ""), "index.json.sig", _trust.MAX_SIGNATURE_BYTES, fetch)
-    key = _trust.verify_with_any(raw, sig, keys, **(verify_kw or {}))
-    if key is None:
-        raise _trust.TrustError("the release index's signature does not verify with any pinned key")
-    index = json.loads(raw.decode("utf-8"))
-    versions = [v for v in (index.get("versions") if isinstance(index, dict) else None) or []
+    raw = fetch_bytes(data.get("index_url", ""), "index.json", 2 * _trust.MAX_INDEX_PAYLOAD, fetch)
+    index, key = _trust.open_index(raw, keys, **(verify_kw or {}))
+    versions = [v for v in index.get("versions") or []
                 if isinstance(v, dict) and v.get("version")]
     if not versions:
         raise InstallError("the release index lists no versions")

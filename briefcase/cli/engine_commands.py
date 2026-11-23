@@ -543,6 +543,17 @@ def cmd_upgrade(args, store, engine, stack) -> int:
 # --------------------------------------------------------------------------- verify
 
 
+def _is_index_envelope(path: Path) -> bool:
+    """Is ``path`` a release index (one object with its own signature, no ``.sig`` next to it)?"""
+    try:
+        if path.stat().st_size > 2 * (1 << 20):
+            return False
+        data = json.loads(path.read_bytes())
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and "payload" in data and "signature" in data and "key_id" in data
+
+
 def cmd_verify(args, store, engine, stack) -> int:
     from briefcase.engine import install as _inst
     from briefcase.engine import trust as _trust
@@ -579,6 +590,10 @@ def cmd_verify(args, store, engine, stack) -> int:
                     sig = other.read_bytes() if other.is_file() else None
                 how = _trust.check_file(path, entry, manifest, sig)
                 result.update(ok=True, checked=["size", "sha256"] + (["signature"] if how == "signature" else []))
+        elif _is_index_envelope(path):
+            _, index_key = _trust.open_index(path.read_bytes(), keys)
+            result.update(ok=True, key_id=index_key.key_id, key_file=index_key.label,
+                          checked=["signature", "schema"])
         else:
             if not sig_path.is_file():
                 return _ux.fail(f"no signature for {path.name} ({sig_path} does not exist)",

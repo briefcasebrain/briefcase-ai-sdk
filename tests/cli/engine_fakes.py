@@ -256,12 +256,16 @@ def build_release(key: SigningKey, version: str = VERSION, *, targets=LINUX_TARG
 
 
 def build_index(key: SigningKey, versions: List[str]) -> Dict[str, bytes]:
-    raw = json.dumps({"schema_version": 1, "key_id": key.key_id, "updated_at": "2026-11-23T00:00:00Z",
-                      "versions": [{"version": v, "released_at": "2026-11-23T00:00:00Z", "summary": f"v{v}",
-                                    "prerelease": "-" in v, "min_sdk_version": "4.0.0",
-                                    "manifest": f"releases/{v}/engine-manifest.json"}
-                                   for v in versions]}).encode()
-    return {"index.json": raw, "index.json.sig": key.sign(raw)}
+    """``releases/index.json`` as the release operator publishes it: ONE object, the index text and its signature
+    (base64 DER ECDSA P-256 over the SHA-256 of the text's UTF-8 bytes) side by side. No ``index.json.sig``."""
+    payload = json.dumps({"schema_version": 1, "key_id": key.key_id, "updated_at": "2026-11-23T00:00:00Z",
+                          "versions": [{"version": v, "released_at": "2026-11-23T00:00:00Z", "summary": f"v{v}",
+                                        "prerelease": "-" in v, "min_sdk_version": "4.0.0",
+                                        "manifest": f"releases/{v}/engine-manifest.json"}
+                                       for v in versions]}, indent=2) + "\n"
+    envelope = {"schema_version": 2, "key_id": key.key_id, "payload": payload,
+                "signature": key.sign(payload.encode("utf-8")).decode("ascii")}
+    return {"index.json": json.dumps(envelope, indent=2).encode()}
 
 
 # --------------------------------------------------------------------------- platform
@@ -362,8 +366,10 @@ class FakePlatform:
                 if self.path == "/v1/engine/index":
                     if auth != "Bearer bcl_good":
                         return self._err(401, "unauthorized", "Invalid licence token")
+                    published = platform.overrides.get("index.json") or platform.index.get("index.json") or b"{}"
                     return self._json(200, {"index_url": platform.presigned("index.json"),
-                                            "index_sig_url": platform.presigned("index.json.sig")})
+                                            "key_id": json.loads(published).get("key_id"),
+                                            "urls_expire_at": "2999-01-01T00:00:00Z"})
                 if self.path.startswith("/s3/releases/"):
                     if auth:
                         return self._err(400, "InvalidArgument", "Only one auth mechanism allowed")
