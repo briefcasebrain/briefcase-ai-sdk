@@ -73,3 +73,23 @@ id = "npm_native"
 path = "bindings/node/package.json"
 pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
 replacement = '{pre}{version}{post}'
+
+# Cargo.lock records the version of each workspace crate; `cargo ... --locked` (CI and
+# publish.yml) fails when it lags the manifests, so a bump must rewrite these entries too.
+[[targets]]
+id = "cargo_lock_core"
+path = "Cargo.lock"
+pattern = '(?m)^(?P<pre>name = "briefcase-core"\nversion = ")(?P<version>[^"]+)(?P<post>")$'
+replacement = '{pre}{version}{post}'
+
+[[targets]]
+id = "cargo_lock_node"
+path = "Cargo.lock"
+pattern = '(?m)^(?P<pre>name = "briefcase-node"\nversion = ")(?P<version>[^"]+)(?P<post>")$'
+replacement = '{pre}{version}{post}'
+
+[[targets]]
+id = "cargo_lock_python"
+path = "Cargo.lock"
+pattern = '(?m)^(?P<pre>name = "briefcase-python"\nversion = ")(?P<version>[^"]+)(?P<post>")$'
+replacement = '{pre}{version}{post}'

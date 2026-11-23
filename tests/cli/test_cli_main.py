@@ -28,6 +28,15 @@ def test_help_exits_zero():
     assert e.value.code == 0
 
 
+def test_version_flag_prints_the_package_version(capsys):
+    import briefcase
+
+    with pytest.raises(SystemExit) as e:
+        main(["--version"])
+    assert e.value.code == 0
+    assert capsys.readouterr().out.strip() == f"briefcase {briefcase.__version__}"
+
+
 def test_main_dry_run_end_to_end(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("BRIEFCASE_HOME", str(tmp_path))
     # Pin the subprocess engine: this asserts the resolved *oci-jj argv* is printed, which is the

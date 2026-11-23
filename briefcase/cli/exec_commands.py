@@ -341,8 +341,8 @@ def cmd_exec(args, store=None, engine=None, stack=None) -> int:
 def _add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--to", metavar="DEST",
-        help="Where records go: console, a path ending in .jsonl, an http(s):// URL, or "
-             "otlp (sets $BRIEFCASE_EXPORTER; default: the environment, else stderr).",
+        help="Where records go: console, a path ending in .jsonl, chain:PATH.db, an http(s):// URL, "
+             "or otlp (sets $BRIEFCASE_EXPORTER; default: the environment, else stderr).",
     )
     parser.add_argument(
         "--capture-content", choices=("none", "hash", "full"),

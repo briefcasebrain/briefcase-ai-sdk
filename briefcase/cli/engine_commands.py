@@ -32,7 +32,7 @@ ORDER = 45
 _RAW = argparse.RawDescriptionHelpFormatter
 ENV_HELP = (
     "environment:\n"
-    "  BRIEFCASE_LICENSE_TOKEN   licence token for automation (platform: API Keys page)\n"
+    "  BRIEFCASE_LICENSE_TOKEN   licence token for automation (platform: Engine page, Licence tokens)\n"
     "  BRIEFCASE_PLATFORM_URL    the Briefcase platform (default https://observe.briefcasebrain.io)\n"
     "  BRIEFCASE_ENGINE_ADDR     use an engine running elsewhere instead of a local install\n"
     "exit codes: 0 ok, 1 failed, 2 usage, 3 engine not installed"
@@ -634,7 +634,8 @@ def cmd_status(args, store, engine, stack) -> int:
         token = getattr(args, "token", None) or os.environ.get(_engine.ENV_LICENSE)
         state["update"] = update_check(record, token)
     if getattr(args, "json", False):
-        return _ux.print_json(state)
+        shown = _ux.print_json(state)
+        return _engine.EXIT_NOT_INSTALLED if record is None and not state["remote"] else shown
     if record is None and not state["remote"]:
         print(_engine.NOT_INSTALLED)
         return _engine.EXIT_NOT_INSTALLED

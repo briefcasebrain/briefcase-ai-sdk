@@ -19,7 +19,7 @@ NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase exec -- node app.js
 In code:
 
 ```ts
-import { observe, auto, withWorkflow, shutdown } from "@briefcase-ai/auto";
+import { observe, auto, instrument, withWorkflow, shutdown } from "@briefcase-ai/auto";
 
 observe();                 // or observe("runs.jsonl"), observe("https://collector.example.com/v1/decisions")
 auto();                    // { captureContent?, maxContentChars?, skip?, only?, streamUsage?, contextVersion?, redact?, eager? }

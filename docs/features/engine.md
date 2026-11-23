@@ -51,7 +51,7 @@ error: the install code was already used; install codes work once, for 15 minute
 Fix: Get a new install code at https://observe.briefcasebrain.io/engine
 ```
 
-For automation and CI, use a licence token (platform: Settings, API Keys) instead of a code:
+For automation and CI, use a licence token (platform: Engine page, Licence tokens for CI and servers) instead of a code:
 `BRIEFCASE_LICENSE_TOKEN=bcl_... briefcase engine install --yes [--version X]`.
 
 ### Offline (air-gapped)
@@ -325,7 +325,7 @@ it downloads itself carry none).
 | `no trusted release key is bundled in this SDK build` | `pip install -U 'briefcase-ai[engine]'` once a release with the key is out |
 | `your account isn't entitled to the engine` | Request access at https://observe.briefcasebrain.io/engine |
 | `the install code has expired` / `was already used` / `is now used up` | Get a new install code at https://observe.briefcasebrain.io/engine |
-| `the licence token has expired` / `did not accept the licence token` | Create a new token on the API Keys page |
+| `the licence token has expired` / `did not accept the licence token` | Create a new licence token on the Engine page |
 | `cannot serve engine downloads right now` | The platform's operator has not finished the engine setup (S3, ECR, KMS) |
 | `signed by key ..., which this SDK does not trust` | Upgrade the SDK; if it is current, do not install that file |
 | `signature does not verify` / `does not match the signed manifest` | Download again from the portal; do not install the file |

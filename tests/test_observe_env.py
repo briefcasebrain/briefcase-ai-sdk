@@ -398,6 +398,10 @@ def test_check_environment_accepts_every_valid_destination(monkeypatch, tmp_path
          "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc"}) is None
 
 
+def test_check_environment_accepts_the_chain_shorthand_observe_accepts():
+    assert _observe.check_environment({"BRIEFCASE_EXPORTER": "chain:evidence.db"}) is None
+
+
 def test_strict_mode_raises_instead_of_falling_back_to_the_console(monkeypatch):
     import briefcase.exporters.otel as otel_module
 

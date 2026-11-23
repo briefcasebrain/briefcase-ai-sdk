@@ -744,6 +744,12 @@ def test_engine_commands_without_an_install_exit_3(shell_home, capsys, monkeypat
     assert "engine not installed — `briefcase engine install`" in text and "Traceback" not in text
 
 
+def test_engine_status_json_without_an_install_exits_3(shell_home, capsys, monkeypatch):
+    monkeypatch.delenv("OCI_JJ_SERVER", raising=False)
+    assert main(["engine", "status", "--json"]) == 3
+    assert json.loads(capsys.readouterr().out)["installed"] is False
+
+
 def test_gated_json_error(shell_home, capsys, monkeypatch):
     monkeypatch.delenv("OCI_JJ_SERVER", raising=False)
     assert main(["graph", "log", "x", "--json"]) == 3

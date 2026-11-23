@@ -347,6 +347,8 @@ def check_environment(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
             _otlp_settings(env)
         elif choice.lower().startswith(("http://", "https://")):
             _check_url(choice, f"{ENV_EXPORTER}")
+        elif choice.startswith("chain:") and choice[6:].strip():
+            return None
         elif choice and choice not in ("console", "memory") and not choice.endswith(".jsonl"):
             name = _plugin_name(choice)
             if name is not None:
@@ -363,8 +365,8 @@ def check_environment(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
                 hint = f" (did you mean {choice.lower()!r}?)"
             return (
                 f"{ENV_EXPORTER}={_safe_url(choice)!r} is not a destination{hint}. Use "
-                "console, memory, otlp, a path ending in .jsonl, an http(s):// URL, or an "
-                "installed exporter plugin (`briefcase plugins list`)."
+                "console, memory, otlp, a path ending in .jsonl, chain:PATH.db, an http(s):// URL, "
+                "or an installed exporter plugin (`briefcase plugins list`)."
             )
     except ValueError as exc:
         return str(exc)

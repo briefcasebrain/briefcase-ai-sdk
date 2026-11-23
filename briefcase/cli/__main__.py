@@ -104,7 +104,10 @@ class _GroupedParser(argparse.ArgumentParser):
 
 
 def build_parser() -> _GroupedParser:
+    from briefcase import __version__
+
     parser = _GroupedParser(prog="briefcase", description=DESCRIPTION)
+    parser.add_argument("--version", action="version", version=f"briefcase {__version__}")
     parser.add_argument("--server", help="oci-jj-server gRPC endpoint (default $OCI_JJ_SERVER).")
     parser.add_argument("--repo", help="oci-jj repository / image family (default $OCI_JJ_REPO).")
     parser.add_argument(
