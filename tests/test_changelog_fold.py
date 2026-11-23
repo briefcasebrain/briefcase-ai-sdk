@@ -232,3 +232,26 @@ def test_nested_bullets_are_preserved(repo):
     frag(repo, "a.md", "### Added\n- Parent item:\n  - child one\n  - child two\n")
     run(repo)
     assert "- Parent item:\n  - child one\n  - child two" in unreleased(repo)
+
+
+def test_supersedes_removes_a_matching_unreleased_bullet(repo, capsys):
+    frag(repo, "a.md", 'Supersedes: "Existing change."\n\n### Changed\n- Better change.\n')
+    assert run(repo) == 0
+    text = unreleased(repo)
+    assert "- Existing change." not in text and "- Better change." in text
+    assert "- Existing feature." in text and "- **Breaking:** existing break." in text
+    assert "superseded" in capsys.readouterr().err
+
+
+def test_supersedes_that_matches_nothing_is_an_error_and_changes_nothing(repo, capsys):
+    frag(repo, "a.md", 'Supersedes: "no such bullet"\n\n### Added\n- New.\n')
+    before = changelog(repo)
+    assert run(repo) == 2
+    assert changelog(repo) == before and (repo / "changelog.d" / "a.md").exists()
+    assert "matches no bullet" in capsys.readouterr().err
+
+
+def test_supersedes_never_removes_a_bullet_from_another_fragment(repo):
+    frag(repo, "a.md", "### Added\n- From a fragment.\n")
+    frag(repo, "b.md", 'Supersedes: "From a fragment."\n\n### Added\n- Other.\n')
+    assert run(repo) == 2

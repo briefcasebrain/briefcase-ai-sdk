@@ -164,7 +164,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   an optional `status()` hook.
 - `briefcase-ai features [ID] [--verb V] [--json] [--markdown]`: the feature
   catalog, grouped by Connect, Capture, Enforce, Verify and Review, generated
-  from one JSON manifest per feature in `briefcase/_features/`. `briefcase
+  from one JSON manifest per feature in `briefcase/_features/`. `briefcase-ai
   features <id>` shows the docs link and whether the feature is active on this
   machine. `briefcase.features.load_catalog()` reads the manifests through
   `importlib.resources`, skips malformed files with a warning and ignores
@@ -232,18 +232,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (https://observe.briefcasebrain.io/engine): `engine install --code bci_...`
   (single-use install code), `--token bcl_...` (automation), or offline
   `--bundle FILE --manifest FILE` (`docker load`, `skopeo` fallback, no
-  network). The online flow calls `POST /v1/engine/install`, downloads from
-  presigned URLs, logs in to ECR with a short-lived password on stdin, pulls
-  every image by digest from the signed manifest and logs out. A digest-verified
-  single-box compose with generated secrets, required gRPC auth and an optional
-  `--tls`.
+  network). The online flow calls `POST /v1/engine/install`, downloads the
+  manifest, its signature, the `oci-bai` build and the image bundle from
+  presigned URLs, checks the bundle's size, sha256 and detached signature
+  against the pinned key and loads it with the same code as `--bundle` (a
+  private copy is verified, then loaded). A digest-verified single-box compose
+  with generated secrets, required gRPC auth and an optional `--tls`.
 - Release verification: manifest v2 (`schema_version`, `key_id`,
   `min_sdk_version`, files with sha256/size/signature, images by digest) signed
-  with an ECDSA P-256 KMS key via `cosign sign-blob --tlog-upload=false`,
-  checked in Python with `cryptography` (or `cosign verify-blob --key` without
-  it) against release keys pinned in `briefcase/engine/keys/release-*.pub`. No
-  override exists. This build ships no key yet, so install refuses with "no
-  trusted release key is bundled in this SDK build".
+  with an ECDSA P-256 key held by the release operator (base64 DER signature
+  over SHA-256, the `cosign sign-blob` format), checked in Python with
+  `cryptography` (or `cosign verify-blob --key` without it) against release
+  keys pinned in `briefcase/engine/keys/release-*.pub` (the active key and an
+  offline recovery key). No override exists; with no key present install
+  refuses with "no trusted release key is bundled in this SDK build".
 - `briefcase-ai engine verify FILE [--signature S] [--manifest M]`: check a
   manually downloaded file against the pinned key; prints the key id.
 - `engine status` shows the key id the install was verified with and, given a
@@ -259,12 +261,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (Review) and `briefcase-ai env
   push|cohort|compose|checkout|mount|bookmark|undo|gc` (Capture).
 - `briefcase-ai run attach ID --result verdict.json`, `briefcase-ai dataset publish
-  NAME FILE` (tenant-scoped `s3://` dataset in the local engine), `briefcase
+  NAME FILE` (tenant-scoped `s3://` dataset in the local engine), `briefcase-ai
   verify --graph REF` (engine fsck).
 - The `engine` extra (`grpcio`, `protobuf`, `cryptography`) and the vendored
   Apache-2.0 gRPC contract in `briefcase/engine/_proto` (regenerate with
   `scripts/engine/regen_proto.py`).
-- Engine commands are listed in `--help`, `briefcase-ai features` and `briefcase
+- Engine commands are listed in `--help`, `briefcase-ai features` and `briefcase-ai
   status` without an install, marked "engine not installed — `briefcase-ai engine
   install`", and exit 3 when run.
 - Hash scheme `jcs-1`: RFC 8785 canonical JSON in Python
@@ -363,12 +365,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `guarded`, `strict`; project and system policy layers that can only make it
   stricter), with shell analysis that follows quoting, chaining, substitutions,
   `sh -c`, `eval`, `sudo`/`env` wrappers and here-documents, and path rules that
-  resolve `..` and symlinks. Fails open by default and says so in `briefcase
+  resolve `..` and symlinks. Fails open by default and says so in `briefcase-ai
   status`; `fail_closed = true` blocks instead. Claude Code 2.1.330 verified end
   to end; Cursor and Codex from their documentation.
 - `briefcase-ai hook claude-code|codex|cursor --enforce`: the hook entry point,
   always exit 0, with the verdict as each tool's documented JSON.
-- `briefcase-ai connect --enforce` (connect plus `policy init`) and `briefcase
+- `briefcase-ai connect --enforce` (connect plus `policy init`) and `briefcase-ai
   connect --managed --out DIR`: a rollout pack for administrators (Claude Code
   `managed-settings.d` drop-in and macOS profile, Cursor enterprise
   `hooks.json`, Codex system `hooks.json`, labelled templates for the rest, and

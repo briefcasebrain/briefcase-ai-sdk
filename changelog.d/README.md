@@ -23,3 +23,8 @@ At release time a maintainer runs `python scripts/changelog_fold.py --release
 X.Y.Z`, which merges the fragments into `CHANGELOG.md`, deletes them and cuts
 the section (`--dry-run` previews, `--check` fails while fragments remain). This
 README is never folded.
+
+A fragment can retire an Unreleased bullet that this release replaces (an interim state that never
+shipped) with a line `Supersedes: "text from the old bullet"` anywhere in the file. Every bullet
+already in Unreleased that contains the text is removed; if none does, the fold fails. Bullets from
+other fragments are never removed.

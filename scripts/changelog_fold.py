@@ -15,6 +15,11 @@ Fragment format: Keep a Changelog headings (``### Added`` ...) and ``- `` bullet
 a ``**Breaking:**`` prefix on each bullet. Any other heading is an error (exit 2,
 nothing is changed). Breaking bullets sort first in their subsection.
 
+A fragment can retire a bullet that already sits in Unreleased (for example one describing an
+interim behaviour that this release replaces) with a line ``Supersedes: "text"`` anywhere in the
+fragment: every Unreleased bullet whose text contains it is removed, and it is an error (exit 2)
+if none does. Bullets from other fragments are never removed.
+
 Identical bullets are dropped. Near-duplicates (the same feature described twice)
 are never merged; they are reported on stderr for a human to resolve, or abort
 the run with ``--strict``.
@@ -42,6 +47,7 @@ HEADINGS.update({"breaking": ("Changed", True), "breaking changes": ("Changed", 
 WIDTH = 80
 UNRELEASED_RE = re.compile(r"^## \[Unreleased\]\s*$")
 VERSION_HEAD_RE = re.compile(r"^## \[")
+SUPERSEDES_RE = re.compile(r'^Supersedes:\s*"(?P<text>.+)"\s*$')
 SEMVER_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
 BREAKING_RE = re.compile(r"^\*\*Breaking\b", re.IGNORECASE)
 CODE_RE = re.compile(r"`([^`]+)`")
@@ -231,8 +237,20 @@ def build(root: Path, release: Optional[str], date: str, strict: bool):
         preamble, existing = parse_sections(lines[start + 1:end], "CHANGELOG.md [Unreleased]", fresh=False)
         parsed = []
         for p in frags:
-            _, secs = parse_sections(p.read_text(encoding="utf-8").split("\n"), f"changelog.d/{p.name}", True)
+            raw = p.read_text(encoding="utf-8").split("\n")
+            directives = [m["text"] for m in map(SUPERSEDES_RE.match, raw) if m]
+            body = [ln for ln in raw if not SUPERSEDES_RE.match(ln)]
+            _, secs = parse_sections(body, f"changelog.d/{p.name}", True)
             parsed.append((f"changelog.d/{p.name}", secs))
+            for text in directives:
+                removed = 0
+                for name in existing:
+                    kept = [b for b in existing[name] if " ".join(text.split()) not in b.text]
+                    removed += len(existing[name]) - len(kept)
+                    existing[name] = kept
+                if not removed:
+                    raise FoldError(f"changelog.d/{p.name}: Supersedes: {text!r} matches no bullet in Unreleased")
+                notes.append(f"superseded {removed} Unreleased bullet(s) matching {text!r}")
         merged, dropped, pairs = merge(existing, parsed)
         notes += [f"dropped duplicate: {d}" for d in dropped]
         for a, na, b, nb in pairs:
