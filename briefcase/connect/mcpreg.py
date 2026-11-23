@@ -69,7 +69,7 @@ def _read_json(path: Path) -> Tuple[str, Optional[Dict[str, Any]]]:
     except (OSError, UnicodeDecodeError):
         return UNKNOWN, None
     try:
-        doc = json.loads(text) if text.strip() else {}
+        doc = json.loads(text, object_pairs_hook=edits._no_duplicates) if text.strip() else {}
     except ValueError:
         return UNKNOWN, None
     return (PRESENT, doc) if isinstance(doc, dict) else (UNKNOWN, None)
@@ -84,8 +84,29 @@ def _vscode_file() -> Optional[Path]:
     install, or a data directory chosen some other way)."""
     if os.environ.get("VSCODE_PORTABLE"):
         return None
-    settings = _adapters.registry()["vscode-copilot"].path("user_settings")
+    settings = _adapters.registry()["vscode-copilot"].path("user_settings")  # honours VSCODE_APPDATA and XDG
     return settings.with_name("mcp.json")
+
+
+def _claude_config_entry(name: str) -> Any:
+    """The user-scope server ``name`` as Claude Code's own config file holds it: a dict, ``None`` when there is no
+    such file, ``"missing"`` when the file has no such entry, ``"unreadable"`` when it cannot be parsed."""
+    base = os.environ.get("CLAUDE_CONFIG_DIR")
+    path = (Path(base).expanduser() if base else edits.home()) / ".claude.json"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeDecodeError):
+        return "unreadable"
+    try:
+        doc = json.loads(text, object_pairs_hook=edits._no_duplicates)
+    except ValueError:
+        return "unreadable"
+    servers = doc.get("mcpServers") if isinstance(doc, dict) else None
+    if not isinstance(servers, dict) or name not in servers or not isinstance(servers[name], dict):
+        return "missing"
+    return servers[name]
 
 
 def lookup(argv: List[str], runner: Runner) -> Tuple[str, Optional[Dict[str, Any]]]:
@@ -157,7 +178,16 @@ def lookup(argv: List[str], runner: Runner) -> Tuple[str, Optional[Dict[str, Any
         if kind is None:
             return UNKNOWN, None
         env = {"_": 1} if env_lines else {}
-        return PRESENT, {"command": fields["Command"], "args": args, "scope": kind, "env": env}
+        found: Dict[str, Any] = {"command": fields["Command"], "args": args, "scope": kind, "env": env}
+        structured = _claude_config_entry(name) if kind == "user" else None
+        if structured == "unreadable":
+            return UNKNOWN, None
+        if isinstance(structured, dict):  # the tool's own file keeps argument boundaries the one-line listing loses
+            found.update(args=list(structured.get("args") or []), command=structured.get("command"),
+                         env=structured.get("env") or {}, structured=True)
+        elif structured == "missing":
+            found["boundaries_unproven"] = True  # the CLI lists it but its file layout does not show it
+        return PRESENT, found
     return UNKNOWN, None
 
 
@@ -172,17 +202,24 @@ def owned(recorded_argv: List[str], runner: Runner) -> str:
         recorded_scope = recorded_argv[4] if len(recorded_argv) > 4 else "user"
         if any(re.search(r"\s", a) for a in want.get("args", [])):
             return UNKNOWN  # the CLI's one-line listing cannot tell these arguments apart
+        if entry.get("boundaries_unproven"):
+            return UNKNOWN  # the file that would settle the argument boundaries does not show this entry
         same = (entry.get("command") == want.get("command") and entry.get("args") == want.get("args", [])
-                and entry.get("scope") == recorded_scope and not entry.get("env"))
+                and entry.get("scope") == recorded_scope and not entry.get("env")
+                and entry.get("type") in (None, "stdio"))
     else:
         same = _entry_matches(entry, want)
     return OURS if same else DIFFERS
 
 
+def profile_var(argv: List[str]) -> str:
+    """The environment variable that selects the profile (config location) of the CLI ``argv`` runs."""
+    return {"codex": "CODEX_HOME", "code": "VSCODE_APPDATA"}.get(argv[0] if argv else "", "CLAUDE_CONFIG_DIR")
+
+
 def profile_prefix(tool_argv: List[str], profile: Optional[str]) -> str:
     """The shell prefix that points a command at the profile it was recorded for."""
-    var = "CODEX_HOME" if tool_argv[:1] == ["codex"] else "CLAUDE_CONFIG_DIR"
-    return f"{var}={shlex.quote(profile)} " if profile else ""
+    return f"{profile_var(tool_argv)}={shlex.quote(profile)} " if profile else ""
 
 
 def qualified(argv: List[str], profile: Optional[str], cwd: Optional[str] = None) -> str:
@@ -192,4 +229,4 @@ def qualified(argv: List[str], profile: Optional[str], cwd: Optional[str] = None
 
 
 def current_profile(argv: List[str]) -> Optional[str]:
-    return os.environ.get("CODEX_HOME" if argv[:1] == ["codex"] else "CLAUDE_CONFIG_DIR")
+    return os.environ.get(profile_var(argv))

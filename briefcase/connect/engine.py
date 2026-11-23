@@ -155,6 +155,13 @@ def _plan_file(plan: Plan, item: FileEdit, ctx: Any, journal: Dict[str, Any]) ->
                 f"not shown). To let briefcase-ai manage it, remove it yourself and connect again")))
             return
         risks = edits.exposure(item, resolved.old_text, getattr(ctx, "given", {}) or {})
+        for layer in item.layers:  # settings the tool merges in from managed, project and local files
+            try:
+                layer_text = edits.read_text(layer)
+            except (OSError, UnicodeDecodeError):
+                continue
+            risks += [f"{layer.name}:{name}" for name in
+                      edits.exposure(item, layer_text, getattr(ctx, "given", {}) or {}, other_layer=True)]
         if risks:
             plan.blocked.append(Blocked(item.tool, item.kind, "unsafe", (
                 f"{where}: not written, because it already sets {', '.join(risks)}; with the endpoint briefcase-ai "
@@ -264,7 +271,7 @@ def build_plan(tools: List[str], ctx: Any, adapters: Optional[Dict[str, Adapter]
 
 
 def redacting(out: Printer, secrets: List[str]) -> Printer:
-    return (lambda text: out(edits.redact(text, secrets))) if secrets else out
+    return lambda text: out(edits.redact(text, secrets))
 
 
 def render_plan(plan: Plan, adapters: Dict[str, Adapter], out: Printer) -> None:
@@ -328,7 +335,7 @@ def identity(argv: List[str]) -> Dict[str, Any]:
     """Where that registration lands: the profile (``CLAUDE_CONFIG_DIR`` or ``CODEX_HOME``) and, for project and
     local scope, the directory. Two commands with different identities never share state."""
     scope, _ = registration(argv)
-    profile = os.environ.get("CODEX_HOME" if argv[:1] == ["codex"] else "CLAUDE_CONFIG_DIR")
+    profile = _registry.current_profile(argv)
     return {"profile": profile, "cwd": None if scope in ("user", "global") else os.getcwd()}
 
 
@@ -351,6 +358,14 @@ def apply_plan(plan: Plan, ctx: Any, out: Printer,
     registration that someone else made is skipped (not a failure) unless ``skipped_is_failure`` is set, as for
     ``mcp install``, whose whole job is that registration. Nothing that already exists is ever changed, and
     every file write goes through :func:`edits.write_checked`."""
+    from briefcase.connect.lock import command_lock
+
+    with command_lock():  # the journal is read, extended and saved under one lock (and files are checked as written)
+        return _apply_plan_locked(plan, ctx, out, runner, skipped_is_failure, capture_warning)
+
+
+def _apply_plan_locked(plan: Plan, ctx: Any, out: Printer, runner: Optional[Callable[[List[str]], Tuple[int, str]]],
+                       skipped_is_failure: bool, capture_warning: bool) -> int:
     runner = runner or run_command
     out = redacting(out, plan.secrets)
     journal = edits.load_journal()
@@ -373,6 +388,7 @@ def apply_plan(plan: Plan, ctx: Any, out: Printer,
         journal["targets"][target_key(edit.tool, edit.kind, str(resolved.target))] = _record(
             edit.tool, edit.kind, str(resolved.target), mine, ops=ops, tables=list(edit.toml_tables),
             hash=edits.content_hash(edit.format, ops, resolved.new_text, edit.toml_tables))
+        edits.save_journal(journal)  # right away: an interruption must not leave a live hook that no record names
     for command in plan.commands if not failures else []:
         # Look again immediately before the add: a same-named entry that appeared since the plan is never replaced.
         state, _ = _registry.lookup(command.argv, runner)
@@ -418,6 +434,15 @@ def undo(tools: Optional[List[str]], out: Printer, dry_run: bool = False, keep_u
     directory) it was recorded for. With ``keep_unremoved`` anything that could not be removed keeps its record.
 
     Returns how many journalled items were visited."""
+    from briefcase.connect.lock import command_lock
+
+    with command_lock(not dry_run):
+        return _undo_locked(tools, out, dry_run, keep_unremoved, runner, retained, removed)
+
+
+def _undo_locked(tools: Optional[List[str]], out: Printer, dry_run: bool, keep_unremoved: bool,
+                 runner: Optional[Callable[[List[str]], Tuple[int, str]]], retained: Optional[List[str]],
+                 removed: Optional[Dict[str, int]]) -> int:
     runner = runner or run_command
     journal = edits.load_journal()
     visited = 0
@@ -448,7 +473,7 @@ def undo(tools: Optional[List[str]], out: Printer, dry_run: bool = False, keep_u
         hint = command.get("undo_hint")
         if (profile or None) != (_registry.current_profile(argv) or None) or (cwd and cwd != os.getcwd()):
             where = f"cd {mcp_payloads.shell([cwd])} && " if cwd else ""
-            var = "CODEX_HOME" if argv[:1] == ["codex"] else "CLAUDE_CONFIG_DIR"
+            var = _registry.profile_var(argv)
             unset = f"env -u {var} " if not profile and _registry.current_profile(argv) else ""
             out(f"  registered in profile {profile or 'default'}; to undo it, run: {where}"
                 f"{unset}{_registry.profile_prefix(argv, profile)}briefcase-ai connect --undo {command['tool']}")

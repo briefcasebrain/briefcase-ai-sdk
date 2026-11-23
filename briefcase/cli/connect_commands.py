@@ -66,7 +66,7 @@ def _parse_headers(pairs: List[str]) -> Dict[str, str]:
     for pair in pairs:
         key, sep, value = pair.partition("=")
         if not sep or not key.strip():
-            raise ValueError(f"--headers expects K=V, got {pair!r}")
+            raise ValueError("--headers expects K=V (the argument is not shown: it may hold a credential)")
         headers[key.strip()] = value
     return headers
 
@@ -136,10 +136,7 @@ def cmd_status(adapters: Dict[str, Adapter], out=print) -> int:
 
 
 def run_undo(args, out=print) -> int:
-    from briefcase.connect.lock import command_lock
-
-    with command_lock(not _dry_run(args)):
-        return _run_undo(args, out)
+    return _run_undo(args, out)
 
 
 def _run_undo(args, out=print) -> int:
@@ -169,10 +166,7 @@ def _dry_run(args) -> bool:
 
 def run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: bool = True,
                 ask: Optional[Callable[[str], str]] = None, runner: Any = None, mcp_only: bool = False) -> int:
-    from briefcase.connect.lock import command_lock
-
-    with command_lock(not _dry_run(args)):
-        return _run_connect(args, adapters, out, offer_receiver, ask, runner, mcp_only)
+    return _run_connect(args, adapters, out, offer_receiver, ask, runner, mcp_only)
 
 
 def _run_connect(args, adapters: Dict[str, Adapter], out=print, offer_receiver: bool = True,

@@ -22,6 +22,7 @@ was written, even after the user has edited the file again.
 from __future__ import annotations
 
 import copy
+import difflib
 import importlib
 import json
 import os
@@ -122,6 +123,9 @@ class FileEdit:
     namespace: List[Tuple[List[str], str]] = field(default_factory=list)
     # The edit writes a credential the user supplied: the file ends up 0600, existing files included.
     secret: bool = False
+    # Other files the tool also reads settings from (managed, project, local layers): existing telemetry settings
+    # there combine with ours exactly like ones in this file.
+    layers: List[Path] = field(default_factory=list)
     toml_added_newline: bool = False  # set by resolve: the file had no final newline and we added one
 
 
@@ -552,7 +556,8 @@ def resolve(edit: FileEdit) -> Resolved:
             new, block = _resolve_toml(edit, old)
             applied = [{"op": "toml_block", "tool": edit.tool, "tables": list(edit.toml_tables),
                         "hash": content_hash("toml", [], new, edit.toml_tables),
-                        "added_newline": edit.toml_added_newline}]
+                        "added_newline": edit.toml_added_newline,
+                        "lines": sorted({ln.strip() for ln in block.splitlines() if ln.strip()})}]
             if new == old:
                 applied = []
         else:
@@ -615,6 +620,12 @@ def mask_secrets(line: str) -> str:
     return f"{match.group('head')}\"***\"{match.group('comma')}"
 
 
+# Credentials we were never told about, by shape: a bearer token, or a key whose name says it is a secret.
+_GENERIC_SECRET = re.compile(
+    r"((?i:bearer\s+)|(?i:\b(?:authorization|token|password|passwd|secret|api[_-]?key|apikey)[\"']?\s*[=:]\s*"
+    r"(?:bearer\s+)?[\"']?))[^\s\"',;]{4,}")
+
+
 def secret_parts(values: Sequence[str]) -> List[str]:
     """Every string that must never be printed: each supplied secret value, and its tokens of 6+ characters."""
     parts: List[str] = []
@@ -631,7 +642,7 @@ def redact(text: str, secrets: Sequence[str]) -> str:
     """``text`` with every supplied secret replaced; the one function all printing of our own output goes through."""
     for part in secrets:
         text = text.replace(part, "***")
-    return text
+    return _GENERIC_SECRET.sub(lambda m: m.group(1) + "***", text)
 
 
 def render_diff(resolved: Resolved) -> str:
@@ -772,7 +783,7 @@ def same_content(edit: FileEdit, rec: Dict[str, Any]) -> bool:
     return wanted == wrote
 
 
-def exposure(edit: FileEdit, text: Optional[str], given: Dict[str, Any]) -> List[str]:
+def exposure(edit: FileEdit, text: Optional[str], given: Dict[str, Any], other_layer: bool = False) -> List[str]:
     """Dotted names (never values) of existing keys in the tool's telemetry namespace that this edit does not write
     itself. Those would combine with the endpoint ``edit`` writes (a header, a helper command, a per-signal
     endpoint, a capture switch), so the write is refused; the only keys allowed are the ones we can account for."""
@@ -782,7 +793,7 @@ def exposure(edit: FileEdit, text: Optional[str], given: Dict[str, Any]) -> List
         doc = _load_json(text, Path("(target)"))
     except EditRefused:
         return []
-    ours = {tuple(op["path"]) for op in edit.ops}
+    ours = set() if other_layer else {tuple(op["path"]) for op in edit.ops}
     found: List[str] = []
     for parent_path, prefix in edit.namespace:
         parent = _descend(doc, list(parent_path), create=False) if parent_path else doc
@@ -1041,6 +1052,10 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
                     exact = _toml.loads(candidate) == _without_tables(_toml.loads(new), tables)
                 except Exception:
                     exact = False
+                if exact and op.get("lines"):  # only lines we wrote may go (a user's comment inside is theirs)
+                    gone = difflib.ndiff(new.splitlines(), candidate.splitlines())
+                    removed_lines = [ln[2:].strip() for ln in gone if ln.startswith("- ")]
+                    exact = all(not ln or ln in set(op["lines"]) for ln in removed_lines)
                 if not exact:
                     messages.append(f"{path}: {', '.join(tables)} cannot be removed without risking the rest of "
                                     "the file (the text around it does not parse back identically), so nothing "
@@ -1054,8 +1069,10 @@ def undo_entry(path: str, entry: Dict[str, Any], tool: Optional[str] = None,
     else:
         try:
             jsontext.parse(old)
-        except ValueError:
-            return [f"{path} cannot be read as JSON; nothing was changed. Remove the briefcase keys by hand."], False
+            _load_json(old, target)  # an ambiguous document (a key twice) is not edited by undo either
+        except (ValueError, EditRefused):
+            return [f"{path} cannot be read unambiguously as JSON; nothing was changed. Remove the briefcase keys "
+                    "by hand."], False
         new = old
         created: List[List[str]] = []
         for op in reversed(mine):

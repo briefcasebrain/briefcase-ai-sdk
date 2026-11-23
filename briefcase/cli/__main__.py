@@ -212,6 +212,26 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
     return _run(lambda: args.func(args, store, engine, stack), argv)
 
 
+_SECRET_FLAGS = ("--headers", "--token", "--code", "--password", "--api-key", "--secret")
+
+
+def _scrub_argv(argv):
+    """``argv`` with the value of every flag that can carry a credential replaced (the retry hint is printed)."""
+    out, hide = [], False
+    for word in argv:
+        if hide:
+            out.append("***")
+            hide = False
+        elif word in _SECRET_FLAGS:
+            out.append(word)
+            hide = True
+        elif any(word.startswith(flag + "=") for flag in _SECRET_FLAGS):
+            out.append(word.split("=", 1)[0] + "=***")
+        else:
+            out.append(word)
+    return out
+
+
 def _run(call, argv) -> int:
     """Run a handler. An unexpected exception becomes one ``error:`` line and exit 1; the
     traceback is shown only with ``--debug``."""
@@ -232,7 +252,7 @@ def _run(call, argv) -> int:
         if _ux.debug_enabled():
             raise
         message = " ".join(str(exc).split())
-        rerun = " ".join(word for word in argv if word != "--debug")
+        rerun = " ".join(_scrub_argv([word for word in argv if word != "--debug"]))
         return _ux.fail(f"{type(exc).__name__}: {message}" if message else type(exc).__name__,
                         fix=f"briefcase-ai --debug {rerun}".rstrip() + "   # shows the full traceback")
 

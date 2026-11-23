@@ -1,5 +1,15 @@
 """The Claude registry lookup against the exact text `claude mcp get` prints (Claude Code 2.1.330)."""
+import pytest
+
 from briefcase.connect import mcpreg
+
+
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path, monkeypatch):
+    """The lookup also reads Claude's own config file: never the real one."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+
 
 ADD = ["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
        "uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"]

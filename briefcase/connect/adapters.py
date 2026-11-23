@@ -93,6 +93,11 @@ _PROFILE_FILES = {
 def profile_path(tool: str, key: str) -> Optional[Path]:
     """The file ``key`` of ``tool`` lives in under the profile the environment selects, or ``None`` when no
     profile variable is set. A variable that is set but cannot be resolved is refused, never ignored."""
+    if (tool, key) == ("vscode-copilot", "user_settings") and os.environ.get("VSCODE_APPDATA"):
+        appdata = Path(os.environ["VSCODE_APPDATA"]).expanduser()  # VS Code's own override of its data directory
+        if not appdata.is_absolute():
+            raise ProfileError("VSCODE_APPDATA is set but is not an absolute path; nothing was written")
+        return appdata / "Code" / "User" / "settings.json"
     if (tool, key) == ("vscode-copilot", "user_settings") and sys.platform.startswith("linux"):
         xdg = os.environ.get("XDG_CONFIG_HOME")  # VS Code puts its user data under it when set
         if xdg:
@@ -248,6 +253,14 @@ class ClaudeCode(Adapter):
                 found.append((str(path), hit))
         return found
 
+    def settings_layers(self, ctx: Context) -> List[Path]:
+        """The other settings files Claude Code merges with the user file: managed, then project and local."""
+        paths = [Path(p) for p in self.data.get("managed_settings", [])]
+        for directory in self.data.get("managed_settings_dirs", []):
+            paths.extend(sorted(Path(directory).glob("*.json")) if Path(directory).is_dir() else [])
+        paths += [ctx.project_dir / ".claude" / "settings.json", ctx.project_dir / ".claude" / "settings.local.json"]
+        return paths
+
     def telemetry_env(self, ctx: Context) -> Dict[str, str]:
         env = {
             "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
@@ -278,7 +291,10 @@ class ClaudeCode(Adapter):
                 "Turn on Claude Code's OpenTelemetry export and point it at the briefcase receiver",
                 ops=[{"op": "set", "path": ["env", key], "value": value} for key, value in env.items()],
                 notes=notes, secret=bool(ctx.headers),
-                namespace=[(["env"], "OTEL_"), ([], "otel")],
+                namespace=[(["env"], "OTEL_"), ([], "otel"), (["env"], "CLAUDE_CODE_ENHANCED_TELEMETRY"),
+                           (["env"], "ENABLE_ENHANCED_TELEMETRY"), (["env"], "CLAUDE_CODE_OTEL"),
+                           (["env"], "CLAUDE_CODE_TRACE")],
+                layers=self.settings_layers(ctx),
                 watch=[(["env", key], "capture") for key in (
                     "OTEL_LOG_USER_PROMPTS", "OTEL_LOG_TOOL_DETAILS", "OTEL_LOG_TOOL_CONTENT")]
                 + [(["env", key], "credential") for key in (
