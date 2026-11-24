@@ -378,6 +378,14 @@ def decide(options, payload):
             return tools.respond(tool, event, "allow", warning=warning), entry
     decision = engine.evaluate(loaded.policy, call)
     effect = decision.effect
+    unauthorized = False
+    if options.require_given:
+        # Bound to a required policy: only that policy's own verdict counts. Observe mode does not turn a deny into an
+        # allow, and an allow must come from a rule or a `default` the policy states, not from the built-in default.
+        effect = decision.would
+        if effect == "allow" and not decision.explicit_allow:
+            effect, unauthorized = "deny", True
+            decision.would = "deny"
     downgraded = False
     if effect == "ask" and not tools.can_ask(tool, event):
         effect = loaded.policy.settings["ask_fallback"]
@@ -399,6 +407,10 @@ def decide(options, payload):
     if call.note:
         entry["note"] = call.note
     text = tools.message(decision, effect, downgraded) if effect != "allow" else ""
+    if unauthorized:
+        entry["rule"] = "not_authorized"
+        text = ("Blocked by briefcase-ai policy: the required policy has no rule that allows this call and does not "
+                "declare `default = \"allow\"`, so nothing authorizes it. " + FIX)
     entry["ms"] = round((time.perf_counter() - started) * 1000, 2)
     return tools.respond(tool, event, effect, text, warning=warning), entry
 

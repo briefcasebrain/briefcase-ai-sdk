@@ -370,9 +370,10 @@ class Policy(object):
     group of its own, so nothing in it can pre-empt a base rule.
     """
 
-    __slots__ = ("settings", "groups", "protect", "layers", "notes", "disabled")
+    __slots__ = ("settings", "groups", "protect", "layers", "notes", "disabled", "default_declared")
 
-    def __init__(self, settings, groups, protect, layers, notes, disabled):
+    def __init__(self, settings, groups, protect, layers, notes, disabled, default_declared=False):
+        self.default_declared = default_declared  # does a file state `default` itself, or is it the built-in one?
         self.settings = settings
         self.groups = groups
         self.protect = protect
@@ -449,7 +450,7 @@ def merge(layers):
     preset_rules = [rule for rule in preset_rules if rule.id not in disabled]
     protect = presets.protection(settings) if settings["protect_self"] else []
     groups = [list(base.rules) + preset_rules] + stricter
-    return Policy(settings, groups, protect, layers, notes, disabled)
+    return Policy(settings, groups, protect, layers, notes, disabled, "default" in base.settings)
 
 
 def _show(value):

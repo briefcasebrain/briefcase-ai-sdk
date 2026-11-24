@@ -104,9 +104,10 @@ class Decision(object):
     """``effect`` is what the tool is told. ``would`` is what the rules said;
     the two differ in observe mode, where everything is allowed and logged."""
 
-    __slots__ = ("effect", "would", "match", "matches", "units", "problems", "mode", "kind")
+    __slots__ = ("effect", "would", "match", "matches", "units", "problems", "mode", "kind", "explicit_allow")
 
-    def __init__(self, effect, would, match, matches, units, problems, mode, kind):
+    def __init__(self, effect, would, match, matches, units, problems, mode, kind, explicit_allow=False):
+        self.explicit_allow = explicit_allow  # did the policy itself say allow (a rule, or a `default` it declares)?
         self.effect = effect
         self.would = would
         self.match = match
@@ -531,4 +532,7 @@ def evaluate(policy, call):
     would = top.effect if top is not None else "allow"
     mode = settings["mode"]
     effect = would if mode == "enforce" else "allow"
-    return Decision(effect, would, top, matches, units, problems, mode, kind)
+    allowed_units = {m.unit for m in matches if m.effect == "allow"}
+    explicit = would == "allow" and bool(units) and (
+        (policy.default_declared and settings["default"] == "allow") or all(u in allowed_units for u in units))
+    return Decision(effect, would, top, matches, units, problems, mode, kind, explicit)

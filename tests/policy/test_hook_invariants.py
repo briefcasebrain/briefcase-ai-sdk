@@ -275,7 +275,7 @@ def test_a_managed_hook_never_falls_back_to_a_weaker_policy(home, project, monke
 
     system = tmp_path / "system" / "policy.toml"
     system.parent.mkdir()
-    strict = 'version = 1\npreset = "strict"\n'
+    strict = 'version = 1\npreset = "strict"\ndefault = "allow"\n'  # a bound hook allows only what the policy states
     system.write_text(strict)
     monkeypatch.setenv("BRIEFCASE_SYSTEM_POLICY", str(system))
     required = hashlib.sha256(strict.encode()).hexdigest()
@@ -1030,3 +1030,48 @@ def test_a_web_search_with_no_query_is_denied_by_a_strict_hook(home, project):
     body["tool_input"] = {}
     code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
     assert denies("claude-code", code, raw)
+
+
+# --- round 15: a hook bound to a required policy allows only what that policy explicitly allows -------------------
+
+def _bound(tool, project, policy_text, tmp_path, monkeypatch, call=None, entry="module"):
+    import hashlib
+
+    system = tmp_path / "system" / "policy.toml"
+    system.parent.mkdir(exist_ok=True)
+    system.write_text(policy_text)
+    monkeypatch.setenv("BRIEFCASE_SYSTEM_POLICY", str(system))
+    body = call if call is not None else payload(tool, project)
+    flags = ["--require-policy-sha256", hashlib.sha256(policy_text.encode()).hexdigest()]
+    return run_entry(entry, tool, flags, body, project.parent / "home")
+
+
+def _harmless(tool, project):
+    body = payload(tool, project)
+    if tool == "cursor":
+        body["command"] = "ls"
+    else:
+        body["tool_input"] = {"command": "ls"}
+    return body
+
+
+EXPLICIT = [
+    # (policy text, the harmless call is allowed?)
+    ('version = 1\npreset = "guarded"\n', False),                      # nothing says allow: implicit default only
+    ('version = 1\npreset = "guarded"\ndefault = "allow"\n', True),     # the policy declares the default itself
+    ('version = 1\npreset = "guarded"\n[[rule]]\nid = "ls"\ntool = "shell"\neffect = "allow"\ncommand = ["ls"]\n',
+     True),                                                            # a rule allows it
+    ('version = 1\npreset = "observe"\n', False),                      # observe logs; it does not authorize
+    ('version = 1\npreset = "guarded"\nmode = "observe"\n[[rule]]\nid = "no-ls"\ntool = "shell"\neffect = "deny"\n'
+     'command = ["ls"]\n', False),                                     # observe must not turn a matched deny into allow
+]
+
+
+@pytest.mark.parametrize("policy, allowed", EXPLICIT, ids=["implicit", "declared_default", "allow_rule", "observe",
+                                                          "observe_deny"])
+@pytest.mark.parametrize("entry", ["module", "launcher"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_bound_hook_allows_only_what_the_required_policy_explicitly_allows(
+        home, project, tmp_path, monkeypatch, tool, policy, allowed, entry):
+    code, raw = _bound(tool, project, policy, tmp_path, monkeypatch, _harmless(tool, project), entry)
+    assert (not denies(tool, code, raw)) == allowed, (code, raw)

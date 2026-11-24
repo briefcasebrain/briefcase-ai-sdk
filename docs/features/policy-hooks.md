@@ -313,7 +313,11 @@ includes Codex, therefore refuse until you pass `--accept-codex-startup-risk`.
 
 A fail-closed hook allows a call only when the event is complete and names a tool the policy
 covers, the policy loaded without error (a managed hook: from the exact bytes of the file whose
-hash it was deployed with), and the policy itself says allow. An unknown tool, an empty command,
+hash it was deployed with), and the policy itself says allow. For a managed hook (one that carries
+`--require-policy-sha256`) "says allow" is literal: a rule with `effect = "allow"` matched every part of the call, or the
+policy states `default = "allow"` itself; the built-in default does not count, and `mode = "observe"` does not turn a
+deny into an allow. A required policy that does neither blocks every call, so add `default = "allow"` (or allow
+rules) to the policy you deploy. An unknown tool, an empty command,
 a missing event name, an option left without a value, a `WebFetch` without a URL host, an MCP call that
 does not name both a server and a tool, a relative path with no working directory in the event, a shell
 command that yields nothing to judge, and a verdict that cannot be written all block. A managed hook that finds its system policy missing or changed blocks whether or not
