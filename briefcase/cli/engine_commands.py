@@ -416,6 +416,11 @@ class Confirmed:
         self.what = what
 
 
+def _mint(question: str) -> Confirmed:
+    """The one place a confirmation token is made, after a yes."""
+    return Confirmed(question, Confirmed._key)
+
+
 def _authorize(args, question: str, flag_fix: str) -> Tuple[Optional[Confirmed], int]:
     """``(token, 0)`` when confirmed, else ``(None, exit code)``. A dry run is ``(None, 0)``."""
     if _dry(args):
@@ -425,7 +430,7 @@ def _authorize(args, question: str, flag_fix: str) -> Tuple[Optional[Confirmed],
     if not answer:
         return None, _ux.fail("not deleting anything without confirmation", fix=flag_fix,
                               code=2 if answer is None else 1)
-    return Confirmed(question, Confirmed._key), 0
+    return _mint(question), 0
 
 
 @dataclass
@@ -766,7 +771,7 @@ def _install(args, upgrading: bool) -> int:
     if previous and manifest is not None and previous.get("version") == manifest.version and not upgrading:
         log(f"engine {manifest.version} is already installed; re-checking files and images")
     answer = _ux.confirm("Go ahead?", assume_yes=bool(getattr(args, "yes", False)))
-    confirmed = Confirmed("Go ahead?", Confirmed._key) if answer else None
+    confirmed = _mint("Go ahead?") if answer else None
     if answer is None:
         return _ux.fail("installing the engine needs confirmation",
                         fix="re-run with --yes (or --dry-run to only look)", code=2)
@@ -1300,9 +1305,18 @@ class DestroyWatch:
                 event = json.loads(line)
             except ValueError:
                 continue
-            if isinstance(event, dict):
-                with self._lock:
-                    self.events.append(event)
+            if not isinstance(event, dict):
+                continue
+            with self._lock:
+                if event.get("Type") == "volume":  # only a canary's own create event is ever looked for
+                    if event.get("Action") == "create":
+                        self.events.append(event)
+                        volumes = [e for e in self.events if e.get("Type") == "volume"]
+                        if len(volumes) > self.KEEP_VOLUME_EVENTS:
+                            self.events.remove(volumes[0])
+                elif event.get("Type") == "container" and (
+                        (event.get("Actor") or {}).get("Attributes") or {}).get("com.docker.compose.project"):
+                    self.events.append(event)  # the engine project's containers only (other projects' are noise)
 
     def _name(self, event: Dict[str, Any]) -> str:
         """The object's name: a volume event carries it as ``Actor.ID`` (Docker 29.8.2), a container event as the
@@ -1313,6 +1327,7 @@ class DestroyWatch:
         return str((actor.get("Attributes") or {}).get("name") or "")
 
     LABEL = "ai.briefcase.watch"
+    KEEP_VOLUME_EVENTS = 64
 
     def _canary(self) -> bool:
         """Cause an event of our own and wait until it comes back through the subscription. The volume is created by
@@ -1336,7 +1351,10 @@ class DestroyWatch:
             if not seen:
                 time.sleep(0.05)
         if owned:  # never remove a volume that is not demonstrably the one this call created
-            _run(["docker", "volume", "rm", name], capture_output=True, text=True)
+            removal = _run(["docker", "volume", "rm", name], capture_output=True, text=True)
+            if _rc(removal) != 0:
+                print(f"note: could not remove its temporary volume {name} (created by this command, label "
+                      f"{self.LABEL}); remove it with `docker volume rm {name}`", file=sys.stderr)
         return seen
 
     def start(self, since: str) -> bool:

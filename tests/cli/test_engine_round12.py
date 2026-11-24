@@ -731,3 +731,28 @@ def test_a_container_created_during_the_start_that_vanished_without_a_destroy_ev
     assert main(["engine", "up"]) != 0
     out = capsys.readouterr()
     assert "started" not in out.out and "gateway" in out.err + out.out
+
+
+def test_the_watch_keeps_only_events_it_can_use_and_a_bounded_number_of_them():
+    import io
+
+    watch = engine_commands.DestroyWatch()
+
+    class Proc:
+        stdout = io.StringIO("".join(json.dumps(e) + "\n" for e in (
+            [{"Type": "container", "Action": "start", "Actor": {"ID": "x", "Attributes": {"name": "other"}}}] * 50
+            + [{"Type": "volume", "Action": "destroy", "Actor": {"ID": "v"}}] * 50
+            + [{"Type": "volume", "Action": "create", "Actor": {"ID": f"v{i}"}} for i in range(500)])))
+
+    watch.proc = Proc()  # type: ignore[assignment]
+    watch._read()
+    assert len(watch.events) <= engine_commands.DestroyWatch.KEEP_VOLUME_EVENTS
+    assert all(e["Action"] == "create" for e in watch.events)
+
+
+def test_a_canary_volume_that_cannot_be_removed_is_reported(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_FAIL", "volume rm")
+    main(["engine", "up"])
+    assert "temporary volume" in capsys.readouterr().err
