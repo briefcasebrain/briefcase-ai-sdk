@@ -88,6 +88,8 @@ def _shell_defect(command, cwd):
         return "the command is empty"
     if "\x00" in command:
         return "the command has a NUL character"
+    if cwd and "\x00" in cwd:
+        return "the working directory has a NUL character"
     if not (cwd and os.path.isabs(cwd)):
         return "no usable working directory in the hook input, so relative file references cannot be judged"
     return None
@@ -96,8 +98,8 @@ def _shell_defect(command, cwd):
 def _path_defect(paths, cwd):
     """A relative path judged without the event's working directory would be judged against the hook process's own. A
     path with a NUL character cannot name a file at all."""
-    if any("\x00" in path for path in paths):
-        return "a path with a NUL character"
+    if any("\x00" in path for path in paths) or (cwd and "\x00" in cwd):
+        return "a path or working directory with a NUL character"
     if cwd and os.path.isabs(cwd):
         return None
     if cwd:
@@ -258,7 +260,9 @@ def validate(call):
     if call.kind in ("invalid", "other") or call.defect:
         return call
     where = call.location()
-    if not (where and os.path.isabs(where)):
+    if "\x00" in (call.cwd or "") + (call.project_dir or ""):
+        call.defect = "a working or project directory with a NUL character"
+    elif not (where and os.path.isabs(where)):
         call.defect = "no absolute working directory or project directory in the hook input, so project policy " \
                       "cannot be found"
     elif call.kind == "web" and call.tool_name == "WebFetch":

@@ -86,9 +86,11 @@ class Cmd(object):
     when ``argv[i]`` depends on something only known at run time."""
 
     __slots__ = ("argv", "dyn", "glob", "redirs", "cwd", "subs", "stdin", "prev", "via", "opaque",
-                 "find_delete", "home")
+                 "find_delete", "home", "redir_globs")
 
-    def __init__(self, argv, dyn, glob, redirs=None, cwd=None, subs=None, stdin=None, via=None, home=None):
+    def __init__(self, argv, dyn, glob, redirs=None, cwd=None, subs=None, stdin=None, via=None, home=None,
+                 redir_globs=None):
+        self.redir_globs = redir_globs or [False] * len(redirs or [])  # per redirection: a wildcard in its target?
         self.argv = argv
         self.dyn = dyn
         self.glob = glob
@@ -683,7 +685,8 @@ class _Lexer(object):
         if dyn[0] and first.name_literal:
             dyn[0] = False             # "$VENV/bin/python": the name is known, the directory is not
         cmd = Cmd([w.text for w in words], dyn, [w.glob for w in words],
-                  redirs=plain, cwd=state.cwd, subs=subs, stdin=stdin, via=list(self.via), home=state.home)
+                  redirs=plain, cwd=state.cwd, subs=subs, stdin=stdin, via=list(self.via), home=state.home,
+                  redir_globs=[target.glob for _, target in redirs])
         if cmd.name in ("cd", "pushd"):
             _change_directory(cmd, state)
         return cmd
@@ -1053,7 +1056,7 @@ def path_refs(cmd, expand_globs=True):
         candidates = [text]
         if is_glob and expand_globs:
             import glob
-            base = normalize_path(text, cmd.cwd, cmd.home)
+            base = absolute_spelling(text, cmd.cwd, cmd.home)  # as written: the kernel lists it after the symlinks
             if base is not None:
                 try:
                     candidates.extend(glob.glob(base)[:64])
@@ -1080,12 +1083,12 @@ def path_refs(cmd, expand_globs=True):
             add(arg[eq + 1:].lstrip("@"), access, is_glob)   # of=PATH, key=@PATH
         if arg.startswith("@"):
             add(arg[1:], access, is_glob)                    # curl -d @PATH
-    for op, target, dynamic in cmd.redirs:
+    for (op, target, dynamic), has_glob in zip(cmd.redirs, cmd.redir_globs):
         if dynamic or op in ("<<", "<<-", "<<<"):
             continue
         if op in (">&", "<&") and (target.isdigit() or target == "-"):
             continue
-        add(target, "read" if op == "<" else "write")
+        add(target, "read" if op == "<" else "write", has_glob)
     return refs
 
 
@@ -1273,6 +1276,7 @@ def suffixes(cmd):
             continue
         tail = Cmd(cmd.argv[start:], cmd.dyn[start:], cmd.glob[start:], cwd=cmd.cwd, home=cmd.home)
         tail.prev, tail.subs, tail.stdin, tail.redirs = cmd.prev, cmd.subs, cmd.stdin, cmd.redirs
+        tail.redir_globs = cmd.redir_globs
         yield tail
 
 

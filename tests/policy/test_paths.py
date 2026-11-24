@@ -345,3 +345,22 @@ def test_shell_operands_and_redirections_resolve_a_symlink_before_the_parent_com
                            project_dir=str(project))
     result = engine.evaluate(policy_of(), call)
     assert result.effect == "deny", (command, result.rule_id)
+
+
+@pytest.mark.parametrize("command", [
+    "cat {project}/link/../spec*.txt",
+    "cat {project}/link/../specifi?.txt",
+    "cat < {project}/link/../spec*.txt",
+])
+def test_wildcards_are_listed_after_the_symlink_is_followed(home, project, command):
+    """`<project>/link/../spec*.txt` lists the *target's* parent (~/safe), not <project>: folding `..` first lists the
+    wrong directory, finds nothing, and a deny rule on the physical file is never consulted."""
+    (home / "safe" / "deep").mkdir(parents=True)
+    (home / "safe" / "specific.txt").write_text("x")
+    (project / "link").symlink_to(home / "safe" / "deep")
+    rule = f'\n[[rule]]\nid = "no-specific"\ntool = "file"\neffect = "deny"\npaths = ["{home}/safe/specific.txt"]\n'
+    text = GUARDED + rule
+    call = engine.ToolCall("shell", command=command.format(project=project), cwd=str(project),
+                           project_dir=str(project))
+    result = engine.evaluate(policy_of(text), call)
+    assert result.effect == "deny", (command, result.rule_id)

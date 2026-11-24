@@ -1287,3 +1287,18 @@ def test_the_authority_must_be_exactly_host_and_port_with_nothing_the_parser_dis
     body["tool_input"] = {"url": url}
     code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
     assert denies("claude-code", code, raw), f"{url!r} was allowed: {code} {raw!r}"
+
+
+@pytest.mark.parametrize("tool", ["claude-code", "cursor"])
+def test_a_strict_hook_denies_a_working_directory_with_a_nul_character(home, project, tool):
+    _observe(home)
+    kind = "bash" if tool == "claude-code" else "shell"
+    body = _events(tool, project)[kind]
+    body["cwd"] = str(project) + "\x00x"  # the project root is valid on its own (CLAUDE_PROJECT_DIR / workspace root)
+    if tool == "claude-code":
+        os.environ["CLAUDE_PROJECT_DIR"] = str(project)
+    try:
+        code, raw = run_entry("module", tool, ["--fail-closed"], body, home)
+    finally:
+        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+    assert denies(tool, code, raw), (code, raw)
