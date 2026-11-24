@@ -112,6 +112,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install target/wheels/*.whl
           python scripts/check_imports.py
+          python scripts/check_installed_entry.py
 
       - name: Upload wheels
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
