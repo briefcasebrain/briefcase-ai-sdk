@@ -14,13 +14,17 @@ pack is the same entry `briefcase-ai policy init` writes, which was run against 
 ## The one command
 
 ```bash
-briefcase-ai connect --managed --out ./briefcase-rollout --endpoint https://otel.example.com --policy fleet-policy.toml
+briefcase-ai connect --managed --out ./briefcase-rollout --endpoint https://otel.example.com --policy fleet-policy.toml --accept-codex-startup-risk
 ```
+
+A pack with a policy binds every hook to the policy's hash, which makes the hooks fail closed; Codex cannot block when
+its hook executable is missing, on a host timeout, or with both output streams closed, so a pack that includes Codex
+needs `--accept-codex-startup-risk` (or leave Codex out with `--tools`).
 
 Real output (temp `HOME`):
 
 ```text
-$ briefcase-ai connect --managed --out rollout --endpoint https://otel.example.com --policy fleet-policy.toml
+$ briefcase-ai connect --managed --out rollout --endpoint https://otel.example.com --policy fleet-policy.toml --accept-codex-startup-risk
 Rollout pack for: claude-code, cursor, codex, cowork (with policy enforcement)
   ready    briefcase/policy.toml
   ready    claude-code/managed-settings.d/10-briefcase.json

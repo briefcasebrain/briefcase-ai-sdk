@@ -260,3 +260,18 @@ def test_a_hash_bound_pack_needs_the_codex_startup_acknowledgement(home, tmp_pat
     policy.write_text(POLICY)
     assert managed.cmd_managed(args(tmp_path / "codex", policy=str(policy)), out=lambda line: None) == 1
     assert "accept-codex-startup-risk" in capsys.readouterr().err
+
+
+def test_the_generated_readme_carries_the_codex_startup_exception(home, tmp_path):
+    code, out, printed = generate(tmp_path)
+    assert code == 0, printed
+    text = (out / "README.md").read_text()
+    assert "Codex is the exception" in text and "--accept-codex-startup-risk" in text
+
+
+def test_the_documented_managed_command_runs(home, tmp_path):
+    """docs/features/managed-rollout.md shows the command with the acknowledgement; without it a pack that includes
+    Codex exits 1."""
+    doc = (Path(__file__).resolve().parents[2] / "docs" / "features" / "managed-rollout.md").read_text()
+    assert "--policy fleet-policy.toml --accept-codex-startup-risk" in doc
+    assert generate(tmp_path)[0] == 0

@@ -304,8 +304,12 @@ def readme(pack: Pack, tools: List[str], ctx: Context, enforce: bool, fail_close
     ]
     if enforce:
         lines.append("- When the policy or the hook is broken: tool calls are "
-                     + ("BLOCKED (`fail_closed = true`)" if fail_closed
-                        else "allowed and the problem is reported (fail open)"))
+                     + ("BLOCKED (the hooks are bound to the policy's hash, or the policy says `fail_closed = true`)"
+                        if fail_closed else "allowed and the problem is reported (fail open)"))
+        if fail_closed and "codex" in tools:
+            lines.append("- Codex is the exception: it cannot block when its hook executable is missing, on a host "
+                         "timeout, or with stdout and stderr both closed. The pack was generated with "
+                         "`--accept-codex-startup-risk`.")
     lines += [
         "",
         "## Before you deploy",

@@ -1,0 +1,2 @@
+### Changed
+- `engine up` on an empty stack subscribes to the daemon's events, proves the subscription with a labelled throwaway volume (removed by label, never by name), and compares the containers the events announced with `docker ps -a` after the start. It reports a removal it can see and an observation it could not complete; it is best-effort, and cannot see a container whose create and destroy events were both dropped.

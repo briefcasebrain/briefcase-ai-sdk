@@ -6,7 +6,8 @@ with what is confirmed and what is not.
 
 - Receiver endpoint in these files: `https://otel.example.com`
 - Policy enforcement: yes, from `briefcase/policy.toml`
-- When the policy or the hook is broken: tool calls are BLOCKED (`fail_closed = true`)
+- When the policy or the hook is broken: tool calls are BLOCKED (the hooks are bound to the policy's hash, or the policy says `fail_closed = true`)
+- Codex is the exception: it cannot block when its hook executable is missing, on a host timeout, or with stdout and stderr both closed. The pack was generated with `--accept-codex-startup-risk`.
 
 ## Before you deploy
 
