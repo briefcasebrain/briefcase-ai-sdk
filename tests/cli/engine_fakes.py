@@ -715,6 +715,18 @@ if args[:2] == ["volume", "create"]:
     volumes_now()[name] = labels
     add_event("volume", "create", name); save()
     print(name); sys.exit(0)
+if args[:2] == ["volume", "prune"]:  # the daemon removes only the unused volumes that match the label filter
+    wanted = [a.split("=", 1)[1] for i, a in enumerate(args)
+              if i and args[i - 1] == "--filter" and a.startswith("label=")]
+    gone = []
+    for name, labels in list(volumes_now().items()):
+        if wanted and all(w.split("=", 1)[0] in labels and labels[w.split("=", 1)[0]] == w.split("=", 1)[1]
+                          for w in wanted):
+            del state["volumes"][name]
+            add_event("volume", "destroy", name)
+            gone.append(name)
+    save()
+    print("Deleted Volumes:"); [print(n) for n in gone]; sys.exit(0)
 if args[:2] == ["volume", "rm"]:
     name = args[-1]
     failing = (os.environ.get("FAKE_DOCKER_VOLUME_RM_FAIL") or "").split(",")
@@ -732,6 +744,9 @@ if args[:2] == ["volume", "inspect"]:
     import re as _re
     wanted = _re.search(r'index \.Labels "([^"]+)"', " ".join(args))
     print(volumes_now()[name].get(wanted.group(1) if wanted else "ai.briefcase.engine", ""))
+    if os.environ.get("FAKE_DOCKER_CANARY_SWAP") and wanted and wanted.group(1) == "ai.briefcase.watch":
+        state["volumes"][name] = {"ai.briefcase.watch": "someone-else"}  # replaced right after it was checked
+        save()
     sys.exit(0)
 if args[:1] == ["run"]:
     sys.exit(0)

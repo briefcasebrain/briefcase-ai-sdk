@@ -780,9 +780,11 @@ def _install(args, upgrading: bool) -> int:
               + (" and the install code was not used." if opts.mode == "code" else "."))
         return 1
 
+    preflight_daemon: Optional[str] = None
     if upgrading and daemons_before and (uses_compose_before or not getattr(args, "no_images", False)):
         # before anything is written: a stack may be running, or this upgrade installs the images that need the daemon
         here = _inst.docker_identity(_runner())
+        preflight_daemon = here
         if here is None or not all(_inst.daemon_matches(entry, here) for entry in daemons_before):
             return _ux.fail("the Docker daemon is not the one the installed engine ran on (it ran on "
                             f"{', '.join(daemons_before)}; now {here or 'unknown'}), so nothing was installed",
@@ -810,7 +812,8 @@ def _install(args, upgrading: bool) -> int:
     except RuntimeError as exc:  # --tls without openssl
         return _ux.fail(str(exc), fix="install openssl, or install without --tls")
     stop_code = _settle(opts, record, previous, upgrading, log, previous_compose, daemons_before, confirmed,
-                        added_daemons=list(_inst.LAST_ADDED))
+                        history_change=getattr(record, "history_change", ([], [])),
+                        preflight_daemon=preflight_daemon)
     if stop_code is not None:
         return stop_code
     if as_json:
@@ -825,7 +828,9 @@ def _install(args, upgrading: bool) -> int:
 
 def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
             previous_compose: Optional[bytes] = None, daemons_before: Optional[List[str]] = None,
-            confirmed: Optional["Confirmed"] = None, added_daemons: Optional[List[str]] = None) -> Optional[int]:
+            confirmed: Optional["Confirmed"] = None,
+            history_change: Optional[Tuple[List[str], List[str]]] = None,
+            preflight_daemon: Optional[str] = None) -> Optional[int]:
     """After an install or upgrade wrote ``record``: decide, under the install lock and from what actually runs,
     which release is current, and restart onto ``record`` when an upgrade (or a TLS change) needs it. Current is
     what runs. Anything docker cannot establish (an error, an engine that matches no install, two installs that fit)
@@ -836,14 +841,16 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
     try:
         with _inst.engine_lock(opts.env):
             return _settle_locked(opts, record, previous, upgrading, log, previous_compose, daemons_before or [],
-                                  confirmed, added_daemons or [])
+                                  confirmed, history_change or ([], []), preflight_daemon)
     except _engine.StateUnreadable as exc:
         return _ux.fail(f"{exc}; engine {record['version']} was installed but not made current", fix=exc.fix)
 
 
 def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
                    previous_compose: Optional[bytes], daemons_before: List[str],
-                   confirmed: Optional["Confirmed"] = None, added_daemons: Optional[List[str]] = None) -> Optional[int]:
+                   confirmed: Optional["Confirmed"] = None,
+                   history_change: Tuple[List[str], List[str]] = ([], []),
+                   preflight_daemon: Optional[str] = None) -> Optional[int]:
     """The body of :func:`_settle`, run under the install lock."""
     from briefcase import engine as _engine
     from briefcase.engine import install as _inst
@@ -875,16 +882,29 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
         restore()
         return _ux.fail("could not tell which Docker daemon this is, so what runs could not be checked and engine "
                         f"{record['version']} was installed but not made current", fix="briefcase-ai engine doctor")
-    if (upgrading or tls_differs) and daemons_before \
-            and not all(_inst.daemon_matches(entry, daemon) for entry in daemons_before):
-        restore()
-        try:  # undo only what this install added: whatever else was recorded meanwhile stays
+
+    def undo_history() -> None:
+        """Take back this install's own change to the daemon history, and only that: what it added goes, a legacy
+        entry it completed comes back as it was, and whatever another command recorded meanwhile stays."""
+        removed, added = history_change
+        try:
             fresh = _engine.load_state_strict(opts.env)
-            fresh["docker_contexts"] = [e for e in fresh.get("docker_contexts") or []
-                                        if e not in (added_daemons or [])]
+            current = [e for e in fresh.get("docker_contexts") or [] if e not in added]
+            fresh["docker_contexts"] = current + [e for e in removed if e not in current]
             _inst.save_state(fresh, opts.env)
         except (_engine.StateUnreadable, OSError):
             pass
+
+    if preflight_daemon is not None and not _inst.same_daemon_id(preflight_daemon, daemon):
+        restore()
+        undo_history()
+        return _ux.fail(f"the Docker daemon is not the one that was verified before the install ({preflight_daemon}; "
+                        f"now {daemon}), so engine {record['version']} was installed but not made current",
+                        fix="briefcase-ai engine doctor")
+    if (upgrading or tls_differs) and daemons_before \
+            and not all(_inst.daemon_matches(entry, daemon) for entry in daemons_before):
+        restore()
+        undo_history()
         was = (previous or {}).get("version", "the old release")
         return _ux.fail(f"the Docker daemon is not the one engine {was} ran on (it ran on "
                         f"{', '.join(daemons_before)}; now {daemon}), so what runs there could not be checked and "
@@ -1342,6 +1362,9 @@ class DestroyWatch:
         label = _run(["docker", "volume", "inspect", "--format", '{{ index .Labels "' + self.LABEL + '" }}', name],
                      capture_output=True, text=True)
         owned = _rc(label) == 0 and (getattr(label, "stdout", "") or "").strip() == token
+        if not owned:
+            print(f"note: the temporary volume {name} does not carry this command's label; it was not touched",
+                  file=sys.stderr)
         seen = False
         deadline = time.monotonic() + self.TIMEOUT
         while owned and time.monotonic() < deadline and not seen:
@@ -1350,12 +1373,15 @@ class DestroyWatch:
                            for e in self.events)
             if not seen:
                 time.sleep(0.05)
-        if owned:  # never remove a volume that is not demonstrably the one this call created
-            removal = _run(["docker", "volume", "rm", name], capture_output=True, text=True)
-            if _rc(removal) != 0:
-                print(f"note: could not remove its temporary volume {name} (created by this command, label "
-                      f"{self.LABEL}); remove it with `docker volume rm {name}`", file=sys.stderr)
-        return seen
+        # The daemon removes by the label (random token, ours alone), not by a name a replacement volume could now
+        # carry: whatever else has that name is not matched.
+        removal = _run(["docker", "volume", "prune", "-a", "-f", "--filter", f"label={self.LABEL}={token}"],
+                       capture_output=True, text=True)
+        if _rc(removal) != 0:
+            print(f"note: could not remove its temporary volume {name} (created by this command, label "
+                  f"{self.LABEL}={token}); remove it with `docker volume prune -a -f --filter "
+                  f"label={self.LABEL}={token}`", file=sys.stderr)
+        return seen and owned
 
     def start(self, since: str) -> bool:
         """Subscribe and prove the subscription delivers; ``False`` when it was not made or never delivered."""
@@ -1500,6 +1526,13 @@ def cmd_up(args, store, engine, stack) -> int:
                 if not watch.start(since):
                     return _ux.fail("could not subscribe to the Docker daemon's events (nothing came back through "
                                     "the subscription), so a removal during the start could not be observed and "
+                                    "nothing was started", fix="briefcase-ai engine doctor")
+                # The inventory was taken before the canary's wait: the daemon behind the pinned endpoint and what it
+                # holds must still be what that inventory saw.
+                again, present_now = existing_containers_state(record)
+                if not still_the_daemon(daemon) or again or present_now != present:
+                    watch.stop()
+                    return _ux.fail("the Docker daemon, or its containers, changed after they were inspected, so "
                                     "nothing was started", fix="briefcase-ai engine doctor")
             rc = _rc(_run(command))
             if creating:

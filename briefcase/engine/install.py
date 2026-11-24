@@ -819,20 +819,31 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
     if "compose_used" not in state:
         state["compose_used"] = any(r.get("compose") for r in (state.get("installs") or {}).values())
     state["compose_used"] = bool(state["compose_used"]) or compose_file is not None  # sticky: volumes may exist
-    LAST_ADDED.clear()
+    change: Tuple[List[str], List[str]] = ([], [])
     if compose_file is not None:  # the daemon this install's volumes live on
         identity = docker_identity(runner, env)
         known = list(state.get("docker_contexts") or [])
         if identity is not None and has_id(identity):  # one with no id is not recorded: it would match any daemon
             merged = _merge_daemon(known, identity)
-            LAST_ADDED.extend(e for e in merged if e not in known and e == str(identity))
+            change = ([e for e in known if e not in merged], [e for e in merged if e not in known])
             known = merged
         state["docker_contexts"] = known
     state.setdefault("installs", {})[manifest.version] = record
     if opts.make_current or not state.get("current"):
         state["current"] = manifest.version
     save_state(state, env)
-    return record
+    result = InstallRecord(record)
+    result.history_change = change
+    return result
+
+
+class InstallRecord(dict):
+    """The record an install returns: the same content that was saved, plus ``history_change``, the ``(removed,
+    added)`` entries this install made in ``docker_contexts`` (a legacy endpoint it completed with an id is
+    *removed* and its completed form *added*), so undoing the install puts back exactly that and nothing another
+    command wrote."""
+
+    history_change: Tuple[List[str], List[str]] = ([], [])
 
 
 class DaemonIdentity(str):
@@ -886,9 +897,6 @@ def same_daemon_id(shown: Optional[str], now: Optional[str]) -> bool:
 
 def has_id(identity: Optional[str]) -> bool:
     return identity is not None and _split_id(identity)[1] is not None
-
-
-LAST_ADDED: List[str] = []  # the identities the most recent install appended to the history (for its own rollback)
 
 
 def _merge_daemon(known: List[str], identity: str) -> List[str]:

@@ -753,6 +753,62 @@ def test_the_watch_keeps_only_events_it_can_use_and_a_bounded_number_of_them():
 def test_a_canary_volume_that_cannot_be_removed_is_reported(env, monkeypatch, capsys):
     synthetic(env, [A], A)
     configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("FAKE_DOCKER_FAIL", "volume rm")
+    monkeypatch.setenv("FAKE_DOCKER_FAIL", "volume prune")
     main(["engine", "up"])
     assert "temporary volume" in capsys.readouterr().err
+
+
+# --- round 18 ---------------------------------------------------------------------------------------------------
+
+def test_a_legacy_upgrade_does_not_restart_on_a_daemon_other_than_the_one_preflight_verified(
+        env, monkeypatch, key, capsys):
+    from briefcase.engine import install as _install_mod
+
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    tls_upgrade(env, monkeypatch, key)
+    legacy = "default unix:///var/run/docker.sock"
+    record_daemons([legacy])  # a record from before ids existed: it matches any daemon at that address
+    real = _install_mod.complete_online
+
+    def install_then_the_tunnel_moves(*args, **kwargs):
+        record = real(*args, **kwargs)
+        monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # settle will see another daemon behind the same address
+        return record
+
+    monkeypatch.setattr(_install_mod, "complete_online", install_then_the_tunnel_moves)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    assert [c for c in compose_calls(env) if "--remove-orphans" in c["argv"]] == []
+    # and the legacy entry the install completed with an id is put back as it was
+    assert json.loads(_engine.installed_path().read_text())["docker_contexts"] == [legacy]
+
+
+def test_ordinary_up_rechecks_the_daemon_after_the_inventory_and_the_canary(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    real = engine_commands.DestroyWatch.start
+
+    def start_then_the_tunnel_moves(self, since):
+        ready = real(self, since)
+        monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # repointed to a daemon whose inventory was never taken
+        return ready
+
+    monkeypatch.setattr(engine_commands.DestroyWatch, "start", start_then_the_tunnel_moves)
+    assert main(["engine", "up"]) != 0
+    capsys.readouterr()
+    assert [c for c in compose_calls(env) if "up" in c["argv"] or "start" in c["argv"]] == []
+
+
+def test_a_canary_volume_replaced_after_it_was_checked_is_not_removed(env, monkeypatch, capsys):
+    from tests.cli.engine_fakes import docker_state
+
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_CANARY_SWAP", "1")
+    main(["engine", "up"])
+    capsys.readouterr()
+    assert [c for c in calls(env["log"]) if c["argv"][:2] == ["volume", "rm"]] == []
+    survivors = [name for name, labels in docker_state(env["log"]).get("volumes", {}).items()
+                 if labels.get("ai.briefcase.watch") == "someone-else"]
+    assert survivors, "the replacement volume was deleted"
