@@ -406,7 +406,7 @@ def test_docker_identity_follows_the_precedence_the_docker_cli_has():
 
     def runner(argv, **kw):
         asked.append(argv)
-        out = {"show": "default\n", "inspect": "ssh://from-context\n"}[argv[2]]
+        out = {"show": "default\n", "inspect": "ssh://from-context\n"}.get(argv[2], "")
         return type("R", (), {"returncode": 0, "stdout": out, "stderr": ""})()
 
     both = {"DOCKER_CONTEXT": "work", "DOCKER_HOST": "tcp://from-host:2375"}

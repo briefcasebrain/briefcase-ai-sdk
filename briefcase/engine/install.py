@@ -822,8 +822,8 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
     if compose_file is not None:  # the daemon this install's volumes live on
         identity = docker_identity(runner, env)
         known = list(state.get("docker_contexts") or [])
-        if identity and identity not in known:
-            known.append(identity)
+        if identity:
+            known = _merge_daemon(known, identity)
         state["docker_contexts"] = known
     state.setdefault("installs", {})[manifest.version] = record
     if opts.make_current or not state.get("current"):
@@ -833,30 +833,79 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
 
 
 class DaemonIdentity(str):
-    """``"<context> <endpoint>"`` for the Docker daemon that was verified, plus ``pin_env``: the environment that makes
-    ``docker`` talk to exactly that endpoint (with the certificates the context holds) whatever the context is
-    repointed to afterwards. It compares and is stored as the plain string."""
+    """``"<context> <endpoint>"`` (plus `` id=<the daemon's own id>`` when it answered) for the Docker daemon that was
+    verified, with what makes ``docker`` talk to exactly that daemon whatever the context is repointed to afterwards:
+    ``pin_env`` (the endpoint and the certificates it uses) and ``pin_args`` (global flags placed before the
+    subcommand). It compares and is stored as the plain string."""
 
     pin_env: Dict[str, str]
+    pin_args: List[str]
 
-    def __new__(cls, text: str, pin_env: Optional[Mapping[str, str]] = None) -> "DaemonIdentity":
+    def __new__(cls, text: str, pin_env: Optional[Mapping[str, str]] = None,
+                pin_args: Optional[List[str]] = None) -> "DaemonIdentity":
         self = super().__new__(cls, text)
         self.pin_env = dict(pin_env or {})
+        self.pin_args = list(pin_args or [])
         return self
 
 
 _INSPECT_FORMAT = ("{{.Endpoints.docker.Host}}\t{{.Storage.TLSPath}}\t{{.Endpoints.docker.SkipTLSVerify}}\t"
                    '{{range index .TLSMaterial "docker"}}x{{end}}')
+_TLS_VARIABLES = ("DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH", "DOCKER_TLS")
+# TLS without verification and without certificate files, which is what the CLI does for a context that only skips
+# verification (Docker 29.8.2: DOCKER_TLS=1 and a bare --tls fail on the missing ca.pem; these flags do not).
+_TLS_NO_CERTIFICATES = ["--tls", "--tlscacert=", "--tlscert=", "--tlskey="]
+
+
+def _split_id(identity: str) -> Tuple[str, Optional[str]]:
+    base, _, daemon_id = identity.partition(" id=")
+    return base, daemon_id or None
+
+
+def daemon_matches(recorded: str, here: str) -> bool:
+    """Is ``here`` the daemon ``recorded`` names? Same context and endpoint, and the same daemon id when the record
+    has one (a record from before ids existed matches by endpoint alone)."""
+    recorded_base, recorded_id = _split_id(recorded)
+    here_base, here_id = _split_id(here)
+    return recorded_base == here_base and (recorded_id is None or recorded_id == here_id)
+
+
+def _merge_daemon(known: List[str], identity: str) -> List[str]:
+    """``known`` with ``identity`` added, or an id-less entry for the same endpoint completed with its id."""
+    out, matched = [], False
+    for entry in known:
+        if daemon_matches(entry, identity):
+            matched = True
+            out.append(identity if _split_id(entry)[1] is None else entry)
+        else:
+            out.append(entry)
+    return out if matched else out + [identity]
+
+
+def _daemon_id(runner, env: Mapping[str, str], pin_env: Mapping[str, str], pin_args: List[str]) -> Optional[str]:
+    """The id the daemon at the pinned endpoint reports about itself (not part of the context, so a different daemon
+    behind the same address differs here); ``None`` when it does not answer."""
+    run_env = {k: v for k, v in env.items() if k not in ("DOCKER_CONTEXT", "DOCKER_HOST", *_TLS_VARIABLES)}
+    run_env.update(pin_env)
+    try:
+        res = runner(["docker", *pin_args, "info", "--format", "{{.ID}}"], capture_output=True, text=True,
+                     env=run_env, timeout=20)
+    except (OSError, subprocess.SubprocessError, TypeError):
+        return None
+    if getattr(res, "returncode", 1) != 0:
+        return None
+    return (getattr(res, "stdout", "") or "").strip() or None
 
 
 def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = None) -> Optional[DaemonIdentity]:
-    """Which Docker daemon ``docker`` talks to: the active context's name and endpoint (``DOCKER_HOST`` wins). The
-    volumes an install created live on that daemon; a probe made against another one proves nothing about them.
-    ``None`` when it cannot be established."""
+    """Which Docker daemon ``docker`` talks to: the active context's name and endpoint (``DOCKER_HOST`` wins), and
+    the daemon's own id. The volumes an install created live on that daemon; a probe made against another one proves
+    nothing about them. ``None`` when it cannot be established."""
     env = os.environ if env is None else env
     try:
         # Docker 29's actual precedence (checked against the installed CLI): DOCKER_HOST over DOCKER_CONTEXT over the
         # active context. With DOCKER_HOST set, `docker context show` itself reports the default context.
+        pin_args: List[str] = []
         if env.get("DOCKER_HOST"):
             host = env["DOCKER_HOST"]
             name = runner(["docker", "context", "show"], capture_output=True, text=True)
@@ -864,37 +913,38 @@ def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = No
             context = context or "default"
             # The caller's own TLS variables are part of what identifies this daemon; they stay with the pin.
             pin = {"DOCKER_HOST": host}
-            pin.update({name: env[name] for name in ("DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH", "DOCKER_TLS")
-                        if name in env})
-            return DaemonIdentity(f"{context} {host}", pin)
-        if env.get("DOCKER_CONTEXT"):
-            context = env["DOCKER_CONTEXT"]
+            pin.update({v: env[v] for v in _TLS_VARIABLES if v in env})
         else:
-            name = runner(["docker", "context", "show"], capture_output=True, text=True)
-            if getattr(name, "returncode", 1) != 0:
+            if env.get("DOCKER_CONTEXT"):
+                context = env["DOCKER_CONTEXT"]
+            else:
+                name = runner(["docker", "context", "show"], capture_output=True, text=True)
+                if getattr(name, "returncode", 1) != 0:
+                    return None
+                context = (name.stdout or "").strip() or "default"
+            info = runner(["docker", "context", "inspect", context, "--format", _INSPECT_FORMAT],
+                          capture_output=True, text=True)  # one read: the endpoint and the certificates it uses
+            if getattr(info, "returncode", 1) != 0:
                 return None
-            context = (name.stdout or "").strip() or "default"
-        info = runner(["docker", "context", "inspect", context, "--format", _INSPECT_FORMAT],
-                      capture_output=True, text=True)  # one read: the endpoint and the certificates it uses
-        if getattr(info, "returncode", 1) != 0:
-            return None
-        host, _, rest = (info.stdout or "").strip("\r\n").partition("\t")
-        tls_path, _, rest = rest.partition("\t")
-        skip_verify, _, material = rest.partition("\t")
-        host = host.strip()
-        if not host:
-            return None
-        pin = {"DOCKER_HOST": host}
-        skip = skip_verify.strip() == "true"
-        if material.strip() and tls_path.strip():
-            pin["DOCKER_CERT_PATH"] = tls_path.strip() + "/docker"
-            pin["DOCKER_TLS" if skip else "DOCKER_TLS_VERIFY"] = "1"
-        elif skip:
-            # TLS without verification and without certificate files is what the CLI does for such a context, but no
-            # environment variable or flag can ask for it (checked on Docker 29.8.2: --tls and DOCKER_TLS both
-            # fail on the missing ca.pem), so this daemon cannot be pinned and is not identified.
-            return None
-        return DaemonIdentity(f"{context} {host}", pin)
+            host, _, rest = (info.stdout or "").strip("\r\n").partition("\t")
+            tls_path, _, rest = rest.partition("\t")
+            skip_verify, _, material = rest.partition("\t")
+            host, tls_path = host.strip(), tls_path.strip()
+            if not host:
+                return None
+            pin = {"DOCKER_HOST": host}
+            skip = skip_verify.strip() == "true"
+            if material.strip():
+                if tls_path.startswith("<"):  # "<IN MEMORY>" (the default context): the caller's variables are it
+                    pin.update({v: env[v] for v in _TLS_VARIABLES if v in env})
+                else:
+                    pin["DOCKER_CERT_PATH"] = tls_path + "/docker"
+                    pin["DOCKER_TLS" if skip else "DOCKER_TLS_VERIFY"] = "1"
+            elif skip:
+                pin_args = list(_TLS_NO_CERTIFICATES)
+        base = f"{context} {host}"
+        daemon_id = _daemon_id(runner, env, pin, pin_args)
+        return DaemonIdentity(base + (f" id={daemon_id}" if daemon_id else ""), pin, pin_args)
     except (OSError, ValueError):
         return None
 
@@ -909,10 +959,9 @@ def note_daemon(runner=subprocess.run, env: Optional[Mapping[str, str]] = None,
         return None
     state = _engine.load_state_strict(env)
     known = list(state.get("docker_contexts") or [])
-    if identity not in known or not _engine.compose_history(state):
-        if identity not in known:
-            known.append(identity)
-        state["docker_contexts"] = known
+    merged = _merge_daemon(known, identity)
+    if merged != known or not _engine.compose_history(state):
+        state["docker_contexts"] = merged
         state["compose_used"] = True
         save_state(state, env)
     return identity

@@ -220,15 +220,34 @@ def test_a_context_that_only_skips_verification_is_pinned_with_tls_but_no_verifi
     assert (down["host"], down["tls"], down["tls_verify"]) == (ENDPOINT, "1", None)
 
 
-def test_a_skip_verify_context_without_certificates_cannot_be_pinned_so_nothing_runs(env, monkeypatch, capsys):
-    """Checked on Docker 29.8.2: no environment variable or flag selects TLS without verification when there are no
-    certificate files (`--tls` and DOCKER_TLS both fail on the missing ca.pem), so such a context cannot be pinned."""
+def test_a_skip_verify_context_without_certificates_is_pinned_with_tls_and_empty_certificate_flags(
+        env, monkeypatch, capsys):
+    """Checked on Docker 29.8.2 against a TLS server that does not ask for client certificates: `docker -H <host> --tls
+    --tlscacert= --tlscert= --tlskey= version` answers, which is what the CLI does for such a context; DOCKER_TLS=1
+    and a bare `--tls` fail on the missing ca.pem."""
     named_context(env, monkeypatch, tlspath="/ctx/tls/abc")
     monkeypatch.setenv("FAKE_DOCKER_SKIPTLS", "true")
     monkeypatch.setenv("FAKE_DOCKER_NOCERTS", "1")
-    assert main(["engine", "down", "--yes"]) != 0
+    assert main(["engine", "down", "--yes"]) == 0
     capsys.readouterr()
-    assert [c for c in calls(env["log"]) if c["argv"][:1] == ["compose"]] == []
+    (down,) = [c for c in calls(env["log"]) if c["argv"][:1] == ["compose"] and "down" in c["argv"]]
+    assert down["host"] == ENDPOINT and down["tls_flags"] == ["--tls", "--tlscacert=", "--tlscert=", "--tlskey="]
+    assert down["tls"] is None and down["cert_path"] is None
+
+
+def test_the_default_context_with_tls_in_memory_keeps_the_callers_tls_variables(env, monkeypatch, capsys):
+    """Docker 29.8.2 reports `<IN MEMORY>` as the storage path of the default context built from DOCKER_HOST and
+    DOCKER_TLS_VERIFY/DOCKER_CERT_PATH; there is no `<IN MEMORY>/docker` directory, the variables are the material."""
+    named_context(env, monkeypatch, tlspath="<IN MEMORY>")
+    monkeypatch.setenv("DOCKER_CERT_PATH", "/my/certs")
+    monkeypatch.setenv("DOCKER_TLS_VERIFY", "1")
+    state = json.loads(_engine.installed_path().read_text())
+    state["docker_contexts"] = [f"tlsctx {ENDPOINT}"]
+    _engine.installed_path().write_text(json.dumps(state))
+    assert main(["engine", "down", "--yes"]) == 0
+    capsys.readouterr()
+    (down,) = [c for c in calls(env["log"]) if c["argv"][:1] == ["compose"] and "down" in c["argv"]]
+    assert down["cert_path"] == "/my/certs" and down["tls_verify"] == "1"
 
 
 def test_an_upgrade_that_cannot_identify_the_daemon_is_refused_even_when_the_probe_would_be_empty(
@@ -324,3 +343,51 @@ def test_up_refuses_a_partial_stack_instead_of_mixing_start_and_create(env, monk
     assert main(["engine", "up"]) == 1
     out = capsys.readouterr()
     assert compose_verbs(env) == [] and "gateway" in out.err + out.out
+
+
+# --- the daemon's own id is part of its identity ------------------------------------------------------------
+
+def record_daemons(entries):
+    state = json.loads(_engine.installed_path().read_text())
+    state["docker_contexts"] = entries
+    _engine.installed_path().write_text(json.dumps(state))
+
+
+def test_a_recorded_daemon_id_that_matches_lets_a_purge_proceed(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    record_daemons(["default unix:///var/run/docker.sock id=AAA"])
+    configure(env, monkeypatch, "ok", "ours", "none")
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0
+    capsys.readouterr()
+    assert [c for c in calls(env["log"]) if c["argv"][:2] == ["volume", "rm"]]
+
+
+def test_another_daemon_behind_the_same_endpoint_is_not_the_recorded_one(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    record_daemons(["default unix:///var/run/docker.sock id=AAA"])
+    configure(env, monkeypatch, "ok", "none", "none")  # the replacement daemon is empty
+    monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")
+    assert main(["engine", "uninstall", "--purge", "--yes"]) != 0
+    capsys.readouterr()
+    assert (env["home"] / "engine" / "engine.env").exists(), "credentials the original daemon still needs were deleted"
+
+
+def test_a_record_without_a_daemon_id_accepts_the_same_endpoint_and_gains_the_id(env, monkeypatch, capsys):
+    synthetic(env, [A], A)  # recorded "default unix:///var/run/docker.sock" by an earlier SDK
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    assert json.loads(_engine.installed_path().read_text())["docker_contexts"] == [
+        "default unix:///var/run/docker.sock id=AAA"]
+
+
+def test_a_same_version_tls_upgrade_on_a_different_daemon_is_refused_and_rolled_back(env, monkeypatch, key, capsys):
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    path, before = tls_upgrade(env, monkeypatch, key)
+    monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # a valid pin, to a daemon that runs nothing
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", "[]")
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    assert _engine.current_install()["tls"] is False and path.read_bytes() == before

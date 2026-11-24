@@ -157,7 +157,7 @@ def _dry(args) -> bool:
     return bool(getattr(args, "engine_dry_run", False) or getattr(args, "dry_run", False))
 
 
-_PINS: List[Dict[str, str]] = []
+_PINS: List[Tuple[Dict[str, str], List[str]]] = []
 
 
 def _runner():
@@ -174,7 +174,9 @@ def _runner():
             if _PINS:
                 for name in ("DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
                     env.pop(name, None)
-                env.update(_PINS[-1])
+                pin_env, pin_args = _PINS[-1]
+                env.update(pin_env)
+                argv = [argv[0], *pin_args, *argv[1:]]  # global flags come before the subcommand
             kw["env"] = env
         return subprocess.run(argv, **kw)
     return run
@@ -189,7 +191,7 @@ def _pinned(identity: Optional[str]) -> Iterator[None]:
     if not pin:
         yield
         return
-    _PINS.append(dict(pin))
+    _PINS.append((dict(pin), list(getattr(identity, "pin_args", []))))
     try:
         yield
     finally:
@@ -435,7 +437,7 @@ def _daemon_check(state: Dict[str, Any], need_record: bool) -> Tuple[Optional[st
         if here is None:
             return None, ["could not tell which Docker daemon this is, so nothing can be pinned to it"]
         return here, []
-    if here is None or set(recorded) != {here}:
+    if here is None or not all(_install_mod.daemon_matches(entry, here) for entry in recorded):
         return None, ["the Docker daemon is not the one this install used (it used "
                       f"{', '.join(recorded)}; now {here or 'unknown'}), so a probe here says nothing about "
                       "its volumes"]
@@ -693,6 +695,7 @@ def _install(args, upgrading: bool) -> int:
     uses_compose_before = any(isinstance(r, dict) and r.get("compose")
                               for r in (_engine.load_state().get("installs") or {}).values())
     opts.make_current = not upgrading and not uses_compose_before
+    daemons_before = list(_engine.load_state().get("docker_contexts") or [])
     log = (lambda line: None) if as_json else print
     portal = _inst.portal(opts.platform_url)
     used_up = f"this install code is now used up; get a new one at {portal} and run the command it shows"
@@ -758,7 +761,7 @@ def _install(args, upgrading: bool) -> int:
         return _ux.fail(str(exc), fix=fix)
     except RuntimeError as exc:  # --tls without openssl
         return _ux.fail(str(exc), fix="install openssl, or install without --tls")
-    stop_code = _settle(opts, record, previous, upgrading, log, previous_compose)
+    stop_code = _settle(opts, record, previous, upgrading, log, previous_compose, daemons_before)
     if stop_code is not None:
         return stop_code
     if as_json:
@@ -772,7 +775,7 @@ def _install(args, upgrading: bool) -> int:
 
 
 def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
-            previous_compose: Optional[bytes] = None) -> Optional[int]:
+            previous_compose: Optional[bytes] = None, daemons_before: Optional[List[str]] = None) -> Optional[int]:
     """After an install or upgrade wrote ``record``: decide, under the install lock and from what actually runs,
     which release is current, and restart onto ``record`` when an upgrade (or a TLS change) needs it. Current is
     what runs. Anything docker cannot establish (an error, an engine that matches no install, two installs that fit)
@@ -782,13 +785,13 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
 
     try:
         with _inst.engine_lock(opts.env):
-            return _settle_locked(opts, record, previous, upgrading, log, previous_compose)
+            return _settle_locked(opts, record, previous, upgrading, log, previous_compose, daemons_before or [])
     except _engine.StateUnreadable as exc:
         return _ux.fail(f"{exc}; engine {record['version']} was installed but not made current", fix=exc.fix)
 
 
 def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
-                   previous_compose: Optional[bytes]) -> Optional[int]:
+                   previous_compose: Optional[bytes], daemons_before: List[str]) -> Optional[int]:
     """The body of :func:`_settle`, run under the install lock."""
     from briefcase import engine as _engine
     from briefcase.engine import install as _inst
@@ -820,6 +823,14 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
         restore()
         return _ux.fail("could not tell which Docker daemon this is, so what runs could not be checked and engine "
                         f"{record['version']} was installed but not made current", fix="briefcase-ai engine doctor")
+    if (upgrading or tls_differs) and daemons_before \
+            and not all(_inst.daemon_matches(entry, daemon) for entry in daemons_before):
+        restore()  # the install already added this daemon to the history: it is not the one that ran the old engine
+        was = (previous or {}).get("version", "the old release")
+        return _ux.fail(f"the Docker daemon is not the one engine {was} ran on (it ran on "
+                        f"{', '.join(daemons_before)}; now {daemon}), so what runs there could not be checked and "
+                        f"engine {record['version']} was installed but not made current",
+                        fix="briefcase-ai engine doctor")
     try:
         with _pinned(daemon):  # what runs is read on the daemon the restart would use
             status, running, why = running_releases()

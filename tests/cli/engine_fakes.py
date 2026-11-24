@@ -425,6 +425,9 @@ import hashlib, json, os, sys, tarfile
 tool = os.path.basename(sys.argv[0])
 args = sys.argv[1:]
 pin_context = None
+tls_flags = []
+while args[:1] and (args[0] == "--tls" or args[0].startswith(("--tlscacert=", "--tlscert=", "--tlskey="))):
+    tls_flags.append(args[0]); args = args[1:]  # global flags the SDK puts before the subcommand
 if args[:1] == ["--context"]:  # the global flag outranks DOCKER_HOST and DOCKER_CONTEXT
     pin_context, args = args[1], args[2:]
 log = os.environ["FAKE_DOCKER_LOG"]
@@ -462,6 +465,7 @@ def record(stdin=""):
                             "tls_verify": os.environ.get("DOCKER_TLS_VERIFY"),
                             "tls": os.environ.get("DOCKER_TLS"),
                             "cert_path": os.environ.get("DOCKER_CERT_PATH"),
+                            "tls_flags": tls_flags,
                             "orphans": compose_orphans()}) + "\n")
 
 def blob(tar, names, digest):
@@ -535,6 +539,8 @@ for spec in (os.environ.get("FAKE_DOCKER_FAIL") or "").split(","):
     parts = spec.split()
     if parts and args[:1] == parts[:1] and all(p in args for p in parts[1:]):
         sys.stderr.write("simulated failure: " + spec + "\n"); sys.exit(1)
+if args[:1] == ["info"]:  # the daemon's own id, as `docker info --format {{.ID}}` prints it
+    print(os.environ.get("FAKE_DOCKER_ID", "")); sys.exit(0)
 if args[:1] == ["version"]:
     if os.environ.get("FAKE_DOCKER_DOWN"):
         sys.stderr.write("Cannot connect to the Docker daemon\n"); sys.exit(1)
