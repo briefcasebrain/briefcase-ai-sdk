@@ -319,3 +319,13 @@ def test_guardrail_adapter_speaks_the_framework_types(home, project):
     logged = audit.evaluate(EvalRequest("claude-code", "shell", "rm -rf /"))
     assert logged.effect is Effect.ALLOW
     assert logged.metadata["violation_mode"] == "audit" and logged.metadata["original_effect"] == "deny"
+
+
+def test_a_symlinked_directory_before_a_parent_component_resolves_the_way_the_kernel_does(decide, home, project):
+    """`<project>/link/../notes.txt` with link -> ~/.ssh/deep opens ~/.ssh/notes.txt: `..` applies after the link is
+    followed, not to the spelling (which would give <project>/notes.txt)."""
+    (home / ".ssh" / "deep").mkdir(parents=True)
+    (home / ".ssh" / "notes.txt").write_text("KEY")
+    (project / "notes.txt").write_text("harmless")
+    (project / "link").symlink_to(home / ".ssh" / "deep")
+    assert decide(f"{project}/link/../notes.txt").rule_id == "secrets.files"

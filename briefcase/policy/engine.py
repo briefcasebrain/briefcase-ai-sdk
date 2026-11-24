@@ -244,12 +244,15 @@ def path_forms(path, cwd=None, home=None):
     if lexical.startswith("//"):          # POSIX keeps exactly two leading slashes; it is still "/"
         lexical = "/" + lexical.lstrip("/")
     forms = [lexical]
-    try:
-        real = os.path.realpath(lexical)
-    except (OSError, ValueError):
-        real = lexical
-    if real != lexical:
-        forms.append(real)
+    # The kernel follows each symlink before it applies the `..` after it, so the spelling as written is resolved as
+    # it stands (`link/../x` is next to link's target), not only after `..` was folded away lexically.
+    for spelling in (text, lexical):
+        try:
+            real = os.path.realpath(spelling)
+        except (OSError, ValueError):
+            real = lexical
+        if real not in forms:
+            forms.append(real)
     return forms
 
 
