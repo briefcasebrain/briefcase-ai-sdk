@@ -812,3 +812,59 @@ def test_a_canary_volume_replaced_after_it_was_checked_is_not_removed(env, monke
     survivors = [name for name, labels in docker_state(env["log"]).get("volumes", {}).items()
                  if labels.get("ai.briefcase.watch") == "someone-else"]
     assert survivors, "the replacement volume was deleted"
+
+
+def _watch_with(events, alive, monkeypatch):
+    """A DestroyWatch whose subscription already delivered ``events``; ``alive`` is what `docker ps -a` answers once the
+    final canary came back."""
+    watch = engine_commands.DestroyWatch()
+
+    class Proc:
+        def terminate(self): ...
+        def wait(self, timeout=None): ...
+
+    watch.proc = Proc()  # type: ignore[assignment]
+    monkeypatch.setattr(watch, "_canary", lambda: True)
+    watch.events = list(events)
+    return watch.finish(lambda: set(alive))
+
+
+def container_event(action, ident, name="briefcase-engine-x-1", project="briefcase-engine", oneoff=None):
+    attrs = {"name": name, "com.docker.compose.project": project}
+    if oneoff is not None:
+        attrs["com.docker.compose.oneoff"] = oneoff
+    return {"Type": "container", "Action": action, "Actor": {"ID": ident, "Attributes": attrs}}
+
+
+def test_a_live_one_off_container_is_not_reported_as_lost(monkeypatch):
+    names, observed = _watch_with([container_event("create", "o1", oneoff="True")], [], monkeypatch)
+    assert names == [] and observed
+
+
+def test_a_container_created_after_the_start_began_is_alive_in_the_final_inventory(monkeypatch):
+    # the inventory is taken after the last canary came back, so a container created late is in it
+    names, observed = _watch_with([container_event("create", "late")], ["late"], monkeypatch)
+    assert names == [] and observed
+
+
+def test_the_watch_retains_only_create_and_destroy_events_of_the_engine_project():
+    import io
+
+    watch = engine_commands.DestroyWatch()
+    noise = [container_event("start", f"c{i}") for i in range(300)] + [
+        container_event("create", "other", project="someone-elses"), container_event("create", "oo", oneoff="True")]
+    wanted = [container_event("create", "a"), container_event("destroy", "a")]
+
+    class Proc:
+        stdout = io.StringIO("".join(json.dumps(e) + "\n" for e in noise + wanted))
+
+    watch.proc = Proc()  # type: ignore[assignment]
+    watch._read()
+    assert watch.events == wanted
+
+
+def test_confirmation_tokens_need_the_answer_that_earns_them():
+    assert isinstance(engine_commands._mint("Go ahead?", True), engine_commands.Confirmed)
+    for answer in (False, None):
+        with pytest.raises(PermissionError):
+            engine_commands._mint("Go ahead?", answer)

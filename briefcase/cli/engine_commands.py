@@ -27,7 +27,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 from briefcase.cli import _ux
 
@@ -416,8 +416,10 @@ class Confirmed:
         self.what = what
 
 
-def _mint(question: str) -> Confirmed:
-    """The one place a confirmation token is made, after a yes."""
+def _mint(question: str, answer: Optional[bool]) -> Confirmed:
+    """The one place a confirmation token is made, and only for a yes: anything else raises."""
+    if answer is not True:
+        raise PermissionError("a confirmation token needs the answer yes")
     return Confirmed(question, Confirmed._key)
 
 
@@ -430,7 +432,7 @@ def _authorize(args, question: str, flag_fix: str) -> Tuple[Optional[Confirmed],
     if not answer:
         return None, _ux.fail("not deleting anything without confirmation", fix=flag_fix,
                               code=2 if answer is None else 1)
-    return _mint(question), 0
+    return _mint(question, answer), 0
 
 
 @dataclass
@@ -771,7 +773,7 @@ def _install(args, upgrading: bool) -> int:
     if previous and manifest is not None and previous.get("version") == manifest.version and not upgrading:
         log(f"engine {manifest.version} is already installed; re-checking files and images")
     answer = _ux.confirm("Go ahead?", assume_yes=bool(getattr(args, "yes", False)))
-    confirmed = _mint("Go ahead?") if answer else None
+    confirmed = _mint("Go ahead?", answer) if answer else None
     if answer is None:
         return _ux.fail("installing the engine needs confirmation",
                         fix="re-run with --yes (or --dry-run to only look)", code=2)
@@ -1334,9 +1336,18 @@ class DestroyWatch:
                         volumes = [e for e in self.events if e.get("Type") == "volume"]
                         if len(volumes) > self.KEEP_VOLUME_EVENTS:
                             self.events.remove(volumes[0])
-                elif event.get("Type") == "container" and (
-                        (event.get("Actor") or {}).get("Attributes") or {}).get("com.docker.compose.project"):
-                    self.events.append(event)  # the engine project's containers only (other projects' are noise)
+                elif self._engine_container(event) and event.get("Action") in ("create", "destroy"):
+                    self.events.append(event)  # only what the final comparison uses
+
+    @staticmethod
+    def _engine_container(event: Dict[str, Any]) -> bool:
+        """A container of the engine's own Compose project that is not a `compose run` one-off (those are not part of
+        the stack and not in the inventory it is compared with)."""
+        from briefcase.engine import compose as engine_compose
+
+        attrs = (event.get("Actor") or {}).get("Attributes") or {}
+        return (event.get("Type") == "container" and attrs.get("com.docker.compose.project") == engine_compose.PROJECT
+                and str(attrs.get("com.docker.compose.oneoff", "False")).lower() != "true")
 
     def _name(self, event: Dict[str, Any]) -> str:
         """The object's name: a volume event carries it as ``Actor.ID`` (Docker 29.8.2), a container event as the
@@ -1406,23 +1417,21 @@ class DestroyWatch:
             except subprocess.TimeoutExpired:
                 self.proc.kill()
 
-    def finish(self, alive: Optional[Set[str]]) -> Tuple[List[str], bool]:
+    def finish(self, inventory: Callable[[], Optional[Set[str]]]) -> Tuple[List[str], bool]:
         """``(names of the engine's containers that were removed, observed)``. Events can be dropped for a slow
         subscriber, so they are not trusted alone: a container the events announced and that is neither alive in
         ``alive`` (``docker ps -a``) nor reported destroyed was removed without its event, and a container alive
         with no announcement means a creation event was dropped (so the observation is incomplete). ``observed`` is
         true only when a second canary came back and the two views agree about what exists."""
-        from briefcase.engine import compose as engine_compose
-
         if self.proc is None:
             return [], False
-        observed = self._canary() and alive is not None
+        # The inventory is taken after the last canary came back: every event up to that point has been delivered, so
+        # a container created late is in it and one removed late is not.
+        observed = self._canary()
+        alive = inventory()
+        observed = observed and alive is not None
         self.stop()
-
-        def mine(event: Dict[str, Any]) -> bool:
-            attrs = (event.get("Actor") or {}).get("Attributes") or {}
-            return (event.get("Type") == "container"
-                    and attrs.get("com.docker.compose.project") == engine_compose.PROJECT)
+        mine = self._engine_container
 
         with self._lock:
             created = {str((e.get("Actor") or {}).get("ID")): self._name(e) for e in self.events
@@ -1536,7 +1545,7 @@ def cmd_up(args, store, engine, stack) -> int:
                                     "nothing was started", fix="briefcase-ai engine doctor")
             rc = _rc(_run(command))
             if creating:
-                removed, observed = watch.finish(project_container_ids())
+                removed, observed = watch.finish(project_container_ids)
                 if removed:
                     return _ux.fail(f"Compose removed {', '.join(removed)} while starting the engine (another Compose "
                                     "client was creating containers for this project at the same time); its "
