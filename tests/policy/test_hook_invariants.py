@@ -837,3 +837,95 @@ def test_the_portable_command_blocks_when_the_dispatcher_module_cannot_be_import
         assert denies(tool, code, out.getvalue()), (code, out.getvalue())
     else:  # not enforcing strictly: the hook cannot judge, and does not block
         assert code == 0 and not denies(tool, code, out.getvalue() or "{}")
+
+
+# --- class B: one validator for every host and event kind ---------------------------------------------------------
+
+def _events(tool, project, **loc):
+    """Complete, judged events of every kind the host sends, as ``{name: payload}``; ``loc`` overrides where the
+    event says it runs (cwd, workspace_roots)."""
+    where = {"cwd": str(project), **loc}
+    read = str(project / "notes.txt")
+    if tool == "cursor":
+        roots = {"workspace_roots": loc.get("workspace_roots", [str(project)])}
+        base = {"conversation_id": "c", "generation_id": "g", "model": "m", "cursor_version": "1",
+                "transcript_path": None, **roots, "cwd": where["cwd"]}
+
+        def event(**fields):
+            return dict(base, **fields)
+
+        return {
+            "shell": event(hook_event_name="beforeShellExecution", command="echo hi"),
+            "mcp": event(hook_event_name="beforeMCPExecution", mcp_server_name="srv", tool_name="run"),
+            "read": event(hook_event_name="beforeReadFile", file_path=read),
+            "pre_write": event(hook_event_name="preToolUse", tool_name="Write", tool_input={"file_path": read}),
+            "pre_read": event(hook_event_name="preToolUse", tool_name="Read", tool_input={"file_path": read}),
+            "pre_shell": event(hook_event_name="preToolUse", tool_name="Shell", tool_input={"command": "echo hi"}),
+            "pre_mcp": event(hook_event_name="preToolUse", tool_name="mcp__srv__run", tool_input={}),
+            "pre_web": event(hook_event_name="preToolUse", tool_name="WebFetch",
+                             tool_input={"url": "https://example.com/x"}),
+        }
+    base = {"session_id": "s", "transcript_path": None, "cwd": where["cwd"], "hook_event_name": "PreToolUse",
+            "tool_use_id": "t"}
+
+    def event(tool_name, tool_input):
+        return dict(base, tool_name=tool_name, tool_input=tool_input)
+
+    out = {
+        "bash": event("Bash", {"command": "echo hi"}),
+        "mcp": event("mcp__srv__run", {}),
+        "write": event("Write", {"file_path": read}),
+    }
+    if tool == "codex":
+        out["patch"] = event("apply_patch", {"command": PATCH})
+    else:
+        out["read"] = event("Read", {"file_path": read})
+        out["web"] = event("WebFetch", {"url": "https://example.com/x"})
+        out["search"] = event("WebSearch", {"query": "x"})
+    return out
+
+
+def _observe(home):
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "observe"\n')
+
+
+MISSING = {"missing": {"cwd": None, "workspace_roots": []},
+           "relative": {"cwd": "sub/dir", "workspace_roots": ["rel/root"]}}
+B_COMBOS = [(t, k, m) for t in TOOLS for k in _events(t, __import__("pathlib").Path("/p")) for m in MISSING]
+
+
+@pytest.mark.parametrize("tool, kind, missing", B_COMBOS, ids=[f"{t}-{k}-{m}" for t, k, m in B_COMBOS])
+@pytest.mark.parametrize("entry", ["module", "launcher"])
+def test_a_strict_hook_denies_every_judged_event_that_does_not_say_where_it_runs(
+        home, project, monkeypatch, tool, kind, missing, entry):
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    monkeypatch.delenv("CURSOR_PROJECT_DIR", raising=False)
+    _observe(home)
+    body = _events(tool, project, **MISSING[missing])[kind]
+    code, raw = run_entry(entry, tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), f"{tool} {kind} with {missing} location was allowed: {code} {raw!r}"
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+@pytest.mark.parametrize("entry", ["module", "launcher"])
+def test_the_complete_events_the_validator_checks_are_allowed(home, project, tool, entry):
+    _observe(home)
+    for kind, body in _events(tool, project).items():
+        code, raw = run_entry(entry, tool, ["--fail-closed"], body, home)
+        assert not denies(tool, code, raw), f"{tool} {kind} is complete but was denied: {code} {raw!r}"
+
+
+BAD_URLS = ["relative/path", "example.com/x", "https://", "file:///etc/passwd", "//example.com/x", "http:///x",
+            "https:// ", "https://@/x", "https://:443/x", "javascript:alert(1)"]
+
+
+@pytest.mark.parametrize("url", BAD_URLS)
+@pytest.mark.parametrize("tool", ["claude-code", "cursor"])
+@pytest.mark.parametrize("entry", ["module", "launcher"])
+def test_a_strict_hook_denies_a_url_without_a_scheme_and_an_authority(home, project, tool, url, entry):
+    _observe(home)
+    body = _events(tool, project)["pre_web" if tool == "cursor" else "web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry(entry, tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), f"{url!r} was allowed: {code} {raw!r}"

@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 from briefcase.policy.engine import ToolCall
 
@@ -136,10 +137,8 @@ def _tool_call(tool, tool_name, tool_input, cwd, common):
         return ToolCall("write", tool, tool_name, paths=[path], cwd=cwd, defect=_path_defect([path], cwd), **common)
     if tool_name == "WebFetch":
         url = _text(tool_input.get("url"))
-        from briefcase.policy.engine import host_of  # the host a rule is matched against
-
-        defect = None if url and host_of(url) else "WebFetch names no URL, or one with no host to judge"
-        return ToolCall("web", tool, tool_name, url=url, cwd=cwd, defect=defect, **common)
+        return ToolCall("web", tool, tool_name, url=url, cwd=cwd, defect=None if url else "WebFetch names no URL",
+                        **common)
     if tool_name == "WebSearch":
         return ToolCall("web", tool, tool_name, url=None, cwd=cwd, **common)
     if not tool_name:
@@ -173,6 +172,44 @@ def patch_paths(patch):
 
 
 def parse(tool, payload):
+    """The tool call a hook payload describes, checked by :func:`validate` whatever host and event it came from."""
+    return validate(_parse(tool, payload))
+
+
+def _absolute_url_problem(url):
+    """Why ``url`` is not an absolute URL with an authority (``None`` when it is). Judged the way a URL parser reads it,
+    not by guessing at a host: a rule about hosts has nothing to match on a relative string."""
+    from urllib.parse import urlsplit
+
+    try:
+        parts = urlsplit(url.strip())
+        host = parts.hostname
+    except ValueError:
+        return "it does not parse"
+    if not parts.scheme or not re.match(r"^[A-Za-z][A-Za-z0-9+.-]*$", parts.scheme):
+        return "it has no scheme"
+    if not host:
+        return "it has no host"
+    return None
+
+
+def validate(call):
+    """The checks every judged call passes in strict mode, whatever the host and the event: the hook input says where
+    it runs (an absolute working directory or project directory, which is also where project policy is found), and a
+    URL is absolute with a scheme and an authority. A problem becomes ``call.defect``, which fail-closed mode denies."""
+    if call.kind in ("invalid", "other") or call.defect:
+        return call
+    if not any(d and os.path.isabs(d) for d in (call.project_dir, call.cwd)):
+        call.defect = "no absolute working directory or project directory in the hook input, so project policy " \
+                      "cannot be found"
+    elif call.kind == "web" and call.tool_name == "WebFetch":
+        problem = _absolute_url_problem(call.url or "")
+        if problem:
+            call.defect = f"WebFetch names a URL that is not absolute with an authority ({problem})"
+    return call
+
+
+def _parse(tool, payload):
     """The tool call a hook payload describes. A tool this policy does not cover is kind ``other`` (never judged); input
     that is incomplete or not what the host documents is kind ``invalid``, which fail-closed mode denies."""
     if not isinstance(payload, dict):
@@ -216,8 +253,6 @@ def parse(tool, payload):
     call = _claude_codex_call(tool, payload, common)
     if not event and call.kind != "invalid" and not call.defect:
         call.defect = "the hook input names no event"
-    if call.kind not in ("invalid", "other") and not call.defect and not (call.project_dir or call.cwd):
-        call.defect = "no working directory or project directory in the hook input, so project policy cannot be found"
     return call
 
 
