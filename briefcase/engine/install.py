@@ -838,16 +838,21 @@ def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = No
     ``None`` when it cannot be established."""
     env = os.environ if env is None else env
     try:
-        # Docker's own precedence: DOCKER_CONTEXT overrides DOCKER_HOST, which overrides the default context.
-        if env.get("DOCKER_CONTEXT"):
-            context = env["DOCKER_CONTEXT"]
-            host = ""
+        # Docker 29's actual precedence (checked against the installed CLI): DOCKER_HOST over DOCKER_CONTEXT over the
+        # active context. With DOCKER_HOST set, `docker context show` itself reports the default context.
+        if env.get("DOCKER_HOST"):
+            host = env["DOCKER_HOST"]
+            name = runner(["docker", "context", "show"], capture_output=True, text=True)
+            context = (name.stdout or "").strip() if getattr(name, "returncode", 1) == 0 else ""
+            context = context or "default"
+        elif env.get("DOCKER_CONTEXT"):
+            context, host = env["DOCKER_CONTEXT"], ""
         else:
             name = runner(["docker", "context", "show"], capture_output=True, text=True)
             if getattr(name, "returncode", 1) != 0:
                 return None
             context = (name.stdout or "").strip() or "default"
-            host = env.get("DOCKER_HOST") or ""
+            host = ""
         if not host:
             info = runner(["docker", "context", "inspect", context, "--format", "{{.Endpoints.docker.Host}}"],
                           capture_output=True, text=True)
@@ -859,11 +864,12 @@ def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = No
         return None
 
 
-def note_daemon(runner=subprocess.run, env: Optional[Mapping[str, str]] = None) -> Optional[str]:
+def note_daemon(runner=subprocess.run, env: Optional[Mapping[str, str]] = None,
+                identity: Optional[str] = None) -> Optional[str]:
     """Record, under the install lock and before anything that can create a volume runs, which Docker daemon is
     about to hold them, and return that identity so the caller can run Compose against exactly it. ``None`` (nothing
     recorded, nothing may start) when the daemon cannot be identified."""
-    identity = docker_identity(runner, env)
+    identity = identity or docker_identity(runner, env)
     if identity is None:
         return None
     state = _engine.load_state_strict(env)

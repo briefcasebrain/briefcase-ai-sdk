@@ -203,8 +203,8 @@ def test_destructive_calls_are_bound_to_the_verified_daemon(env, monkeypatch, ca
     destructive = [c for c in calls(env["log"]) if c["argv"][:2] in (["volume", "rm"], ["image", "rm"])
                    or (c["argv"][:1] == ["compose"] and "down" in c["argv"])]
     assert destructive, "the purge should have run"
-    assert all(c["host"] == "ssh://elsewhere" and c["context"] is None for c in destructive), \
-        "a destructive call was not pinned to the verified daemon's endpoint"
+    assert all(c["context"] == "remote" for c in destructive), \
+        "a destructive call was not pinned to the verified daemon's context"
 
 
 # --- D4: the daemon is recorded before the first operation that can create a volume ----------------
@@ -329,6 +329,7 @@ def test_no_internal_delete_path_runs_without_a_confirmed_token(env, monkeypatch
                  lambda: engine_commands._remove_install(A, True, False, None),
                  lambda: engine_commands._remove_install(None, True, False, None),
                  lambda: engine_commands.teardown(record, True, None),
+                 lambda: engine_commands.teardown(record, False, None),
                  lambda: engine_commands.remove_engine_volumes(None)):
         with pytest.raises(TypeError):
             call()
@@ -369,32 +370,73 @@ def compose_ups(env):
     return [c for c in calls(env["log"]) if c["argv"][:1] == ["compose"] and "up" in c["argv"]]
 
 
-def test_up_runs_compose_against_the_daemon_it_recorded_and_never_removes_orphans(env, monkeypatch, capsys):
+def test_up_runs_every_step_against_the_daemon_it_recorded_and_changes_nothing_that_exists(env, monkeypatch, capsys):
     synthetic(env, [A], A)
     configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("DOCKER_CONTEXT", "default")  # an environment context must not decide where compose runs
+    monkeypatch.setenv("COMPOSE_REMOVE_ORPHANS", "true")  # the caller's setting must not reach our compose call
+    seen = []
+    from briefcase.cli import engine_commands
+
+    real = subprocess_run = engine_commands.subprocess.run
+
+    def spy(argv, **kw):
+        if argv[:2] == ["docker", "compose"] or "--context" in argv:
+            seen.append((list(argv), (kw.get("env") or {}).get("COMPOSE_REMOVE_ORPHANS")))
+        return real(argv, **kw)
+
+    monkeypatch.setattr(engine_commands.subprocess, "run", spy)
     assert main(["engine", "up"]) == 0
     capsys.readouterr()
+    del subprocess_run
     (up,) = compose_ups(env)
-    assert up["host"] == "unix:///var/run/docker.sock" and up["context"] is None
-    assert "--remove-orphans" not in up["argv"], "up removes containers without asking"
+    assert up["context"] == "default", "compose ran on the active context, not the one that was identified"
+    assert "--no-recreate" in up["argv"] and "--remove-orphans" not in up["argv"]
+    assert all(env_value is None for _, env_value in seen), "COMPOSE_REMOVE_ORPHANS reached a compose call"
+    checks = [c for c in calls(env["log"]) if c["argv"][:1] in (["volume"], ["image"], ["ps"])]
+    assert checks and all(c["context"] == "default" for c in checks), "a start check ran before the pin"
 
 
-def test_docker_identity_ranks_docker_context_above_docker_host():
+def test_docker_identity_follows_the_precedence_the_docker_cli_has():
+    """Checked against Docker 29.8.2: DOCKER_HOST wins over DOCKER_CONTEXT, and `context show` then says default."""
     from briefcase.engine import install as _install_mod
 
     asked = []
 
     def runner(argv, **kw):
         asked.append(argv)
-        out = {"show": "ignored\n", "inspect": "ssh://from-context\n"}[argv[2]]
+        out = {"show": "default\n", "inspect": "ssh://from-context\n"}[argv[2]]
         return type("R", (), {"returncode": 0, "stdout": out, "stderr": ""})()
 
     both = {"DOCKER_CONTEXT": "work", "DOCKER_HOST": "tcp://from-host:2375"}
-    assert _install_mod.docker_identity(runner, both) == "work ssh://from-context"
+    assert _install_mod.docker_identity(runner, both) == "default tcp://from-host:2375"
+    asked.clear()
+    assert _install_mod.docker_identity(runner, {"DOCKER_CONTEXT": "work"}) == "work ssh://from-context"
     assert ["docker", "context", "inspect", "work", "--format", "{{.Endpoints.docker.Host}}"] in asked
-    assert _install_mod.docker_identity(runner, {"DOCKER_HOST": "tcp://from-host:2375"}).endswith(
-        "tcp://from-host:2375")
+
+
+def test_a_context_pin_is_the_context_itself_so_tls_material_stays(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    state = json.loads(_engine.installed_path().read_text())
+    state["docker_contexts"] = ["tlsctx tcp://remote:2376"]
+    _engine.installed_path().write_text(json.dumps(state))
+    configure(env, monkeypatch, "ok", "ours", "A", context="other")
+    monkeypatch.setenv("FAKE_DOCKER_CONTEXT", "tlsctx")
+    monkeypatch.setenv("FAKE_DOCKER_HOST", "tcp://remote:2376")
+    main(["engine", "uninstall", "--purge", "--yes"])
+    capsys.readouterr()
+    pinned = [c for c in calls(env["log"]) if c["argv"][:2] in (["volume", "rm"], ["image", "rm"])]
+    assert pinned and all(c["context"] == "tlsctx" and c["host"] is None for c in pinned)
+
+
+def test_plain_down_refuses_a_daemon_the_record_does_not_name(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    state = json.loads(_engine.installed_path().read_text())
+    state["docker_contexts"] = []
+    _engine.installed_path().write_text(json.dumps(state))
+    configure(env, monkeypatch, "ok", "ours", "A")
+    assert main(["engine", "down", "--yes"]) == 1
+    capsys.readouterr()
+    assert removals(env) == []
 
 
 @pytest.mark.parametrize("command", [["engine", "down"], ["engine", "down", "--volumes"]])
@@ -433,3 +475,69 @@ def test_the_install_dry_run_hint_does_not_print_the_install_code(env, capsys):
     main(["engine", "install", "--code", "bci_SENTINEL1234567", "--dry-run"])
     captured = capsys.readouterr()
     assert "bci_SENTINEL1234567" not in captured.out + captured.err
+
+
+# --- round 11 --------------------------------------------------------------------------------
+
+def test_an_ordinary_uninstall_of_a_record_with_no_history_keeps_the_history_for_the_next_purge(
+        env, monkeypatch, capsys):
+    synthetic(env, [A, B], A)
+    state = json.loads(_engine.installed_path().read_text())
+    state.pop("compose_used")
+    state["installs"][B]["compose"] = None  # B is client-only; A, the current release, ran a stack
+    _engine.installed_path().write_text(json.dumps(state))
+    configure(env, monkeypatch, "ok", "ours", "none")
+    assert main(["engine", "uninstall", "--yes"]) == 0
+    capsys.readouterr()
+    after = json.loads(_engine.installed_path().read_text())
+    assert after["compose_used"] is True and list(after["installs"]) == [B]
+    # The volumes may exist, so the purge removes them (on the recorded daemon) before it deletes the secrets.
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0
+    capsys.readouterr()
+    assert [a for a in removals(env) if a[:2] == ["volume", "rm"]]
+    assert not (env["home"] / "engine" / "engine.env").exists()
+
+
+def tls_upgrade(env, monkeypatch, key):
+    import pathlib
+    import shutil
+
+    if shutil.which("openssl") is None:
+        pytest.skip("needs openssl")
+    assert _install("--code", "bci_good") == 0
+    record = _engine.current_install()
+    path = pathlib.Path(record["compose"])
+    before = path.read_bytes()
+    rows = [["oci-jj-server", record["image_ids"]["server"], record["compose"]]]
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))
+    env["platform"].release = build_release(key, version=record["version"])
+    return path, before
+
+
+def test_a_state_error_raised_during_the_restart_still_rolls_the_transport_back(env, monkeypatch, key, capsys):
+    from briefcase.engine import install as _install_mod
+
+    path, before = tls_upgrade(env, monkeypatch, key)
+
+    def boom(*args, **kwargs):
+        raise _engine.StateUnreadable("simulated")
+
+    monkeypatch.setattr(_install_mod, "note_daemon", boom)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    assert _engine.current_install()["tls"] is False and path.read_bytes() == before
+
+
+def test_the_rollback_does_not_rewrite_a_record_it_cannot_read(env, monkeypatch, key, capsys):
+    from briefcase.engine import install as _install_mod
+
+    tls_upgrade(env, monkeypatch, key)
+
+    def corrupt_then_fail(*args, **kwargs):
+        _engine.installed_path().write_text("{not json")
+        raise OSError("simulated")
+
+    monkeypatch.setattr(_install_mod, "note_daemon", corrupt_then_fail)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    assert _engine.installed_path().read_text() == "{not json", "rollback replaced an unreadable record from nothing"
+    assert "could not put the previous transport back" in capsys.readouterr().err

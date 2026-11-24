@@ -157,25 +157,42 @@ def _dry(args) -> bool:
     return bool(getattr(args, "engine_dry_run", False) or getattr(args, "dry_run", False))
 
 
+_PINS: List[Tuple[str, str]] = []
+
+
 def _runner():
-    return subprocess.run
-
-
-_PINS: List[Dict[str, str]] = []
+    """``subprocess.run`` for docker, honouring the daemon pinned by :func:`_pinned` and never letting the caller's
+    ``COMPOSE_REMOVE_ORPHANS`` turn one of our Compose calls into a deletion."""
+    def run(argv, **kw):
+        argv = list(argv)
+        env = None
+        if argv[:2] == ["docker", "compose"] and "env" not in kw:
+            env = {k: v for k, v in os.environ.items() if k != "COMPOSE_REMOVE_ORPHANS"}
+        if _PINS and argv[:1] == ["docker"]:
+            kind, value = _PINS[-1]
+            if kind == "host":  # the environment chose the daemon (DOCKER_HOST ranks above DOCKER_CONTEXT)
+                if "env" not in kw:
+                    env = {k: v for k, v in (env or os.environ).items() if k != "DOCKER_CONTEXT"}
+                    env["DOCKER_HOST"] = value
+            else:  # `--context` outranks both variables and carries the context's own TLS material
+                argv = [argv[0], "--context", value, *argv[1:]]
+        if env is not None and "env" not in kw:
+            kw["env"] = env
+        return subprocess.run(argv, **kw)
+    return run
 
 
 @contextlib.contextmanager
 def _pinned(identity: Optional[str]) -> Iterator[None]:
-    """Run every docker call inside the block against the daemon whose identity was verified: its endpoint, not the
-    name of a context (a name can be re-pointed between the check and the call). ``DOCKER_HOST`` is set to that
-    endpoint and ``DOCKER_CONTEXT``, which Docker ranks above it, is removed."""
-    host = identity.split(" ", 1)[1].strip() if identity and " " in identity else ""
-    if not host:
+    """Run every docker call inside the block against the daemon whose identity was verified. A daemon chosen by
+    ``DOCKER_HOST`` is pinned by that endpoint; one chosen by a context is pinned by ``--context`` (the context
+    itself, so a TLS context keeps its certificates)."""
+    if not identity or " " not in identity:
         yield
         return
-    env = {k: v for k, v in os.environ.items() if k != "DOCKER_CONTEXT"}
-    env["DOCKER_HOST"] = host
-    _PINS.append(env)
+    name, host = identity.split(" ", 1)
+    pin = ("host", host.strip()) if os.environ.get("DOCKER_HOST") else ("context", name)
+    _PINS.append(pin)
     try:
         yield
     finally:
@@ -183,12 +200,7 @@ def _pinned(identity: Optional[str]) -> Iterator[None]:
 
 
 def _pinned_runner():
-    """``_runner()`` with the pinned context applied, for the installer's ``Docker`` wrapper."""
-    def run(argv, **kw):
-        if _PINS and "env" not in kw:
-            kw["env"] = _PINS[-1]
-        return _runner()(argv, **kw)
-    return run
+    return _runner()
 
 
 def _local_install() -> Optional[Dict[str, Any]]:
@@ -512,7 +524,7 @@ def plan_deletion(state: Dict[str, Any], purge: bool = False, force_without_dock
                              "this one's record says it did")
     touches_docker = used and (plan.stop or plan.volumes or bool(plan.images))
     if touches_docker:
-        plan.daemon, found = _daemon_check(state, need_record=plan.mode != "stop")
+        plan.daemon, found = _daemon_check(state, need_record=True)
         plan.problems += found
     return plan
 
@@ -527,10 +539,10 @@ def teardown(record: Dict[str, Any], remove_volumes: bool, confirmed: Optional[C
     it). With ``remove_volumes``, remove only the volumes carrying this engine's label, check they are gone, and
     name any other volume of the same name that is left, with the command to remove it by hand. Non-zero when
     ``down`` failed or a labelled volume remains."""
-    if remove_volumes and not isinstance(confirmed, Confirmed):
-        raise TypeError("removing volumes needs a Confirmed token")  # before anything is stopped
+    if not isinstance(confirmed, Confirmed):
+        raise TypeError("stopping the engine removes its containers, which needs a Confirmed token")
     rc = _rc(_run(_compose(record, "down")))
-    if rc != 0 or not remove_volumes or confirmed is None:
+    if rc != 0 or not remove_volumes:
         return rc
     kept, problems = remove_engine_volumes(confirmed)
     if kept:
@@ -545,8 +557,6 @@ def _rc(result) -> int:
 
 
 def _run(argv: List[str], **kw):
-    if _PINS and "env" not in kw:
-        kw["env"] = _PINS[-1]
     try:
         return _runner()(argv, **kw)
     except FileNotFoundError:
@@ -781,13 +791,18 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
                            and bool(previous.get("tls")) != bool(record.get("tls")))
 
         def restore() -> None:
-            """The install already wrote the new transport (record and Compose file); put back what is running."""
+            """The install already wrote the new transport (record and Compose file); put back what is running. Reads
+            the state strictly: a record that cannot be read is not rewritten from nothing."""
             if tls_differs and previous:
-                fresh = _engine.load_state(opts.env)
-                fresh.setdefault("installs", {})[record["version"]] = previous
-                _inst.save_state(fresh, opts.env)
-                if previous_compose is not None and previous.get("compose") == record.get("compose"):
-                    Path(previous["compose"]).write_bytes(previous_compose)
+                try:
+                    fresh = _engine.load_state_strict(opts.env)
+                    fresh.setdefault("installs", {})[record["version"]] = previous
+                    _inst.save_state(fresh, opts.env)
+                    if previous_compose is not None and previous.get("compose") == record.get("compose"):
+                        Path(previous["compose"]).write_bytes(previous_compose)
+                except (_engine.StateUnreadable, OSError) as exc:
+                    print(f"error: could not put the previous transport back ({exc}); the engine record and the "
+                          "running server may disagree: run `briefcase-ai engine install` again", file=sys.stderr)
 
         status, running, why = running_releases()
         current = _engine.current_install(opts.env) or previous
@@ -804,19 +819,24 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
                 restore()
                 return _ux.fail(f"engine {(others or running)[0]} is running and {record['version']} was installed "
                                 "without images, so it cannot take over", fix="briefcase-ai engine down")
-            stop = guard_start(record)
-            if stop is not None:
+            try:
+                daemon = _inst.docker_identity(_runner(), opts.env)
+                if daemon is None:
+                    restore()
+                    return _ux.fail("could not tell which Docker daemon this is, so the engine was not restarted",
+                                    fix="briefcase-ai engine doctor")
+                with _pinned(daemon):  # the checks, the record and the start all reach the same daemon
+                    stop = guard_start(record)
+                    if stop is not None:
+                        restore()
+                        return stop
+                    _inst.note_daemon(_runner(), opts.env, identity=daemon)  # before compose can create a volume
+                    log(f"restarting onto {record['version']}" + (" (TLS changed) " if tls_changed else " ")
+                        + "(data volumes are kept)...")
+                    started = _rc(_run(_compose(record, "up", "-d", "--remove-orphans"))) == 0
+            except Exception as exc:  # noqa: BLE001 - whatever failed, the new transport must not stay half-applied
                 restore()
-                return stop
-            daemon = _inst.note_daemon(_runner(), opts.env)  # before compose can create a volume
-            if daemon is None:
-                restore()
-                return _ux.fail("could not tell which Docker daemon this is, so the engine was not restarted",
-                                fix="briefcase-ai engine doctor")
-            log(f"restarting onto {record['version']}" + (" (TLS changed) " if tls_changed else " ")
-                + "(data volumes are kept)...")
-            with _pinned(daemon):
-                started = _rc(_run(_compose(record, "up", "-d", "--remove-orphans"))) == 0
+                return _ux.fail(f"{type(exc).__name__}: {exc}", fix="briefcase-ai engine doctor")
             if not started:
                 restore()
                 return _ux.fail("the new engine did not start", fix="briefcase-ai engine logs")
@@ -1081,23 +1101,26 @@ def cmd_up(args, store, engine, stack) -> int:
         record = _require_stack(args)
         if record is None:
             return 1
-        stop = guard_start(record)
-        if stop is not None:
-            return stop
-        argv = _compose(record, "up", "-d")  # never --remove-orphans here: it deletes containers, unconfirmed
+        # Never --remove-orphans, and --no-recreate: `up` starts what is missing and changes nothing that exists (a
+        # recreated container loses its writable layer). Moving to another release is an upgrade, which asks.
+        argv = _compose(record, "up", "-d", "--no-recreate")
         if getattr(args, "wait", False):
             argv += ["--wait", "--wait-timeout", "300"]
         if _dry(args):
-            print("dry run: would run " + " ".join(argv) + "\nnothing was started.")
+            print("dry run: would run " + " ".join(argv) + "\nnothing was started, recreated or removed.")
             return 0
-        try:
-            daemon = _inst.note_daemon(_runner())  # before compose can create a volume, never after it returns
-        except _engine.StateUnreadable as exc:
-            return _ux.fail(str(exc), fix=exc.fix)
+        daemon = _inst.docker_identity(_runner())
         if daemon is None:
             return _ux.fail("could not tell which Docker daemon this is, so the engine was not started (its volumes "
                             "could not be traced to a daemon afterwards)", fix="briefcase-ai engine doctor")
-        with _pinned(daemon):  # the daemon that was just recorded, not whatever is active when compose runs
+        with _pinned(daemon):  # the start checks, the record and compose all reach the daemon that was identified
+            stop = guard_start(record)
+            if stop is not None:
+                return stop
+            try:
+                _inst.note_daemon(_runner(), identity=daemon)  # before compose can create a volume
+            except _engine.StateUnreadable as exc:
+                return _ux.fail(str(exc), fix=exc.fix)
             rc = _rc(_run(argv))
     if rc != 0:
         return _ux.fail("docker compose up failed (see above)", fix="briefcase-ai engine doctor")
@@ -1135,7 +1158,7 @@ def cmd_down(args, store, engine, stack) -> int:
         if token is None:
             return code
         with _pinned(plan.daemon):
-            rc = teardown(plan.record, plan.volumes, token if plan.volumes else None)
+            rc = teardown(plan.record, plan.volumes, token)
     if rc != 0:
         return _ux.fail("docker compose down failed, or an engine volume could not be removed (see above)",
                         fix="briefcase-ai engine doctor")
@@ -1430,6 +1453,8 @@ def _remove_install(version: Optional[str], purge: bool, force_without_docker: b
                 docker.remove_image(ref)
             if plan.directory is not None and plan.directory.name == version:
                 shutil.rmtree(plan.directory, ignore_errors=True)
+            history = _engine_state_used(state)  # before the install that implies it is gone
+            state["compose_used"] = history
             state["installs"].pop(version, None)
             remaining = sorted(state["installs"])
             if state.get("current") == version or state.get("current") not in state["installs"]:
@@ -1443,7 +1468,7 @@ def _remove_install(version: Optional[str], purge: bool, force_without_docker: b
                 shutil.rmtree(path, ignore_errors=True)
             elif path.exists():
                 path.unlink()
-    if plan.mode == "install" and (state["installs"] or (_engine_state_used(state) and not plan.last)):
+    if plan.mode == "install" and (state["installs"] or (state.get("compose_used") and not plan.last)):
         # Volumes and secrets outlive an ordinary uninstall, so the record of that (and of which daemon holds them)
         # stays: a tombstone with no installs. Only a purge that confirmed every volume absent forgets it.
         _install_mod.save_state(state)

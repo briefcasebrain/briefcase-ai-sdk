@@ -424,6 +424,9 @@ FAKE_TOOLS = r'''#!/usr/bin/env python3
 import hashlib, json, os, sys, tarfile
 tool = os.path.basename(sys.argv[0])
 args = sys.argv[1:]
+pin_context = None
+if args[:1] == ["--context"]:  # the global flag outranks DOCKER_HOST and DOCKER_CONTEXT
+    pin_context, args = args[1], args[2:]
 log = os.environ["FAKE_DOCKER_LOG"]
 state_path = os.environ["FAKE_DOCKER_STATE"]
 try:
@@ -438,7 +441,7 @@ def record(stdin=""):
     with open(log, "a") as f:
         f.write(json.dumps({"tool": tool, "argv": args, "stdin": stdin,
                             "token": os.environ.get("OCI_JJ_AUTH_TOKEN"),
-                            "context": os.environ.get("DOCKER_CONTEXT"),
+                            "context": pin_context or os.environ.get("DOCKER_CONTEXT"),
                             "host": os.environ.get("DOCKER_HOST")}) + "\n")
 
 def blob(tar, names, digest):
@@ -566,7 +569,9 @@ def servers_now():
     return state["servers"]
 
 if args[:2] == ["context", "show"]:
-    print(os.environ.get("DOCKER_CONTEXT") or os.environ.get("FAKE_DOCKER_CONTEXT", "default")); sys.exit(0)
+    # Docker 29: --context, then DOCKER_HOST (which makes `context show` report "default"), then DOCKER_CONTEXT.
+    print(pin_context or ("default" if os.environ.get("DOCKER_HOST") else None)
+          or os.environ.get("DOCKER_CONTEXT") or os.environ.get("FAKE_DOCKER_CONTEXT", "default")); sys.exit(0)
 if args[:2] == ["context", "inspect"]:
     print(os.environ.get("FAKE_DOCKER_HOST", "unix:///var/run/docker.sock")); sys.exit(0)
 if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in args):
