@@ -862,7 +862,11 @@ def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = No
             name = runner(["docker", "context", "show"], capture_output=True, text=True)
             context = (name.stdout or "").strip() if getattr(name, "returncode", 1) == 0 else ""
             context = context or "default"
-            return DaemonIdentity(f"{context} {host}", {"DOCKER_HOST": host})
+            # The caller's own TLS variables are part of what identifies this daemon; they stay with the pin.
+            pin = {"DOCKER_HOST": host}
+            pin.update({name: env[name] for name in ("DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH", "DOCKER_TLS")
+                        if name in env})
+            return DaemonIdentity(f"{context} {host}", pin)
         if env.get("DOCKER_CONTEXT"):
             context = env["DOCKER_CONTEXT"]
         else:
@@ -881,9 +885,15 @@ def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = No
         if not host:
             return None
         pin = {"DOCKER_HOST": host}
+        skip = skip_verify.strip() == "true"
         if material.strip() and tls_path.strip():
             pin["DOCKER_CERT_PATH"] = tls_path.strip() + "/docker"
-            pin["DOCKER_TLS" if skip_verify.strip() == "true" else "DOCKER_TLS_VERIFY"] = "1"
+            pin["DOCKER_TLS" if skip else "DOCKER_TLS_VERIFY"] = "1"
+        elif skip:
+            # TLS without verification and without certificate files is what the CLI does for such a context, but no
+            # environment variable or flag can ask for it (checked on Docker 29.8.2: --tls and DOCKER_TLS both
+            # fail on the missing ca.pem), so this daemon cannot be pinned and is not identified.
+            return None
         return DaemonIdentity(f"{context} {host}", pin)
     except (OSError, ValueError):
         return None

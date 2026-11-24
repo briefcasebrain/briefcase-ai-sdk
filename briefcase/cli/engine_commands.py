@@ -432,6 +432,8 @@ def _daemon_check(state: Dict[str, Any], need_record: bool) -> Tuple[Optional[st
         if need_record:
             return None, ["the record does not say which Docker daemon this install used, so a probe here says "
                           "nothing about its volumes"]
+        if here is None:
+            return None, ["could not tell which Docker daemon this is, so nothing can be pinned to it"]
         return here, []
     if here is None or set(recorded) != {here}:
         return None, ["the Docker daemon is not the one this install used (it used "
@@ -814,6 +816,10 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
                       "running server may disagree: run `briefcase-ai engine install` again", file=sys.stderr)
 
     daemon = _inst.docker_identity(_runner(), opts.env)
+    if daemon is None:  # never an unpinned probe: it could answer for a daemon the restart would not use
+        restore()
+        return _ux.fail("could not tell which Docker daemon this is, so what runs could not be checked and engine "
+                        f"{record['version']} was installed but not made current", fix="briefcase-ai engine doctor")
     try:
         with _pinned(daemon):  # what runs is read on the daemon the restart would use
             status, running, why = running_releases()
@@ -835,10 +841,6 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
             return _ux.fail(f"engine {(others or running)[0]} is running and {record['version']} was installed "
                             "without images, so it cannot take over", fix="briefcase-ai engine down")
         try:
-            if daemon is None:
-                restore()
-                return _ux.fail("could not tell which Docker daemon this is, so the engine was not restarted",
-                                fix="briefcase-ai engine doctor")
             with _pinned(daemon):  # the checks, the record and the start all reach the same daemon
                 stop = guard_start(record)
                 if stop is not None:
