@@ -12,9 +12,6 @@ import sys
 
 _HOOK_TOOLS = ("claude-code", "codex", "cursor")
 _GLOBAL_VALUE_OPTIONS = ("--server", "--repo")  # the top-level options that take a value (argparse allows prefixes)
-_REASON = (b"Blocked by briefcase-ai policy: the hook could not start and it was installed with --fail-closed or a "
-           b"required policy. Reinstall with `briefcase-ai policy init`, or turn enforcement off with "
-           b"`briefcase-ai policy off`.\n")
 
 
 def hook_invocation(argv):
@@ -34,58 +31,56 @@ def hook_invocation(argv):
     return None
 
 
-def _launcher_path():
-    """Where ``hook_main.py`` is, found without importing ``briefcase`` (``PathFinder`` does not run its code)."""
+def _policy_dir():
+    """The ``briefcase/policy`` directory, found without importing ``briefcase`` (``PathFinder`` does not run its
+    code)."""
     from importlib.machinery import PathFinder
 
     spec = PathFinder.find_spec("briefcase")
     for directory in (spec.submodule_search_locations or []) if spec else []:
-        path = os.path.join(directory, "policy", "hook_main.py")
-        if os.path.isfile(path):
+        path = os.path.join(directory, "policy")
+        if os.path.isfile(os.path.join(path, "hook_main.py")):
             return path
     return None
 
 
-def _binds(options):
-    return any("--fail-closed" in a or "--require-policy-sha256" in a for a in options)
-
-
-def _write(fd, data):
-    try:
-        while data:
-            data = data[os.write(fd, data):]
-        return True
-    except BaseException:  # noqa: B036
-        return False
-
-
 def _hook(tool, options):
-    if "--enforce" not in options:  # plain Cursor forwarding: silent, never blocks
-        try:
+    """Every decision (is it strict, is it enforcing, how a denial is delivered) is the launcher module's own, loaded
+    by path: this file has no rules of its own to disagree with it."""
+    launcher = None
+    try:
+        import importlib.util
+
+        directory = _policy_dir()
+        if directory is None:
+            raise ImportError("briefcase/policy/hook_main.py was not found")
+        path = os.path.join(directory, "hook_main.py")
+        spec = importlib.util.spec_from_file_location("_briefcase_hook_main", path)
+        launcher = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(launcher)
+        if launcher.enforcing_for(tool, options):
+            import runpy
+
+            sys.argv = [path, tool, *options]
+            try:
+                runpy.run_path(path, run_name="__main__")
+            except SystemExit as stop:
+                code = stop.code
+                return code if isinstance(code, int) else (0 if code is None else 1)
+            return 0
+        try:  # plain Cursor forwarding: silent, never blocks
             from briefcase.cli import hook_commands
 
-            return hook_commands.run_cursor(options) if tool == "cursor" else 0
+            return hook_commands.run_cursor(options)
         except BaseException:  # noqa: B036
             return 0
-    try:
-        import runpy
-
-        path = _launcher_path()
-        if path is None:
-            raise ImportError("hook_main.py was not found")
-        sys.argv = [path, tool, *options]
-        try:
-            runpy.run_path(path, run_name="__main__")
-        except SystemExit as stop:
-            code = stop.code
-            return code if isinstance(code, int) else (0 if code is None else 1)
-        return 0
     except BaseException:  # noqa: B036 - nothing may escape without the verdict the command line promised
-        if _binds(options):
-            _write(2, _REASON)
-            return 2
+        if launcher is not None and launcher.strict_for(options):
+            return launcher.block(tool)
+        if launcher is None:
+            return 2 if any("--fail-closed" in a or "--require-policy-sha256" in a for a in options) else 0
         if tool == "cursor":
-            _write(1, b'{"permission": "allow"}\n')  # Cursor blocks on empty output
+            launcher._fd_write(1, b'{"permission": "allow"}\n')  # Cursor blocks on empty output
         return 0
 
 

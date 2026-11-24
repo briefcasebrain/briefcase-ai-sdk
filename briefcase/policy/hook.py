@@ -54,7 +54,7 @@ class Options(object):
         norm = optargs.normalize(raw[1:])
         argv = raw[:1] + norm.argv
         self.tool = argv[0] if argv else ""
-        self.fail_closed = any(t == "--fail-closed" or t.startswith("--fail-closed=") for t in raw[1:])
+        self.fail_closed = norm.strict  # a required policy hash binds like --fail-closed, loader errors included
         self.require_policy = ""
         self.require_given = norm.require_given
         self.capture_content = False

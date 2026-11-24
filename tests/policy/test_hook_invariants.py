@@ -39,6 +39,12 @@ def payload(tool, project):
 LAST_STDERR = None  # what the last subprocess entry wrote to stderr (None: not captured)
 
 
+@pytest.fixture(autouse=True)
+def _forget_stderr():
+    global LAST_STDERR
+    LAST_STDERR = None  # a test that never captured stderr must not judge a verdict by an earlier test's
+
+
 def denies(tool, code, raw):
     """Did the hook block the call, judged from the tool's documented response? Exit 2 blocks, but Codex needs a
     nonempty stderr reason with it, so a captured empty stderr is not a block there."""
@@ -1142,3 +1148,31 @@ def test_a_strict_hook_denies_when_the_project_policy_directory_cannot_be_inspec
     finally:
         guarded.chmod(0o700)
     assert denies(tool, code, raw), f"the project policy was never inspected and the call was allowed: {code} {raw!r}"
+
+
+# --- round 16: a required policy hash alone makes loader errors and event defects fatal ------------------------
+
+ALLOWING = 'version = 1\npreset = "guarded"\ndefault = "allow"\n'
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root reads everything")
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_hash_bound_hook_blocks_on_an_unreadable_project_policy(home, project, tmp_path, monkeypatch, tool):
+    guarded = project / ".briefcase"
+    guarded.mkdir()
+    (guarded / "policy.toml").write_text('version = 1\n[[rule]]\nid = "no"\ntool = "shell"\neffect = "deny"\n'
+                                         'command = ["ls"]\n')
+    guarded.chmod(0)
+    try:
+        code, raw = _bound(tool, project, ALLOWING, tmp_path, monkeypatch, _harmless(tool, project))
+    finally:
+        guarded.chmod(0o700)
+    assert denies(tool, code, raw), (code, raw)
+
+
+@pytest.mark.parametrize("tool", ["claude-code", "cursor"])
+def test_a_hash_bound_hook_blocks_on_a_defective_event(home, project, tmp_path, monkeypatch, tool):
+    body = _events(tool, project)["pre_web" if tool == "cursor" else "web"]
+    body["tool_input"] = {"url": "https://"}
+    code, raw = _bound(tool, project, ALLOWING, tmp_path, monkeypatch, body)
+    assert denies(tool, code, raw), (code, raw)

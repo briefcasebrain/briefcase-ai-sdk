@@ -59,3 +59,10 @@ def normalize(args):
 
 def strict(args):
     return normalize(args).strict
+
+
+def enforcing(tool, args):
+    """Is this hook invocation an enforcing one? ``claude-code`` and ``codex`` always are; Cursor is when told so
+    (``--enforce``), and also when the command line binds the hook: a binding flag asked for enforcement, so it is
+    never silently treated as the plain forwarding mode."""
+    return tool != "cursor" or "--enforce" in args or normalize(args).strict

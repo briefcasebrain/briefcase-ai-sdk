@@ -50,14 +50,16 @@ def _fd_write(fd, data):
         return False
 
 
-def _block(tool):
-    """Block the call and return the exit status, with nothing but fixed bytes and ``os.write``: whatever made the hook
-    fail (an import included) cannot also stop the denial. The reason goes to stderr with exit 2, which all three
-    tools read as a block (Codex needs it nonempty). When stderr cannot carry it, the tool's JSON denial goes to
-    stdout with exit 0; only when neither works is the status alone left."""
-    if _fd_write(2, _REASON + b"\n"):
+def block(tool, write=None):
+    """The one delivery routine for a denial, with nothing but fixed bytes: whatever made the hook fail (an import
+    included) cannot also stop the denial. The reason goes to stderr with exit 2, which all three tools read as a
+    block (Codex needs it nonempty). When stderr cannot carry it, the tool's JSON denial goes to stdout with exit 0;
+    only when neither works is the status alone left. ``write(fd, data)`` says whether it delivered (default: a
+    file descriptor)."""
+    write = write or _fd_write
+    if write(2, _REASON + b"\n"):
         return 2
-    return 0 if _fd_write(1, _DENY_CURSOR if tool == "cursor" else _DENY) else 2
+    return 0 if write(1, _DENY_CURSOR if tool == "cursor" else _DENY) else 2
 
 
 def _leave(code):
@@ -74,34 +76,49 @@ def main():
     return _leave(_run())
 
 
+def load_sibling(name):
+    """A module of this directory, loaded by path (no package import, standard library only)."""
+    import importlib.util
+
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name + ".py")
+    spec = importlib.util.spec_from_file_location("_briefcase_" + name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def enforcing_for(tool, options):
+    """:func:`briefcase.policy.optargs.enforcing`, with the same fallback as :func:`strict_for`."""
+    try:
+        return bool(load_sibling("optargs").enforcing(tool, options))
+    except BaseException:  # noqa: B036
+        return tool != "cursor" or "--enforce" in options or strict_for(options)
+
+
 def strict_for(options):
     """Does the command line bind this hook? ``options`` are the arguments after the tool name. The answer of
     ``optargs.normalize``, loaded by path so that it does not depend on anything that can fail to import; if even
     that file cannot be loaded, any mention of a binding option binds."""
     try:
-        import importlib.util
-
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "optargs.py")
-        spec = importlib.util.spec_from_file_location("_briefcase_optargs", path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return bool(module.strict(options))
+        return bool(load_sibling("optargs").strict(options))
     except BaseException:  # noqa: B036
         return any("--fail-closed" in a or "--require-policy-sha256" in a for a in options)
 
 
 def block_in_process(tool):
-    """The fixed denial on this process's stdout (exit 0), else the reason on stderr and exit 2. For the SDK's own
-    command, where stdout may be a stream the caller replaced."""
-    try:
-        sys.stdout.write((_DENY_CURSOR if tool == "cursor" else _DENY).decode("ascii"))
-        sys.stdout.flush()
-        return 0
-    except BaseException:  # noqa: B036 - the verdict did not arrive: the host's blocking status
-        _say(sys.stderr, _REASON.decode("ascii") + "\n")
-        if sys.stdout is sys.__stdout__:  # the interpreter would retry the failed flush at exit and say 120
-            os._exit(2)
-        return 2
+    """:func:`block` through this process's own ``sys.stdout``/``sys.stderr`` objects, which the SDK's command (and its
+    tests) may have replaced."""
+    delivered = {}
+
+    def write(fd, data):
+        stream = sys.stderr if fd == 2 else sys.stdout
+        delivered[fd] = _say(stream, data.decode("ascii"))
+        return delivered[fd]
+
+    code = block(tool, write)
+    if code == 2 and sys.stdout is sys.__stdout__ and delivered.get(1) is False:
+        os._exit(2)  # the interpreter would retry the failed flush at exit and say 120
+    return code
 
 
 def on_failure(tool, argv):
@@ -131,7 +148,7 @@ def _run():
         from briefcase.policy import hook
     except BaseException:  # noqa: B036
         if strict:
-            return _block(argv[0] if argv else "")
+            return block(argv[0] if argv else "")
         if argv[:1] == ["cursor"]:
             _say(sys.stdout, '{"permission": "allow"}\n')   # Cursor blocks on empty output
         return 0
@@ -139,7 +156,7 @@ def _run():
         return hook.main(argv)
     except BaseException:  # noqa: B036 - a late import or any failure the hook did not catch
         if strict:
-            return _block(argv[0] if argv else "")
+            return block(argv[0] if argv else "")
         if argv[:1] == ["cursor"]:
             _say(sys.stdout, '{"permission": "allow"}\n')
         return 0
