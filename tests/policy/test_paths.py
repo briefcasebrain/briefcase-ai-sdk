@@ -329,3 +329,19 @@ def test_a_symlinked_directory_before_a_parent_component_resolves_the_way_the_ke
     (project / "notes.txt").write_text("harmless")
     (project / "link").symlink_to(home / ".ssh" / "deep")
     assert decide(f"{project}/link/../notes.txt").rule_id == "secrets.files"
+
+
+@pytest.mark.parametrize("command", [
+    "cat {project}/link/../notes.txt",
+    "echo x > {project}/link/../notes.txt",
+    "cp {project}/link/../notes.txt /tmp/out",
+])
+def test_shell_operands_and_redirections_resolve_a_symlink_before_the_parent_component(home, project, command):
+    (home / ".ssh" / "deep").mkdir(parents=True)
+    (home / ".ssh" / "notes.txt").write_text("KEY")
+    (project / "notes.txt").write_text("harmless")
+    (project / "link").symlink_to(home / ".ssh" / "deep")
+    call = engine.ToolCall("shell", command=command.format(project=project), cwd=str(project),
+                           project_dir=str(project))
+    result = engine.evaluate(policy_of(), call)
+    assert result.effect == "deny", (command, result.rule_id)

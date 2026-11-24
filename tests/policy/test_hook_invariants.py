@@ -1256,3 +1256,19 @@ def test_a_canonical_ipv6_host_with_user_information_is_allowed(home, project, u
     body["tool_input"] = {"url": url}
     code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
     assert not denies("claude-code", code, raw), (url, code, raw)
+
+
+# --- round 18: invalid characters in a path or command are a defect, not a lexical guess --------------------------
+
+@pytest.mark.parametrize("tool", ["claude-code", "cursor"])
+def test_a_strict_hook_denies_a_path_or_command_with_a_nul_character(home, project, tool):
+    _observe(home)
+    kinds = ("write", "bash") if tool == "claude-code" else ("pre_write", "pre_shell")
+    for kind in kinds:
+        body = _events(tool, project)[kind]
+        if "file_path" in str(body.get("tool_input", "")):
+            body["tool_input"] = {"file_path": str(project / "a\x00b")}
+        else:
+            body["tool_input"] = {"command": "cat " + str(project / "a") + "\x00b"}
+        code, raw = run_entry("module", tool, ["--fail-closed"], body, home)
+        assert denies(tool, code, raw), (kind, code, raw)

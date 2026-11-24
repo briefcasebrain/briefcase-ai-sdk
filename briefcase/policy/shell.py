@@ -1010,6 +1010,19 @@ def normalize_path(text, cwd, home):
     return _normpath(text)
 
 
+def absolute_spelling(text, cwd, home):
+    """The absolute path ``text`` names, exactly as written (``~`` expanded, joined to ``cwd``) and not folded: the
+    caller resolves it the way the kernel does (see ``engine.path_forms``), where a symlink is followed before the
+    ``..`` after it. ``None`` when it is relative and cwd is unknown."""
+    if text.startswith("~/") or text == "~":
+        text = home + text[1:]
+    if not os.path.isabs(text):
+        if cwd is None:
+            return None
+        text = os.path.join(cwd, text)
+    return text
+
+
 def _normpath(text):
     """``os.path.normpath``, except that POSIX's special case for exactly two leading slashes
     is folded away: ``//etc`` is ``/etc`` everywhere this runs."""
@@ -1018,7 +1031,8 @@ def _normpath(text):
 
 
 def path_refs(cmd, expand_globs=True):
-    """``[(absolute path, access, text as written)]`` for everything ``cmd`` names that could be a file.
+    """``[(absolute path as written, access, text as written)]`` for everything ``cmd`` names that could be a file
+    (the absolute path is not folded: ``engine.path_forms`` canonicalizes it, as it does for a file event).
 
     ``access`` is ``read`` for commands that only read, ``write`` for
     redirection targets, and ``any`` when the command could do either."""
@@ -1046,7 +1060,7 @@ def path_refs(cmd, expand_globs=True):
                 except (OSError, ValueError):
                     pass
         for candidate in candidates:
-            path = normalize_path(candidate, cmd.cwd, cmd.home)
+            path = absolute_spelling(candidate, cmd.cwd, cmd.home)
             if path is not None:
                 refs.append((path, how, text))
 

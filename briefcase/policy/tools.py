@@ -86,13 +86,18 @@ def _shell_defect(command, cwd):
     resolved, and the analysis would silently leave it out."""
     if not command.strip():
         return "the command is empty"
+    if "\x00" in command:
+        return "the command has a NUL character"
     if not (cwd and os.path.isabs(cwd)):
         return "no usable working directory in the hook input, so relative file references cannot be judged"
     return None
 
 
 def _path_defect(paths, cwd):
-    """A relative path judged without the event's working directory would be judged against the hook process's own."""
+    """A relative path judged without the event's working directory would be judged against the hook process's own. A
+    path with a NUL character cannot name a file at all."""
+    if any("\x00" in path for path in paths):
+        return "a path with a NUL character"
     if cwd and os.path.isabs(cwd):
         return None
     if cwd:
