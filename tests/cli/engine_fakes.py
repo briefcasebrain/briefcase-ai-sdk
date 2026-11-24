@@ -543,10 +543,17 @@ if args[:1] == ["info"]:  # `docker info --format ...`: the daemon's own id, or 
     fmt = args[args.index("--format") + 1] if "--format" in args else ""
     daemon_id = os.environ.get("FAKE_DOCKER_ID", "fake-daemon-id")
     print("2026-01-01T00:00:00Z" if "SystemTime" in fmt else daemon_id); sys.exit(0)
-if args[:1] == ["events"]:  # the destroy events a compose command caused (see FAKE_DOCKER_DESTROY_ON_UP)
-    for name in state.get("destroyed", []):
-        print(name)
-    sys.exit(0)
+if args[:1] == ["events"]:  # a stream: it prints the destroy events a compose command caused until it is stopped
+    import time
+    sent = 0
+    while True:
+        try:
+            names = json.load(open(state_path)).get("destroyed", [])
+        except (OSError, ValueError):
+            names = []
+        while sent < len(names):
+            print(names[sent]); sys.stdout.flush(); sent += 1
+        time.sleep(0.05)
 if args[:1] == ["version"]:
     if os.environ.get("FAKE_DOCKER_DOWN"):
         sys.stderr.write("Cannot connect to the Docker daemon\n"); sys.exit(1)
@@ -756,7 +763,12 @@ if args[:1] == ["compose"]:
     if "ps" in args:
         if "--quiet" in args:
             print(os.environ.get("FAKE_DOCKER_RUNNING", "")); sys.exit(0)
-        print(json.dumps({"Service": "oci-jj-server", "State": "running", "Health": "healthy"}))
+        import re as _re
+        text = ""
+        if "-f" in args and os.environ.get("FAKE_DOCKER_PS_ALL"):  # one row per service, else just the server
+            text = open(args[args.index("-f") + 1]).read().split("\nvolumes:\n")[0]
+        for name in _re.findall(r"^  (\S+):\n", text, _re.M) or ["oci-jj-server"]:
+            print(json.dumps({"Service": name, "State": "running", "Health": "healthy"}))
         sys.exit(0)
     sys.exit(0)
 sys.exit(0)

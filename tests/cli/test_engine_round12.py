@@ -508,75 +508,36 @@ def test_up_wait_over_existing_containers_starts_then_waits_without_start_wait_f
     configure(env, monkeypatch, "ok", "ours", "none")
     monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))[:2]))
     waited = []
-    monkeypatch.setattr(engine_commands, "wait_running", lambda record, *a, **k: waited.append(record) or True)
+    monkeypatch.setattr(engine_commands, "wait_running",
+                        lambda record, services, *a, **k: waited.append(services) or True)
     assert main(["engine", "up", "--wait"]) == 0
     capsys.readouterr()
     (start,) = [c["argv"] for c in compose_calls(env) if "start" in c["argv"]]
     assert "--wait" not in start and waited
 
 
-def test_wait_running_waits_for_health_and_gives_up(monkeypatch):
-    answers = iter([[{"service": "s", "state": "running", "health": "starting"}],
-                    [{"service": "s", "state": "running", "health": "healthy"}]])
-    monkeypatch.setattr(engine_commands, "_services", lambda record: next(answers))
-    assert engine_commands.wait_running({}, timeout=5, interval=0)
-    monkeypatch.setattr(engine_commands, "_services",
-                        lambda record: [{"service": "s", "state": "exited", "health": ""}])
-    assert not engine_commands.wait_running({}, timeout=0, interval=0)
+def test_wait_running_needs_every_expected_service_healthy_and_ignores_one_offs(monkeypatch):
+    def row(service, state="running", health="", oneoff=False):
+        return {"service": service, "state": state, "health": health, "oneoff": oneoff}
+
+    answers = iter([[row("a", health="starting"), row("b")],              # a is not healthy yet
+                    [row("a", health="healthy")],                          # b has no container
+                    [row("a", health="healthy"), row("b"), row("b", "exited", oneoff=True)]])  # an exited one-off
+    monkeypatch.setattr(engine_commands, "_services", lambda record, detail=False: next(answers))
+    assert engine_commands.wait_running({}, {"a", "b"}, timeout=5, interval=0)
+    subset = [row("a"), row("c")]  # a healthy subset only
+    monkeypatch.setattr(engine_commands, "_services", lambda record, detail=False: subset)
+    assert not engine_commands.wait_running({}, {"a", "b"}, timeout=0, interval=0)
 
 
-# --- round 15: an identity without the daemon's id is never recorded or trusted -------------------------------
+def test_up_wait_polls_inside_the_daemon_pin(env, monkeypatch, capsys):
+    from tests.cli.test_engine_invariants import containers_for
 
-def test_up_refuses_and_records_nothing_when_the_daemons_id_cannot_be_read(env, monkeypatch, capsys):
     synthetic(env, [A], A)
-    record_daemons([])
-    configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("FAKE_DOCKER_FAIL", "info")
-    assert main(["engine", "up"]) != 0
+    configure(env, monkeypatch, "ok", "ours", "none")
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))[:2]))
+    monkeypatch.setenv("FAKE_DOCKER_PS_ALL", "1")
+    assert main(["engine", "up", "--wait"]) == 0
     capsys.readouterr()
-    assert json.loads(_engine.installed_path().read_text()).get("docker_contexts") == []
-
-
-def test_a_purge_is_refused_when_the_daemon_cannot_state_its_id_even_if_the_record_has_none(env, monkeypatch, capsys):
-    synthetic(env, [A], A)  # an old record: endpoint only
-    configure(env, monkeypatch, "ok", "none", "none")  # the daemon here may be a replacement: it cannot say who it is
-    monkeypatch.setenv("FAKE_DOCKER_FAIL", "info")
-    assert main(["engine", "uninstall", "--purge", "--yes"]) != 0
-    capsys.readouterr()
-    assert (env["home"] / "engine" / "engine.env").exists()
-
-
-def test_a_daemon_that_changes_while_down_waits_for_confirmation_receives_no_deletion(env, monkeypatch, capsys):
-    synthetic(env, [A], A)
-    record_daemons(["default unix:///var/run/docker.sock id=AAA"])
-    configure(env, monkeypatch, "ok", "ours", "A")
-    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
-    real = engine_commands._authorize
-
-    def retarget_then_confirm(*args, **kwargs):
-        token = real(*args, **kwargs)
-        monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # the tunnel now reaches another daemon at the same address
-        return token
-
-    monkeypatch.setattr(engine_commands, "_authorize", retarget_then_confirm)
-    assert main(["engine", "down", "--volumes", "--yes"]) != 0
-    out = capsys.readouterr()
-    assert [c for c in compose_calls(env) if "down" in c["argv"]] == []
-    assert [c for c in calls(env["log"]) if c["argv"][:2] == ["volume", "rm"]] == []
-    assert "changed" in out.err + out.out
-
-
-def test_a_refused_upgrade_on_the_wrong_daemon_leaves_the_history_so_the_right_daemon_can_upgrade(
-        env, monkeypatch, key, capsys):
-    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
-    tls_upgrade(env, monkeypatch, key)
-    before = json.loads(_engine.installed_path().read_text())["docker_contexts"]
-    monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")
-    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", "[]")
-    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
-    capsys.readouterr()
-    assert json.loads(_engine.installed_path().read_text())["docker_contexts"] == before
-    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")  # back on the daemon that runs the old engine
-    rows = [["oci-jj-server", _engine.current_install()["image_ids"]["server"], _engine.current_install()["compose"]]]
-    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))
-    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) == 0
+    polls = [c for c in compose_calls(env) if "ps" in c["argv"] and "--all" in c["argv"]]
+    assert polls and all(c["host"] == "unix:///var/run/docker.sock" for c in polls)

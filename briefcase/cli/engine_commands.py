@@ -161,26 +161,37 @@ def _dry(args) -> bool:
 _PINS: List[Tuple[Dict[str, str], List[str]]] = []
 
 
+def _with_pin(argv, kw):
+    """``(argv, kw)`` as docker must be started: Compose with ``COMPOSE_REMOVE_ORPHANS`` set to false (unset, Compose
+    would take it from ``engine.env``, and the caller's own value must not turn one of our calls into a deletion;
+    ``--remove-orphans`` on the command line still wins where an upgrade asks for it), and against the daemon pinned
+    by :func:`_pinned`."""
+    argv = list(argv)
+    if "env" not in kw and argv[:1] == ["docker"]:
+        env = dict(os.environ)
+        if argv[:2] == ["docker", "compose"]:
+            env["COMPOSE_REMOVE_ORPHANS"] = "false"
+        if _PINS:
+            for name in ("DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
+                env.pop(name, None)
+            pin_env, pin_args = _PINS[-1]
+            env.update(pin_env)
+            argv = [argv[0], *pin_args, *argv[1:]]  # global flags come before the subcommand
+        kw = dict(kw, env=env)
+    return argv, kw
+
+
 def _runner():
-    """``subprocess.run`` for docker, honouring the daemon pinned by :func:`_pinned`. A Compose call runs with
-    ``COMPOSE_REMOVE_ORPHANS`` set to false: unset, Compose would take it from ``engine.env``, and the caller's own
-    value must not turn one of our calls into a deletion either (``--remove-orphans`` on the command line still
-    wins where an upgrade asks for it)."""
+    """``subprocess.run`` for docker, started as :func:`_with_pin` says."""
     def run(argv, **kw):
-        argv = list(argv)
-        if "env" not in kw and argv[:1] == ["docker"]:
-            env = dict(os.environ)
-            if argv[:2] == ["docker", "compose"]:
-                env["COMPOSE_REMOVE_ORPHANS"] = "false"
-            if _PINS:
-                for name in ("DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
-                    env.pop(name, None)
-                pin_env, pin_args = _PINS[-1]
-                env.update(pin_env)
-                argv = [argv[0], *pin_args, *argv[1:]]  # global flags come before the subcommand
-            kw["env"] = env
+        argv, kw = _with_pin(argv, kw)
         return subprocess.run(argv, **kw)
     return run
+
+
+def _popen(argv, **kw):
+    argv, kw = _with_pin(argv, kw)
+    return subprocess.Popen(argv, **kw)
 
 
 @contextlib.contextmanager
@@ -1213,7 +1224,8 @@ def existing_containers_state(record: Dict[str, Any]) -> Tuple[Optional[str], Se
     return None, present
 
 
-def _start_argv(record: Dict[str, Any], present: Set[str], wait: bool) -> Tuple[Optional[List[str]], str]:
+def _start_argv(record: Dict[str, Any], present: Set[str],
+                wait: bool) -> Tuple[Optional[List[str]], str, Set[str]]:
     """The Compose command that starts the engine without being able to delete anything, or ``(None, why)``.
 
     With every service already having a container, ``compose start``: it only starts containers that exist (Compose
@@ -1224,14 +1236,15 @@ def _start_argv(record: Dict[str, Any], present: Set[str], wait: bool) -> Tuple[
     res = _run(_compose(record, "config", "--services"), capture_output=True, text=True)
     services = {ln.strip() for ln in (getattr(res, "stdout", "") or "").splitlines() if ln.strip()}
     if res is None or _rc(res) != 0 or not services:
-        return None, "docker compose could not list the engine's services, so nothing was started"
+        return None, "docker compose could not list the engine's services, so nothing was started", set()
     if not present:
-        return _compose(record, "up", "-d", "--no-recreate", *(["--wait", "--wait-timeout", "300"] if wait else [])), ""
+        wait_flags = ["--wait", "--wait-timeout", "300"] if wait else []
+        return _compose(record, "up", "-d", "--no-recreate", *wait_flags), "", services
     missing = sorted(services - present)
     if missing:
         return None, (f"the stack is partial (no container for {', '.join(missing)}); starting it would need Compose "
-                      "to create containers beside existing ones, which can remove containers")
-    return _compose(record, "start"), ""  # `start` has no --wait before Compose 2.24.7: cmd_up waits itself
+                      "to create containers beside existing ones, which can remove containers"), services
+    return _compose(record, "start"), "", services  # `start` has no --wait before Compose 2.24.7: cmd_up waits
 
 
 def _daemon_time() -> Optional[str]:
@@ -1241,25 +1254,52 @@ def _daemon_time() -> Optional[str]:
     return text or None
 
 
-def destroyed_since(since: str, until: str) -> Optional[List[str]]:
-    """Names of the engine project's containers the daemon destroyed between two of its own times, or ``None`` when it
-    could not say."""
-    from briefcase.engine import compose as engine_compose
+class DestroyWatch:
+    """A live subscription to the daemon's destroy events for the engine project, opened before ``compose up`` so that
+    nothing depends on the daemon still holding the events afterwards (it keeps only the most recent ones)."""
 
-    res = _run(["docker", "events", "--since", since, "--until", until, "--filter", "type=container",
-                "--filter", "event=destroy", "--filter", f"label=com.docker.compose.project={engine_compose.PROJECT}",
-                "--format", "{{.Actor.Attributes.name}}"], capture_output=True, text=True)
-    if res is None or _rc(res) != 0:
-        return None
-    return [ln.strip() for ln in (getattr(res, "stdout", "") or "").splitlines() if ln.strip()]
+    def __init__(self) -> None:
+        self.proc: Optional["subprocess.Popen[str]"] = None
+
+    def start(self, since: str) -> None:
+        from briefcase.engine import compose as engine_compose
+
+        try:
+            self.proc = _popen(["docker", "events", "--since", since, "--filter", "type=container",
+                                "--filter", "event=destroy", "--filter",
+                                f"label=com.docker.compose.project={engine_compose.PROJECT}",
+                                "--format", "{{.Actor.Attributes.name}}"],
+                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        except OSError:
+            self.proc = None
+
+    def finish(self) -> Tuple[List[str], bool]:
+        """``(names destroyed, observed)``: ``observed`` is false when the subscription was never made or ended before
+        it was closed, so a removal cannot be ruled out."""
+        if self.proc is None:
+            return [], False
+        time.sleep(1.0)  # let the daemon deliver what the last compose operation caused
+        observed = self.proc.poll() is None
+        self.proc.terminate()
+        try:
+            out, _ = self.proc.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+            out, _ = self.proc.communicate()
+            observed = False
+        return [ln.strip() for ln in (out or "").splitlines() if ln.strip()], observed
 
 
-def wait_running(record: Dict[str, Any], timeout: float = 300.0, interval: float = 2.0) -> bool:
-    """Wait until every service of the engine is running and, where it has a health check, healthy."""
+def wait_running(record: Dict[str, Any], services: Set[str], timeout: float = 300.0, interval: float = 2.0) -> bool:
+    """Wait until every one of ``services`` has a container, and each of its containers is running and, where it has a
+    health check, healthy. One-off containers (`compose run` leftovers) are not the service."""
     deadline = time.monotonic() + timeout
     while True:
-        services = _services(record)
-        if services and all(s["state"] == "running" and s["health"] in ("", "healthy") for s in services):
+        rows = [r for r in (_services(record, detail=True) or []) if not r.get("oneoff")]
+        if services and all(
+                any(r["service"] == name for r in rows)
+                and all(r["state"] == "running" and r["health"] in ("", "healthy") for r in rows
+                        if r["service"] == name) for name in services):
             return True
         if time.monotonic() >= deadline:
             return False
@@ -1304,7 +1344,7 @@ def cmd_up(args, store, engine, stack) -> int:
             if problem:
                 return _ux.fail(f"{problem}; nothing was started, because `up` would reuse them as they are",
                                 fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
-            command, why = _start_argv(record, present, bool(getattr(args, "wait", False)))
+            command, why, expected = _start_argv(record, present, bool(getattr(args, "wait", False)))
             if command is None:
                 return _ux.fail(why, fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
             try:
@@ -1314,26 +1354,29 @@ def cmd_up(args, store, engine, stack) -> int:
             except _engine.StateUnreadable as exc:
                 return _ux.fail(str(exc), fix=exc.fix)
             creating = "up" in command
-            since = _daemon_time() if creating else None
-            if creating and since is None:
-                return _ux.fail("could not read the Docker daemon's clock, so a removal during the start could not "
-                                "be detected and nothing was started", fix="briefcase-ai engine doctor")
-            rc = _rc(_run(command))
-            if rc == 0 and creating:
+            watch = DestroyWatch()
+            if creating:
                 # Every Compose create path reconciles and scales a service down to its expected count (v5.5.0
-                # reconcile.go), so a second Compose client adding replicas during this start can have one removed. That
-                # cannot be prevented from here; it is detected from the daemon's own events and reported.
-                until = _daemon_time()
-                removed = destroyed_since(since or "", until) if until else None
-                if removed is None:
-                    return _ux.fail("could not check whether Compose removed a container during the start",
-                                    fix="briefcase-ai engine status")
+                # reconcile.go), so a second Compose client adding replicas during this start can have one removed.
+                # That cannot be prevented from here; it is observed from the daemon's own events and reported.
+                since = _daemon_time()
+                if since is None:
+                    return _ux.fail("could not read the Docker daemon's clock, so a removal during the start could "
+                                    "not be observed and nothing was started", fix="briefcase-ai engine doctor")
+                watch.start(since)
+            rc = _rc(_run(command))
+            if creating:
+                removed, observed = watch.finish()
                 if removed:
                     return _ux.fail(f"Compose removed {', '.join(removed)} while starting the engine (another Compose "
                                     "client was creating containers for this project at the same time); its "
                                     "writable layer is gone", fix="briefcase-ai engine status")
-    if rc == 0 and getattr(args, "wait", False) and "start" in command and not wait_running(record):
-        return _ux.fail("the engine did not become healthy within 300 seconds", fix="briefcase-ai engine logs")
+                if not observed:
+                    return _ux.fail("could not watch the Docker daemon for removed containers during the start, so "
+                                    "whether Compose removed one is unknown", fix="briefcase-ai engine status")
+            if rc == 0 and getattr(args, "wait", False) and "start" in command \
+                    and not wait_running(record, expected):  # on the pinned daemon, for the services of the file
+                return _ux.fail("the engine did not become healthy within 300 seconds", fix="briefcase-ai engine logs")
     if rc != 0:
         return _ux.fail("docker compose up failed (see above)", fix="briefcase-ai engine doctor")
     print(f"engine {record['version']} started: gRPC {record['grpc_addr']}, registry gateway {record['gateway']}")
@@ -1397,7 +1440,7 @@ def cmd_logs(args, store, engine, stack) -> int:
 # --------------------------------------------------------------------------- status / doctor
 
 
-def _services(record: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+def _services(record: Dict[str, Any], detail: bool = False) -> Optional[List[Dict[str, Any]]]:
     if not record.get("compose"):
         return []
     res = _run(_compose(record, "ps", "--all", "--format", "json"), capture_output=True, text=True)
@@ -1416,8 +1459,12 @@ def _services(record: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
                 rows.append(json.loads(line))
             except ValueError:
                 continue
-    return [{"service": r.get("Service") or r.get("Name"), "state": r.get("State"), "health": r.get("Health") or ""}
-            for r in rows if isinstance(r, dict)]
+    out = [{"service": r.get("Service") or r.get("Name"), "state": r.get("State"), "health": r.get("Health") or ""}
+           for r in rows if isinstance(r, dict)]
+    if detail:  # for the wait: which rows are `compose run` leftovers (not part of the public status output)
+        for entry, r in zip(out, [r for r in rows if isinstance(r, dict)]):
+            entry["oneoff"] = "com.docker.compose.oneoff=True" in str(r.get("Labels") or "")
+    return out
 
 
 def engine_state() -> Dict[str, Any]:
