@@ -543,16 +543,21 @@ if args[:1] == ["info"]:  # `docker info --format ...`: the daemon's own id, or 
     fmt = args[args.index("--format") + 1] if "--format" in args else ""
     daemon_id = os.environ.get("FAKE_DOCKER_ID", "fake-daemon-id")
     print("2026-01-01T00:00:00Z" if "SystemTime" in fmt else daemon_id); sys.exit(0)
-if args[:1] == ["events"]:  # a stream: it prints the destroy events a compose command caused until it is stopped
+if args[:1] == ["events"]:  # a stream of JSON events; FAKE_DOCKER_EVENTS=silent|stall_after_ready shapes delivery
     import time
-    sent = 0
+    mode = os.environ.get("FAKE_DOCKER_EVENTS", "")
+    sent, ready = 0, False
     while True:
         try:
-            names = json.load(open(state_path)).get("destroyed", [])
+            events = json.load(open(state_path)).get("events", [])
         except (OSError, ValueError):
-            names = []
-        while sent < len(names):
-            print(names[sent]); sys.stdout.flush(); sent += 1
+            events = []
+        while sent < len(events):
+            event, sent = events[sent], sent + 1
+            if mode == "silent" or (mode == "stall_after_ready" and ready):
+                continue
+            print(json.dumps(event)); sys.stdout.flush()
+            ready = ready or event["Actor"].get("ID", "").startswith("briefcase-watch-")
         time.sleep(0.05)
 if args[:1] == ["version"]:
     if os.environ.get("FAKE_DOCKER_DOWN"):
@@ -691,6 +696,19 @@ if args[:2] == ["volume", "ls"]:
         if all(w.split("=", 1)[0] in labels and labels[w.split("=", 1)[0]] == w.split("=", 1)[1] for w in wanted):
             print(name)
     sys.exit(0)
+def add_event(kind, action, name, project=None):
+    """An event as Docker 29.8.2 prints it: a volume is `Actor.ID`, a container is the `name` attribute."""
+    if kind == "volume":
+        actor = {"ID": name, "Attributes": {"driver": "local"}}
+    else:
+        actor = {"ID": "c-" + name, "Attributes": {"name": name, "com.docker.compose.project": project or ""}}
+    state.setdefault("events", []).append({"Type": kind, "Action": action, "Actor": actor})
+    save()
+
+if args[:2] == ["volume", "create"]:
+    volumes_now()[args[-1]] = {}
+    add_event("volume", "create", args[-1]); save()
+    print(args[-1]); sys.exit(0)
 if args[:2] == ["volume", "rm"]:
     name = args[-1]
     failing = (os.environ.get("FAKE_DOCKER_VOLUME_RM_FAIL") or "").split(",")
@@ -699,6 +717,7 @@ if args[:2] == ["volume", "rm"]:
     if name in failing or "*" in failing:
         sys.stderr.write("Error: remove %s: volume is in use\n" % name); sys.exit(1)
     del state["volumes"][name]; save()
+    add_event("volume", "destroy", name)
     sys.exit(0)
 if args[:2] == ["volume", "inspect"]:
     name = args[-1]
@@ -742,8 +761,7 @@ if args[:1] == ["compose"]:
         save()
     if "-f" in args and "up" in args and os.environ.get("FAKE_DOCKER_DESTROY_ON_UP"):
         # Compose's reconcile scaled down a replica another client created while this `up` was running.
-        state["destroyed"] = state.get("destroyed", []) + [os.environ["FAKE_DOCKER_DESTROY_ON_UP"]]
-        save()
+        add_event("container", "destroy", os.environ["FAKE_DOCKER_DESTROY_ON_UP"], "briefcase-engine")
     if "-f" in args and ("up" in args or "down" in args):
         import re as _re
         servers_now()

@@ -623,3 +623,27 @@ def test_a_client_only_upgrade_does_not_need_docker_because_of_old_daemon_histor
     remove_docker(env, monkeypatch)
     env["platform"].release = build_release(key, version=_engine.current_install()["version"])
     assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--no-images"]) == 0
+
+
+# --- round 16: observation is proven by delivery, never by a sleep ------------------------------------------------
+
+def test_a_fresh_start_is_refused_when_the_event_subscription_never_delivers(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_EVENTS", "silent")  # the stream is alive and connected, and says nothing
+    monkeypatch.setattr(engine_commands.DestroyWatch, "TIMEOUT", 0.5, raising=False)
+    assert main(["engine", "up"]) != 0
+    out = capsys.readouterr()
+    assert [c for c in compose_calls(env) if "up" in c["argv"]] == [], "compose ran without a working watch"
+    assert "subscribe" in out.err + out.out
+
+
+def test_a_fresh_start_is_not_reported_when_events_stop_arriving_during_it(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_EVENTS", "stall_after_ready")  # ready at first, then nothing more is delivered
+    monkeypatch.setenv("FAKE_DOCKER_DESTROY_ON_UP", "briefcase-engine-gateway-2")
+    monkeypatch.setattr(engine_commands.DestroyWatch, "TIMEOUT", 0.5, raising=False)
+    assert main(["engine", "up"]) != 0
+    out = capsys.readouterr()
+    assert "started" not in out.out and "unknown" in out.err + out.out
