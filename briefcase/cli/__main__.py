@@ -187,13 +187,23 @@ def _subparser(parser, name):
     return choices.get(name)
 
 
+def _binds_anywhere(argv) -> bool:
+    return any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv)
+
+
 def _hook_invocation(argv):
-    """``(tool, options)`` for ``[global options] hook <tool> ...``: the console entry's scanner, the only one."""
+    """``(tool, options)`` for ``[global options] hook <tool> ...``: the console entry's scanner, the only one. When
+    that cannot be imported, any command line that names ``hook`` and a binding flag anywhere is taken as a hook
+    invocation that must block (the tool is read from after ``hook``, else unknown)."""
     try:
         from briefcase_entry import hook_invocation
 
         return hook_invocation(argv)
-    except BaseException:  # noqa: B036 - the scanner itself is unavailable: the plain form is all that can be told
+    except BaseException:  # noqa: B036 - the scanner itself is unavailable
+        if "hook" in argv and _binds_anywhere(argv):
+            at = argv.index("hook")
+            tool = argv[at + 1] if argv[at + 1:at + 2] and argv[at + 1] in ("cursor", "claude-code", "codex") else ""
+            return tool, argv[at + 2:] if tool else argv
         return (argv[1], argv[2:]) if argv[:1] == ["hook"] and argv[1:2] in (["cursor"], ["claude-code"], ["codex"]) \
             else None
 
@@ -209,9 +219,19 @@ def _hook_unavailable(tool, rest) -> int:
             return 0
         return hook_main.on_failure(tool, list(rest))
     except BaseException:  # noqa: B036
+        pass
+    try:
         import briefcase_entry
 
         return briefcase_entry.last_resort(tool, list(rest))
+    except BaseException:  # noqa: B036 - nothing of the SDK loads: the command line alone decides
+        if _binds_anywhere(rest):
+            try:
+                os.write(2, b"Blocked by briefcase-ai policy: the hook could not start and it is bound to a policy.\n")
+            except BaseException:  # noqa: B036
+                pass
+            return 2
+        return 0
 
 
 def main(argv=None, store=None, engine=None, stack=None) -> int:

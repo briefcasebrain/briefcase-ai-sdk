@@ -296,3 +296,30 @@ def test_a_launcher_that_loads_but_never_enters_main_is_a_denial(home, project, 
 
     invariants.LAST_STDERR = done.stderr
     assert denies(tool, done.returncode, done.stdout), (done.returncode, done.stdout, done.stderr)
+
+
+@pytest.mark.parametrize("flags", BINDING, ids=["flag", "hash_eq", "hash_sep"])
+@pytest.mark.parametrize("leading", [[], ["--debug"], ["--server", "h:1"], ["--no-input", "--deb"]])
+@pytest.mark.parametrize("dispatcher", ["loads", "broken", "nothing_loads"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_binding_flag_anywhere_blocks_when_the_scanner_and_the_cli_imports_fail(
+        home, project, monkeypatch, tool, dispatcher, leading, flags):
+    import io
+
+    import briefcase.cli as cli_pkg
+    import briefcase.cli.__main__ as entry_module
+
+    build_state(home, project, "valid_denying")
+    monkeypatch.setitem(sys.modules, "briefcase_entry", None)  # the shared scanner cannot be imported
+    monkeypatch.setattr(entry_module, "_IMPORT_ERROR", ImportError("a command module cannot be imported"))
+    if dispatcher != "loads":
+        monkeypatch.setitem(sys.modules, "briefcase.cli.hook_commands", None)
+        monkeypatch.delattr(cli_pkg, "hook_commands", raising=False)
+    if dispatcher == "nothing_loads":
+        monkeypatch.setitem(sys.modules, "briefcase.policy.hook_main", None)
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload(tool, project))))
+    monkeypatch.setattr(sys, "stdout", out)
+    monkeypatch.setattr(sys, "stderr", err)
+    code = entry_module.main([*leading, "hook", tool, *flags, "--enforce"])
+    assert code == 2 and err.getvalue().strip() or denies(tool, code, out.getvalue()), (code, out.getvalue())
