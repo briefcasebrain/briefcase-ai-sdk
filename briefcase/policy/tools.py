@@ -215,6 +215,15 @@ def _absolute_url_problem(url):
         return "it has no host"
     if re.search(r"[\s\\]", parts.netloc):
         return "its authority has whitespace or a backslash"
+    # The raw host-and-port text (after the user information) must be exactly a host and a port, and the parser's
+    # reading must be that same host and port: older parsers drop text between `]` and the port, newer ones keep it.
+    hostport = parts.netloc.rsplit("@", 1)[-1]
+    shape = re.match(r"^\[([0-9A-Fa-f:.]+)\](?::([0-9]*))?$", hostport) or re.match(
+        r"^([^:\[\]]*)(?::([0-9]*))?$", hostport)
+    if shape is None:
+        return "its host and port are not written as a host and a port"
+    if shape.group(1).lower() != host or (int(shape.group(2)) if shape.group(2) else None) != parts.port:
+        return "the parser read another host or port than the one written"
     if not host.isascii():
         return "its host is not ASCII"
     if "%" in host:
@@ -224,9 +233,7 @@ def _absolute_url_problem(url):
             address = ipaddress.IPv6Address(host)
         except ValueError:
             return "its IPv6 host is malformed"
-        hostport = parts.netloc.rsplit("@", 1)[-1]  # after the user information, as the parser and the matcher read it
-        written = hostport[hostport.index("[") + 1:hostport.index("]")].lower()
-        if address.ipv4_mapped is not None or written != address.compressed:
+        if address.ipv4_mapped is not None or shape.group(1).lower() != address.compressed:
             return "its IPv6 address is not in canonical (compressed, lowercase) form"
     else:
         if _FORBIDDEN_HOST.search(host):

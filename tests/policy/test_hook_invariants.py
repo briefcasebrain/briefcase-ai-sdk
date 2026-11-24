@@ -1272,3 +1272,18 @@ def test_a_strict_hook_denies_a_path_or_command_with_a_nul_character(home, proje
             body["tool_input"] = {"command": "cat " + str(project / "a") + "\x00b"}
         code, raw = run_entry("module", tool, ["--fail-closed"], body, home)
         assert denies(tool, code, raw), (kind, code, raw)
+
+
+JUNK_AUTHORITY = ["https://[::1]junk/x", "https://[::1]junk:80/x", "https://[::1]x:8443/x", "https://[::1]:80junk/x",
+                  "https://example.com:80junk/x", "https://[::1]]/x", "https://[[::1]/x"]
+
+
+@pytest.mark.parametrize("url", JUNK_AUTHORITY)
+def test_the_authority_must_be_exactly_host_and_port_with_nothing_the_parser_discarded(home, project, url):
+    """CPython 3.9's urlsplit drops text between `]` and the port delimiter: the whole host-and-port spelling is
+    matched, and the parser's reading must equal it."""
+    _observe(home)
+    body = _events("claude-code", project)["web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
+    assert denies("claude-code", code, raw), f"{url!r} was allowed: {code} {raw!r}"
