@@ -421,7 +421,7 @@ def _apply_plan_locked(plan: Plan, ctx: Any, out: Printer, runner: Optional[Call
                 # A timeout or a crash can follow the add that committed: look before forgetting. Only an entry that is
                 # provably absent (or provably someone else's) lets the record go; ours, or unknown, keeps it, and
                 # undo checks the registry again before it says anything.
-                after = _registry.owned(command.argv, runner)
+                after = _registry.DIFFERS if "already exists" in output else _registry.owned(command.argv, runner)
                 if after in (_registry.ABSENT, _registry.DIFFERS):
                     journal["commands"].remove(pending)
                     del journal["targets"][tkey]
