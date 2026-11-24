@@ -395,7 +395,7 @@ AUTH = ["dry_run", "no_yes_non_tty", "yes"]
 AUTH_STATES = ["installed", "tombstone", "other_daemon", "volumes_ours"]
 AUTH_COMBOS = [(c, a, st) for c in DESTRUCTIVE for a in AUTH for st in AUTH_STATES
                if not (c in ("down", "down_volumes") and st == "tombstone")]
-DELETING = (["volume", "rm"], ["image", "rm"])
+DELETING = (["volume", "rm"], ["volume", "prune"], ["image", "rm"])
 
 
 def snapshot_paths(env):

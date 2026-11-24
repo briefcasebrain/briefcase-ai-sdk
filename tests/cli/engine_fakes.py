@@ -543,22 +543,6 @@ if args[:1] == ["info"]:  # `docker info --format ...`: the daemon's own id, or 
     fmt = args[args.index("--format") + 1] if "--format" in args else ""
     daemon_id = os.environ.get("FAKE_DOCKER_ID", "fake-daemon-id")
     print("2026-01-01T00:00:00Z" if "SystemTime" in fmt else daemon_id); sys.exit(0)
-if args[:1] == ["events"]:  # a stream of JSON events; FAKE_DOCKER_EVENTS=silent|stall_after_ready shapes delivery
-    import time
-    mode = os.environ.get("FAKE_DOCKER_EVENTS", "")
-    sent, ready = 0, False
-    while True:
-        try:
-            events = json.load(open(state_path)).get("events", [])
-        except (OSError, ValueError):
-            events = []
-        while sent < len(events):
-            event, sent = events[sent], sent + 1
-            if mode == "silent" or (mode == "stall_after_ready" and ready):
-                continue
-            print(json.dumps(event)); sys.stdout.flush()
-            ready = ready or event["Type"] == "volume"  # the first canary came through
-        time.sleep(0.05)
 if args[:1] == ["version"]:
     if os.environ.get("FAKE_DOCKER_DOWN"):
         sys.stderr.write("Cannot connect to the Docker daemon\n"); sys.exit(1)
@@ -697,36 +681,6 @@ if args[:2] == ["volume", "ls"]:
         if all(w.split("=", 1)[0] in labels and labels[w.split("=", 1)[0]] == w.split("=", 1)[1] for w in wanted):
             print(name)
     sys.exit(0)
-def add_event(kind, action, name, project=None, ident=None):
-    """An event as Docker 29.8.2 prints it: a volume is `Actor.ID`, a container is the `name` attribute."""
-    if kind == "volume":
-        actor = {"ID": name, "Attributes": {"driver": "local"}}
-    else:
-        actor = {"ID": ident or "c-" + name, "Attributes": {"name": name, "com.docker.compose.project": project or ""}}
-    state.setdefault("events", []).append({"Type": kind, "Action": action, "Actor": actor})
-    save()
-
-if args[:2] == ["volume", "create"]:
-    labels = {a.split("=", 1)[0]: a.split("=", 1)[1] for i, a in enumerate(args) if i and args[i - 1] == "--label"}
-    named = [a for i, a in enumerate(args[2:], 2) if not a.startswith("--") and args[i - 1] != "--label"]
-    name = named[0] if named else hashlib.sha256(os.urandom(8)).hexdigest()  # the daemon assigns an anonymous name
-    if os.environ.get("FAKE_DOCKER_CANARY_FOREIGN") and "ai.briefcase.watch" in labels:
-        labels = {"ai.briefcase.watch": "someone-else"}  # a volume that is not the one this SDK made
-    volumes_now()[name] = labels
-    add_event("volume", "create", name); save()
-    print(name); sys.exit(0)
-if args[:2] == ["volume", "prune"]:  # the daemon removes only the unused volumes that match the label filter
-    wanted = [a.split("=", 1)[1] for i, a in enumerate(args)
-              if i and args[i - 1] == "--filter" and a.startswith("label=")]
-    gone = []
-    for name, labels in list(volumes_now().items()):
-        if wanted and all(w.split("=", 1)[0] in labels and labels[w.split("=", 1)[0]] == w.split("=", 1)[1]
-                          for w in wanted):
-            del state["volumes"][name]
-            add_event("volume", "destroy", name)
-            gone.append(name)
-    save()
-    print("Deleted Volumes:"); [print(n) for n in gone]; sys.exit(0)
 if args[:2] == ["volume", "rm"]:
     name = args[-1]
     failing = (os.environ.get("FAKE_DOCKER_VOLUME_RM_FAIL") or "").split(",")
@@ -735,7 +689,6 @@ if args[:2] == ["volume", "rm"]:
     if name in failing or "*" in failing:
         sys.stderr.write("Error: remove %s: volume is in use\n" % name); sys.exit(1)
     del state["volumes"][name]; save()
-    add_event("volume", "destroy", name)
     sys.exit(0)
 if args[:2] == ["volume", "inspect"]:
     name = args[-1]
@@ -744,9 +697,6 @@ if args[:2] == ["volume", "inspect"]:
     import re as _re
     wanted = _re.search(r'index \.Labels "([^"]+)"', " ".join(args))
     print(volumes_now()[name].get(wanted.group(1) if wanted else "ai.briefcase.engine", ""))
-    if os.environ.get("FAKE_DOCKER_CANARY_SWAP") and wanted and wanted.group(1) == "ai.briefcase.watch":
-        state["volumes"][name] = {"ai.briefcase.watch": "someone-else"}  # replaced right after it was checked
-        save()
     sys.exit(0)
 if args[:1] == ["run"]:
     sys.exit(0)
@@ -771,7 +721,7 @@ if args[:1] == ["compose"]:
         sys.exit(0)
     if "-f" in args and "start" in args:
         servers_now()  # `compose start` only starts what exists: nothing is created or removed
-        state["containers"] = [r[:3] for r in containers_now()]
+        state["containers"] = [r[:3] + [""] + r[4:] if len(r) > 3 else r[:3] for r in containers_now()]  # now running
         save()
         sys.exit(0)
     if "-f" in args and "up" in args and "--no-recreate" in args:
@@ -782,9 +732,6 @@ if args[:1] == ["compose"]:
             seen.add(r[0])
         state["removed"] = state.get("removed", []) + removed
         save()
-    if "-f" in args and "up" in args and os.environ.get("FAKE_DOCKER_DESTROY_ON_UP"):
-        # Compose's reconcile scaled down a replica another client created while this `up` was running.
-        add_event("container", "destroy", os.environ["FAKE_DOCKER_DESTROY_ON_UP"], "briefcase-engine")
     if "-f" in args and ("up" in args or "down" in args):
         import re as _re
         servers_now()
@@ -799,10 +746,8 @@ if args[:1] == ["compose"]:
                 # Compose creates every service; an image the installer did not load (minio, registry) gets an id
                 started.append([service, state["refs"].get(ref) or "sha256:" + hashlib.sha256(ref.encode()).hexdigest(),
                                 path])
-            for i, row in enumerate(started):  # the daemon announces every container Compose creates
-                add_event("container", "create", "briefcase-engine-%s-1" % row[0], "briefcase-engine", "c%d" % i)
             vanish = os.environ.get("FAKE_DOCKER_VANISH_ON_UP")
-            if vanish:  # removed, and the destroy event was dropped before it reached the subscriber
+            if vanish:  # started by Compose and gone when the inventory is taken
                 started = [row + ["gone"] if row[0] == vanish else row for row in started]  # keeps the others' ids
             state["containers"] = started
             state["servers"] = [c[1] for c in started if c[0] == "oci-jj-server"]

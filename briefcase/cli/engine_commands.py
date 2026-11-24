@@ -22,12 +22,10 @@ import shutil
 import socket
 import subprocess
 import sys
-import threading
 import time
-import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
 from briefcase.cli import _ux
 
@@ -189,11 +187,6 @@ def _runner():
         argv, kw = _with_pin(argv, kw)
         return subprocess.run(argv, **kw)
     return run
-
-
-def _popen(argv, **kw):
-    argv, kw = _with_pin(argv, kw)
-    return subprocess.Popen(argv, **kw)
 
 
 @contextlib.contextmanager
@@ -1233,7 +1226,8 @@ def _container_tls(service: str, env: List[str], want_tls: bool) -> Optional[boo
     return want_tls if target == wanted else not want_tls
 
 
-def existing_containers_state(record: Dict[str, Any]) -> Tuple[Optional[str], Set[str]]:
+def existing_containers_state(record: Dict[str, Any],
+                              surplus_is_a_problem: bool = True) -> Tuple[Optional[str], Set[str]]:
     """``(problem, services that have a container)`` for the containers that already exist, running or stopped.
 
     ``up`` keeps what exists, so what exists must be what ``record`` describes: a container made from another
@@ -1270,7 +1264,7 @@ def existing_containers_state(record: Dict[str, Any]) -> Tuple[Optional[str], Se
     if stale:
         return "; ".join(stale), present
     extra = sorted(f"{service} ({n})" for service, n in counts.items() if n > 1)
-    if extra:
+    if extra and surplus_is_a_problem:
         return (f"more than one container exists for {', '.join(extra)}, which `up` does not touch but the engine "
                 "was not made to run"), present
     return None, present
@@ -1297,166 +1291,6 @@ def _start_argv(record: Dict[str, Any], present: Set[str],
         return None, (f"the stack is partial (no container for {', '.join(missing)}); starting it would need Compose "
                       "to create containers beside existing ones, which can remove containers"), services
     return _compose(record, "start"), "", services  # `start` has no --wait before Compose 2.24.7: cmd_up waits
-
-
-def _daemon_time() -> Optional[str]:
-    """The daemon's own clock (RFC 3339), so event windows do not depend on this machine's clock."""
-    res = _run(["docker", "info", "--format", "{{.SystemTime}}"], capture_output=True, text=True)
-    text = (getattr(res, "stdout", "") or "").strip() if res is not None and _rc(res) == 0 else ""
-    return text or None
-
-
-class DestroyWatch:
-    """A live subscription to the daemon's container and volume events, opened before ``compose up``. Nothing depends
-    on a sleep or on the daemon still holding the events afterwards (it keeps only the most recent ones): the
-    subscription is trusted once an event this process caused (a throwaway volume, created and removed) came back
-    through it, before ``compose up`` and again after it, and an event that arrived before the second canary arrived
-    before it."""
-
-    TIMEOUT = 10.0
-
-    def __init__(self) -> None:
-        self.proc: Optional["subprocess.Popen[str]"] = None
-        self.events: List[Dict[str, Any]] = []
-        self._lock = threading.Lock()
-
-    def _read(self) -> None:
-        assert self.proc is not None and self.proc.stdout is not None
-        for line in self.proc.stdout:
-            try:
-                event = json.loads(line)
-            except ValueError:
-                continue
-            if not isinstance(event, dict):
-                continue
-            with self._lock:
-                if event.get("Type") == "volume":  # only a canary's own create event is ever looked for
-                    if event.get("Action") == "create":
-                        self.events.append(event)
-                        volumes = [e for e in self.events if e.get("Type") == "volume"]
-                        if len(volumes) > self.KEEP_VOLUME_EVENTS:
-                            self.events.remove(volumes[0])
-                elif self._engine_container(event) and event.get("Action") in ("create", "destroy"):
-                    self.events.append(event)  # only what the final comparison uses
-
-    @staticmethod
-    def _engine_container(event: Dict[str, Any]) -> bool:
-        """A container of the engine's own Compose project that is not a `compose run` one-off (those are not part of
-        the stack and not in the inventory it is compared with)."""
-        from briefcase.engine import compose as engine_compose
-
-        attrs = (event.get("Actor") or {}).get("Attributes") or {}
-        return (event.get("Type") == "container" and attrs.get("com.docker.compose.project") == engine_compose.PROJECT
-                and str(attrs.get("com.docker.compose.oneoff", "False")).lower() != "true")
-
-    def _name(self, event: Dict[str, Any]) -> str:
-        """The object's name: a volume event carries it as ``Actor.ID`` (Docker 29.8.2), a container event as the
-        ``name`` attribute."""
-        actor = event.get("Actor") or {}
-        if event.get("Type") == "volume":
-            return str(actor.get("ID") or "")
-        return str((actor.get("Attributes") or {}).get("name") or "")
-
-    LABEL = "ai.briefcase.watch"
-    KEEP_VOLUME_EVENTS = 64
-
-    def _canary(self) -> bool:
-        """Cause an event of our own and wait until it comes back through the subscription. The volume is created by
-        this call with a label that carries a random token and a name the daemon chooses (so it cannot be an existing
-        volume), and is removed only after the daemon confirms it carries that token."""
-        token = uuid.uuid4().hex
-        created = _run(["docker", "volume", "create", "--label", f"{self.LABEL}={token}"],
-                       capture_output=True, text=True)
-        name = (getattr(created, "stdout", "") or "").strip() if _rc(created) == 0 else ""
-        if not name:
-            return False
-        label = _run(["docker", "volume", "inspect", "--format", '{{ index .Labels "' + self.LABEL + '" }}', name],
-                     capture_output=True, text=True)
-        owned = _rc(label) == 0 and (getattr(label, "stdout", "") or "").strip() == token
-        if not owned:
-            print(f"note: the temporary volume {name} does not carry this command's label; it was not touched",
-                  file=sys.stderr)
-        seen = False
-        deadline = time.monotonic() + self.TIMEOUT
-        while owned and time.monotonic() < deadline and not seen:
-            with self._lock:
-                seen = any(e.get("Type") == "volume" and e.get("Action") == "create" and self._name(e) == name
-                           for e in self.events)
-            if not seen:
-                time.sleep(0.05)
-        # The daemon removes by the label (random token, ours alone), not by a name a replacement volume could now
-        # carry: whatever else has that name is not matched.
-        removal = _run(["docker", "volume", "prune", "-a", "-f", "--filter", f"label={self.LABEL}={token}"],
-                       capture_output=True, text=True)
-        if _rc(removal) != 0:
-            print(f"note: could not remove its temporary volume {name} (created by this command, label "
-                  f"{self.LABEL}={token}); remove it with `docker volume prune -a -f --filter "
-                  f"label={self.LABEL}={token}`", file=sys.stderr)
-        return seen and owned
-
-    def start(self, since: str) -> bool:
-        """Subscribe and prove the subscription delivers; ``False`` when it was not made or never delivered."""
-        try:
-            self.proc = _popen(["docker", "events", "--since", since, "--filter", "type=container",
-                                "--filter", "type=volume", "--format", "{{json .}}"],
-                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-        except OSError:
-            self.proc = None
-            return False
-        threading.Thread(target=self._read, daemon=True).start()
-        if self._canary():
-            return True
-        self.stop()
-        return False
-
-    def stop(self) -> None:
-        if self.proc is not None:
-            self.proc.terminate()
-            try:
-                self.proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                self.proc.kill()
-
-    def finish(self, inventory: Callable[[], Optional[Set[str]]]) -> Tuple[List[str], bool]:
-        """``(names of the engine's containers that were removed, observed)``. Events can be dropped for a slow
-        subscriber, so they are not trusted alone: a container the events announced and that is neither alive in
-        ``alive`` (``docker ps -a``) nor reported destroyed was removed without its event, and a container alive
-        with no announcement means a creation event was dropped (so the observation is incomplete). ``observed`` is
-        true only when a second canary came back and the two views agree about what exists."""
-        if self.proc is None:
-            return [], False
-        # The inventory is taken after the last canary came back: every event up to that point has been delivered, so
-        # a container created late is in it and one removed late is not.
-        observed = self._canary()
-        alive = inventory()
-        observed = observed and alive is not None
-        self.stop()
-        mine = self._engine_container
-
-        with self._lock:
-            created = {str((e.get("Actor") or {}).get("ID")): self._name(e) for e in self.events
-                       if mine(e) and e.get("Action") == "create"}
-            destroyed = {str((e.get("Actor") or {}).get("ID")): self._name(e) for e in self.events
-                         if mine(e) and e.get("Action") == "destroy"}
-        names = list(destroyed.values())
-        if alive is not None:
-            names += [name for ident, name in created.items() if ident not in destroyed and ident not in alive]
-            if alive - set(created):  # alive, and never announced: an event was dropped
-                observed = False
-        return names, observed
-
-
-def project_container_ids() -> Optional[Set[str]]:
-    """The ids of the engine project's containers (running or not, one-offs excluded), or ``None`` when docker could not
-    say."""
-    from briefcase.engine import compose as engine_compose
-
-    res = _run(["docker", "ps", "-a", "-q", "--no-trunc", "--filter",
-                f"label=com.docker.compose.project={engine_compose.PROJECT}", "--filter",
-                "label=com.docker.compose.oneoff=False"], capture_output=True, text=True)
-    if res is None or _rc(res) != 0:
-        return None
-    return set((getattr(res, "stdout", "") or "").split())
 
 
 def wait_running(record: Dict[str, Any], services: Set[str], timeout: float = 300.0, interval: float = 2.0) -> bool:
@@ -1522,37 +1356,18 @@ def cmd_up(args, store, engine, stack) -> int:
                                     "at the same address and nothing was started", fix="briefcase-ai engine doctor")
             except _engine.StateUnreadable as exc:
                 return _ux.fail(str(exc), fix=exc.fix)
-            creating = "up" in command
-            watch = DestroyWatch()
-            if creating:
-                # Every Compose create path reconciles and scales a service down to its expected count (v5.5.0
-                # reconcile.go), so a second Compose client adding replicas during this start can have one removed.
-                # That cannot be prevented from here; it is observed from the daemon's own events and reported.
-                since = _daemon_time()
-                if since is None:
-                    return _ux.fail("could not read the Docker daemon's clock, so a removal during the start could "
-                                    "not be observed and nothing was started", fix="briefcase-ai engine doctor")
-                if not watch.start(since):
-                    return _ux.fail("could not subscribe to the Docker daemon's events (nothing came back through "
-                                    "the subscription), so a removal during the start could not be observed and "
-                                    "nothing was started", fix="briefcase-ai engine doctor")
-                # The inventory was taken before the canary's wait: the daemon behind the pinned endpoint and what it
-                # holds must still be what that inventory saw.
-                again, present_now = existing_containers_state(record)
-                if not still_the_daemon(daemon) or again or present_now != present:
-                    watch.stop()
-                    return _ux.fail("the Docker daemon, or its containers, changed after they were inspected, so "
-                                    "nothing was started", fix="briefcase-ai engine doctor")
             rc = _rc(_run(command))
-            if creating:
-                removed, observed = watch.finish(project_container_ids)
-                if removed:
-                    return _ux.fail(f"Compose removed {', '.join(removed)} while starting the engine (another Compose "
-                                    "client was creating containers for this project at the same time); its "
-                                    "writable layer is gone", fix="briefcase-ai engine status")
-                if not observed:
-                    return _ux.fail("the Docker daemon's events stopped arriving during the start, so whether Compose "
-                                    "removed a container is unknown", fix="briefcase-ai engine status")
+            if rc == 0:
+                # What Compose created or started is checked against the record: every expected service has its
+                # container, image and transport. A container another Compose client made Compose remove while it
+                # reconciled (v5.5.0 reconcile.go scales a service down to its expected count) is not detected beyond
+                # this: the SDK watches nothing and creates or removes nothing of its own.
+                after, now = existing_containers_state(record, surplus_is_a_problem=False)  # not ours to judge
+                missing = sorted(expected - now)
+                if after or missing:
+                    return _ux.fail(("after the start, " + after if after else
+                                     f"after the start, no container exists for {', '.join(missing)}")
+                                    + "; the engine is not in the state it should be", fix="briefcase-ai engine status")
             if rc == 0 and getattr(args, "wait", False) and "start" in command \
                     and not wait_running(record, expected):  # on the pinned daemon, for the services of the file
                 return _ux.fail("the engine did not become healthy within 300 seconds", fix="briefcase-ai engine logs")

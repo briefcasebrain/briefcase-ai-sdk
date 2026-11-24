@@ -462,17 +462,6 @@ def test_a_client_that_dials_another_destination_than_the_servers_is_refused(env
 
 # --- G2: a fresh stack's `up` is verified afterwards, and never claims success over a removal ------------------
 
-def test_up_on_a_fresh_stack_fails_when_compose_removed_a_container_during_the_start(env, monkeypatch, capsys):
-    """Every Compose v5.5.0 create path (up, create) reconciles, and reconcile.go scales a service down to its expected
-    count, so a second client creating replicas during `up` can have one removed. That cannot be prevented, so it is
-    detected from the daemon's destroy events and reported, never passed off as a start."""
-    synthetic(env, [A], A)
-    configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("FAKE_DOCKER_DESTROY_ON_UP", "briefcase-engine-gateway-2")
-    assert main(["engine", "up"]) == 1
-    out = capsys.readouterr()
-    assert "briefcase-engine-gateway-2" in out.err + out.out and "started" not in out.out
-
 
 def test_up_on_a_fresh_stack_reports_success_when_nothing_was_removed(env, monkeypatch, capsys):
     synthetic(env, [A], A)
@@ -627,27 +616,6 @@ def test_a_client_only_upgrade_does_not_need_docker_because_of_old_daemon_histor
 
 # --- round 16: observation is proven by delivery, never by a sleep ------------------------------------------------
 
-def test_a_fresh_start_is_refused_when_the_event_subscription_never_delivers(env, monkeypatch, capsys):
-    synthetic(env, [A], A)
-    configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("FAKE_DOCKER_EVENTS", "silent")  # the stream is alive and connected, and says nothing
-    monkeypatch.setattr(engine_commands.DestroyWatch, "TIMEOUT", 0.5, raising=False)
-    assert main(["engine", "up"]) != 0
-    out = capsys.readouterr()
-    assert [c for c in compose_calls(env) if "up" in c["argv"]] == [], "compose ran without a working watch"
-    assert "subscribe" in out.err + out.out
-
-
-def test_a_fresh_start_is_not_reported_when_events_stop_arriving_during_it(env, monkeypatch, capsys):
-    synthetic(env, [A], A)
-    configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("FAKE_DOCKER_EVENTS", "stall_after_ready")  # ready at first, then nothing more is delivered
-    monkeypatch.setenv("FAKE_DOCKER_DESTROY_ON_UP", "briefcase-engine-gateway-2")
-    monkeypatch.setattr(engine_commands.DestroyWatch, "TIMEOUT", 0.5, raising=False)
-    assert main(["engine", "up"]) != 0
-    out = capsys.readouterr()
-    assert "started" not in out.out and "unknown" in out.err + out.out
-
 
 # --- round 17 ---------------------------------------------------------------------------------------------------
 
@@ -702,62 +670,6 @@ def test_a_rollback_removes_only_the_daemons_this_install_added(env, monkeypatch
     assert "default unix:///var/run/docker.sock id=BBB" in history, history
 
 
-def test_the_canary_volume_is_removed_only_when_it_carries_this_sdks_label(env, monkeypatch, capsys):
-    synthetic(env, [A], A)
-    configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("FAKE_DOCKER_CANARY_FOREIGN", "1")  # the volume that answers is not the one this SDK created
-    main(["engine", "up"])
-    capsys.readouterr()
-    removed = [c for c in calls(env["log"]) if c["argv"][:2] == ["volume", "rm"]]
-    assert removed == [], removed
-
-
-def test_the_canary_volume_gets_a_daemon_assigned_name_and_a_label(env, monkeypatch, capsys):
-    synthetic(env, [A], A)
-    configure(env, monkeypatch, "ok", "none", "none")
-    assert main(["engine", "up"]) == 0
-    capsys.readouterr()
-    (create, *_) = [c for c in calls(env["log"]) if c["argv"][:2] == ["volume", "create"]]
-    assert "--label" in create["argv"] and not [a for a in create["argv"][2:] if a.startswith("briefcase")]
-
-
-def test_a_container_created_during_the_start_that_vanished_without_a_destroy_event_is_reported(
-        env, monkeypatch, capsys):
-    """Docker can skip an event for a slow subscriber: the set of containers is compared with `docker ps -a`, not
-    only with the events."""
-    synthetic(env, [A], A)
-    configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("FAKE_DOCKER_VANISH_ON_UP", "gateway")
-    assert main(["engine", "up"]) != 0
-    out = capsys.readouterr()
-    assert "started" not in out.out and "gateway" in out.err + out.out
-
-
-def test_the_watch_keeps_only_events_it_can_use_and_a_bounded_number_of_them():
-    import io
-
-    watch = engine_commands.DestroyWatch()
-
-    class Proc:
-        stdout = io.StringIO("".join(json.dumps(e) + "\n" for e in (
-            [{"Type": "container", "Action": "start", "Actor": {"ID": "x", "Attributes": {"name": "other"}}}] * 50
-            + [{"Type": "volume", "Action": "destroy", "Actor": {"ID": "v"}}] * 50
-            + [{"Type": "volume", "Action": "create", "Actor": {"ID": f"v{i}"}} for i in range(500)])))
-
-    watch.proc = Proc()  # type: ignore[assignment]
-    watch._read()
-    assert len(watch.events) <= engine_commands.DestroyWatch.KEEP_VOLUME_EVENTS
-    assert all(e["Action"] == "create" for e in watch.events)
-
-
-def test_a_canary_volume_that_cannot_be_removed_is_reported(env, monkeypatch, capsys):
-    synthetic(env, [A], A)
-    configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("FAKE_DOCKER_FAIL", "volume prune")
-    main(["engine", "up"])
-    assert "temporary volume" in capsys.readouterr().err
-
-
 # --- round 18 ---------------------------------------------------------------------------------------------------
 
 def test_a_legacy_upgrade_does_not_restart_on_a_daemon_other_than_the_one_preflight_verified(
@@ -783,88 +695,34 @@ def test_a_legacy_upgrade_does_not_restart_on_a_daemon_other_than_the_one_prefli
     assert json.loads(_engine.installed_path().read_text())["docker_contexts"] == [legacy]
 
 
-def test_ordinary_up_rechecks_the_daemon_after_the_inventory_and_the_canary(env, monkeypatch, capsys):
-    synthetic(env, [A], A)
-    configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
-    real = engine_commands.DestroyWatch.start
-
-    def start_then_the_tunnel_moves(self, since):
-        ready = real(self, since)
-        monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # repointed to a daemon whose inventory was never taken
-        return ready
-
-    monkeypatch.setattr(engine_commands.DestroyWatch, "start", start_then_the_tunnel_moves)
-    assert main(["engine", "up"]) != 0
-    capsys.readouterr()
-    assert [c for c in compose_calls(env) if "up" in c["argv"] or "start" in c["argv"]] == []
-
-
-def test_a_canary_volume_replaced_after_it_was_checked_is_not_removed(env, monkeypatch, capsys):
-    from tests.cli.engine_fakes import docker_state
-
-    synthetic(env, [A], A)
-    configure(env, monkeypatch, "ok", "none", "none")
-    monkeypatch.setenv("FAKE_DOCKER_CANARY_SWAP", "1")
-    main(["engine", "up"])
-    capsys.readouterr()
-    assert [c for c in calls(env["log"]) if c["argv"][:2] == ["volume", "rm"]] == []
-    survivors = [name for name, labels in docker_state(env["log"]).get("volumes", {}).items()
-                 if labels.get("ai.briefcase.watch") == "someone-else"]
-    assert survivors, "the replacement volume was deleted"
-
-
-def _watch_with(events, alive, monkeypatch):
-    """A DestroyWatch whose subscription already delivered ``events``; ``alive`` is what `docker ps -a` answers once the
-    final canary came back."""
-    watch = engine_commands.DestroyWatch()
-
-    class Proc:
-        def terminate(self): ...
-        def wait(self, timeout=None): ...
-
-    watch.proc = Proc()  # type: ignore[assignment]
-    monkeypatch.setattr(watch, "_canary", lambda: True)
-    watch.events = list(events)
-    return watch.finish(lambda: set(alive))
-
-
-def container_event(action, ident, name="briefcase-engine-x-1", project="briefcase-engine", oneoff=None):
-    attrs = {"name": name, "com.docker.compose.project": project}
-    if oneoff is not None:
-        attrs["com.docker.compose.oneoff"] = oneoff
-    return {"Type": "container", "Action": action, "Actor": {"ID": ident, "Attributes": attrs}}
-
-
-def test_a_live_one_off_container_is_not_reported_as_lost(monkeypatch):
-    names, observed = _watch_with([container_event("create", "o1", oneoff="True")], [], monkeypatch)
-    assert names == [] and observed
-
-
-def test_a_container_created_after_the_start_began_is_alive_in_the_final_inventory(monkeypatch):
-    # the inventory is taken after the last canary came back, so a container created late is in it
-    names, observed = _watch_with([container_event("create", "late")], ["late"], monkeypatch)
-    assert names == [] and observed
-
-
-def test_the_watch_retains_only_create_and_destroy_events_of_the_engine_project():
-    import io
-
-    watch = engine_commands.DestroyWatch()
-    noise = [container_event("start", f"c{i}") for i in range(300)] + [
-        container_event("create", "other", project="someone-elses"), container_event("create", "oo", oneoff="True")]
-    wanted = [container_event("create", "a"), container_event("destroy", "a")]
-
-    class Proc:
-        stdout = io.StringIO("".join(json.dumps(e) + "\n" for e in noise + wanted))
-
-    watch.proc = Proc()  # type: ignore[assignment]
-    watch._read()
-    assert watch.events == wanted
-
-
 def test_confirmation_tokens_need_the_answer_that_earns_them():
     assert isinstance(engine_commands._mint("Go ahead?", True), engine_commands.Confirmed)
     for answer in (False, None):
         with pytest.raises(PermissionError):
             engine_commands._mint("Go ahead?", answer)
+
+
+# --- round 19: `up` owns nothing it does not create through Compose ------------------------------------------------
+
+@pytest.mark.parametrize("stack", ["fresh", "existing"])
+def test_up_issues_no_docker_volume_creation_removal_or_events_command(env, monkeypatch, capsys, stack):
+    from tests.cli.test_engine_invariants import containers_for
+
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none" if stack == "fresh" else "ours", "none")
+    if stack == "existing":
+        monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))[:2]))
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    used = [c["argv"] for c in calls(env["log"])]
+    assert [a for a in used if a[:1] == ["events"]] == []
+    assert [a for a in used if a[:2] in (["volume", "create"], ["volume", "rm"], ["volume", "prune"])] == []
+
+
+def test_up_reports_an_expected_container_that_is_missing_after_the_start(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_VANISH_ON_UP", "gateway")  # started, and gone when the inventory is taken
+    assert main(["engine", "up"]) != 0
+    out = capsys.readouterr()
+    assert "started" not in out.out and "gateway" in out.err + out.out

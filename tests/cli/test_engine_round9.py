@@ -23,7 +23,8 @@ from tests.cli.engine_fakes import build_release, calls
 from tests.cli.test_engine_install import _install
 from tests.cli.test_engine_invariants import A, B, configure, snapshot_paths, synthetic
 
-REMOVING = (["volume", "rm"], ["image", "rm"], ["rmi"], ["rm"], ["container", "rm"], ["system", "prune"])
+REMOVING = (["volume", "rm"], ["volume", "prune"], ["image", "rm"], ["rmi"], ["rm"], ["container", "rm"],
+            ["system", "prune"])
 
 
 def removals(env):
