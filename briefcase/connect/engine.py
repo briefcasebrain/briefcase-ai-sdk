@@ -155,13 +155,10 @@ def _plan_file(plan: Plan, item: FileEdit, ctx: Any, journal: Dict[str, Any]) ->
                 f"not shown). To let briefcase-ai manage it, remove it yourself and connect again")))
             return
         risks = edits.exposure(item, resolved.old_text, getattr(ctx, "given", {}) or {})
+        given = getattr(ctx, "given", {}) or {}
         for layer in item.layers:  # settings the tool merges in from managed, project and local files
-            try:
-                layer_text = edits.read_text(layer)
-            except (OSError, UnicodeDecodeError):
-                continue
-            risks += [f"{layer.name}:{name}" for name in
-                      edits.exposure(item, layer_text, getattr(ctx, "given", {}) or {}, other_layer=True)]
+            risks += edits.layer_risks(item, layer, given)
+        risks += edits.environment_risks(item, os.environ)  # what is already exported where the tool will start
         if risks:
             plan.blocked.append(Blocked(item.tool, item.kind, "unsafe", (
                 f"{where}: not written, because it already sets {', '.join(risks)}; with the endpoint briefcase-ai "
@@ -397,13 +394,34 @@ def _apply_plan_locked(plan: Plan, ctx: Any, out: Printer, runner: Optional[Call
         if state == _registry.PRESENT or (state == _registry.UNKNOWN and replacing):
             code, output = 1, "already exists"
         else:
+            # Record the intent before the add can have happened: an interruption after it succeeds must not leave a
+            # live registration that no record names. A failed add removes the record again; undo checks the
+            # registry before it says anything about a recorded registration.
+            mine = ctx[command.tool] if isinstance(ctx, dict) else ctx
+            pending = {"tool": command.tool, "argv": command.argv, "undo_hint": command.undo_hint,
+                       **identity(command.argv), "at": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+            tkey = target_key(command.tool, "mcp", command_target(command.argv))
+            journal["commands"].append(pending)
+            journal["targets"][tkey] = _record(command.tool, "mcp", command_target(command.argv), mine,
+                                               argv=command.argv, undo_hint=command.undo_hint,
+                                               **identity(command.argv))
+            edits.save_journal(journal)
             code, output = runner(command.argv)
+            if code != 0:
+                journal["commands"].remove(pending)
+                del journal["targets"][tkey]
+                edits.save_journal(journal)
         if code != 0 and "already exists" in output:
             # Someone else's entry: never touched, never printed (its args and env may hold credentials).
             scope, key = registration(command.argv)
             name = _registry.server_name(command.argv)
             failures += 1 if skipped_is_failure else 0
             hint = command.undo_hint or ["remove it in the tool's settings"]
+            if state == _registry.UNKNOWN:  # never suggest removing what cannot be shown to be someone else's either
+                out(f"  {'failed' if skipped_is_failure else 'skip  '} the tool's registry could not be read, so it "
+                    f"is not known whether an MCP server named {name!r} is already registered in {scope} scope; "
+                    "nothing was run and nothing is suggested for removal. Check it yourself, then connect again")
+                continue
             out(f"  {'failed' if skipped_is_failure else 'skip  '} an MCP server named {name!r} is already "
                 f"registered in {scope} scope and briefcase did not write it, so it was left as it is; to use "
                 f"briefcase-ai-mcp, run `{mcp_payloads.shell(hint)}` and then "
@@ -414,13 +432,6 @@ def _apply_plan_locked(plan: Plan, ctx: Any, out: Printer, runner: Optional[Call
             out(f"  failed {mcp_payloads.shell(command.argv)}: {output or f'exit {code}'}")
             break
         out(f"  ran    {mcp_payloads.shell(command.argv)}")
-        mine = ctx[command.tool] if isinstance(ctx, dict) else ctx
-        stamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-        journal["commands"].append({"tool": command.tool, "argv": command.argv, "undo_hint": command.undo_hint,
-                                    **identity(command.argv), "at": stamp})
-        journal["targets"][target_key(command.tool, "mcp", command_target(command.argv))] = _record(
-            command.tool, "mcp", command_target(command.argv), mine, argv=command.argv,
-            undo_hint=command.undo_hint, **identity(command.argv))
     edits.save_journal(journal)
     return failures
 

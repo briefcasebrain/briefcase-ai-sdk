@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from briefcase.connect import edits
 from briefcase.connect import mcp as mcp_payloads
 from briefcase.connect.edits import Command, FileEdit, Manual, home, snippet
 
@@ -229,6 +230,36 @@ class Adapter:
                       f"`{argv[0]}` is not on PATH, so run this yourself once it is")
 
 
+def _registry_settings() -> Optional[str]:
+    """The ``Settings`` value Claude Code reads from ``HKLM\\SOFTWARE\\Policies\\ClaudeCode`` on Windows; ``None`` where
+    there is no registry or no such value."""
+    try:
+        import winreg
+    except ImportError:
+        return None
+    reg: Any = winreg  # its members exist only on Windows
+    try:
+        with reg.OpenKey(reg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\ClaudeCode") as key:
+            value, _kind = reg.QueryValueEx(key, "Settings")
+    except FileNotFoundError:
+        return None
+    return value if isinstance(value, str) else None
+
+
+def _managed_preferences() -> Optional[str]:
+    """The macOS managed-preferences plist for Claude Code (what an MDM profile installs), as JSON text."""
+    import plistlib
+
+    path = Path("/Library/Managed Preferences/com.anthropic.claudecode.plist")
+    try:
+        data = plistlib.loads(path.read_bytes())
+    except FileNotFoundError:
+        return None
+    except plistlib.InvalidFileException as exc:
+        raise ValueError(str(exc))
+    return json.dumps(data, default=str)
+
+
 def _headers_csv(headers: Dict[str, str]) -> str:
     return ",".join(f"{key}={value}" for key, value in headers.items())
 
@@ -259,7 +290,10 @@ class ClaudeCode(Adapter):
         for directory in self.data.get("managed_settings_dirs", []):
             paths.extend(sorted(Path(directory).glob("*.json")) if Path(directory).is_dir() else [])
         paths += [ctx.project_dir / ".claude" / "settings.json", ctx.project_dir / ".claude" / "settings.local.json"]
-        return paths
+        layers: List[Any] = list(paths)
+        layers.append(edits.ExternalLayer("Windows registry HKLM\\SOFTWARE\\Policies\\ClaudeCode", _registry_settings))
+        layers.append(edits.ExternalLayer("com.anthropic.claudecode managed preferences", _managed_preferences))
+        return layers
 
     def telemetry_env(self, ctx: Context) -> Dict[str, str]:
         env = {

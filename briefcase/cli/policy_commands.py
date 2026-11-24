@@ -538,6 +538,10 @@ def _cmd_off(args) -> int:
     print("Would remove:" if dry else "Removing:")
     kept: List[str] = []
     removed: Dict[str, int] = {}
+    # Only the entries the person was shown and confirmed: a hook installed for another tool while the question was
+    # open is not theirs to have removed. The journal is re-read under the lock and each entry must still hold
+    # exactly what was written before it is touched.
+    owners = [install.PREFIX + name for name in present]
     connect_engine.undo(owners, print, dry_run=dry, keep_unremoved=True, retained=kept, removed=removed)
     if dry:
         # What would be left: hook entries on disk now, minus the ones this run would remove.

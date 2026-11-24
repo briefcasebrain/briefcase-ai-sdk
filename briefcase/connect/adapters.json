@@ -15,11 +15,13 @@
       },
       "managed_settings": [
         "/Library/Application Support/ClaudeCode/managed-settings.json",
-        "/etc/claude-code/managed-settings.json"
+        "/etc/claude-code/managed-settings.json",
+        "C:\\Program Files\\ClaudeCode\\managed-settings.json"
       ],
       "managed_settings_dirs": [
         "/Library/Application Support/ClaudeCode/managed-settings.d",
-        "/etc/claude-code/managed-settings.d"
+        "/etc/claude-code/managed-settings.d",
+        "C:\\Program Files\\ClaudeCode\\managed-settings.d"
       ],
       "otlp_protocol": "http/json",
       "needs_protobuf": false,

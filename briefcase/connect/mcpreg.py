@@ -88,11 +88,15 @@ def _vscode_file() -> Optional[Path]:
     return settings.with_name("mcp.json")
 
 
-def _claude_config_entry(name: str) -> Any:
-    """The user-scope server ``name`` as Claude Code's own config file holds it: a dict, ``None`` when there is no
-    such file, ``"missing"`` when the file has no such entry, ``"unreadable"`` when it cannot be parsed."""
+def _claude_config_entry(name: str, kind: str = "user") -> Any:
+    """The server ``name`` as Claude Code's own files hold it, in the scope ``kind`` (``user``: ``~/.claude.json``
+    ``mcpServers``; ``local``: that file's ``projects[<cwd>].mcpServers``; ``project``: ``./.mcp.json``). A dict, or
+    ``None`` when there is no such file, ``"missing"`` when the file has no such entry, ``"unreadable"`` when it
+    cannot be parsed."""
     base = os.environ.get("CLAUDE_CONFIG_DIR")
     path = (Path(base).expanduser() if base else edits.home()) / ".claude.json"
+    if kind == "project":
+        path = Path(os.getcwd()) / ".mcp.json"
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -103,7 +107,11 @@ def _claude_config_entry(name: str) -> Any:
         doc = json.loads(text, object_pairs_hook=edits._no_duplicates)
     except ValueError:
         return "unreadable"
-    servers = doc.get("mcpServers") if isinstance(doc, dict) else None
+    holder: Any = doc
+    if kind == "local":
+        projects = doc.get("projects") if isinstance(doc, dict) else None
+        holder = projects.get(os.getcwd()) if isinstance(projects, dict) else None
+    servers = holder.get("mcpServers") if isinstance(holder, dict) else None
     if not isinstance(servers, dict) or name not in servers or not isinstance(servers[name], dict):
         return "missing"
     return servers[name]
@@ -179,14 +187,14 @@ def lookup(argv: List[str], runner: Runner) -> Tuple[str, Optional[Dict[str, Any
             return UNKNOWN, None
         env = {"_": 1} if env_lines else {}
         found: Dict[str, Any] = {"command": fields["Command"], "args": args, "scope": kind, "env": env}
-        structured = _claude_config_entry(name) if kind == "user" else None
+        structured = _claude_config_entry(name, kind)
         if structured == "unreadable":
             return UNKNOWN, None
         if isinstance(structured, dict):  # the tool's own file keeps argument boundaries the one-line listing loses
             found.update(args=list(structured.get("args") or []), command=structured.get("command"),
-                         env=structured.get("env") or {}, structured=True)
-        elif structured == "missing":
-            found["boundaries_unproven"] = True  # the CLI lists it but its file layout does not show it
+                         env=structured.get("env") or found["env"], structured=True)
+        else:  # no file, or one that does not show this entry: the one-line listing cannot prove the boundaries
+            found["boundaries_unproven"] = True
         return PRESENT, found
     return UNKNOWN, None
 
@@ -202,11 +210,13 @@ def owned(recorded_argv: List[str], runner: Runner) -> str:
         recorded_scope = recorded_argv[4] if len(recorded_argv) > 4 else "user"
         if any(re.search(r"\s", a) for a in want.get("args", [])):
             return UNKNOWN  # the CLI's one-line listing cannot tell these arguments apart
+        flat_same = " ".join(str(a) for a in entry.get("args") or []) == " ".join(want.get("args", []))
+        if (entry.get("command") != want.get("command") or entry.get("scope") != recorded_scope or entry.get("env")
+                or entry.get("type") not in (None, "stdio") or not flat_same):
+            return DIFFERS  # differs however the arguments are split
         if entry.get("boundaries_unproven"):
             return UNKNOWN  # the file that would settle the argument boundaries does not show this entry
-        same = (entry.get("command") == want.get("command") and entry.get("args") == want.get("args", [])
-                and entry.get("scope") == recorded_scope and not entry.get("env")
-                and entry.get("type") in (None, "stdio"))
+        same = entry.get("args") == want.get("args", [])
     else:
         same = _entry_matches(entry, want)
     return OURS if same else DIFFERS

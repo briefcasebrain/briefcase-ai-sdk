@@ -125,7 +125,7 @@ class FileEdit:
     secret: bool = False
     # Other files the tool also reads settings from (managed, project, local layers): existing telemetry settings
     # there combine with ours exactly like ones in this file.
-    layers: List[Path] = field(default_factory=list)
+    layers: List[Any] = field(default_factory=list)  # a Path, or an :class:`ExternalLayer` (registry, plist)
     toml_added_newline: bool = False  # set by resolve: the file had no final newline and we added one
 
 
@@ -621,9 +621,11 @@ def mask_secrets(line: str) -> str:
 
 
 # Credentials we were never told about, by shape: a bearer token, or a key whose name says it is a secret.
+_SCHEME = r"(?:(?:bearer|basic|digest|negotiate|token)\s+)"
 _GENERIC_SECRET = re.compile(
-    r"((?i:bearer\s+)|(?i:\b(?:authorization|token|password|passwd|secret|api[_-]?key|apikey)[\"']?\s*[=:]\s*"
-    r"(?:bearer\s+)?[\"']?))[^\s\"',;]{4,}")
+    r"((?i:bearer\s+)|(?i:basic\s+)(?=[A-Za-z0-9+/]*[A-Z])(?=[A-Za-z0-9+/]*[a-z0-9])(?=[A-Za-z0-9+/]{8})"
+    r"|(?i:\b(?:authorization|token|password|passwd|secret|api[_-]?key|apikey)[\"']?\s*[=:]\s*"
+    r"[\"']?(?i:" + _SCHEME + r")?[\"']?))[^\s\"',;]{4,}")
 
 
 def secret_parts(values: Sequence[str]) -> List[str]:
@@ -807,6 +809,56 @@ def exposure(edit: FileEdit, text: Optional[str], given: Dict[str, Any], other_l
         if parent is not None and path[-1] in parent and tuple(path) not in ours and ".".join(path) not in found:
             found.append(".".join(path))
     return found
+
+
+class ExternalLayer(object):
+    """A settings layer that is not a file we can read with :func:`read_text` (a Windows registry value, a macOS
+    managed-preferences plist): ``read`` returns its JSON text, ``None`` when it does not exist, and raises
+    ``OSError`` when it exists but cannot be read."""
+
+    def __init__(self, name: str, read: Any) -> None:
+        self.name = name
+        self.read = read
+
+
+def layer_risks(edit: FileEdit, layer: Any, given: Dict[str, Any]) -> List[str]:
+    """Risks named by one other settings layer of the tool. A layer that exists but cannot be read, or whose content
+    cannot be understood, counts as a risk: not knowing what it sets is not the same as it setting nothing."""
+    name = getattr(layer, "name", None) or str(layer)
+    try:
+        text = layer.read() if isinstance(layer, ExternalLayer) else read_text(layer)
+    except FileNotFoundError:
+        return []
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        return [f"{name}:(exists but cannot be read: {exc.__class__.__name__})"]
+    if text is None or not text.strip():
+        return []
+    try:
+        doc = _load_json(text, Path("(layer)"))
+    except EditRefused:
+        return [f"{name}:(is not valid JSON, so what it sets is unknown)"]
+    if not isinstance(doc, dict):
+        return [f"{name}:(is not a settings object, so what it sets is unknown)"]
+    return [f"{name}:{item}" for item in exposure(edit, text, given, other_layer=True)]
+
+
+def environment_risks(edit: FileEdit, environ: Any) -> List[str]:
+    """Names (never values) of variables already exported in this process that the tool also reads as telemetry
+    settings (the ``env`` object of its settings file) and that this edit does not itself write."""
+    ours = {tuple(op["path"]) for op in edit.ops}
+    found = []
+    for parent, prefix in edit.namespace:
+        if list(parent) != ["env"]:
+            continue
+        for key in environ:
+            if key.lower().startswith(prefix.lower()) and ("env", key) not in ours:
+                found.append(f"environment:{key}")
+    for path, _what in edit.watch:
+        if len(path) == 2 and path[0] == "env" and path[1] in environ and tuple(path) not in ours:
+            item = f"environment:{path[1]}"
+            if item not in found:
+                found.append(item)
+    return sorted(set(found))
 
 
 def holds_any(edit: FileEdit, text: Optional[str]) -> bool:

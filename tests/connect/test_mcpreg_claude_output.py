@@ -9,6 +9,16 @@ def isolated_home(tmp_path, monkeypatch):
     """The lookup also reads Claude's own config file: never the real one."""
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.fixture
+def claude_json(tmp_path):
+    """Claude Code's own file, with the entry it registered: the one place the argument boundaries are exact."""
+    import json
+
+    (tmp_path / ".claude.json").write_text(json.dumps({"mcpServers": {"briefcase": {
+        "type": "stdio", "command": "uvx", "args": ["--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"], "env": {}}}}))
 
 
 ADD = ["claude", "mcp", "add", "--scope", "user", "briefcase", "--",
@@ -46,15 +56,19 @@ def runner_for(text, code=0):
     return lambda argv: (code, text)
 
 
-def test_our_registration_with_no_environment_is_ours():
+def test_our_registration_with_no_environment_is_ours(claude_json):
     assert mcpreg.owned(ADD, runner_for(NO_ENV)) == mcpreg.OURS
 
 
-def test_a_registration_with_an_environment_variable_is_not_ours():
+def test_without_claudes_own_file_the_boundaries_are_unproven_so_the_entry_is_unknown():
+    assert mcpreg.owned(ADD, runner_for(NO_ENV)) == mcpreg.UNKNOWN
+
+
+def test_a_registration_with_an_environment_variable_is_not_ours(claude_json):
     assert mcpreg.owned(ADD, runner_for(WITH_ENV)) == mcpreg.DIFFERS
 
 
-def test_a_registration_that_failed_to_connect_is_still_recognised():
+def test_a_registration_that_failed_to_connect_is_still_recognised(claude_json):
     assert mcpreg.owned(ADD, runner_for(FAILED)) == mcpreg.OURS
 
 

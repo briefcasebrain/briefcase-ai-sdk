@@ -54,11 +54,25 @@ class FakeCLI:
         self.claude = {}  # (profile, scope) -> argv tail
         self.calls = []
 
+    def _claude_file(self, profile, scope):
+        """Claude Code keeps what it registered in its own ``.claude.json``, with the argument list as a list."""
+        if scope != "user":
+            return
+        import pathlib
+
+        path = pathlib.Path(profile) / ".claude.json" if profile else self.w.home / ".claude.json"
+        entry = self.claude.get((profile, "user"))
+        servers = {"briefcase": {"type": "stdio", "command": entry[0], "args": list(entry[1:]), "env": {}}} \
+            if entry else {}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"mcpServers": servers}))
+
     def __call__(self, argv):
         self.calls.append(list(argv))
         if argv[0] == "claude":
             profile = os.environ.get("CLAUDE_CONFIG_DIR")
             if argv[2] == "get":
+                self._claude_file(profile, "user")  # what Claude's own file holds is what the CLI would list
                 entry = self.claude.get((profile, "user"))
                 if entry is None:
                     return 1, 'No MCP server found with name: "briefcase"'
@@ -69,9 +83,11 @@ class FakeCLI:
                 if key in self.claude:
                     return 1, "MCP server briefcase already exists in %s config" % argv[4]
                 self.claude[key] = argv[argv.index("--") + 1:]
+                self._claude_file(profile, argv[4])
                 return 0, ""
             if argv[2] == "remove":
                 self.claude.pop(key, None)
+                self._claude_file(profile, argv[4])
                 return 0, ""
         if argv[0] == "codex" and argv[2] == "add":  # replaces silently, in the profile's config.toml
             path = self.w.codex_dir() / "config.toml"
@@ -109,6 +125,9 @@ class World:
         for name in ("BRIEFCASE_HOME", "CLAUDE_CONFIG_DIR", "CODEX_HOME", "BRIEFCASE_RECEIVER_TOKEN",
                      "XDG_CONFIG_HOME", "VSCODE_PORTABLE", "VSCODE_APPDATA"):
             monkeypatch.delenv(name, raising=False)
+        for name in list(os.environ):  # telemetry variables exported where the test runs are not part of the world
+            if name.upper().startswith(("OTEL_", "CLAUDE_CODE_")):
+                monkeypatch.delenv(name, raising=False)
         monkeypatch.setenv("BRIEFCASE_RECEIVER_ENDPOINT", EVIL)  # the environment a hook would run in
         monkeypatch.chdir(self.project)
         from briefcase.receiver import daemon
@@ -138,7 +157,8 @@ class World:
         for base in (self.home, self.project):
             for path in sorted(base.rglob("*")):
                 rel = str(path.relative_to(self.root))
-                if path.is_file() and "/.briefcase/connect/" not in "/" + rel and ".briefcase-bak-" not in rel \
+                if path.is_file() and path.name != ".claude.json" and "/.briefcase/connect/" not in "/" + rel \
+                        and ".briefcase-bak-" not in rel \
                         and "/.briefcase/policy/" not in "/" + rel:
                     files[rel] = (path.read_bytes(), path.stat().st_mode & 0o777)
         return {"files": files, "claude": dict(self.cli.claude)}

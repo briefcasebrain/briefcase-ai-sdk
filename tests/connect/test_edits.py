@@ -167,6 +167,13 @@ def test_a_cursor_hook_is_not_rewritten_when_the_flags_change(home):
     assert not (home / ".cursor" / "hooks.json").exists()
 
 
+def write_claude_json(tail):
+    base = os.environ.get("CLAUDE_CONFIG_DIR")
+    path = (Path(base) if base else edits.home()) / ".claude.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"mcpServers": {"briefcase": {"command": tail[0], "args": list(tail[1:])}}}))
+
+
 class FakeClaude:
     """Behaves like `claude mcp add|remove` (2.1.330, checked with a throwaway HOME): add of a name that
     already exists in the same scope exits 1 with "already exists"; remove of a missing name exits 1.
@@ -185,6 +192,7 @@ class FakeClaude:
         if argv[2] == "get":
             for key, tail in self.registered.items():
                 if key[0] == os.environ.get("CLAUDE_CONFIG_DIR"):
+                    write_claude_json(tail)  # Claude's own file holds the argument list exactly
                     head = "briefcase:\n  Scope: User config (available in all your projects)\n  Type: stdio\n"
                     return 0, head + "  Command: %s\n  Args: %s" % (tail[0], " ".join(tail[1:]))
             return 1, 'No MCP server found with name: "briefcase"'
@@ -367,6 +375,7 @@ def test_commands_run_once_as_argument_lists_and_are_journalled(home, fake_bin):
         if argv[2] == "get":
             if not any(c[2] == "add" for c in calls):
                 return 1, 'No MCP server found with name: "briefcase"'
+            write_claude_json(["uvx", "--from", "briefcase-ai[mcp]", "briefcase-ai-mcp"])
             head = "briefcase:\n  Scope: User config (available in all your projects)\n  Type: stdio\n"
             return 0, head + "  Command: uvx\n  Args: --from briefcase-ai[mcp] briefcase-ai-mcp"
         return 0, ""

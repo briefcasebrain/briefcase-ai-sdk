@@ -279,3 +279,27 @@ def test_hook_command_flags():
         portable=True, capture_content=True, endpoint="https://otel.example.com/"))
     assert command == "briefcase-ai hook cursor --enforce --capture-content --endpoint https://otel.example.com"
     assert install.marker("cursor") in command
+
+
+def test_off_removes_only_the_hooks_the_person_confirmed(home, capsys, fake_bin, monkeypatch):
+    """A hook installed for another tool while the question is open is not part of what was confirmed."""
+    from briefcase.cli import policy_commands
+
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    assert init(tools=["claude-code"])[0] == 0
+    real = policy_commands._confirm
+
+    def confirm_after_codex_lands(question, yes, **kwargs):
+        if not question.startswith("Remove the policy hooks"):
+            return real(question, yes, **kwargs)
+        assert "claude-code" in question and "codex" not in question
+        monkeypatch.setattr(policy_commands, "_confirm", real)
+        assert init(tools=["codex"])[0] == 0  # lands while the prompt is open
+        return True
+
+    monkeypatch.setattr(policy_commands, "_confirm", confirm_after_codex_lands)
+    code, out = off(capsys)[0], capsys.readouterr()
+    assert code == 0, out
+    assert not files(home)["claude"].exists() or "enforce" not in files(home)["claude"].read_text()
+    assert files(home)["codex"].exists() and "--enforce" in files(home)["codex"].read_text(), \
+        "a hook that was not in the confirmation was removed"

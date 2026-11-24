@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import sys
 import textwrap
@@ -212,23 +213,20 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
     return _run(lambda: args.func(args, store, engine, stack), argv)
 
 
-_SECRET_FLAGS = ("--headers", "--token", "--code", "--password", "--api-key", "--secret")
+_COMMAND_WORD = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
 def _scrub_argv(argv):
-    """``argv`` with the value of every flag that can carry a credential replaced (the retry hint is printed)."""
-    out, hide = [], False
-    for word in argv:
-        if hide:
-            out.append("***")
-            hide = False
-        elif word in _SECRET_FLAGS:
-            out.append(word)
-            hide = True
-        elif any(word.startswith(flag + "=") for flag in _SECRET_FLAGS):
-            out.append(word.split("=", 1)[0] + "=***")
-        else:
-            out.append(word)
+    """The part of ``argv`` that is safe to print in a retry hint: the command words that lead it. Everything from the
+    first option, value or ``KEY=VALUE`` onward may carry a credential (``--headers``, an unambiguous prefix of it
+    such as ``--head``, ``--token=...``, ``secret set KEY=VALUE``), whatever form argparse accepted it in, so it is
+    replaced by one marker and never echoed."""
+    out = []
+    for index, word in enumerate(argv):
+        if not _COMMAND_WORD.match(word) or index >= 3:
+            out.append("<same arguments>")
+            break
+        out.append(word)
     return out
 
 

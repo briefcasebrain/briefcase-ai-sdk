@@ -123,6 +123,10 @@ def test_claude_arguments_are_compared_as_a_list_and_an_unreadable_line_is_unkno
     assert mcpreg.owned(add, lambda argv: (0, head + "  Args: a b c\n")) == mcpreg.UNKNOWN  # boundaries lost
     plain = ["claude", "mcp", "add", "--scope", "user", "briefcase", "--", "node", "a", "b c"[0:1]]
     assert mcpreg.owned(plain, lambda argv: (0, head + '  Args: a "b\n')) == mcpreg.UNKNOWN  # does not round-trip
+    # Even a line that reads back as ours proves nothing about the boundaries without Claude's own file.
+    assert mcpreg.owned(plain, lambda argv: (0, head + "  Args: a b\n")) == mcpreg.UNKNOWN
+    (w.home / ".claude.json").write_text(json.dumps({"mcpServers": {"briefcase": {
+        "command": "node", "args": ["a", "b"]}}}))
     assert mcpreg.owned(plain, lambda argv: (0, head + "  Args: a b\n")) == mcpreg.OURS
 
 

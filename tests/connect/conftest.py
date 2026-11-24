@@ -20,6 +20,9 @@ def home(tmp_path, monkeypatch):
     for name in ("BRIEFCASE_HOME", "XDG_CONFIG_HOME", "VSCODE_PORTABLE", "VSCODE_APPDATA", "CLAUDE_CONFIG_DIR",
                  "CODEX_HOME"):
         monkeypatch.delenv(name, raising=False)
+    for name in list(os.environ):  # telemetry variables exported where the test runs are not part of the world
+        if name.upper().startswith(("OTEL_", "CLAUDE_CODE_")):
+            monkeypatch.delenv(name, raising=False)
     monkeypatch.chdir(project)
     return home
 
