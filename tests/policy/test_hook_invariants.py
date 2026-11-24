@@ -88,17 +88,20 @@ def run_entry(entry, tool, flags, body, home):
 
         out = io.StringIO()
         sys.stdin = io.StringIO(raw)
-        real = hook.main
-        if entry == "cli_broken_import":  # the hook module cannot do its job (import or internal failure)
-            def broken(*args, **kwargs):
-                raise ImportError("simulated")
-            hook.main = broken
+        import briefcase.policy as policy_pkg
+
+        saved = (policy_pkg.__dict__.pop("hook", None), sys.modules.get("briefcase.policy.hook"))
+        if entry == "cli_broken_import":  # the hook module cannot be imported: the import statement itself fails
+            sys.modules["briefcase.policy.hook"] = None
+        else:
+            policy_pkg.hook = saved[0]
         try:
             with contextlib.redirect_stdout(out):
                 code = cli_main(["hook", tool, "--enforce", *flags])
         finally:
             sys.stdin = sys.__stdin__
-            hook.main = real
+            policy_pkg.hook = saved[0]
+            sys.modules["briefcase.policy.hook"] = saved[1]
         return code, out.getvalue()
     argv = [sys.executable, *ISOLATED, install.launcher_path(), tool, "--enforce", *flags]
     env = {"HOME": str(home), "PATH": os.environ.get("PATH", ""), "BRIEFCASE_SYSTEM_POLICY": os.environ[
@@ -654,3 +657,43 @@ def test_a_strict_hook_denies_a_url_with_no_authority_and_a_call_whose_project_c
     (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "observe"\n')
     code, raw = run_entry(entry, tool, ["--fail-closed"], _round12(tool, project)[kind], home)
     assert denies(tool, code, raw), f"fail-closed let {kind} through: exit {code}, output {raw!r}"
+
+
+HASH_FLAGS = [["--require-policy-sha256", "0" * 64], ["--require-policy-sha256=" + "0" * 64]]
+
+
+@pytest.mark.parametrize("entry", ["module", "cli", "launcher"])
+@pytest.mark.parametrize("flags", HASH_FLAGS, ids=["separate", "equals"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_required_policy_hash_binds_in_both_spellings(home, project, tool, flags, entry):
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "observe"\n')  # allows the call
+    for extra in ([], ["--fail-closed"]):
+        code, raw = run_entry(entry, tool, flags + extra, payload(tool, project), home)
+        assert denies(tool, code, raw), f"{flags + extra} did not bind the hook to the policy hash: {code} {raw!r}"
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+def test_the_portable_command_blocks_when_building_the_cli_parser_fails(home, project, tool, monkeypatch):
+    import briefcase.cli.__main__ as cli_main_module
+
+    def boom():
+        raise RuntimeError("simulated parser failure")
+
+    monkeypatch.setattr(cli_main_module, "build_parser", boom)
+    build_state(home, project, "valid_denying")  # the call is one the policy blocks
+    code, raw = run_entry("cli", tool, ["--fail-closed"], payload(tool, project), home)
+    assert denies(tool, code, raw), (code, raw)
+
+
+def test_the_broken_import_fixture_is_a_real_import_failure(home, project):
+    """The fixture must fail at the import statement, not replace an already imported function."""
+    import briefcase.policy as policy_pkg
+    saved = (policy_pkg.__dict__.pop("hook", None), sys.modules.get("briefcase.policy.hook"))
+    sys.modules["briefcase.policy.hook"] = None
+    try:
+        with pytest.raises(ImportError):
+            from briefcase.policy import hook as _hook  # noqa: F401
+    finally:
+        policy_pkg.hook = saved[0]
+        sys.modules["briefcase.policy.hook"] = saved[1]

@@ -190,6 +190,11 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
         from briefcase.cli import hook_commands
 
         return hook_commands.run_cursor(argv[2:])
+    if argv[:1] == ["hook"] and argv[1:2] in (["claude-code"], ["codex"]):
+        # The enforcement hook is the same: a failure building the full parser must not decide the verdict.
+        from briefcase.cli import hook_commands
+
+        return hook_commands.run_enforce(argv[1], argv[2:])
     parser = build_parser()
     args = parser.parse_args(argv)
     _ux.set_debug(args.debug)

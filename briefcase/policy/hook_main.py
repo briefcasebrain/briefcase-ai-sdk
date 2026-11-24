@@ -46,7 +46,9 @@ def main():
 
 def _run():
     argv = sys.argv[1:]
-    strict = "--fail-closed" in argv or "--require-policy-sha256" in argv  # a required policy binds like the flag
+    # A required policy binds like the flag, in either spelling of the option.
+    strict = "--fail-closed" in argv or any(a == "--require-policy-sha256" or a.startswith("--require-policy-sha256=")
+                                            for a in argv)
     try:
         here = os.path.dirname(os.path.abspath(__file__))
         package = os.path.dirname(here)

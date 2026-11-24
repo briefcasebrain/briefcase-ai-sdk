@@ -53,7 +53,8 @@ class Options(object):
         self.tool = argv[0] if argv else ""
         self.fail_closed = "--fail-closed" in argv
         self.require_policy = ""
-        self.require_given = "--require-policy-sha256" in argv
+        self.require_given = any(arg == "--require-policy-sha256" or arg.startswith("--require-policy-sha256=")
+                                 for arg in argv)
         self.capture_content = False
         self.parse_error = ""
         self.endpoint = os.environ.get("BRIEFCASE_RECEIVER_ENDPOINT") or ""
@@ -66,6 +67,12 @@ class Options(object):
                 self.capture_content = True
             elif flag == "--no-report":
                 self.report = False
+            elif flag.startswith(("--require-policy-sha256=", "--endpoint=")):
+                name, _, value = flag.partition("=")
+                if name == "--endpoint":
+                    self.endpoint, self.endpoint_set = value, True
+                else:
+                    self.require_policy = value.strip().lower()
             elif flag in ("--require-policy-sha256", "--endpoint"):
                 if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
                     self.parse_error = f"{flag} has no value"  # never swallow the next option as its value

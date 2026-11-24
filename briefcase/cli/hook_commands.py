@@ -93,7 +93,8 @@ def run_enforce(tool: str, argv: List[str], stdin: Any = None, stdout: Any = Non
         from briefcase.policy import hook
         return hook.main([tool] + list(argv), stdin=stdin, stdout=stdout)
     except BaseException:  # noqa: B036 - the policy code could not even be imported
-        if "--fail-closed" in argv or "--require-policy-sha256" in argv:  # what the command line promised: nothing runs
+        if "--fail-closed" in argv or any(a == "--require-policy-sha256" or a.startswith("--require-policy-sha256=")
+                                          for a in argv):  # what the command line promised: nothing runs
             reason = ("Blocked by briefcase-ai policy: the hook could not run and it was installed with "
                       "--fail-closed. Reinstall with `briefcase-ai policy init`, or turn enforcement off with "
                       "`briefcase-ai policy off`.")
