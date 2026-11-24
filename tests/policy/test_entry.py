@@ -323,3 +323,49 @@ def test_a_binding_flag_anywhere_blocks_when_the_scanner_and_the_cli_imports_fai
     monkeypatch.setattr(sys, "stderr", err)
     code = entry_module.main([*leading, "hook", tool, *flags, "--enforce"])
     assert code == 2 and err.getvalue().strip() or denies(tool, code, out.getvalue()), (code, out.getvalue())
+
+
+# --- the locally generated strict command enters the launcher through its named main ----------------------------
+
+def run_generated(tool, fail_closed, launcher_text, tmp_path, monkeypatch, home, project):
+    import shlex
+
+    from briefcase.policy import install
+
+    stub = tmp_path / "hook_main.py"
+    if launcher_text is not None:
+        stub.write_text(launcher_text)
+    monkeypatch.setattr(install, "launcher_path", lambda: str(stub))
+    command = install.hook_command(tool, install.HookOptions(fail_closed=fail_closed, endpoint="http://127.0.0.1:1"))
+    env = {"HOME": str(home), "PATH": os.environ.get("PATH", "")}
+    done = subprocess.run(shlex.split(command), input=json.dumps(payload(tool, project)), capture_output=True,
+                          text=True, env=env, timeout=60)
+    from tests.policy import test_hook_invariants as invariants
+
+    invariants.LAST_STDERR = done.stderr
+    return done
+
+
+@pytest.mark.parametrize("launcher", ["# truncated: valid Python that never defines or enters main\nx = 1\n",
+                                      "def main():\n    return 'not a status'\n", None],
+                         ids=["no_main", "bad_main", "missing"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_the_strict_local_command_blocks_when_the_launcher_has_no_working_main(
+        home, project, tmp_path, monkeypatch, tool, launcher):
+    done = run_generated(tool, True, launcher, tmp_path, monkeypatch, home, project)
+    assert done.returncode == 2 and done.stderr.strip(), (done.returncode, done.stdout, done.stderr)
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+def test_the_strict_local_command_still_runs_the_real_launcher(home, project, monkeypatch, tool, tmp_path):
+    import shlex
+
+    from briefcase.policy import install
+
+    build_state(home, project, "valid_denying")
+    command = install.hook_command(tool, install.HookOptions(fail_closed=True, endpoint="http://127.0.0.1:1"))
+    env = {"HOME": str(home), "PATH": os.environ.get("PATH", ""),
+           "BRIEFCASE_SYSTEM_POLICY": os.environ["BRIEFCASE_SYSTEM_POLICY"]}
+    done = subprocess.run(shlex.split(command), input=json.dumps(payload(tool, project)), capture_output=True,
+                          text=True, env=env, timeout=60)
+    assert denies(tool, done.returncode, done.stdout), (done.returncode, done.stdout, done.stderr)

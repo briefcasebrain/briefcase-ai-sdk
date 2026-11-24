@@ -53,6 +53,20 @@ def launcher_path() -> str:
     return str(Path(__file__).with_name("hook_main.py"))
 
 
+_STRICT_START = ("import sys\n"
+                 "try:\n"
+                 "    import runpy\n"
+                 "    status = runpy.run_path({path})['main']()\n"
+                 "    assert isinstance(status, int)\n"
+                 "except BaseException as stop:\n"
+                 "    if isinstance(stop, SystemExit) and isinstance(stop.code, int):\n"
+                 "        sys.exit(stop.code)\n"
+                 "    sys.stderr.write('Blocked by briefcase-ai policy: the hook launcher could not run and the hook "
+                 "is fail-closed. Reinstall with `briefcase-ai policy init`.\\n')\n"
+                 "    sys.exit(2)\n"
+                 "sys.exit(status)\n")
+
+
 def hook_command(tool: str, options: HookOptions) -> str:
     """The command a tool runs before each tool call.
 
@@ -69,15 +83,20 @@ def hook_command(tool: str, options: HookOptions) -> str:
     - fail open (default): the launcher is started through ``-c`` and
       ``runpy``; a missing file is an ordinary exception, exit code 1, which
       every tool treats as a failed hook and lets the call through.
-    - fail closed: the launcher is passed as the script, so a missing file is
-      exit code 2 and blocks, even in Codex, which has no fail-closed setting.
+    - fail closed: the launcher is loaded by a short ``-c`` program that calls its
+      named ``main()`` and exits 2 with a reason when the file is missing, cannot
+      be loaded or has no working ``main``, so that blocks, even in Codex, which
+      has no fail-closed setting.
 
     Checked against Claude Code 2.1.330 (``briefcase-ai policy`` E2E run, 2026-11-22)."""
     flags_py = ["-I"] + (["-S"] if sys.version_info >= (3, 11) else [])
     if options.portable:
         base = ["briefcase-ai", "hook", tool]
     elif options.fail_closed:
-        base = [sys.executable] + flags_py + [launcher_path(), tool]
+        # The launcher is loaded and its named main() called here, so a file that is missing, truncated or without a
+        # working main is a block (exit 2 with a reason), not a silent exit 0.
+        code = "exec(" + repr(_STRICT_START.format(path=json.dumps(launcher_path()))) + ")"
+        base = [sys.executable] + flags_py + ["-c", code, tool]
     else:
         code = f'import runpy; runpy.run_path({json.dumps(launcher_path())}, run_name="__main__")'
         base = [sys.executable] + flags_py + ["-c", code, tool]
