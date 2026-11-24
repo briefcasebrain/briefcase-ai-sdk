@@ -136,8 +136,10 @@ def _tool_call(tool, tool_name, tool_input, cwd, common):
         return ToolCall("write", tool, tool_name, paths=[path], cwd=cwd, defect=_path_defect([path], cwd), **common)
     if tool_name == "WebFetch":
         url = _text(tool_input.get("url"))
-        return ToolCall("web", tool, tool_name, url=url, cwd=cwd, defect=None if url else "WebFetch names no URL",
-                        **common)
+        from briefcase.policy.engine import host_of  # the host a rule is matched against
+
+        defect = None if url and host_of(url) else "WebFetch names no URL, or one with no host to judge"
+        return ToolCall("web", tool, tool_name, url=url, cwd=cwd, defect=defect, **common)
     if tool_name == "WebSearch":
         return ToolCall("web", tool, tool_name, url=None, cwd=cwd, **common)
     if not tool_name:
@@ -187,8 +189,9 @@ def parse(tool, payload):
             command = _command_text(payload.get("command"))
             if command is None:
                 return ToolCall("invalid", tool, event, note="no command in the hook input", **common)
+            # A workspace root is where the project is, not where this command runs: relative references need `cwd`.
             return ToolCall("shell", tool, "Shell", command=command, cwd=cwd or project,
-                            defect=_shell_defect(command, cwd or project), **common)
+                            defect=_shell_defect(command, cwd), **common)
         if event == "beforeMCPExecution":
             server, name = _text(payload.get("mcp_server_name")), _text(payload.get("tool_name"))
             return ToolCall("mcp", tool, "MCP", server=server, name=name, cwd=cwd or project,
@@ -213,6 +216,8 @@ def parse(tool, payload):
     call = _claude_codex_call(tool, payload, common)
     if not event and call.kind != "invalid" and not call.defect:
         call.defect = "the hook input names no event"
+    if call.kind not in ("invalid", "other") and not call.defect and not (call.project_dir or call.cwd):
+        call.defect = "no working directory or project directory in the hook input, so project policy cannot be found"
     return call
 
 

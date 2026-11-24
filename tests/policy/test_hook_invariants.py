@@ -616,3 +616,41 @@ def test_the_codex_acknowledgement_states_exactly_what_is_and_is_not_covered():
         assert covered in text
     for uncovered in ("a missing executable", "a host timeout", "stdout and stderr both being closed"):
         assert "does not cover" in text and uncovered in text
+
+
+# --- round 12 --------------------------------------------------------------------------------
+
+PATCH = "*** Begin Patch\n*** Add File: /tmp/briefcase-round12.txt\n+x\n*** End Patch\n"
+
+
+def _round12(tool, project):
+    if tool == "cursor":
+        return {
+            "url_without_authority": _call(tool, project, hook_event_name="preToolUse", tool_name="WebFetch",
+                                           tool_input={"url": "https://"}),
+            "shell_with_only_a_workspace_root": _call(tool, project, hook_event_name="beforeShellExecution",
+                                                      command="cat secret.txt", cwd=None),
+        }
+    base = dict(hook_event_name="PreToolUse")
+    return {
+        "url_without_authority": _call(tool, project, tool_name="WebFetch", tool_input={"url": "https://"}, **base),
+        "patch_without_cwd": _call(tool, project, tool_name="apply_patch", tool_input={"command": PATCH},
+                                   **dict(base, cwd=None)),
+    }
+
+
+R12 = [(t, k) for t in TOOLS for k in ("url_without_authority", "patch_without_cwd", "shell_with_only_a_workspace_root")
+       if (t, k) not in {("codex", "url_without_authority"), ("claude-code", "shell_with_only_a_workspace_root"),
+                         ("codex", "shell_with_only_a_workspace_root"), ("cursor", "patch_without_cwd"),
+                         ("claude-code", "patch_without_cwd")}]
+R12_COMBOS = [(t, k, e) for t, k in R12 for e in ("module", "cli", "launcher")]
+
+
+@pytest.mark.parametrize("tool, kind, entry", R12_COMBOS, ids=[f"{t}-{k}-{e}" for t, k, e in R12_COMBOS])
+def test_a_strict_hook_denies_a_url_with_no_authority_and_a_call_whose_project_cannot_be_located(
+        home, project, tool, kind, entry, monkeypatch):
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "observe"\n')
+    code, raw = run_entry(entry, tool, ["--fail-closed"], _round12(tool, project)[kind], home)
+    assert denies(tool, code, raw), f"fail-closed let {kind} through: exit {code}, output {raw!r}"
