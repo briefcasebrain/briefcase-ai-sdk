@@ -126,6 +126,8 @@ class FileEdit:
     # Other files the tool also reads settings from (managed, project, local layers): existing telemetry settings
     # there combine with ours exactly like ones in this file.
     layers: List[Any] = field(default_factory=list)  # a Path, or an :class:`ExternalLayer` (registry, plist)
+    # Lists the layers again, at write time: a drop-in file added after the preview is a layer too.
+    layer_source: Optional[Any] = None
     toml_added_newline: bool = False  # set by resolve: the file had no final newline and we added one
 
 

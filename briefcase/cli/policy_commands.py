@@ -554,7 +554,7 @@ def _cmd_off(args) -> int:
     # exactly what was written before it is touched.
     owners = confirmed_owners
     connect_engine.undo(owners, print, dry_run=dry, keep_unremoved=True, retained=kept, removed=removed,
-                        confirmed=shown if shown else None)
+                        confirmed=shown)  # an empty map authorises no file at all
     if dry:
         # What would be left: hook entries on disk now, minus the ones this run would remove.
         kept = sorted({n[len(install.PREFIX):] for n in owners

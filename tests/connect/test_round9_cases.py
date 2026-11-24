@@ -235,17 +235,36 @@ def test_the_windows_user_registry_value_is_a_layer(w, monkeypatch):
 def test_a_managed_directory_that_cannot_be_listed_is_a_risk_not_an_empty_layer(w, monkeypatch, tmp_path):
     managed = tmp_path / "managed.d"
     managed.mkdir()
-    managed.chmod(0)
     data = adapters.load_data()
     data["tools"]["claude-code"]["managed_settings_dirs"] = [str(managed)]
     monkeypatch.setattr(adapters, "load_data", lambda: data)
-    try:
-        if os.geteuid() == 0:
-            pytest.skip("root reads everything")
-        code, out, err = connect_claude(w)
-    finally:
-        managed.chmod(0o700)
+    real = os.listdir
+
+    def listdir(path="."):
+        if str(path) == str(managed):
+            raise PermissionError(13, "denied")  # the same condition on every platform
+        return real(path)
+
+    monkeypatch.setattr(adapters.os, "listdir", listdir)
+    code, out, err = connect_claude(w)
     assert code == 1 and "managed settings directory" in out + err and not wrote_endpoint(w)
+
+
+def test_a_managed_drop_in_added_after_the_preview_is_a_layer_at_write_time(w, monkeypatch, tmp_path):
+    from briefcase.connect.adapters import Context
+
+    managed = tmp_path / "managed.d"
+    managed.mkdir()
+    data = adapters.load_data()
+    data["tools"]["claude-code"]["managed_settings_dirs"] = [str(managed)]
+    monkeypatch.setattr(adapters, "load_data", lambda: data)
+    ctx = Context(endpoint="https://new.example.com", mcp=False, project_dir=w.project)
+    plan = engine.build_plan(["claude-code"], ctx, runner=w.cli)
+    assert not plan.blocked
+    (managed / "50-new.json").write_text(json.dumps({"env": {"OTEL_LOG_RAW_API_BODIES": "1"}}))  # a new member
+    out = []
+    assert engine.apply_plan(plan, ctx, out.append, runner=w.cli) == 1
+    assert "OTEL_LOG_RAW_API_BODIES" in "\n".join(out) and not wrote_endpoint(w)
 
 
 def test_a_layer_that_changes_between_the_preview_and_the_write_is_rechecked(w):

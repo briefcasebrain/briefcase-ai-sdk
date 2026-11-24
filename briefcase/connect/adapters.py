@@ -352,7 +352,7 @@ class ClaudeCode(Adapter):
                            (["env"], "ENABLE_ENHANCED_TELEMETRY"), (["env"], "CLAUDE_CODE_OTEL"),
                            (["env"], "CLAUDE_CODE_TRACE"), (["env"], "ENABLE_BETA_TRACING"),
                            (["env"], "BETA_TRACING")],
-                layers=self.settings_layers(ctx),
+                layers=self.settings_layers(ctx), layer_source=lambda: self.settings_layers(ctx),
                 watch=[(["env", key], "capture") for key in (
                     "OTEL_LOG_USER_PROMPTS", "OTEL_LOG_TOOL_DETAILS", "OTEL_LOG_TOOL_CONTENT")]
                 + [(["env", key], "credential") for key in (

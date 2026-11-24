@@ -376,7 +376,7 @@ def _apply_plan_locked(plan: Plan, ctx: Any, out: Printer, runner: Optional[Call
             warned = True
         if edit.layers and edit.kind == "telemetry":  # layers or environment may have changed since the preview
             late = []
-            for layer in edit.layers:
+            for layer in (edit.layer_source() if edit.layer_source else edit.layers):
                 late += edits.layer_risks(edit, layer, getattr(mine, "given", {}) or {})
             late += edits.environment_risks(edit, os.environ)
             if late:

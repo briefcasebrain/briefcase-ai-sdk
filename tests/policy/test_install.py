@@ -327,3 +327,25 @@ def test_off_removes_only_the_files_it_showed_even_for_the_same_tool(home, capsy
     assert project_settings.exists() and "--enforce" in project_settings.read_text(), \
         "a hook in a file that was not shown was removed"
     assert "enforce" not in (files(home)["claude"].read_text() if files(home)["claude"].exists() else "")
+
+
+def test_off_with_an_empty_displayed_map_removes_nothing(home, capsys, fake_bin, monkeypatch):
+    """If the journal cannot be snapshotted for the question, no file was shown, so none may be removed."""
+    from briefcase.connect import edits
+
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    assert init(tools=["claude-code"])[0] == 0
+    before = snapshot(home)
+    real = edits.load_journal
+    calls = []
+
+    def journal():
+        calls.append(1)
+        data = real()
+        if len(calls) == 2:  # the snapshot taken for the confirmation question
+            data = dict(data, files={})
+        return data
+
+    monkeypatch.setattr(edits, "load_journal", journal)
+    off(capsys)
+    assert snapshot(home) == before, "a file that was never displayed was changed"
