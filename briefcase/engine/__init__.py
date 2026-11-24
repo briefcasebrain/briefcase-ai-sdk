@@ -96,6 +96,15 @@ def load_state_strict(env: Optional[Mapping[str, str]] = None) -> Dict[str, Any]
     return data
 
 
+def compose_history(state: Dict[str, Any]) -> bool:
+    """Did a Compose stack ever run for this state, so that data volumes may exist? A record written before the marker
+    existed does not say: absent history is unknown, and unknown counts as yes whenever an install has a stack."""
+    marker = state.get("compose_used")
+    if marker is None:
+        return any(isinstance(r, dict) and r.get("compose") for r in (state.get("installs") or {}).values())
+    return bool(marker)
+
+
 def current_install(env: Optional[Mapping[str, str]] = None) -> Optional[Dict[str, Any]]:
     """The record of the current install, or ``None``."""
     state = load_state(env)

@@ -438,7 +438,8 @@ def record(stdin=""):
     with open(log, "a") as f:
         f.write(json.dumps({"tool": tool, "argv": args, "stdin": stdin,
                             "token": os.environ.get("OCI_JJ_AUTH_TOKEN"),
-                            "context": os.environ.get("DOCKER_CONTEXT")}) + "\n")
+                            "context": os.environ.get("DOCKER_CONTEXT"),
+                            "host": os.environ.get("DOCKER_HOST")}) + "\n")
 
 def blob(tar, names, digest):
     return json.loads(tar.extractfile(names["blobs/sha256/" + digest[7:]]).read())

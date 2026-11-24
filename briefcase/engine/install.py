@@ -779,7 +779,7 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
         if missing:
             raise InstallError(f"the signed manifest lacks the {', '.join(missing)} image(s)")
         _compose.ensure_secrets(_engine.secrets_path(env),
-                                volumes_may_exist=bool(_engine.load_state_strict(env).get("compose_used")))
+                                volumes_may_exist=_engine.compose_history(_engine.load_state_strict(env)))
         if opts.tls:
             tls_info = _compose.make_tls(_engine.engine_dir(env) / "tls", runner)
         compose_images = {name.replace("-", "_"): ref for name, ref in images.items()}
@@ -838,11 +838,16 @@ def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = No
     ``None`` when it cannot be established."""
     env = os.environ if env is None else env
     try:
-        name = runner(["docker", "context", "show"], capture_output=True, text=True)
-        if getattr(name, "returncode", 1) != 0:
-            return None
-        context = (name.stdout or "").strip() or "default"
-        host = env.get("DOCKER_HOST")
+        # Docker's own precedence: DOCKER_CONTEXT overrides DOCKER_HOST, which overrides the default context.
+        if env.get("DOCKER_CONTEXT"):
+            context = env["DOCKER_CONTEXT"]
+            host = ""
+        else:
+            name = runner(["docker", "context", "show"], capture_output=True, text=True)
+            if getattr(name, "returncode", 1) != 0:
+                return None
+            context = (name.stdout or "").strip() or "default"
+            host = env.get("DOCKER_HOST") or ""
         if not host:
             info = runner(["docker", "context", "inspect", context, "--format", "{{.Endpoints.docker.Host}}"],
                           capture_output=True, text=True)
@@ -854,21 +859,22 @@ def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = No
         return None
 
 
-def note_daemon(runner=subprocess.run, env: Optional[Mapping[str, str]] = None) -> bool:
+def note_daemon(runner=subprocess.run, env: Optional[Mapping[str, str]] = None) -> Optional[str]:
     """Record, under the install lock and before anything that can create a volume runs, which Docker daemon is
-    about to hold them. ``False`` (nothing recorded, nothing may start) when the daemon cannot be identified."""
+    about to hold them, and return that identity so the caller can run Compose against exactly it. ``None`` (nothing
+    recorded, nothing may start) when the daemon cannot be identified."""
     identity = docker_identity(runner, env)
     if identity is None:
-        return False
+        return None
     state = _engine.load_state_strict(env)
     known = list(state.get("docker_contexts") or [])
-    if identity not in known or not state.get("compose_used"):
+    if identity not in known or not _engine.compose_history(state):
         if identity not in known:
             known.append(identity)
         state["docker_contexts"] = known
         state["compose_used"] = True
         save_state(state, env)
-    return True
+    return identity
 
 
 def set_current(version: str, env: Optional[Mapping[str, str]] = None, locked: bool = False) -> None:

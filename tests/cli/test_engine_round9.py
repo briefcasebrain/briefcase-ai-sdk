@@ -203,7 +203,8 @@ def test_destructive_calls_are_bound_to_the_verified_daemon(env, monkeypatch, ca
     destructive = [c for c in calls(env["log"]) if c["argv"][:2] in (["volume", "rm"], ["image", "rm"])
                    or (c["argv"][:1] == ["compose"] and "down" in c["argv"])]
     assert destructive, "the purge should have run"
-    assert all(c["context"] == "remote" for c in destructive), "a destructive call was not pinned to the daemon"
+    assert all(c["host"] == "ssh://elsewhere" and c["context"] is None for c in destructive), \
+        "a destructive call was not pinned to the verified daemon's endpoint"
 
 
 # --- D4: the daemon is recorded before the first operation that can create a volume ----------------
@@ -332,3 +333,103 @@ def test_no_internal_delete_path_runs_without_a_confirmed_token(env, monkeypatch
         with pytest.raises(TypeError):
             call()
     assert A in _engine.load_state()["installs"] and removals(env) == []
+
+
+# --- round 10 -------------------------------------------------------------------------------------------------------
+
+def old_record(env, contexts):
+    """A schema-2 record written before ``compose_used`` existed (and maybe before the daemon was recorded)."""
+    state = json.loads(_engine.installed_path().read_text())
+    state.pop("compose_used", None)
+    state["docker_contexts"] = list(contexts)
+    _engine.installed_path().write_text(json.dumps(state))
+
+
+def test_a_purge_of_a_record_with_no_stack_history_does_not_delete_the_secrets_unverified(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    old_record(env, [])
+    configure(env, monkeypatch, "ok", "ours", "none")
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 1
+    capsys.readouterr()
+    assert (env["home"] / "engine" / "engine.env").exists() and (env["home"] / "engine" / "tls").exists()
+    assert removals(env) == [] and A in _engine.load_state()["installs"]
+
+
+def test_a_purge_of_an_old_record_that_names_its_daemon_still_removes_the_volumes_first(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    old_record(env, ["default unix:///var/run/docker.sock"])
+    configure(env, monkeypatch, "ok", "ours", "none")
+    assert main(["engine", "uninstall", "--purge", "--yes"]) == 0
+    capsys.readouterr()
+    assert [a for a in removals(env) if a[:2] == ["volume", "rm"]]
+    assert not (env["home"] / "engine" / "engine.env").exists()
+
+
+def compose_ups(env):
+    return [c for c in calls(env["log"]) if c["argv"][:1] == ["compose"] and "up" in c["argv"]]
+
+
+def test_up_runs_compose_against_the_daemon_it_recorded_and_never_removes_orphans(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("DOCKER_CONTEXT", "default")  # an environment context must not decide where compose runs
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    (up,) = compose_ups(env)
+    assert up["host"] == "unix:///var/run/docker.sock" and up["context"] is None
+    assert "--remove-orphans" not in up["argv"], "up removes containers without asking"
+
+
+def test_docker_identity_ranks_docker_context_above_docker_host():
+    from briefcase.engine import install as _install_mod
+
+    asked = []
+
+    def runner(argv, **kw):
+        asked.append(argv)
+        out = {"show": "ignored\n", "inspect": "ssh://from-context\n"}[argv[2]]
+        return type("R", (), {"returncode": 0, "stdout": out, "stderr": ""})()
+
+    both = {"DOCKER_CONTEXT": "work", "DOCKER_HOST": "tcp://from-host:2375"}
+    assert _install_mod.docker_identity(runner, both) == "work ssh://from-context"
+    assert ["docker", "context", "inspect", "work", "--format", "{{.Endpoints.docker.Host}}"] in asked
+    assert _install_mod.docker_identity(runner, {"DOCKER_HOST": "tcp://from-host:2375"}).endswith(
+        "tcp://from-host:2375")
+
+
+@pytest.mark.parametrize("command", [["engine", "down"], ["engine", "down", "--volumes"]])
+def test_down_needs_a_confirmation_like_every_other_removal(env, monkeypatch, capsys, command):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "A")
+    assert main(command) in (1, 2)
+    capsys.readouterr()
+    assert removals(env) == [] and "compose down" not in str(calls(env["log"]))
+    assert main(command + ["--yes"]) == 0
+    assert [a for a in removals(env) if a[:1] == ["compose"]]
+
+
+@pytest.mark.parametrize("fail", ["volume inspect", "ps"])
+def test_a_tls_change_is_rolled_back_when_the_restart_never_gets_to_start(env, monkeypatch, key, capsys, fail):
+    import pathlib
+    import shutil
+
+    if shutil.which("openssl") is None:
+        pytest.skip("needs openssl")
+    assert _install("--code", "bci_good") == 0
+    record = _engine.current_install()
+    compose_path = pathlib.Path(record["compose"])
+    before = compose_path.read_bytes()
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps([["oci-jj-server", record["image_ids"]["server"],
+                                                              record["compose"]]]))
+    env["platform"].release = build_release(key, version=record["version"])
+    monkeypatch.setenv("FAKE_DOCKER_FAIL", fail)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    assert _engine.current_install()["tls"] is False and compose_path.read_bytes() == before, \
+        "the new transport was left in place although the running server never switched"
+
+
+def test_the_install_dry_run_hint_does_not_print_the_install_code(env, capsys):
+    main(["engine", "install", "--code", "bci_SENTINEL1234567", "--dry-run"])
+    captured = capsys.readouterr()
+    assert "bci_SENTINEL1234567" not in captured.out + captured.err

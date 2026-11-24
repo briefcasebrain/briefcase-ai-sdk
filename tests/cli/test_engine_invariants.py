@@ -383,6 +383,7 @@ def test_up_cannot_start_the_old_release_while_an_upgrade_is_moving_current(env,
 # --- authorisation: nothing is deleted unless it was confirmed, and never in a dry run --------------------------
 
 DESTRUCTIVE = {
+    "down": ["engine", "down"],
     "uninstall": ["engine", "uninstall"],
     "purge": ["engine", "uninstall", "--purge"],
     "purge_force_without_docker": ["engine", "uninstall", "--purge", "--force-without-docker"],
@@ -391,7 +392,7 @@ DESTRUCTIVE = {
 AUTH = ["dry_run", "no_yes_non_tty", "yes"]
 AUTH_STATES = ["installed", "tombstone", "other_daemon", "volumes_ours"]
 AUTH_COMBOS = [(c, a, st) for c in DESTRUCTIVE for a in AUTH for st in AUTH_STATES
-               if not (c == "down_volumes" and st == "tombstone")]
+               if not (c in ("down", "down_volumes") and st == "tombstone")]
 DELETING = (["volume", "rm"], ["image", "rm"])
 
 
@@ -425,8 +426,7 @@ def test_nothing_is_deleted_unless_confirmed_and_never_in_a_dry_run(
         assert not deleted, f"deleted without confirmation: {deleted}"
         assert snapshot_paths(env) == before
         assert (env["home"] / "engine" / A).exists() or state_name == "tombstone"
-        if command != "down_volumes":
-            assert not [a for a in log if a[:1] == ["compose"] and "down" in a], "stopped the engine unconfirmed"
+        assert not [a for a in log if a[:1] == ["compose"] and "down" in a], "stopped the engine unconfirmed"
         if auth == "dry_run":
             assert code in (0, 1, 3)
         else:

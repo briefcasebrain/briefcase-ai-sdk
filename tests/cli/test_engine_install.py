@@ -294,7 +294,8 @@ def test_default_platform_is_the_portal(shell_home, capsys, pinned, monkeypatch)
 def test_dry_run_with_a_code_does_not_redeem_it(env, capsys):
     assert main(["engine", "install", "--code", "bci_good", "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "the install code was not redeemed" in out and "Next: briefcase-ai engine install --code bci_good --yes" in out  # noqa: E501
+    assert "the install code was not redeemed" in out
+    assert "Next: briefcase-ai engine install --code <your install code> --yes" in out and "bci_good" not in out
     assert env["platform"].posts() == [] and not (env["home"] / "engine").exists()
 
 
@@ -967,7 +968,7 @@ def test_up_status_logs_down_drive_the_installed_compose(env, capsys):
     env["log"].unlink()
     assert main(["engine", "up"]) == 0
     assert main(["engine", "logs", "oci-jj-server", "--tail", "5"]) == 0
-    assert main(["engine", "down"]) == 0
+    assert main(["engine", "down", "--yes"]) == 0
     compose_calls = [a for a in _docker(env) if a[0] == "compose"]
     for argv in compose_calls:
         assert argv[1:3] == ["--project-name", "briefcase-engine"] and "--env-file" in argv
