@@ -530,3 +530,21 @@ def test_when_only_stdout_fails_the_reason_is_a_nonempty_stderr_line(home, proje
     code = hook.main(["codex", "--enforce", "--fail-closed"],
                      stdin=io.StringIO(json.dumps(payload("codex", project))), stdout=_Broken())
     assert code == 2 and capsys.readouterr().err.strip().startswith("Blocked by briefcase-ai policy")
+
+
+@pytest.mark.parametrize("closed", [True, False])
+def test_the_isolated_launcher_survives_a_failure_after_a_successful_import(home, project, closed):
+    """A late failure (the hook module imported, then raised): exit 2 when strict, 0 otherwise."""
+    script = ("import sys, types\n"
+              "root = types.ModuleType('briefcase'); root.__path__ = []\n"
+              "policy = types.ModuleType('briefcase.policy'); policy.__path__ = []\n"
+              "hook = types.ModuleType('briefcase.policy.hook')\n"
+              "def main(argv):\n    raise RuntimeError('late import failed')\n"
+              "hook.main = main; policy.hook = hook\n"
+              "sys.modules.update({'briefcase': root, 'briefcase.policy': policy, 'briefcase.policy.hook': hook})\n"
+              "import runpy; sys.argv = ['hook_main.py'] + sys.argv[1:]\n"
+              "runpy.run_path(%r, run_name='__main__')\n" % install.launcher_path())
+    argv = [sys.executable, *ISOLATED, "-c", script, "claude-code", "--enforce"] + (["--fail-closed"] if closed else [])
+    done = subprocess.run(argv, input="{}", capture_output=True, text=True, timeout=60,
+                          env={"HOME": str(home), "PATH": os.environ.get("PATH", "")})
+    assert done.returncode == (2 if closed else 0), (done.returncode, done.stderr)
