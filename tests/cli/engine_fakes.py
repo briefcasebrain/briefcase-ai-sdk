@@ -437,7 +437,8 @@ def save():
 def record(stdin=""):
     with open(log, "a") as f:
         f.write(json.dumps({"tool": tool, "argv": args, "stdin": stdin,
-                            "token": os.environ.get("OCI_JJ_AUTH_TOKEN")}) + "\n")
+                            "token": os.environ.get("OCI_JJ_AUTH_TOKEN"),
+                            "context": os.environ.get("DOCKER_CONTEXT")}) + "\n")
 
 def blob(tar, names, digest):
     return json.loads(tar.extractfile(names["blobs/sha256/" + digest[7:]]).read())
@@ -564,7 +565,7 @@ def servers_now():
     return state["servers"]
 
 if args[:2] == ["context", "show"]:
-    print(os.environ.get("FAKE_DOCKER_CONTEXT", "default")); sys.exit(0)
+    print(os.environ.get("DOCKER_CONTEXT") or os.environ.get("FAKE_DOCKER_CONTEXT", "default")); sys.exit(0)
 if args[:2] == ["context", "inspect"]:
     print(os.environ.get("FAKE_DOCKER_HOST", "unix:///var/run/docker.sock")); sys.exit(0)
 if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in args):

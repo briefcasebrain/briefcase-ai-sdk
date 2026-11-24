@@ -47,6 +47,8 @@ SECRET_KEYS = (
     "OCI_JJ_TENANT_TOKENS",
     "OCIBAI_DEDUP_HMAC_KEY",
 )
+# The credentials a data volume is created with: a replacement leaves the volume unreadable by the server.
+VOLUME_BOUND_KEYS = ("PG_SUPERUSER_PASSWORD", "OCI_JJ_APP_PASSWORD", "MINIO_ROOT_USER", "MINIO_ROOT_PASSWORD")
 TENANT = "local"
 BLOB_BUCKET = "oci-jj-blobs"
 DATASET_BUCKET = "oci-jj-datasets"
@@ -70,11 +72,34 @@ def _new_secret(key: str) -> str:
     return secrets.token_urlsafe(32)
 
 
-def ensure_secrets(path: Path) -> Dict[str, str]:
-    """Read ``engine.env``, add any missing secret, write it back with mode 0600."""
-    from briefcase.engine import read_env_file
+def check_secrets(path: Path, volumes_may_exist: bool = False) -> Dict[str, str]:
+    """The values in ``engine.env``, or :class:`~briefcase.engine.StateUnreadable` when it is unreadable or lacks a
+    credential its volumes were created with (see :func:`ensure_secrets`). A missing file is ``{}``."""
+    from briefcase.engine import StateUnreadable, read_env_file
 
     values = read_env_file(path, strict=True)
+    if path.exists():
+        missing = [key for key in VOLUME_BOUND_KEYS if not values.get(key)]
+        if missing:
+            raise StateUnreadable(f"{path} is incomplete (no {', '.join(missing)}); its passwords are not "
+                                  "replaced, because the data volumes were created with the originals. Restore it "
+                                  "from a backup, or remove the engine's data with `briefcase-ai engine uninstall "
+                                  "--purge` and install again")
+    elif volumes_may_exist:
+        raise StateUnreadable(f"{path} is missing but the engine's data volumes may exist, so new passwords are "
+                              "not generated for them. Restore it from a backup, or remove the data with "
+                              "`briefcase-ai engine uninstall --purge` and install again")
+    return values
+
+
+def ensure_secrets(path: Path, volumes_may_exist: bool = False) -> Dict[str, str]:
+    """Read ``engine.env``, add any missing secret, write it back with mode 0600.
+
+    Only a file that is absent starts a fresh set, and not even that when ``volumes_may_exist``. A file that exists
+    but lacks a credential its volumes were created with (truncated, emptied, hand-edited) raises
+    :class:`~briefcase.engine.StateUnreadable` instead of being completed with new passwords. Secrets added by a
+    newer release (tokens, keys no volume holds) are still generated."""
+    values = check_secrets(path, volumes_may_exist)
     changed = False
     for key in SECRET_KEYS:
         if not values.get(key):

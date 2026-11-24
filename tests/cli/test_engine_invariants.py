@@ -40,7 +40,7 @@ def synthetic(env, installs, current, shared_server=False):
     ``shared_server`` every release's server image is the same one (they differ in the other services)."""
     home = env["home"] / "engine"
     home.mkdir(parents=True, exist_ok=True)
-    (home / "engine.env").write_text("OCI_JJ_POSTGRES_PASSWORD=x\n")
+    (home / "engine.env").write_text("".join(f"{key}=x\n" for key in compose.VOLUME_BOUND_KEYS))
     (home / "engine.env").chmod(0o600)
     (home / "tls").mkdir(exist_ok=True)
     (home / "tls" / "ca.pem").write_text("x")

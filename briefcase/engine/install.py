@@ -778,7 +778,8 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
         missing = [n for n in REQUIRED_IMAGES if n not in images]
         if missing:
             raise InstallError(f"the signed manifest lacks the {', '.join(missing)} image(s)")
-        _compose.ensure_secrets(_engine.secrets_path(env))
+        _compose.ensure_secrets(_engine.secrets_path(env),
+                                volumes_may_exist=bool(_engine.load_state_strict(env).get("compose_used")))
         if opts.tls:
             tls_info = _compose.make_tls(_engine.engine_dir(env) / "tls", runner)
         compose_images = {name.replace("-", "_"): ref for name, ref in images.items()}
@@ -851,6 +852,23 @@ def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = No
         return f"{context} {host}"
     except (OSError, ValueError):
         return None
+
+
+def note_daemon(runner=subprocess.run, env: Optional[Mapping[str, str]] = None) -> bool:
+    """Record, under the install lock and before anything that can create a volume runs, which Docker daemon is
+    about to hold them. ``False`` (nothing recorded, nothing may start) when the daemon cannot be identified."""
+    identity = docker_identity(runner, env)
+    if identity is None:
+        return False
+    state = _engine.load_state_strict(env)
+    known = list(state.get("docker_contexts") or [])
+    if identity not in known or not state.get("compose_used"):
+        if identity not in known:
+            known.append(identity)
+        state["docker_contexts"] = known
+        state["compose_used"] = True
+        save_state(state, env)
+    return True
 
 
 def set_current(version: str, env: Optional[Mapping[str, str]] = None, locked: bool = False) -> None:
