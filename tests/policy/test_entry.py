@@ -369,3 +369,52 @@ def test_the_strict_local_command_still_runs_the_real_launcher(home, project, mo
     done = subprocess.run(shlex.split(command), input=json.dumps(payload(tool, project)), capture_output=True,
                           text=True, env=env, timeout=60)
     assert denies(tool, done.returncode, done.stdout), (done.returncode, done.stdout, done.stderr)
+
+
+def _script():
+    import importlib.util
+
+    path = ROOT / "scripts" / "check_installed_entry.py"
+    spec = importlib.util.spec_from_file_location("check_installed_entry", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_smoke_check_accepts_only_a_complete_host_verdict():
+    script = _script()
+
+    class Done:
+        def __init__(self, code, out="", err=""):
+            self.returncode, self.stdout, self.stderr = code, out, err
+
+    full = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny"}})
+    nameless = json.dumps({"hookSpecificOutput": {"permissionDecision": "deny"}})
+    assert script.blocked("claude-code", Done(0, full))
+    assert not script.blocked("claude-code", Done(0, nameless)), "the host ignores a denial without the event name"
+    assert not script.blocked("codex", Done(2, "", "")), "Codex ignores exit 2 with no reason"
+    assert script.blocked("codex", Done(2, "", "reason"))
+    assert script.blocked("cursor", Done(0, json.dumps({"permission": "deny"})))
+
+
+def test_the_smoke_events_are_complete_enough_to_be_judged_on_the_binding(tmp_path):
+    script = _script()
+    assert script.event("claude-code", str(tmp_path))["cwd"] == str(tmp_path)
+    assert script.event("cursor", str(tmp_path))["cwd"] == str(tmp_path)
+
+
+def test_the_wheel_content_check_names_a_wheel_that_omits_the_entry_package(tmp_path):
+    import zipfile
+
+    script = _script()
+    good = tmp_path / "good-1-py3-none-any.whl"
+    bad = tmp_path / "bad-1-py3-none-any.whl"
+    with zipfile.ZipFile(good, "w") as z:
+        z.writestr("briefcase_entry/__init__.py", "")
+        z.writestr("x.dist-info/entry_points.txt", "[console_scripts]\nbriefcase-ai=briefcase_entry:main\n")
+    with zipfile.ZipFile(bad, "w") as z:
+        z.writestr("briefcase/__init__.py", "")
+        z.writestr("x.dist-info/entry_points.txt", "[console_scripts]\nbriefcase-ai=briefcase.cli.__main__:main\n")
+    problems = script.wheel_contents(str(tmp_path))
+    assert any("bad-1" in p and "briefcase_entry/__init__.py" in p for p in problems)
+    assert not any("good-1" in p for p in problems)
