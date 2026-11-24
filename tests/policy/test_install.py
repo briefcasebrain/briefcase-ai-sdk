@@ -298,8 +298,32 @@ def test_off_removes_only_the_hooks_the_person_confirmed(home, capsys, fake_bin,
         return True
 
     monkeypatch.setattr(policy_commands, "_confirm", confirm_after_codex_lands)
-    code, out = off(capsys)[0], capsys.readouterr()
-    assert code == 0, out
+    code, text = off(capsys)
+    assert code == 0, text
+    assert "Enforcement is still ON for codex" in text and "Enforcement is off" not in text
     assert not files(home)["claude"].exists() or "enforce" not in files(home)["claude"].read_text()
     assert files(home)["codex"].exists() and "--enforce" in files(home)["codex"].read_text(), \
         "a hook that was not in the confirmation was removed"
+
+
+def test_off_removes_only_the_files_it_showed_even_for_the_same_tool(home, capsys, fake_bin, monkeypatch):
+    from briefcase.cli import policy_commands
+
+    fake_bin("claude", "2.1.330 (Claude Code)")
+    assert init(tools=["claude-code"])[0] == 0
+    project_settings = home.parent / "project" / ".claude" / "settings.json"
+    real = policy_commands._confirm
+
+    def confirm_after_project_hook_lands(question, yes, **kwargs):
+        if not question.startswith("Remove the policy hooks"):
+            return real(question, yes, **kwargs)
+        assert "settings.json" in question  # the question names the file it is about
+        monkeypatch.setattr(policy_commands, "_confirm", real)
+        assert init(tools=["claude-code"], scope="project")[0] == 0  # the same tool, another file
+        return True
+
+    monkeypatch.setattr(policy_commands, "_confirm", confirm_after_project_hook_lands)
+    assert off(capsys)[0] == 0
+    assert project_settings.exists() and "--enforce" in project_settings.read_text(), \
+        "a hook in a file that was not shown was removed"
+    assert "enforce" not in (files(home)["claude"].read_text() if files(home)["claude"].exists() else "")

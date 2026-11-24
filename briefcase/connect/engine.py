@@ -374,6 +374,16 @@ def _apply_plan_locked(plan: Plan, ctx: Any, out: Printer, runner: Optional[Call
         if capture_warning and mine.capture_content and edit.kind == "telemetry" and not warned:
             print(CAPTURE_WARNING, file=sys.stderr)
             warned = True
+        if edit.layers and edit.kind == "telemetry":  # layers or environment may have changed since the preview
+            late = []
+            for layer in edit.layers:
+                late += edits.layer_risks(edit, layer, getattr(mine, "given", {}) or {})
+            late += edits.environment_risks(edit, os.environ)
+            if late:
+                failures += 1
+                out(f"  failed {edit.path}: not written, because it now sets {', '.join(late)} (it did not when "
+                    "this was previewed), and that would combine with the endpoint being written")
+                break
         try:
             backup = edits.apply(resolved, journal)
         except (edits.EditRefused, OSError) as exc:
@@ -408,9 +418,14 @@ def _apply_plan_locked(plan: Plan, ctx: Any, out: Printer, runner: Optional[Call
             edits.save_journal(journal)
             code, output = runner(command.argv)
             if code != 0:
-                journal["commands"].remove(pending)
-                del journal["targets"][tkey]
-                edits.save_journal(journal)
+                # A timeout or a crash can follow the add that committed: look before forgetting. Only an entry that is
+                # provably absent (or provably someone else's) lets the record go; ours, or unknown, keeps it, and
+                # undo checks the registry again before it says anything.
+                after = _registry.owned(command.argv, runner)
+                if after in (_registry.ABSENT, _registry.DIFFERS):
+                    journal["commands"].remove(pending)
+                    del journal["targets"][tkey]
+                    edits.save_journal(journal)
         if code != 0 and "already exists" in output:
             # Someone else's entry: never touched, never printed (its args and env may hold credentials).
             scope, key = registration(command.argv)
@@ -436,30 +451,49 @@ def _apply_plan_locked(plan: Plan, ctx: Any, out: Printer, runner: Optional[Call
     return failures
 
 
+def ops_signature(entry: Dict[str, Any], owners: List[str]) -> str:
+    """A fingerprint of the recorded operations of ``owners`` in one journalled file, to bind a confirmation to what was
+    shown: a hook added to the same file while the question was open changes it."""
+    ops = [{"op": o.get("op"), "path": o.get("path"), "value": o.get("value")} for o in entry["ops"]
+           if o.get("tool") in owners]
+    return hashlib.sha256(json.dumps(ops, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+
+
 def undo(tools: Optional[List[str]], out: Printer, dry_run: bool = False, keep_unremoved: bool = False,
          runner: Optional[Callable[[List[str]], Tuple[int, str]]] = None,
-         retained: Optional[List[str]] = None, removed: Optional[Dict[str, int]] = None) -> int:
+         retained: Optional[List[str]] = None, removed: Optional[Dict[str, int]] = None,
+         confirmed: Optional[Dict[str, str]] = None) -> int:
     """Remove what connect wrote for ``tools`` (everything when ``None``), but only where the file still holds
     exactly what was written; what was changed since is left as it is and reported. A registration is checked
     against the tool's registry first, and the command to remove it is printed qualified with the profile (and
     directory) it was recorded for. With ``keep_unremoved`` anything that could not be removed keeps its record.
+    ``confirmed`` maps the journalled files the person was shown to :func:`ops_signature`; with it, only those
+    files are touched, and only while they still hold exactly what was shown.
 
     Returns how many journalled items were visited."""
     from briefcase.connect.lock import command_lock
 
     with command_lock(not dry_run):
-        return _undo_locked(tools, out, dry_run, keep_unremoved, runner, retained, removed)
+        return _undo_locked(tools, out, dry_run, keep_unremoved, runner, retained, removed, confirmed)
 
 
 def _undo_locked(tools: Optional[List[str]], out: Printer, dry_run: bool, keep_unremoved: bool,
                  runner: Optional[Callable[[List[str]], Tuple[int, str]]], retained: Optional[List[str]],
-                 removed: Optional[Dict[str, int]]) -> int:
+                 removed: Optional[Dict[str, int]], confirmed: Optional[Dict[str, str]] = None) -> int:
     runner = runner or run_command
     journal = edits.load_journal()
     visited = 0
     for path in list(journal["files"]):
         entry = journal["files"][path]
         owners = {op.get("tool") for op in entry["ops"]}
+        if confirmed is not None:
+            if path not in confirmed:
+                continue  # not a file the person was shown
+            if ops_signature(entry, list(tools or [])) != confirmed[path]:
+                out(f"  {path} changed while the question was open, so it was left as it is; run the command again")
+                if retained is not None:
+                    retained.extend(t for t in (tools or []) if t in owners)
+                continue
         for tool in (sorted(t for t in owners if t) if tools is None else [t for t in tools if t in owners]):
             visited += 1
             stats: Dict[str, int] = {}

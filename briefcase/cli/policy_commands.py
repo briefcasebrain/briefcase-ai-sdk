@@ -505,6 +505,7 @@ def cmd_off(args, store=None, engine=None, stack=None) -> int:
 
 
 def _cmd_off(args) -> int:
+    from briefcase.connect import edits
     from briefcase.connect import engine as connect_engine
     from briefcase.policy import install, model
 
@@ -527,8 +528,18 @@ def _cmd_off(args) -> int:
         print("No policy hooks are installed" + (" for those tools." if named else "."))
         print("Next: briefcase-ai policy init")
         return 0
+    confirmed_owners = [install.PREFIX + name for name in present]
+    shown: Dict[str, str] = {}
+    try:
+        for file_path, file_entry in edits.load_journal()["files"].items():
+            if {op.get("tool") for op in file_entry["ops"]} & set(confirmed_owners):
+                shown[file_path] = connect_engine.ops_signature(file_entry, confirmed_owners)
+    except edits.LegacyJournal:
+        pass
     if not dry:
-        answer = _confirm(f"Remove the policy hooks for {', '.join(present)}?", bool(args.yes))
+        where = ", ".join(_tilde(Path(p)) for p in sorted(shown))
+        answer = _confirm(f"Remove the policy hooks for {', '.join(present)}" + (f" from {where}" if where else "")
+                          + "?", bool(args.yes))
         if answer is None:
             _error("not a terminal, so cannot ask for confirmation; re-run with --yes.")
             return 1
@@ -541,8 +552,9 @@ def _cmd_off(args) -> int:
     # Only the entries the person was shown and confirmed: a hook installed for another tool while the question was
     # open is not theirs to have removed. The journal is re-read under the lock and each entry must still hold
     # exactly what was written before it is touched.
-    owners = [install.PREFIX + name for name in present]
-    connect_engine.undo(owners, print, dry_run=dry, keep_unremoved=True, retained=kept, removed=removed)
+    owners = confirmed_owners
+    connect_engine.undo(owners, print, dry_run=dry, keep_unremoved=True, retained=kept, removed=removed,
+                        confirmed=shown if shown else None)
     if dry:
         # What would be left: hook entries on disk now, minus the ones this run would remove.
         kept = sorted({n[len(install.PREFIX):] for n in owners
@@ -552,13 +564,34 @@ def _cmd_off(args) -> int:
             print("Enforcement would still be ON: a hook entry was changed after install and would not be removed.",
                   file=sys.stderr)
         return 1 if kept else 0
-    still = sorted({row["tool"] for row in install.installed() if install.PREFIX + row["tool"] in owners}
-                   | {name for name in (n[len(install.PREFIX):] for n in owners) if install.hook_active(name)})
+    still_set = set()  # the confirmed hooks that are still in the files that were shown
+    try:
+        journal_now = edits.load_journal()["files"]
+    except edits.LegacyJournal:
+        journal_now = {}
+    for file_path in shown:
+        for name in present:
+            ops_now = journal_now.get(file_path, {}).get("ops", [])
+            recorded = any(op.get("tool") == install.PREFIX + name for op in ops_now)
+            try:
+                on_disk = install.marker(name) in edits.read_text(Path(file_path))
+            except (OSError, UnicodeDecodeError):
+                on_disk = False
+            if recorded or on_disk:
+                still_set.add(name)
+    still = sorted(still_set)
     if still:
         print(f"Enforcement is still ON for {', '.join(still)}: the hook entry was changed after it was installed, "
               "so it was not removed and its record was kept. Remove the entry yourself (it runs "
               "`... hook <tool> --enforce`), then run `briefcase-ai policy off` again.", file=sys.stderr)
         return 1
+    everything = [install.PREFIX + name for name in install.TOOLS]
+    remaining = sorted({row["tool"] for row in install.installed() if install.PREFIX + row["tool"] in everything}
+                       | {name for name in install.TOOLS if install.hook_active(name)})
+    if remaining:  # hooks that were not part of what was confirmed: said plainly, never "enforcement is off"
+        print(f"Removed the hooks you confirmed. Enforcement is still ON for {', '.join(remaining)}: "
+              "that was not part of what you confirmed. Run `briefcase-ai policy off` again to remove it.")
+        return 0
     print(f"Enforcement is off. The policy file is kept: {_tilde(model.user_policy_path())}")
     print("Next: briefcase-ai policy init   (to turn it back on)")
     return 0

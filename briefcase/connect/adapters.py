@@ -230,16 +230,38 @@ class Adapter:
                       f"`{argv[0]}` is not on PATH, so run this yourself once it is")
 
 
-def _registry_settings() -> Optional[str]:
-    """The ``Settings`` value Claude Code reads from ``HKLM\\SOFTWARE\\Policies\\ClaudeCode`` on Windows; ``None`` where
-    there is no registry or no such value."""
+def _directory_layers(directory: str) -> List[Any]:
+    """The ``*.json`` files of a managed-settings drop-in directory. A directory that exists but cannot be listed is a
+    layer that cannot be read, not an empty one."""
+    path = Path(directory)
+    try:
+        names = sorted(os.listdir(path))
+    except (FileNotFoundError, NotADirectoryError):
+        return []
+    except OSError as exc:
+        error = exc
+
+        def unreadable() -> Optional[str]:
+            raise error
+
+        return [edits.ExternalLayer(f"{directory} (managed settings directory)", unreadable)]
+    return [path / name for name in names if name.endswith(".json")]
+
+
+def _user_registry_settings() -> Optional[str]:
+    return _registry_settings("HKEY_CURRENT_USER")
+
+
+def _registry_settings(hive: str = "HKEY_LOCAL_MACHINE") -> Optional[str]:
+    """The ``Settings`` value Claude Code reads from ``SOFTWARE\\Policies\\ClaudeCode`` in ``hive`` on Windows;
+    ``None`` where there is no registry or no such value."""
     try:
         import winreg
     except ImportError:
         return None
     reg: Any = winreg  # its members exist only on Windows
     try:
-        with reg.OpenKey(reg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Policies\ClaudeCode") as key:
+        with reg.OpenKey(getattr(reg, hive), r"SOFTWARE\Policies\ClaudeCode") as key:
             value, _kind = reg.QueryValueEx(key, "Settings")
     except FileNotFoundError:
         return None
@@ -286,12 +308,13 @@ class ClaudeCode(Adapter):
 
     def settings_layers(self, ctx: Context) -> List[Path]:
         """The other settings files Claude Code merges with the user file: managed, then project and local."""
-        paths = [Path(p) for p in self.data.get("managed_settings", [])]
+        layers: List[Any] = [Path(p) for p in self.data.get("managed_settings", [])]
         for directory in self.data.get("managed_settings_dirs", []):
-            paths.extend(sorted(Path(directory).glob("*.json")) if Path(directory).is_dir() else [])
-        paths += [ctx.project_dir / ".claude" / "settings.json", ctx.project_dir / ".claude" / "settings.local.json"]
-        layers: List[Any] = list(paths)
+            layers.extend(_directory_layers(directory))
+        layers += [ctx.project_dir / ".claude" / "settings.json", ctx.project_dir / ".claude" / "settings.local.json"]
         layers.append(edits.ExternalLayer("Windows registry HKLM\\SOFTWARE\\Policies\\ClaudeCode", _registry_settings))
+        layers.append(edits.ExternalLayer("Windows registry HKCU\\SOFTWARE\\Policies\\ClaudeCode",
+                                          _user_registry_settings))
         layers.append(edits.ExternalLayer("com.anthropic.claudecode managed preferences", _managed_preferences))
         return layers
 
@@ -327,7 +350,8 @@ class ClaudeCode(Adapter):
                 notes=notes, secret=bool(ctx.headers),
                 namespace=[(["env"], "OTEL_"), ([], "otel"), (["env"], "CLAUDE_CODE_ENHANCED_TELEMETRY"),
                            (["env"], "ENABLE_ENHANCED_TELEMETRY"), (["env"], "CLAUDE_CODE_OTEL"),
-                           (["env"], "CLAUDE_CODE_TRACE")],
+                           (["env"], "CLAUDE_CODE_TRACE"), (["env"], "ENABLE_BETA_TRACING"),
+                           (["env"], "BETA_TRACING")],
                 layers=self.settings_layers(ctx),
                 watch=[(["env", key], "capture") for key in (
                     "OTEL_LOG_USER_PROMPTS", "OTEL_LOG_TOOL_DETAILS", "OTEL_LOG_TOOL_CONTENT")]
