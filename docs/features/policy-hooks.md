@@ -312,9 +312,16 @@ includes Codex, therefore refuse until you pass `--accept-codex-startup-risk`.
 A fail-closed hook allows a call only when the event is complete and names a tool the policy
 covers, the policy loaded without error (a managed hook: from the exact bytes of the file whose
 hash it was deployed with), and the policy itself says allow. An unknown tool, an empty command,
-a missing event name, an option left without a value, and a verdict that cannot be written all
-block. A managed hook that finds its system policy missing or changed blocks whether or not
-`--fail-closed` was passed.
+a missing event name, an option left without a value, a `WebFetch` without a URL, an MCP call that
+does not name both a server and a tool, a relative path with no working directory in the event, a shell
+command that yields nothing to judge, and a verdict that cannot be written all block. A managed hook that finds its system policy missing or changed blocks whether or not
+`--fail-closed` was passed, and does so before any bookkeeping that could fail; a hook that carries
+`--require-policy-sha256` also blocks when it crashes or cannot write its verdict.
+
+When the verdict cannot be written the hook puts its reason on stderr (Codex takes exit status 2 with
+a nonempty stderr as its block) and exits with 2. If stdout and stderr are both closed nothing can be
+shown, and exit status 2 is all the hook can offer; a host that ignores it, or one that times the hook
+out, is outside what a command-line hook can guarantee.
 
 What happens when the hook cannot even start (the virtualenv was deleted, briefcase moved):
 Python exits with code 2 for a script that does not exist, and exit code 2 *blocks* in all three

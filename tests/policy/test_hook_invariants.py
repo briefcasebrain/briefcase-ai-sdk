@@ -446,3 +446,87 @@ def test_a_required_policy_mismatch_denies_even_without_fail_closed(home, projec
     code = hook.main([tool, "--enforce", "--require-policy-sha256", "0" * 64],
                      stdin=io.StringIO(json.dumps(harmless)), stdout=out)
     assert denies(tool, code, out.getvalue())
+
+
+# --- round 10: a call the policy cannot fully identify is not judged by guesswork ------------------------------------
+
+def _more_defects(tool, project):
+    if tool == "cursor":
+        return {
+            "webfetch_without_url": _call(tool, project, hook_event_name="preToolUse", tool_name="WebFetch",
+                                          tool_input={}),
+            "mcp_without_tool": _call(tool, project, hook_event_name="beforeMCPExecution", mcp_server_name="srv"),
+            "relative_path_no_cwd": _call(tool, project, hook_event_name="beforeReadFile", file_path="notes.txt",
+                                          cwd=None, workspace_roots=[]),
+        }
+    base = dict(hook_event_name="PreToolUse")
+    return {
+        "webfetch_without_url": _call(tool, project, tool_name="WebFetch", tool_input={}, **base),
+        "mcp_without_tool": _call(tool, project, tool_name="mcp__srv", tool_input={}, **base),
+        "relative_path_no_cwd": _call(tool, project, tool_name="Write", tool_input={"file_path": "notes.txt"},
+                                      **dict(base, cwd=None)),
+    }
+
+
+MORE = ["webfetch_without_url", "mcp_without_tool", "relative_path_no_cwd"]
+MORE_COMBOS = [(t, k, e) for t in TOOLS for k in MORE for e in ("module", "cli", "launcher")
+               if not (t == "codex" and k == "webfetch_without_url")]
+
+
+@pytest.mark.parametrize("tool, kind, entry", MORE_COMBOS, ids=[f"{t}-{k}-{e}" for t, k, e in MORE_COMBOS])
+def test_a_strict_hook_denies_calls_it_cannot_fully_identify(home, project, tool, kind, entry):
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "observe"\n')  # allows what it judges
+    body = _more_defects(tool, project)[kind]
+    code, raw = run_entry(entry, tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), f"fail-closed let {kind} through: exit {code}, output {raw!r}"
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_nonempty_shell_command_that_yields_nothing_to_judge_is_denied_when_strict(home, project, tool):
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "guarded"\ndefault = "deny"\n')
+    body = payload(tool, project)
+    body["command" if tool == "cursor" else "tool_input"] = "# nothing but a comment" if tool == "cursor" else {
+        "command": "# nothing but a comment"}
+    code, raw = run_entry("module", tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), (code, raw)
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_required_policy_mismatch_is_binding_even_when_bookkeeping_and_output_fail(
+        home, project, tool, monkeypatch, tmp_path):
+    monkeypatch.setenv("BRIEFCASE_SYSTEM_POLICY", str(tmp_path / "gone" / "policy.toml"))
+    flags = ["--require-policy-sha256", "0" * 64]  # no --fail-closed: the hash alone binds the hook
+    body = payload(tool, project)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("health file is unwritable")
+
+    monkeypatch.setattr(hook, "record_problem", boom)
+    out = io.StringIO()
+    code = hook.main([tool, "--enforce", *flags], stdin=io.StringIO(json.dumps(body)), stdout=out)
+    assert denies(tool, code, out.getvalue()), "bookkeeping failed and the call went through"
+    code = hook.main([tool, "--enforce", *flags], stdin=io.StringIO(json.dumps(body)), stdout=_Broken())
+    assert code == 2, "the denial could not be written and the call went through"
+
+
+def test_with_stdout_and_stderr_both_closed_the_blocking_status_is_still_2(home, project):
+    build_state(home, project, "valid_denying")
+    env = {"HOME": str(home), "PATH": os.environ.get("PATH", ""),
+           "BRIEFCASE_SYSTEM_POLICY": os.environ["BRIEFCASE_SYSTEM_POLICY"]}
+    argv = [sys.executable, *ISOLATED, install.launcher_path(), "codex", "--enforce", "--fail-closed"]
+    child = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    child.stdout.close()
+    child.stderr.close()
+    child.stdin.write(json.dumps(payload("codex", project)).encode())
+    child.stdin.close()
+    child.wait(timeout=60)
+    assert child.returncode == 2
+
+
+def test_when_only_stdout_fails_the_reason_is_a_nonempty_stderr_line(home, project, capsys):
+    build_state(home, project, "valid_denying")
+    code = hook.main(["codex", "--enforce", "--fail-closed"],
+                     stdin=io.StringIO(json.dumps(payload("codex", project))), stdout=_Broken())
+    assert code == 2 and capsys.readouterr().err.strip().startswith("Blocked by briefcase-ai policy")

@@ -79,6 +79,16 @@ def _command_text(value):
     return None
 
 
+def _path_defect(paths, cwd):
+    """A relative path judged without the event's working directory would be judged against the hook process's own."""
+    if cwd:
+        return None
+    for path in paths:
+        if not (os.path.isabs(path) or path.startswith("~") or (len(path) > 2 and path[1:3] in (":\\", ":/"))):
+            return "a relative path and no working directory in the hook input"
+    return None
+
+
 def _mcp_name(tool_name):
     """``mcp__server__tool`` -> ``(server, tool)``."""
     rest = tool_name[len("mcp__"):]
@@ -104,23 +114,28 @@ def _tool_call(tool, tool_name, tool_input, cwd, common):
         path = _first_path(tool_input) or (cwd if tool_name != "Read" else None)
         if not path:
             return ToolCall("invalid", tool, tool_name, note="no file path in the hook input", **common)
-        return ToolCall("read", tool, tool_name, paths=[path], cwd=cwd, **common)
+        return ToolCall("read", tool, tool_name, paths=[path], cwd=cwd, defect=_path_defect([path], cwd), **common)
     if tool_name in _WRITE_TOOLS:
         path = _first_path(tool_input)
         if not path:
             return ToolCall("invalid", tool, tool_name, note="no file path in the hook input", **common)
-        return ToolCall("write", tool, tool_name, paths=[path], cwd=cwd, **common)
+        return ToolCall("write", tool, tool_name, paths=[path], cwd=cwd, defect=_path_defect([path], cwd), **common)
     if tool_name == "WebFetch":
-        return ToolCall("web", tool, tool_name, url=_text(tool_input.get("url")), cwd=cwd, **common)
+        url = _text(tool_input.get("url"))
+        return ToolCall("web", tool, tool_name, url=url, cwd=cwd, defect=None if url else "WebFetch names no URL",
+                        **common)
     if tool_name == "WebSearch":
         return ToolCall("web", tool, tool_name, url=None, cwd=cwd, **common)
     if not tool_name:
         return ToolCall("invalid", tool, tool_name, note="the hook input names no tool", **common)
     if tool_name.startswith("mcp__"):
         server, name = _mcp_name(tool_name)
-        return ToolCall("mcp", tool, tool_name, server=server, name=name, cwd=cwd, **common)
+        return ToolCall("mcp", tool, tool_name, server=server, name=name, cwd=cwd,
+                        defect=None if (server and name) else "the MCP tool name does not identify a server and a tool",
+                        **common)
     if tool_name.startswith("MCP:"):
-        return ToolCall("mcp", tool, tool_name, server=None, name=tool_name[4:] or None, cwd=cwd, **common)
+        return ToolCall("mcp", tool, tool_name, server=None, name=tool_name[4:] or None, cwd=cwd,
+                        defect="the MCP tool name does not identify a server", **common)
     return ToolCall("other", tool, tool_name, cwd=cwd, defect=f"a tool this policy does not cover ({tool_name})",
                     **common)
 
@@ -163,12 +178,14 @@ def parse(tool, payload):
         if event == "beforeMCPExecution":
             server, name = _text(payload.get("mcp_server_name")), _text(payload.get("tool_name"))
             return ToolCall("mcp", tool, "MCP", server=server, name=name, cwd=cwd or project,
-                            defect=None if (server or name) else "the MCP call names no server or tool", **common)
+                            defect=None if (server and name) else "the MCP call does not name a server and a tool",
+                            **common)
         if event == "beforeReadFile":
             path = _text(payload.get("file_path"))
             if not path:
                 return ToolCall("invalid", tool, event, note="no file path in the hook input", **common)
-            return ToolCall("read", tool, "Read", paths=[path], cwd=cwd or project, **common)
+            return ToolCall("read", tool, "Read", paths=[path], cwd=cwd or project,
+                            defect=_path_defect([path], cwd or project), **common)
         if event == "preToolUse":
             return _tool_call(tool, _text(payload.get("tool_name")) or "", payload.get("tool_input"),
                               cwd or project, common)
@@ -194,7 +211,7 @@ def _claude_codex_call(tool, payload, common):
         paths = patch_paths(patch or "")
         if not paths:
             return ToolCall("invalid", tool, tool_name, note="no file paths found in the patch", **common)
-        return ToolCall("write", tool, tool_name, paths=paths, cwd=cwd, **common)
+        return ToolCall("write", tool, tool_name, paths=paths, cwd=cwd, defect=_path_defect(paths, cwd), **common)
     return _tool_call(tool, tool_name, tool_input, cwd, common)
 
 

@@ -314,9 +314,13 @@ def decide(options, payload):
         if options.capture_content:
             entry["target"] = target[:4000]
     if required_problem:  # terminal, strict or not: a hook bound to a policy never judges by another
-        record_problem(required_problem, tool, True)
-        return _verdict(tool, event, started, entry, "deny", f"Blocked by briefcase-ai policy: {required_problem}. "
-                        f"{FIX}", "fail_closed", required_problem)
+        verdict = _verdict(tool, event, started, entry, "deny", f"Blocked by briefcase-ai policy: "
+                           f"{required_problem}. {FIX}", "fail_closed", required_problem)
+        try:  # bookkeeping comes after the verdict exists and can never change it
+            record_problem(required_problem, tool, True)
+        except BaseException:  # noqa: B036
+            pass
+        return verdict
     if options.parse_error and fail_closed:
         problem = f"the hook command line is malformed ({options.parse_error})"
         return _verdict(tool, event, started, entry, "deny",
@@ -370,8 +374,10 @@ def decide(options, payload):
     if effect == "ask" and not tools.can_ask(tool, event):
         effect = loaded.policy.settings["ask_fallback"]
         downgraded = True
-    if fail_closed and effect not in ("allow", "deny", "ask"):
+    if fail_closed and (effect not in ("allow", "deny", "ask")
+                        or (call.kind == "shell" and not decision.units)):  # nothing was judged: nothing is allowed
         effect = "deny"
+        decision.would = "deny"
     entry.update(effect=effect, would=decision.would, mode=decision.mode, rule=decision.rule_id,
                  source=decision.match.source if decision.match else None)
     if decision.match is not None:
@@ -431,14 +437,14 @@ def _main(argv=None, stdin=None, stdout=None):
                 out.write(text + "\n")
             out.flush()
         except BaseException:  # noqa: B036 - the verdict could not be delivered
-            if "--fail-closed" in argv or options.fail_closed:
+            if _strict(argv) or options.fail_closed:
                 _block_stderr("the verdict could not be written")
                 return 2  # the host's blocking status: a verdict that never arrived must not read as allow
             return 0
     except BaseException as exc:  # noqa: B036 - nothing may escape: a traceback or exit code 2 would block the tool
         # Options may be the thing that failed: the command line itself still says whether to fail closed.
-        delivered = _failed(tool, options, exc, out, "--fail-closed" in argv)
-        if not delivered and ("--fail-closed" in argv or (options and options.fail_closed)):
+        delivered = _failed(tool, options, exc, out, _strict(argv))
+        if not delivered and (_strict(argv) or (options and options.fail_closed)):
             _block_stderr("the verdict could not be written")
             return 2
         return 0
@@ -453,10 +459,19 @@ def _main(argv=None, stdin=None, stdout=None):
     return 0
 
 
+def _strict(argv):
+    """Does the command line itself bind this hook (``--fail-closed``, or a required system policy)? Read from argv, so
+    it holds even when option parsing or anything after it failed."""
+    return "--fail-closed" in argv or "--require-policy-sha256" in argv
+
+
 def _block_stderr(why):
+    """The reason, on stderr and first: Codex takes a nonempty stderr with exit 2 as its block. When stdout and
+    stderr both fail nothing can be shown, and exit status 2 is all that is left."""
     try:
-        sys.stderr.write(f"Blocked by briefcase-ai policy: {why}, and the hook was installed with --fail-closed. "
-                         f"{FIX}\n")
+        sys.stderr.write(f"Blocked by briefcase-ai policy: {why}, and the hook is fail-closed or bound to a required "
+                         f"policy. {FIX}\n")
+        sys.stderr.flush()
     except BaseException:  # noqa: B036
         pass
 
