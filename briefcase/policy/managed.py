@@ -206,6 +206,18 @@ def cowork_checklist(ctx: Context) -> str:
     ])
 
 
+def host_fail_closed(policy_text: Optional[str], policy_sha: str) -> bool:
+    """Do the host's failure switches (Claude ``onFailure``, Cursor ``failClosed``, the Codex acknowledgement) apply?
+    The one strictness rule of the hook command line decides: a pack's hooks carry ``--require-policy-sha256``, which
+    binds them, and a ``fail_closed = true`` in the policy does too."""
+    if policy_text is None:
+        return False
+    from briefcase.policy import optargs
+
+    bound = optargs.strict(["--require-policy-sha256", policy_sha]) if policy_sha else False
+    return bound or bool(model.parse_layer(policy_text, "system", "policy.toml").settings.get("fail_closed", False))
+
+
 def build(tools: List[str], ctx: Context, policy_text: Optional[str] = None) -> Pack:
     """Everything in the pack, in memory. ``policy_text`` must already be a valid policy."""
     data = load_data()["tools"]
@@ -216,8 +228,7 @@ def build(tools: List[str], ctx: Context, policy_text: Optional[str] = None) -> 
         if enforce else ""
     fail_closed = False
     if enforce:
-        layer = model.parse_layer(policy_text or "", "system", "policy.toml")
-        fail_closed = bool(layer.settings.get("fail_closed", False))
+        fail_closed = host_fail_closed(policy_text, policy_sha)
         pack.add("briefcase/policy.toml", policy_text or "", "ready", SYSTEM_POLICY,
                  "briefcase", "The policy every machine enforces. A user or project policy can only add restrictions.")
     if "claude-code" in tools:
@@ -555,7 +566,8 @@ def cmd_managed(args, out=print) -> int:
                   file=sys.stderr)
             return 1
     if policy_text is not None and "codex" in tools and not getattr(args, "accept_codex_startup_risk", False):
-        if model.parse_layer(policy_text, "system", "policy.toml").settings.get("fail_closed", False):
+        body = policy_text if policy_text.endswith("\n") else policy_text + "\n"
+        if host_fail_closed(policy_text, hashlib.sha256(body.encode("utf-8")).hexdigest()):
             print("error: " + install.CODEX_STARTUP_RISK + ". Pass --accept-codex-startup-risk to write the Codex "
                   "hook anyway, or leave codex out with --tools.", file=sys.stderr)
             return 1

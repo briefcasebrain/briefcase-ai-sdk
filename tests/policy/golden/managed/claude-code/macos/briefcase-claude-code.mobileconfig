@@ -40,9 +40,11 @@
 													<key>type</key>
 													<string>command</string>
 													<key>command</key>
-													<string>briefcase-ai hook claude-code --enforce --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc</string>
+													<string>briefcase-ai hook claude-code --enforce --fail-closed --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc</string>
 													<key>timeout</key>
 													<integer>10</integer>
+													<key>onFailure</key>
+													<string>block</string>
 												</dict>
 											</array>
 										</dict>

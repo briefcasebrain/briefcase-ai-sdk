@@ -35,6 +35,7 @@ def generate(tmp_path, **overrides):
     policy.write_text(POLICY)
     out = tmp_path / "pack"
     lines = []
+    overrides.setdefault("accept_codex_startup_risk", True)  # a pack bound to a hash is strict, so Codex asks for this
     code = managed.cmd_managed(args(out, policy=str(policy), **overrides), out=lines.append)
     return code, out, "\n".join(lines)
 
@@ -77,7 +78,7 @@ def test_generated_files_parse_in_their_formats(home, tmp_path):
     settings = json.loads((out / "claude-code/managed-settings.d/10-briefcase.json").read_text())
     assert settings["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == ENDPOINT
     handler = settings["hooks"]["PreToolUse"][0]["hooks"][0]
-    assert handler["command"].startswith(f"briefcase-ai hook claude-code --enforce --endpoint {ENDPOINT}")
+    assert handler["command"].startswith(f"briefcase-ai hook claude-code --enforce --fail-closed --endpoint {ENDPOINT}")
     assert " --require-policy-sha256 " in handler["command"]
     # Only keys the managed-settings documentation lists; no lock settings are added silently.
     assert set(settings) == {"env", "hooks"}
@@ -236,3 +237,26 @@ def test_a_fail_closed_pack_with_codex_needs_the_startup_risk_acknowledged(home,
     assert managed.cmd_managed(args(third, policy=str(policy), accept_codex_startup_risk=True),
                                out=lambda line: None) == 0
     assert (third / "codex/hooks.json").exists()
+
+
+def test_a_hash_bound_pack_gets_the_host_failure_switches_without_fail_closed_in_the_policy(home, tmp_path):
+    """Every enforcing hook in the pack carries --require-policy-sha256, which binds it; the switches that make the host
+    block when the hook cannot start follow that same rule, not only the policy's own fail_closed line."""
+    policy = tmp_path / "open.toml"
+    policy.write_text(POLICY)  # no fail_closed
+    assert "fail_closed" not in POLICY
+    out = tmp_path / "bound"
+    assert managed.cmd_managed(args(out, policy=str(policy), accept_codex_startup_risk=True),
+                               out=lambda line: None) == 0
+    handler = json.loads((out / "claude-code/managed-settings.d/10-briefcase.json").read_text())[
+        "hooks"]["PreToolUse"][0]["hooks"][0]
+    assert handler["onFailure"] == "block"
+    cursor = json.loads((out / "cursor/hooks.json").read_text())
+    assert cursor["hooks"]["beforeReadFile"][-1]["failClosed"] is True
+
+
+def test_a_hash_bound_pack_needs_the_codex_startup_acknowledgement(home, tmp_path, capsys):
+    policy = tmp_path / "open.toml"
+    policy.write_text(POLICY)
+    assert managed.cmd_managed(args(tmp_path / "codex", policy=str(policy)), out=lambda line: None) == 1
+    assert "accept-codex-startup-risk" in capsys.readouterr().err

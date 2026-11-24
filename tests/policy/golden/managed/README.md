@@ -6,7 +6,7 @@ with what is confirmed and what is not.
 
 - Receiver endpoint in these files: `https://otel.example.com`
 - Policy enforcement: yes, from `briefcase/policy.toml`
-- When the policy or the hook is broken: tool calls are allowed and the problem is reported (fail open)
+- When the policy or the hook is broken: tool calls are BLOCKED (`fail_closed = true`)
 
 ## Before you deploy
 
@@ -66,7 +66,7 @@ unless `managedSourcesBehavior` is `merge`.
   does not disable managed hooks.
 - The hook decides `deny` and `ask`; an allowed call still goes through Claude Code's own
   permission prompts.
-- If `briefcase-ai` is missing on a machine the hook fails and Claude Code runs the tool anyway. Set `fail_closed = true` in the policy and regenerate to block instead.
+- `onFailure: "block"` makes a hook that cannot start or times out block the tool call. It needs Claude Code 2.1.295 or later; older versions ignore the hook failure.
 - Optional hardening, not included because it changes what developers can do. Both are documented
   managed settings you can add to the drop-in:
   `"allowManagedHooksOnly": true` (only managed hooks run) and

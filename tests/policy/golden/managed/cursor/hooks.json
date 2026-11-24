@@ -39,27 +39,31 @@
     ],
     "beforeShellExecution": [
       {
-        "command": "briefcase-ai hook cursor --enforce --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
-        "timeout": 10
+        "command": "briefcase-ai hook cursor --enforce --fail-closed --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
+        "timeout": 10,
+        "failClosed": true
       }
     ],
     "beforeMCPExecution": [
       {
-        "command": "briefcase-ai hook cursor --enforce --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
-        "timeout": 10
+        "command": "briefcase-ai hook cursor --enforce --fail-closed --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
+        "timeout": 10,
+        "failClosed": true
       }
     ],
     "beforeReadFile": [
       {
-        "command": "briefcase-ai hook cursor --enforce --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
-        "timeout": 10
+        "command": "briefcase-ai hook cursor --enforce --fail-closed --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
+        "timeout": 10,
+        "failClosed": true
       }
     ],
     "preToolUse": [
       {
-        "command": "briefcase-ai hook cursor --enforce --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
+        "command": "briefcase-ai hook cursor --enforce --fail-closed --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
         "timeout": 10,
-        "matcher": "Write|Delete"
+        "matcher": "Write|Delete",
+        "failClosed": true
       }
     ]
   }
