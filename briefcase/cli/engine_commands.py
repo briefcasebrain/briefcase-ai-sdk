@@ -1047,8 +1047,8 @@ def running_releases() -> Tuple[str, List[str], str]:
         def agrees(row: Dict[str, str]) -> bool:
             """A container of a service this release records must run exactly the image it recorded for it (an
             unknown image in the gateway is not this release, whatever the server runs)."""
-            key = "server" if row["service"] == "oci-jj-server" else row["service"].replace("-", "_")
-            if key in recorded:
+            key = record_key(recorded, row["service"])
+            if key is not None:
                 return row["image"] == recorded[key]
             return row["image"] not in known or row["image"] in ids
 
@@ -1116,19 +1116,32 @@ def _reinstall_fix(record: Dict[str, Any]) -> str:
     return f"get a new install code at {portal} and run the command it shows"
 
 
+def record_key(recorded: Dict[str, Any], service: str) -> Optional[str]:
+    """The key ``recorded`` (a record's ``image_ids``, which keeps the manifest's spelling, hyphens included) uses for
+    a Compose service, or ``None`` when the release does not pin it. The one place service names are mapped."""
+    names = ["server"] if service == "oci-jj-server" else [service, service.replace("-", "_"),
+                                                           service.replace("_", "-")]
+    return next((name for name in names if name in recorded), None)
+
+
 TRANSPORT_SERVICES = ("oci-jj-server", "gateway", "workers", "reconstructor", "verdict-worker")
 
 
-def _container_tls(service: str, env: List[str]) -> Optional[bool]:
+def _container_tls(service: str, env: List[str], want_tls: bool) -> Optional[bool]:
     """Does this container's own configuration say gRPC runs over TLS? The server says it by serving a certificate
-    (or by allowing plaintext), every client by the scheme of the address it dials. ``None`` when it says neither."""
+    (or by allowing plaintext). A client says it by the address it dials, which must be exactly the server's address
+    for that transport (the file the release wrote has no other), so a client sent elsewhere counts as the other
+    transport. ``None`` when the container says nothing."""
     values = dict(e.partition("=")[::2] for e in env)
     if service == "oci-jj-server":
         if "OCI_JJ_TLS_CERT" in values:
             return True
         return False if values.get("OCI_JJ_ALLOW_PLAINTEXT") == "1" else None
     target = values.get("OCI_JJ_SERVER_GRPC")
-    return None if target is None else target.startswith("https://")
+    if target is None:
+        return None
+    wanted = ("https://" if want_tls else "") + "oci-jj-server:50051"
+    return want_tls if target == wanted else not want_tls
 
 
 def existing_containers_state(record: Dict[str, Any]) -> Tuple[Optional[str], Set[str]]:
@@ -1148,8 +1161,8 @@ def existing_containers_state(record: Dict[str, Any]) -> Tuple[Optional[str], Se
     for row in rows:
         service = row["service"]
         counts[service] = counts.get(service, 0) + 1
-        key = "server" if service == "oci-jj-server" else service.replace("-", "_")
-        if key not in recorded:
+        key = record_key(recorded, service)
+        if key is None:
             continue  # a sidecar this release does not pin
         if row["image"] != recorded[key]:
             stale.append(f"{service} runs a different image than engine {record['version']} verified")
@@ -1159,7 +1172,7 @@ def existing_containers_state(record: Dict[str, Any]) -> Tuple[Optional[str], Se
             env = [e for e in json.loads(row.get("env") or "[]") if isinstance(e, str)]
         except ValueError:
             env = []
-        has_tls = _container_tls(service, env)
+        has_tls = _container_tls(service, env, want_tls)
         if has_tls is None:
             stale.append(f"the transport {service} was created for could not be read from docker")
         elif has_tls != want_tls:

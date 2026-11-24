@@ -391,3 +391,69 @@ def test_a_same_version_tls_upgrade_on_a_different_daemon_is_refused_and_rolled_
     assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
     capsys.readouterr()
     assert _engine.current_install()["tls"] is False and path.read_bytes() == before
+
+
+# --- F2: names are normalised once and the destination is exact ---------------------------------------------
+
+def stack_with(env, monkeypatch, tls=False, extra=("workers", "verdict-worker")):
+    """A synthetic install whose Compose file and record also define ``extra`` services (manifest spelling keeps
+    the hyphen in ``image_ids``), every container created for the record, none running. Returns the rows."""
+    from tests.cli.test_engine_invariants import containers_for
+
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "none")
+    state = json.loads(_engine.installed_path().read_text())
+    record = state["installs"][A]
+    record["tls"] = tls
+    grpc = ("https://" if tls else "") + "oci-jj-server:50051"
+    compose_path = record["compose"]
+    text = open(compose_path).read()
+    if tls:
+        text = text.replace('OCI_JJ_ALLOW_PLAINTEXT: "1"', "OCI_JJ_TLS_CERT: /tls/server.crt")
+        text = text.replace("OCI_JJ_SERVER_GRPC: oci-jj-server:50051", f"OCI_JJ_SERVER_GRPC: {grpc}")
+    rows = [list(r) for r in containers_for(A)[:2]]
+    for name in extra:
+        image_id = "sha256:" + name[0] * 64
+        record["image_ids"][name] = image_id
+        text += (f"  {name}:\n    image: localhost/briefcase-engine/{name}:{A}\n    pull_policy: never\n"
+                 f"    environment:\n      OCI_JJ_SERVER_GRPC: {grpc}\n")
+        rows.append([name, image_id, compose_path])
+    open(compose_path, "w").write(text)
+    _engine.installed_path().write_text(json.dumps(state))
+    return stopped(rows), grpc
+
+
+def test_the_matching_full_stack_with_a_hyphenated_service_is_started(env, monkeypatch, capsys):
+    rows, _ = stack_with(env, monkeypatch)
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    assert [c for c in compose_calls(env) if "start" in c["argv"]]
+
+
+def test_a_stopped_verdict_worker_of_another_image_is_refused(env, monkeypatch, capsys):
+    rows, _ = stack_with(env, monkeypatch)
+    for row in rows:
+        if row[0] == "verdict-worker":
+            row[1] = "sha256:" + "f" * 64  # recorded as image_ids["verdict-worker"]; this one is another image
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))
+    assert main(["engine", "up"]) == 1
+    out = capsys.readouterr()
+    assert compose_verbs(env) == [] and "verdict-worker" in out.err + out.out
+
+
+@pytest.mark.parametrize("service", ["workers", "verdict-worker", "gateway"])
+@pytest.mark.parametrize("wrong", ["https://evil.example:443", "oci-jj-server:50052", "http://oci-jj-server:50051"])
+def test_a_client_that_dials_another_destination_than_the_servers_is_refused(env, monkeypatch, capsys, service, wrong):
+    rows, grpc = stack_with(env, monkeypatch, tls=True)
+    for row in rows:
+        if row[0] == service:
+            row.append([f"OCI_JJ_SERVER_GRPC={wrong}"])
+        elif row[0] == "oci-jj-server":
+            row.append(["OCI_JJ_TLS_CERT=/tls/server.crt"])
+        else:
+            row.append([f"OCI_JJ_SERVER_GRPC={grpc}"])
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))
+    assert main(["engine", "up"]) == 1
+    out = capsys.readouterr()
+    assert compose_verbs(env) == [] and service in out.err + out.out
