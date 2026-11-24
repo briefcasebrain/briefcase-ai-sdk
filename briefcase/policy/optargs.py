@@ -1,4 +1,4 @@
-"""The hook's command line, read once and the same way by every entry point and every failure handler.
+"""The hook's options, read once and the same way by every entry point and every failure handler.
 
 Standard library only and no import of anything else in ``briefcase``: the launcher loads this file by path, before
 it knows whether the rest of the package can be imported at all. ``--opt=value`` becomes ``--opt value``; an option
@@ -22,13 +22,15 @@ class Normalized(object):
         self.problems = problems
 
 
-def normalize(argv):
-    tokens = [a if isinstance(a, str) else str(a) for a in argv]
-    out = tokens[:1]  # the tool
+def normalize(args):
+    """``args`` are the options only, in any order: the tool name is not part of them (every caller passes what
+    follows it), so a binding option is recognised wherever it stands."""
+    tokens = [a if isinstance(a, str) else str(a) for a in args]
+    out = []
     problems = []
     require_given = False
     strict = False
-    index = 1
+    index = 0
     while index < len(tokens):
         token = tokens[index]
         name, eq, value = token.partition("=") if token.startswith("--") else (token, "", "")
@@ -50,10 +52,10 @@ def normalize(argv):
         else:
             out.append(token)
         index += 1
-    if any(t == STRICT_FLAG or t.startswith(STRICT_FLAG + "=") for t in tokens[1:]):
+    if any(t == STRICT_FLAG or t.startswith(STRICT_FLAG + "=") for t in tokens):
         strict = True  # even where an option's value swallowed it
     return Normalized(out, strict, require_given, problems)
 
 
-def strict(argv):
-    return normalize(argv).strict
+def strict(args):
+    return normalize(args).strict

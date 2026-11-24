@@ -25,9 +25,14 @@ import sys
 import textwrap
 from typing import Any, List
 
-from briefcase.cli import _discovery, _ux
-from briefcase.cli.engine import OciJJEngine
-from briefcase.cli.state import Store
+try:
+    from briefcase.cli import _discovery, _ux
+    from briefcase.cli.engine import OciJJEngine
+    from briefcase.cli.state import Store
+
+    _IMPORT_ERROR: Any = None
+except BaseException as _exc:  # noqa: B036 - a hook command must still give its verdict (see main)
+    _IMPORT_ERROR = _exc
 
 DESCRIPTION = (
     "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models.\n\n"
@@ -215,6 +220,8 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
             return hook_commands.run_enforce(argv[1], argv[2:])
         except BaseException:  # noqa: B036
             return _hook_unavailable(argv[1], argv[2:])
+    if _IMPORT_ERROR is not None:  # not a hook: the failure is the error
+        raise _IMPORT_ERROR
     parser = build_parser()
     args = parser.parse_args(argv)
     _ux.set_debug(args.debug)

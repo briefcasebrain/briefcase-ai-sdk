@@ -937,3 +937,52 @@ def test_the_oracle_ignores_denial_json_on_exit_codes_the_hosts_do_not_read():
     deny = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny"}})
     assert denies("codex", 0, deny)
     assert not denies("codex", 1, deny) and not denies("claude-code", 3, deny)
+
+
+# --- round 14: the handlers pass flags only, in any order, and the CLI module's own imports are covered -----------
+
+BINDING_FIRST = [
+    ["--require-policy-sha256=" + "0" * 64, "--enforce"],
+    ["--require-policy-sha256", "0" * 64, "--enforce"],
+    ["--fail-closed", "--enforce"],
+]
+
+
+@pytest.mark.parametrize("order", BINDING_FIRST, ids=["hash_eq_first", "hash_sep_first", "flag_first"])
+@pytest.mark.parametrize("failure", ["dispatcher_import", "hook_import"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_binding_option_that_comes_first_still_blocks_when_the_portable_command_fails(
+        home, project, monkeypatch, tool, failure, order):
+    import briefcase.cli as cli_pkg
+    import briefcase.policy as policy_pkg
+
+    build_state(home, project, "valid_denying")
+    if failure == "dispatcher_import":
+        monkeypatch.setitem(sys.modules, "briefcase.cli.hook_commands", None)
+        monkeypatch.delattr(cli_pkg, "hook_commands", raising=False)
+    else:
+        monkeypatch.setitem(sys.modules, "briefcase.policy.hook", None)
+        monkeypatch.delattr(policy_pkg, "hook", raising=False)
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload(tool, project))))
+    monkeypatch.setattr(sys, "stdout", out)
+    code = cli_main(["hook", tool, *order])
+    assert denies(tool, code, out.getvalue()), (code, out.getvalue())
+
+
+@pytest.mark.parametrize("flags", [["--fail-closed"], ["--require-policy-sha256=" + "0" * 64]], ids=["flag", "hash"])
+@pytest.mark.parametrize("broken", ["briefcase.cli.state", "briefcase.cli.engine", "briefcase.cli._ux"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_an_import_failure_in_the_cli_module_itself_still_blocks_a_binding_hook(
+        home, project, monkeypatch, tool, broken, flags):
+    import importlib
+
+    build_state(home, project, "valid_denying")
+    monkeypatch.delitem(sys.modules, "briefcase.cli.__main__", raising=False)
+    monkeypatch.setitem(sys.modules, broken, None)
+    entry = importlib.import_module("briefcase.cli.__main__")  # imports fail inside: the module must still load
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload(tool, project))))
+    monkeypatch.setattr(sys, "stdout", out)
+    code = entry.main(["hook", tool, *flags, "--enforce"])
+    assert denies(tool, code, out.getvalue()), (code, out.getvalue())

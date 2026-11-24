@@ -51,8 +51,8 @@ class Options(object):
         from briefcase.policy import optargs
 
         raw = list(argv)
-        norm = optargs.normalize(raw)
-        argv = norm.argv
+        norm = optargs.normalize(raw[1:])
+        argv = raw[:1] + norm.argv
         self.tool = argv[0] if argv else ""
         self.fail_closed = any(t == "--fail-closed" or t.startswith("--fail-closed=") for t in raw[1:])
         self.require_policy = ""
@@ -473,7 +473,7 @@ def _strict(argv):
     try:
         from briefcase.policy import optargs
 
-        return optargs.strict(argv)
+        return optargs.strict(list(argv)[1:])
     except BaseException:  # noqa: B036 - the reading itself failed: any mention of a binding option binds
         return any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv)
 

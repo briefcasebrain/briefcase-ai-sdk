@@ -74,10 +74,10 @@ def main():
     return _leave(_run())
 
 
-def strict_for(argv):
-    """Does the command line bind this hook? The answer of ``optargs.normalize``, loaded by path so that it does not
-    depend on anything that can fail to import; if even that file cannot be loaded, any mention of a binding option
-    binds."""
+def strict_for(options):
+    """Does the command line bind this hook? ``options`` are the arguments after the tool name. The answer of
+    ``optargs.normalize``, loaded by path so that it does not depend on anything that can fail to import; if even
+    that file cannot be loaded, any mention of a binding option binds."""
     try:
         import importlib.util
 
@@ -85,9 +85,9 @@ def strict_for(argv):
         spec = importlib.util.spec_from_file_location("_briefcase_optargs", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        return bool(module.strict(argv))
+        return bool(module.strict(options))
     except BaseException:  # noqa: B036
-        return any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv)
+        return any("--fail-closed" in a or "--require-policy-sha256" in a for a in options)
 
 
 def block_in_process(tool):
@@ -116,7 +116,7 @@ def on_failure(tool, argv):
 
 def _run():
     argv = sys.argv[1:]
-    strict = strict_for(argv)
+    strict = strict_for(argv[1:])
     try:
         here = os.path.dirname(os.path.abspath(__file__))
         package = os.path.dirname(here)
