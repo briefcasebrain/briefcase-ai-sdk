@@ -558,7 +558,7 @@ def test_launcher_fails_open_when_the_package_is_broken(home, tmp_path):
     done = launch("cursor", "--enforce")
     assert done.returncode == 0 and json.loads(done.stdout) == {"permission": "allow"}
     done = launch("claude-code", "--enforce", "--fail-closed")
-    assert done.returncode == 2 and b"half-installed" in done.stderr and b"briefcase-ai policy" in done.stderr
+    assert done.returncode == 2 and b"briefcase-ai policy" in done.stderr  # a fixed reason: nothing is formatted
 
 
 def test_briefcase_hook_enforce_entry_point(home, project, write_policy, capsys, monkeypatch):

@@ -742,10 +742,11 @@ LATE = ("import sys, types\n"
         "hook.main = main; policy.hook = hook\n"
         "sys.modules.update({'briefcase': root, 'briefcase.policy': policy, 'briefcase.policy.hook': hook})\n")
 BROKEN = "import sys; sys.modules['briefcase.policy.hook'] = None\n"
+NO_JSON = "import sys; sys.modules['json'] = None; sys.modules['briefcase.policy.hook'] = None\n"
 
 
 @pytest.mark.parametrize("flags", [["--fail-closed"], ["--require-policy-sha256", "0" * 64]], ids=["flag", "hash"])
-@pytest.mark.parametrize("scenario", [LATE, BROKEN], ids=["late_failure", "import_failure"])
+@pytest.mark.parametrize("scenario", [LATE, BROKEN, NO_JSON], ids=["late_failure", "import_failure", "json_broken"])
 @pytest.mark.parametrize("tool", TOOLS)
 def test_a_launcher_failure_with_stderr_unusable_still_delivers_a_denial_on_stdout(
         home, project, tool, scenario, flags):

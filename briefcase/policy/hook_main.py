@@ -32,20 +32,32 @@ def _say(stream, text):
         return False
 
 
-def _block(tool, reason):
-    """Block the call and return the exit status. The reason goes to stderr with exit 2, which all three tools read as
-    a block (Codex needs the reason to be nonempty). When stderr cannot carry it, the same reason goes to stdout as
-    the tool's JSON denial with exit 0; only when neither stream works is the status alone left."""
-    if _say(sys.stderr, reason + "\n"):
-        return 2
-    if tool == "cursor":
-        body = {"permission": "deny", "user_message": reason, "agent_message": reason}
-    else:
-        body = {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                                       "permissionDecisionReason": reason}}
-    import json
+_REASON = (b"Blocked by briefcase-ai policy: the hook could not complete and it was installed with --fail-closed or "
+           b"a required policy. Reinstall with `briefcase-ai policy init`, or turn enforcement off with "
+           b"`briefcase-ai policy off`.")
+_DENY = (b'{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", '
+         b'"permissionDecisionReason": "' + _REASON + b'"}}\n')
+_DENY_CURSOR = (b'{"permission": "deny", "user_message": "' + _REASON + b'", "agent_message": "' + _REASON + b'"}\n')
 
-    return 0 if _say(sys.stdout, json.dumps(body) + "\n") else 2
+
+def _fd_write(fd, data):
+    """Write all of ``data`` to a file descriptor; whether it was delivered. No stream object, no import."""
+    try:
+        while data:
+            data = data[os.write(fd, data):]
+        return True
+    except BaseException:  # noqa: B036
+        return False
+
+
+def _block(tool):
+    """Block the call and return the exit status, with nothing but fixed bytes and ``os.write``: whatever made the hook
+    fail (an import included) cannot also stop the denial. The reason goes to stderr with exit 2, which all three
+    tools read as a block (Codex needs it nonempty). When stderr cannot carry it, the tool's JSON denial goes to
+    stdout with exit 0; only when neither works is the status alone left."""
+    if _fd_write(2, _REASON + b"\n"):
+        return 2
+    return 0 if _fd_write(1, _DENY_CURSOR if tool == "cursor" else _DENY) else 2
 
 
 def _leave(code):
@@ -93,22 +105,17 @@ def _run():
             stub.__path__ = [package]
             sys.modules["briefcase"] = stub
         from briefcase.policy import hook
-    except BaseException as exc:  # noqa: B036
+    except BaseException:  # noqa: B036
         if strict:
-            return _block(argv[0] if argv else "",
-                          f"Blocked by briefcase-ai policy: the hook could not start ({type(exc).__name__}: {exc}) "
-                          "and it was installed with --fail-closed. Reinstall with `briefcase-ai policy init`, or "
-                          "turn enforcement off with `briefcase-ai policy off`.")
+            return _block(argv[0] if argv else "")
         if argv[:1] == ["cursor"]:
             _say(sys.stdout, '{"permission": "allow"}\n')   # Cursor blocks on empty output
         return 0
     try:
         return hook.main(argv)
-    except BaseException as exc:  # noqa: B036 - a late import or any failure the hook did not catch
+    except BaseException:  # noqa: B036 - a late import or any failure the hook did not catch
         if strict:
-            return _block(argv[0] if argv else "",
-                          f"Blocked by briefcase-ai policy: the hook failed ({type(exc).__name__}) and it was "
-                          "installed with --fail-closed.")
+            return _block(argv[0] if argv else "")
         if argv[:1] == ["cursor"]:
             _say(sys.stdout, '{"permission": "allow"}\n')
         return 0
