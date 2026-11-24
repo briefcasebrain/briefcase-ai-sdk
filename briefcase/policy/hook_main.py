@@ -46,6 +46,7 @@ def main():
 
 def _run():
     argv = sys.argv[1:]
+    strict = "--fail-closed" in argv or "--require-policy-sha256" in argv  # a required policy binds like the flag
     try:
         here = os.path.dirname(os.path.abspath(__file__))
         package = os.path.dirname(here)
@@ -59,7 +60,7 @@ def _run():
             sys.modules["briefcase"] = stub
         from briefcase.policy import hook
     except BaseException as exc:  # noqa: B036
-        if "--fail-closed" in argv:
+        if strict:
             _say(sys.stderr,
                  f"Blocked by briefcase-ai policy: the hook could not start ({type(exc).__name__}: {exc}) and it "
                  "was installed with --fail-closed. Reinstall with `briefcase-ai policy init`, or turn "
@@ -71,7 +72,7 @@ def _run():
     try:
         return hook.main(argv)
     except BaseException as exc:  # noqa: B036 - a late import or any failure the hook did not catch
-        if "--fail-closed" in argv:
+        if strict:
             _say(sys.stderr, f"Blocked by briefcase-ai policy: the hook failed ({type(exc).__name__}) and it was "
                              "installed with --fail-closed.\n")
             return 2

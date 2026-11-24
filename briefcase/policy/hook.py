@@ -43,7 +43,7 @@ FIX = "Fix it with `briefcase-ai policy check`, or turn enforcement off with `br
 
 class Options(object):
     __slots__ = ("tool", "fail_closed", "capture_content", "endpoint", "endpoint_set", "report", "require_policy",
-                 "parse_error")
+                 "parse_error", "require_given")
 
     def __init__(self, argv):
         """Hand-rolled on purpose: argparse exits 2 on an unknown flag, and exit 2 blocks the tool call.
@@ -53,6 +53,7 @@ class Options(object):
         self.tool = argv[0] if argv else ""
         self.fail_closed = "--fail-closed" in argv
         self.require_policy = ""
+        self.require_given = "--require-policy-sha256" in argv
         self.capture_content = False
         self.parse_error = ""
         self.endpoint = os.environ.get("BRIEFCASE_RECEIVER_ENDPOINT") or ""
@@ -252,6 +253,10 @@ def spawn_report(options, event):
 
 # --- the hook -----------------------------------------------------------------
 
+def _is_digest(text):
+    return len(text) == 64 and all(ch in "0123456789abcdef" for ch in text)
+
+
 def _read_required(model, wanted):
     """``(bytes, "")`` when the system policy file is the one this hook was deployed with, else ``(None, why)``.
 
@@ -296,7 +301,10 @@ def decide(options, payload):
     call = tools.parse(tool, payload)
     event = tools.event_of(tool, payload)
     required, required_problem = (None, "")
-    if options.require_policy:
+    if options.require_given and not _is_digest(options.require_policy):
+        required_problem = ("the policy hash this hook requires is missing or is not a sha256 digest, so it cannot "
+                            "authenticate a policy")
+    elif options.require_policy:
         required, required_problem = _read_required(model, options.require_policy)
     loaded = model.load(call.project_dir or call.cwd, texts={"system": required} if required is not None else None)
     fail_closed = options.fail_closed = options.fail_closed or loaded.fail_closed

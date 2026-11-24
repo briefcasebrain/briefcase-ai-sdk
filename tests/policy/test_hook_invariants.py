@@ -548,3 +548,71 @@ def test_the_isolated_launcher_survives_a_failure_after_a_successful_import(home
     done = subprocess.run(argv, input="{}", capture_output=True, text=True, timeout=60,
                           env={"HOME": str(home), "PATH": os.environ.get("PATH", "")})
     assert done.returncode == (2 if closed else 0), (done.returncode, done.stderr)
+
+
+# --- round 11 --------------------------------------------------------------------------------
+
+def _round11(tool, project):
+    if tool == "cursor":
+        return {
+            "blank_url": _call(tool, project, hook_event_name="preToolUse", tool_name="WebFetch",
+                               tool_input={"url": "   "}),
+            "blank_mcp_server": _call(tool, project, hook_event_name="beforeMCPExecution", mcp_server_name="  ",
+                                      tool_name="run"),
+            "relative_cwd": _call(tool, project, hook_event_name="beforeReadFile", file_path="notes.txt",
+                                  cwd="sub/dir", workspace_roots=[]),
+            "shell_without_cwd": _call(tool, project, hook_event_name="beforeShellExecution",
+                                       command="cat secret.txt", cwd=None, workspace_roots=[]),
+        }
+    base = dict(hook_event_name="PreToolUse")
+    return {
+        "blank_url": _call(tool, project, tool_name="WebFetch", tool_input={"url": "  "}, **base),
+        "blank_mcp_server": _call(tool, project, tool_name="mcp__ __run", tool_input={}, **base),
+        "relative_cwd": _call(tool, project, tool_name="Write", tool_input={"file_path": "notes.txt"},
+                              **dict(base, cwd="sub/dir")),
+        "shell_without_cwd": _call(tool, project, tool_name="Bash", tool_input={"command": "cat secret.txt"},
+                                   **dict(base, cwd=None)),
+    }
+
+
+R11 = ["blank_url", "blank_mcp_server", "relative_cwd", "shell_without_cwd"]
+R11_COMBOS = [(t, k, e) for t in TOOLS for k in R11 for e in ("module", "cli", "launcher")
+              if not (t == "codex" and k == "blank_url")]
+
+
+@pytest.mark.parametrize("tool, kind, entry", R11_COMBOS, ids=[f"{t}-{k}-{e}" for t, k, e in R11_COMBOS])
+def test_a_strict_hook_denies_blank_identities_a_relative_cwd_and_a_shell_without_one(
+        home, project, tool, kind, entry):
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "observe"\n')
+    code, raw = run_entry(entry, tool, ["--fail-closed"], _round11(tool, project)[kind], home)
+    assert denies(tool, code, raw), f"fail-closed let {kind} through: exit {code}, output {raw!r}"
+
+
+@pytest.mark.parametrize("entry", ["cli_broken_import", "launcher_broken_import"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_hash_only_managed_hook_blocks_when_the_outer_handlers_catch_a_failure(home, project, tool, entry):
+    build_state(home, project, "valid_denying")
+    flags = ["--require-policy-sha256", "0" * 64]  # no --fail-closed
+    code, raw = run_entry(entry, tool, flags, payload(tool, project), home)
+    assert denies(tool, code, raw), (code, raw)
+
+
+@pytest.mark.parametrize("digest", ["", "   ", "xyz", "0" * 63, "G" * 64])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_required_hash_that_is_not_a_digest_is_invalid_and_denies(home, project, tool, digest):
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "observe"\n')
+    out = io.StringIO()
+    code = hook.main([tool, "--enforce", "--require-policy-sha256", digest],
+                     stdin=io.StringIO(json.dumps(payload(tool, project))), stdout=out)
+    assert denies(tool, code, out.getvalue()), "an unusable required hash skipped authentication"
+
+
+def test_the_codex_acknowledgement_states_exactly_what_is_and_is_not_covered():
+    text = install.CODEX_STARTUP_RISK
+    assert "every failure after the hook starts" not in text
+    for covered in ("unreadable policy", "malformed input", "missing required policy", "exits 2"):
+        assert covered in text
+    for uncovered in ("a missing executable", "a host timeout", "stdout and stderr both being closed"):
+        assert "does not cover" in text and uncovered in text

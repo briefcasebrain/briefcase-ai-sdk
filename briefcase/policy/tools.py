@@ -58,7 +58,8 @@ CURSOR_PRETOOL_MATCHER = "Write|Delete"
 
 
 def _text(value):
-    return value if isinstance(value, str) and value else None
+    """The string, or ``None`` for anything that is not a string with something in it (whitespace is nothing)."""
+    return value if isinstance(value, str) and value.strip() else None
 
 
 def _first_path(tool_input):
@@ -79,10 +80,22 @@ def _command_text(value):
     return None
 
 
+def _shell_defect(command, cwd):
+    """A command is analysed against its working directory; without a usable one a relative file reference cannot be
+    resolved, and the analysis would silently leave it out."""
+    if not command.strip():
+        return "the command is empty"
+    if not (cwd and os.path.isabs(cwd)):
+        return "no usable working directory in the hook input, so relative file references cannot be judged"
+    return None
+
+
 def _path_defect(paths, cwd):
     """A relative path judged without the event's working directory would be judged against the hook process's own."""
-    if cwd:
+    if cwd and os.path.isabs(cwd):
         return None
+    if cwd:
+        return "a relative working directory in the hook input"
     for path in paths:
         if not (os.path.isabs(path) or path.startswith("~") or (len(path) > 2 and path[1:3] in (":\\", ":/"))):
             return "a relative path and no working directory in the hook input"
@@ -93,7 +106,8 @@ def _mcp_name(tool_name):
     """``mcp__server__tool`` -> ``(server, tool)``."""
     rest = tool_name[len("mcp__"):]
     server, sep, name = rest.partition("__")
-    return (server or None, name or None) if sep else (server or None, None)
+    server, name = (server.strip() or None), (name.strip() or None)
+    return (server, name) if sep else (server, None)
 
 
 def _tool_call(tool, tool_name, tool_input, cwd, common):
@@ -105,11 +119,11 @@ def _tool_call(tool, tool_name, tool_input, cwd, common):
         if command is None:
             return ToolCall("invalid", tool, tool_name, note="no command in the hook input", **common)
         return ToolCall("shell", tool, tool_name, command=command, cwd=where,
-                        defect=None if command.strip() else "the command is empty", **common)
+                        defect=_shell_defect(command, where), **common)
     if tool_name == "PowerShell":
         command = _command_text(tool_input.get("command")) or ""
         return ToolCall("shell", tool, tool_name, command=command, cwd=cwd, dialect="powershell",
-                        defect=None if command.strip() else "the command is empty", **common)
+                        defect=_shell_defect(command, cwd), **common)
     if tool_name in _READ_TOOLS:
         path = _first_path(tool_input) or (cwd if tool_name != "Read" else None)
         if not path:
@@ -174,7 +188,7 @@ def parse(tool, payload):
             if command is None:
                 return ToolCall("invalid", tool, event, note="no command in the hook input", **common)
             return ToolCall("shell", tool, "Shell", command=command, cwd=cwd or project,
-                            defect=None if command.strip() else "the command is empty", **common)
+                            defect=_shell_defect(command, cwd or project), **common)
         if event == "beforeMCPExecution":
             server, name = _text(payload.get("mcp_server_name")), _text(payload.get("tool_name"))
             return ToolCall("mcp", tool, "MCP", server=server, name=name, cwd=cwd or project,

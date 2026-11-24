@@ -43,8 +43,10 @@ class HookOptions:
 CODEX_STARTUP_RISK = (
     "Codex starts the hook command itself. If its executable is missing or not on PATH when Codex starts, the "
     "command fails with a status Codex treats as an ordinary hook failure and runs the tool anyway; "
-    "briefcase-ai cannot block that, because none of its code has started. --fail-closed for Codex covers every "
-    "failure after the hook starts, not that one")
+    "briefcase-ai cannot block that, because none of its code has started. Once the hook runs, --fail-closed "
+    "denies an unreadable policy, malformed input, a missing required policy and a crash, and exits 2 with a reason "
+    "on stderr when it cannot write its verdict. It does not cover a missing executable, a host timeout, or "
+    "stdout and stderr both being closed")
 
 
 def launcher_path() -> str:
