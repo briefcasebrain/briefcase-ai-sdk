@@ -39,6 +39,11 @@ class ToolCall(object):
     __slots__ = ("kind", "tool", "tool_name", "command", "cwd", "paths", "server", "name", "url",
                  "project_dir", "dialect", "session_id", "tool_use_id", "note", "defect")
 
+    def location(self):
+        """The directory this call is judged from: where project policy is found and relative paths are read. One
+        definition for the validator, the policy loader and the evaluator."""
+        return self.project_dir or self.cwd
+
     def __init__(self, kind, tool="", tool_name="", command=None, cwd=None, paths=(), server=None, name=None,
                  url=None, project_dir=None, dialect="posix", session_id=None, tool_use_id=None, note=None,
                  defect=None):
@@ -493,7 +498,7 @@ def evaluate(policy, call):
     """Judge ``call`` under ``policy``. Pure: no I/O beyond resolving paths."""
     settings = policy.settings
     home = os.path.expanduser("~")
-    ctx = Context(settings, home, call.project_dir or call.cwd)
+    ctx = Context(settings, home, call.location())
     matches, units, problems = [], [], []
     kind = call.kind
     if kind == "shell":

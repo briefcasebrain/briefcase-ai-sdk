@@ -306,7 +306,7 @@ def decide(options, payload):
                             "authenticate a policy")
     elif options.require_policy:
         required, required_problem = _read_required(model, options.require_policy)
-    loaded = model.load(call.project_dir or call.cwd, texts={"system": required} if required is not None else None)
+    loaded = model.load(call.location(), texts={"system": required} if required is not None else None)
     fail_closed = options.fail_closed = options.fail_closed or loaded.fail_closed
     entry = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "tool": tool, "event": event, "kind": call.kind,

@@ -140,7 +140,9 @@ def _tool_call(tool, tool_name, tool_input, cwd, common):
         return ToolCall("web", tool, tool_name, url=url, cwd=cwd, defect=None if url else "WebFetch names no URL",
                         **common)
     if tool_name == "WebSearch":
-        return ToolCall("web", tool, tool_name, url=None, cwd=cwd, **common)
+        query = _text(tool_input.get("query"))
+        return ToolCall("web", tool, tool_name, url=None, cwd=cwd, defect=None if query else "WebSearch names no query",
+                        **common)
     if not tool_name:
         return ToolCall("invalid", tool, tool_name, note="the hook input names no tool", **common)
     if tool_name.startswith("mcp__"):
@@ -177,29 +179,40 @@ def parse(tool, payload):
 
 
 def _absolute_url_problem(url):
-    """Why ``url`` is not an absolute URL with an authority (``None`` when it is). Judged the way a URL parser reads it,
-    not by guessing at a host: a rule about hosts has nothing to match on a relative string."""
+    """Why ``url`` is not an absolute URL with a well-formed authority (``None`` when it is). Parsed the way a URL
+    parser reads it, and required to agree with the host the policy engine matches rules against: a rule about hosts
+    has nothing to match on a relative string or an authority the two readings split differently."""
     from urllib.parse import urlsplit
 
+    from briefcase.policy.engine import host_of
+
+    text = url.strip()
     try:
-        parts = urlsplit(url.strip())
+        parts = urlsplit(text)
         host = parts.hostname
+        parts.port  # noqa: B018 - raises ValueError for a port that is not a number in range
     except ValueError:
         return "it does not parse"
     if not parts.scheme or not re.match(r"^[A-Za-z][A-Za-z0-9+.-]*$", parts.scheme):
         return "it has no scheme"
     if not host:
         return "it has no host"
+    if re.search(r"[\s\\]", parts.netloc):
+        return "its authority has whitespace or a backslash"
+    if host_of(text) != host.rstrip(".").lower():
+        return "the policy engine reads another host from it"
     return None
 
 
 def validate(call):
     """The checks every judged call passes in strict mode, whatever the host and the event: the hook input says where
-    it runs (an absolute working directory or project directory, which is also where project policy is found), and a
-    URL is absolute with a scheme and an authority. A problem becomes ``call.defect``, which fail-closed mode denies."""
+    it runs (the absolute directory policy is loaded from, ``call.location()``), a URL is absolute with a
+    well-formed authority, and a web search has a query. A problem becomes ``call.defect``, which fail-closed mode
+    denies."""
     if call.kind in ("invalid", "other") or call.defect:
         return call
-    if not any(d and os.path.isabs(d) for d in (call.project_dir, call.cwd)):
+    where = call.location()
+    if not (where and os.path.isabs(where)):
         call.defect = "no absolute working directory or project directory in the hook input, so project policy " \
                       "cannot be found"
     elif call.kind == "web" and call.tool_name == "WebFetch":

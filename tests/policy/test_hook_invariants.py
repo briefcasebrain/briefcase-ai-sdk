@@ -986,3 +986,47 @@ def test_an_import_failure_in_the_cli_module_itself_still_blocks_a_binding_hook(
     monkeypatch.setattr(sys, "stdout", out)
     code = entry.main(["hook", tool, *flags, "--enforce"])
     assert denies(tool, code, out.getvalue()), (code, out.getvalue())
+
+
+# --- round 14: validate exactly what evaluation consumes ---------------------------------------------------------
+
+MIXED_URLS = ["https://example.com:abc/x", "https://example.com:99999/x", "https://exa\\mple.com/x",
+              "https://[::1/x", "https:// example.com/x"]
+
+
+@pytest.mark.parametrize("url", MIXED_URLS)
+@pytest.mark.parametrize("tool", ["claude-code", "cursor"])
+def test_a_strict_hook_denies_an_authority_whose_parse_differs_from_the_one_rules_match(home, project, tool, url):
+    _observe(home)
+    body = _events(tool, project)["pre_web" if tool == "cursor" else "web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry("module", tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), f"{url!r} was allowed: {code} {raw!r}"
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+@pytest.mark.parametrize("kind", ["bash", "write", "mcp", "pre_shell", "read", "pre_write", "pre_mcp"])
+def test_a_relative_project_root_beside_an_absolute_cwd_is_not_a_location(home, project, monkeypatch, tool, kind):
+    """Policy is loaded from the project directory when there is one, so that is the path that must be absolute."""
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    events = _events(tool, project)
+    if kind not in events:
+        pytest.skip("not an event of this host")
+    _observe(home)
+    body = events[kind]
+    if tool == "cursor":
+        body["workspace_roots"] = ["relative/root"]
+    else:
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", "relative/root")
+        if tool == "codex":
+            pytest.skip("Codex has no project directory variable")
+    code, raw = run_entry("module", tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), (tool, kind, code, raw)
+
+
+def test_a_web_search_with_no_query_is_denied_by_a_strict_hook(home, project):
+    _observe(home)
+    body = _events("claude-code", project)["search"]
+    body["tool_input"] = {}
+    code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
+    assert denies("claude-code", code, raw)
