@@ -134,9 +134,10 @@ class Decision(object):
 
 
 class Context(object):
-    __slots__ = ("settings", "home", "project", "tmp")
+    __slots__ = ("settings", "home", "project", "tmp", "authorized")
 
     def __init__(self, settings, home, project):
+        self.authorized = []  # one entry per judged unit: did the policy itself allow that unit?
         self.settings = settings
         self.home = home
         self.project = project
@@ -401,6 +402,17 @@ def _first(rules, test):
     return None, None
 
 
+def _judge_unit(policy, ctx, unit, test):
+    """:func:`_judge` for one primary unit, remembering whether the policy itself allowed it: a rule that matched this
+    very unit (``test`` is bound to its canonical form, not to the text shown), or a ``default = "allow"`` the policy
+    states. Each unit is tracked on its own, so one allow can never stand in for another unit."""
+    out = _judge(policy, unit, test, True)
+    allowed = any(m.effect == "allow" for m in out) or (
+        not out and policy.default_declared and policy.settings["default"] == "allow")
+    ctx.authorized.append(allowed and all(m.effect == "allow" for m in out))
+    return out
+
+
 def _judge(policy, unit, test, primary):
     """Matches for one unit: protection first, then the first hit in each group."""
     out = []
@@ -470,7 +482,7 @@ def _shell_units(policy, call, ctx, matches, units, problems):
         via = f" (via {' > '.join(cmd.via)})" if cmd.via else ""
         unit = "command: " + _clip(cmd.text()) + via
         units.append(unit)
-        matches.extend(_judge(policy, unit, lambda rule, cmd=cmd: _match_command(rule, cmd, ctx), True))
+        matches.extend(_judge_unit(policy, ctx, unit, lambda rule, cmd=cmd: _match_command(rule, cmd, ctx)))
         for path, access, written in shell.path_refs(cmd):
             forms = path_forms(path)
             verb = {"read": "read", "write": "written"}.get(access, "used")
@@ -514,17 +526,17 @@ def evaluate(policy, call):
             forms = path_forms(path, call.cwd, home)
             unit = f"{kind}: {path}" + (f" -> {forms[-1]}" if len(forms) > 1 else "")
             units.append(unit)
-            matches.extend(_judge(policy, unit,
-                                  lambda rule, forms=forms: _match_path(rule, forms, kind, ctx), True))
+            matches.extend(_judge_unit(policy, ctx, unit,
+                                       lambda rule, forms=forms: _match_path(rule, forms, kind, ctx)))
     elif kind == "mcp":
         unit = f"mcp: {call.server or '?'}.{call.name or '?'}"
         units.append(unit)
-        matches.extend(_judge(policy, unit, lambda rule: _match_mcp(rule, call.server, call.name), True))
+        matches.extend(_judge_unit(policy, ctx, unit, lambda rule: _match_mcp(rule, call.server, call.name)))
     elif kind == "web":
         host = host_of(call.url)
         unit = f"web: {host or 'no host'}"
         units.append(unit)
-        matches.extend(_judge(policy, unit, lambda rule: _match_web(rule, host), True))
+        matches.extend(_judge_unit(policy, ctx, unit, lambda rule: _match_web(rule, host)))
     top = None
     for match in matches:       # the first match with the most restrictive effect explains the decision
         if top is None or RANK[match.effect] > RANK[top.effect]:
@@ -532,7 +544,5 @@ def evaluate(policy, call):
     would = top.effect if top is not None else "allow"
     mode = settings["mode"]
     effect = would if mode == "enforce" else "allow"
-    allowed_units = {m.unit for m in matches if m.effect == "allow"}
-    explicit = would == "allow" and bool(units) and (
-        (policy.default_declared and settings["default"] == "allow") or all(u in allowed_units for u in units))
+    explicit = would == "allow" and not problems and bool(ctx.authorized) and all(ctx.authorized)
     return Decision(effect, would, top, matches, units, problems, mode, kind, explicit)

@@ -1176,3 +1176,60 @@ def test_a_hash_bound_hook_blocks_on_a_defective_event(home, project, tmp_path, 
     body["tool_input"] = {"url": "https://"}
     code, raw = _bound(tool, project, ALLOWING, tmp_path, monkeypatch, body)
     assert denies(tool, code, raw), (code, raw)
+
+
+# --- round 16: authorization is per canonical unit, and the final host verdict must be an authorized allow ---------
+
+LONG_A = "ls /" + "a" * 120 + "/x"
+LONG_B = "ls /" + "a" * 120 + "/y"  # the same first 100 characters as LONG_A, a different command
+
+
+def _shell_body(tool, project, command):
+    body = payload(tool, project)
+    body["command" if tool == "cursor" else "tool_input"] = command if tool == "cursor" else {"command": command}
+    return body
+
+
+@pytest.mark.parametrize("entry", ["module", "launcher"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_one_allow_rule_does_not_authorize_a_different_command_with_the_same_display_text(
+        home, project, tmp_path, monkeypatch, tool, entry):
+    policy = ('version = 1\npreset = "guarded"\n[[rule]]\nid = "only-a"\ntool = "shell"\neffect = "allow"\n'
+              f'command = ["{LONG_A}"]\n')
+    code, raw = _bound(tool, project, policy, tmp_path, monkeypatch, _shell_body(tool, project, LONG_A), entry)
+    assert not denies(tool, code, raw), "the command the rule names must stay allowed"
+    code, raw = _bound(tool, project, policy, tmp_path, monkeypatch,
+                       _shell_body(tool, project, f"{LONG_A}; {LONG_B}"), entry)
+    assert denies(tool, code, raw), f"the second command has no rule that allows it: {code} {raw!r}"
+
+
+@pytest.mark.parametrize("tool", ["codex"])  # the host that cannot ask from a shell hook
+def test_an_ask_fallback_of_allow_does_not_authorize_a_call_for_a_bound_hook(
+        home, project, tmp_path, monkeypatch, tool):
+    policy = ('version = 1\npreset = "guarded"\nask_fallback = "allow"\n[[rule]]\nid = "ask-ls"\ntool = "shell"\n'
+              'effect = "ask"\ncommand = ["ls"]\n')
+    code, raw = _bound(tool, project, policy, tmp_path, monkeypatch, _harmless(tool, project))
+    assert denies(tool, code, raw), (code, raw)
+
+
+NONCANONICAL_IPV6 = ["https://[0:0:0:0:0:0:0:1]/x", "https://[0::1]/x", "https://[::0001]/x",
+                     "https://[::ffff:1.2.3.4]/x", "https://[2001:0db8::1]/x", "https://[2001:db8:0:0:0:0:0:1]/x"]
+
+
+@pytest.mark.parametrize("url", NONCANONICAL_IPV6)
+@pytest.mark.parametrize("tool", ["claude-code", "cursor"])
+def test_a_strict_hook_denies_an_ipv6_host_that_is_not_in_canonical_form(home, project, tool, url):
+    _observe(home)
+    body = _events(tool, project)["pre_web" if tool == "cursor" else "web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry("module", tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), f"{url!r} was allowed: {code} {raw!r}"
+
+
+@pytest.mark.parametrize("url", ["https://[::1]/x", "https://[2001:db8::1]:8443/x", "https://[2001:DB8::1]/x"])
+def test_a_strict_hook_allows_a_canonical_ipv6_host(home, project, url):
+    _observe(home)
+    body = _events("claude-code", project)["web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
+    assert not denies("claude-code", code, raw), (url, code, raw)

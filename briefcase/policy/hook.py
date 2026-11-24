@@ -390,6 +390,9 @@ def decide(options, payload):
     if effect == "ask" and not tools.can_ask(tool, event):
         effect = loaded.policy.settings["ask_fallback"]
         downgraded = True
+        if options.require_given and effect == "allow":  # a fallback is the host's convenience, not authorization
+            effect, unauthorized = "deny", True
+            decision.would = "deny"
     if fail_closed and (effect not in ("allow", "deny", "ask")
                         or (call.kind == "shell" and not decision.units)):  # nothing was judged: nothing is allowed
         effect = "deny"

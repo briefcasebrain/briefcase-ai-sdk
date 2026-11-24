@@ -216,9 +216,12 @@ def _absolute_url_problem(url):
         return "its host is percent-encoded or has a zone identifier"
     if "[" in parts.netloc:
         try:
-            ipaddress.IPv6Address(host)
+            address = ipaddress.IPv6Address(host)
         except ValueError:
             return "its IPv6 host is malformed"
+        written = parts.netloc[parts.netloc.index("[") + 1:parts.netloc.index("]")].lower()
+        if address.ipv4_mapped is not None or written != address.compressed:
+            return "its IPv6 address is not in canonical (compressed, lowercase) form"
     else:
         if _FORBIDDEN_HOST.search(host):
             return "its host has a character a host cannot contain"
