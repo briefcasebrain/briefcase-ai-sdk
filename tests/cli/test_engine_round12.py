@@ -18,7 +18,8 @@ from briefcase import engine as _engine
 from briefcase.cli import engine_commands
 from briefcase.cli.__main__ import main
 
-from tests.cli.engine_fakes import calls
+from tests.cli.engine_fakes import build_release, calls
+from tests.cli.test_engine_install import _install
 from tests.cli.test_engine_invariants import A, configure, synthetic
 from tests.cli.test_engine_round9 import tls_upgrade
 
@@ -561,3 +562,64 @@ def test_the_upgrade_restart_that_removes_orphans_needs_the_confirmation_token(e
     with pytest.raises(TypeError):
         engine_commands.restart_removing_orphans(record, None)
     assert [c for c in compose_calls(env) if "--remove-orphans" in c["argv"]] == []
+
+
+# --- round 16: the daemon shown before confirmation is the one used after it, on every destructive path ----------
+
+def test_a_legacy_purge_does_not_follow_a_daemon_that_changed_after_the_preview(env, monkeypatch, capsys):
+    synthetic(env, [A], A)  # a record from before ids: the endpoint only
+    configure(env, monkeypatch, "ok", "ours", "none")
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    real = engine_commands._authorize
+
+    def retarget_then_confirm(*args, **kwargs):
+        token = real(*args, **kwargs)
+        monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # another daemon behind the same address
+        return token
+
+    monkeypatch.setattr(engine_commands, "_authorize", retarget_then_confirm)
+    assert main(["engine", "uninstall", "--purge", "--yes"]) != 0
+    out = capsys.readouterr()
+    assert [c for c in calls(env["log"]) if c["argv"][:2] == ["volume", "rm"]] == []
+    assert (env["home"] / "engine" / "engine.env").exists() and "changed" in out.err + out.out
+
+
+def test_an_upgrade_does_not_restart_onto_a_daemon_that_never_stated_its_id(env, monkeypatch, key, capsys):
+    path, before = tls_upgrade(env, monkeypatch, key)
+    record_daemons([])  # no history: the early daemon check has nothing to compare
+    monkeypatch.setenv("FAKE_DOCKER_FAIL", "info")
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    assert [c for c in compose_calls(env) if "--remove-orphans" in c["argv"]] == []
+    assert _engine.current_install()["tls"] is False and path.read_bytes() == before
+
+
+def test_a_refused_upgrade_keeps_a_daemon_another_command_recorded_meanwhile(env, monkeypatch, key, capsys):
+    from briefcase.engine import install as _install_mod
+
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    tls_upgrade(env, monkeypatch, key)
+    real = _install_mod.complete_online
+
+    def install_then_the_world_changes(*args, **kwargs):
+        record = real(*args, **kwargs)
+        record_daemons(json.loads(_engine.installed_path().read_text())["docker_contexts"]
+                       + ["other unix:///elsewhere.sock id=CCC"])  # recorded by something else meanwhile
+        monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # and the daemon at this address is no longer the old one
+        return record
+
+    monkeypatch.setattr(_install_mod, "complete_online", install_then_the_world_changes)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    history = json.loads(_engine.installed_path().read_text())["docker_contexts"]
+    assert "other unix:///elsewhere.sock id=CCC" in history, history
+
+
+def test_a_client_only_upgrade_does_not_need_docker_because_of_old_daemon_history(env, monkeypatch, key, capsys):
+    from tests.cli.test_engine_invariants import remove_docker
+
+    assert _install("--code", "bci_good", "--no-images") == 0
+    record_daemons(["default unix:///var/run/docker.sock id=AAA"])  # left by an earlier Compose install
+    remove_docker(env, monkeypatch)
+    env["platform"].release = build_release(key, version=_engine.current_install()["version"])
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--no-images"]) == 0

@@ -773,7 +773,7 @@ def _install(args, upgrading: bool) -> int:
               + (" and the install code was not used." if opts.mode == "code" else "."))
         return 1
 
-    if upgrading and daemons_before:  # before anything is written: the daemon must be one the old engine ran on
+    if upgrading and daemons_before and uses_compose_before:  # before anything is written (a stack may be running)
         here = _inst.docker_identity(_runner())
         if here is None or not all(_inst.daemon_matches(entry, here) for entry in daemons_before):
             return _ux.fail("the Docker daemon is not the one the installed engine ran on (it ran on "
@@ -869,9 +869,10 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
     if (upgrading or tls_differs) and daemons_before \
             and not all(_inst.daemon_matches(entry, daemon) for entry in daemons_before):
         restore()
-        try:  # the install already added this daemon to the history; it is not the one that ran the old engine
+        try:  # undo only what this install added: whatever else was recorded meanwhile stays
             fresh = _engine.load_state_strict(opts.env)
-            fresh["docker_contexts"] = list(daemons_before)
+            fresh["docker_contexts"] = [e for e in fresh.get("docker_contexts") or []
+                                        if not (e == str(daemon) and e not in daemons_before)]
             _inst.save_state(fresh, opts.env)
         except (_engine.StateUnreadable, OSError):
             pass
@@ -906,7 +907,10 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
                 if stop is not None:
                     restore()
                     return stop
-                _inst.note_daemon(_runner(), opts.env, identity=daemon)  # before compose can create a volume
+                if _inst.note_daemon(_runner(), opts.env, identity=daemon) is None:  # before compose can create one
+                    restore()
+                    return _ux.fail("the Docker daemon did not state its id, so the engine was not restarted",
+                                    fix="briefcase-ai engine doctor")
                 log(f"restarting onto {record['version']}" + (" (TLS changed) " if tls_changed else " ")
                     + "(data volumes are kept)...")
                 started = restart_removing_orphans(record, confirmed) == 0
@@ -1681,7 +1685,7 @@ def cmd_doctor(args, store, engine, stack) -> int:
 
 
 def _remove_install(version: Optional[str], purge: bool, force_without_docker: bool,
-                    confirmed: Confirmed) -> Tuple[str, Optional[str]]:
+                    confirmed: Confirmed, shown_daemon: Optional[str] = None) -> Tuple[str, Optional[str]]:
     """Run under ``engine_lock``, with a :class:`Confirmed` token. Re-reads installed.json and plans again with
     :func:`plan_deletion`, so what is removed is decided now and not when the plan was shown. ``version`` is the
     release the person confirmed (``None``: the leftovers of an earlier uninstall).
@@ -1704,6 +1708,9 @@ def _remove_install(version: Optional[str], purge: bool, force_without_docker: b
                         else "what an earlier uninstall left is no longer what is there; nothing was changed")
     if plan.problems:
         return "blocked", _purge_blocked(plan.problems)
+    if shown_daemon is not None and not _install_mod.same_daemon_id(shown_daemon, plan.daemon):
+        return "blocked", ("the Docker daemon is not the one that was shown before the confirmation (it changed "
+                           "meanwhile); nothing was removed")
     with _pinned(plan.daemon):
         if plan.daemon is not None and not still_the_daemon(plan.daemon):
             return "blocked", ("the Docker daemon at the verified endpoint is not the one that was verified (it "
@@ -1799,7 +1806,7 @@ def cmd_uninstall(args, store, engine, stack) -> int:
         token, code = _authorize(args, "Go ahead?", "briefcase-ai engine uninstall --yes")
         if token is None:
             return code
-        outcome, note = _remove_install(plan.version, purge, force_wd, token)
+        outcome, note = _remove_install(plan.version, purge, force_wd, token, shown_daemon=plan.daemon)
     if outcome == "gone":
         return _ux.fail(note or "", fix="briefcase-ai engine status", code=1)
     if outcome == "blocked":

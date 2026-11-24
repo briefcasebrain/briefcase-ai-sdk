@@ -873,6 +873,14 @@ def daemon_matches(recorded: str, here: str) -> bool:
     return recorded_base == here_base and (recorded_id is None or recorded_id == here_id)
 
 
+def same_daemon_id(shown: Optional[str], now: Optional[str]) -> bool:
+    """Is ``now`` the daemon that was ``shown`` (same endpoint and the same stated id)? Both must have one."""
+    if shown is None or now is None:
+        return False
+    shown_id, now_id = _split_id(shown)[1], _split_id(now)[1]
+    return shown_id is not None and shown_id == now_id and _split_id(shown)[0] == _split_id(now)[0]
+
+
 def has_id(identity: Optional[str]) -> bool:
     return identity is not None and _split_id(identity)[1] is not None
 
