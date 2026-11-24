@@ -187,6 +187,17 @@ def _subparser(parser, name):
     return choices.get(name)
 
 
+def _hook_invocation(argv):
+    """``(tool, options)`` for ``[global options] hook <tool> ...``: the console entry's scanner, the only one."""
+    try:
+        from briefcase_entry import hook_invocation
+
+        return hook_invocation(argv)
+    except BaseException:  # noqa: B036 - the scanner itself is unavailable: the plain form is all that can be told
+        return (argv[1], argv[2:]) if argv[:1] == ["hook"] and argv[1:2] in (["cursor"], ["claude-code"], ["codex"]) \
+            else None
+
+
 def _hook_unavailable(tool, rest) -> int:
     """The hook dispatcher could not be imported or crashed outright. What the command line promised is decided by the
     same rule as everywhere else (``enforcing``): plain Cursor forwarding stays silent, an enforcing invocation gives
@@ -205,16 +216,17 @@ def _hook_unavailable(tool, rest) -> int:
 
 def main(argv=None, store=None, engine=None, stack=None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
-    if argv[:1] == ["hook"] and argv[1:2] in (["cursor"], ["claude-code"], ["codex"]):
+    found = _hook_invocation(argv)
+    if found is not None:
         # Hook entry points: must stay silent and fail open (or block, when the command line binds them), so they
         # bypass argparse (which exits non-zero and prints on a bad flag), command discovery and the store. The import
         # of the dispatcher is inside the handler too: a failure there still produces the verdict the line promised.
         try:
             from briefcase.cli import hook_commands
 
-            return hook_commands.dispatch(argv[1], argv[2:])
+            return hook_commands.dispatch(found[0], found[1])
         except BaseException:  # noqa: B036
-            return _hook_unavailable(argv[1], argv[2:])
+            return _hook_unavailable(found[0], found[1])
     if _IMPORT_ERROR is not None:  # not a hook: the failure is the error
         raise _IMPORT_ERROR
     parser = build_parser()

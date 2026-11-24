@@ -94,15 +94,14 @@ def _hook(tool, options):
         launcher = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(launcher)
         if launcher.enforcing_for(tool, options):
-            import runpy
-
+            entry = getattr(launcher, "main", None)  # the launcher's named entry, called here: nothing relies on the
+            if not callable(entry):                  # file calling itself when it is run
+                raise ImportError("hook_main.py has no main")
             sys.argv = [path, tool, *options]
-            try:
-                runpy.run_path(path, run_name="__main__")
-            except SystemExit as stop:
-                code = stop.code
-                return code if isinstance(code, int) else (0 if code is None else 1)
-            return 0
+            code = entry()
+            if not isinstance(code, int):
+                raise TypeError("hook_main.main returned no status")
+            return code
         try:  # plain Cursor forwarding: silent, never blocks
             from briefcase.cli import hook_commands
 

@@ -15,6 +15,15 @@ from tests.policy.test_hook_invariants import TOOLS, build_state, denies, payloa
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX paths")
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture(autouse=True)
+def _forget_stderr():
+    from tests.policy import test_hook_invariants as invariants
+
+    invariants.LAST_STDERR = None  # an in-process test never captured stderr
+
+
 BLOCKED = ["briefcase.cli.engine", "briefcase.cli.state", "briefcase._logging", "briefcase.decorators",
            "briefcase.cli", "briefcase.policy.hook_commands"]
 LEADING = [[], ["--debug"], ["--no-input", "--debug"], ["--server", "host:1", "--repo=r"], ["--deb"], ["--dry-run"]]
@@ -133,19 +142,22 @@ def test_every_function_that_routes_a_hook_invocation_consults_enforcing():
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            text = ast.get_source_segment(path.read_text(), node) or ""
+            called = {c.func.attr if isinstance(c.func, ast.Attribute) else getattr(c.func, "id", "")
+                      for c in ast.walk(node) if isinstance(c, ast.Call)}
             names = {n.attr if isinstance(n, ast.Attribute) else n.id for n in ast.walk(node)
                      if isinstance(n, (ast.Attribute, ast.Name))}
             compares = any(isinstance(c, ast.Constant) and c.value == "--enforce" for c in ast.walk(node)
                            if isinstance(c, ast.Constant)) and any(isinstance(n, ast.Compare) for n in ast.walk(node))
             routes = names & {"run_cursor", "run_enforce"}
             if routes or compares:
-                sites[f"{path.relative_to(ROOT)}::{node.name}"] = "enforcing" in text or "enforcing_for" in text
+                consults = bool(called & {"enforcing", "enforcing_for", "_enforcing"})
+                sites[f"{path.relative_to(ROOT)}::{node.name}"] = consults
             if routes:
                 callers[f"{path.relative_to(ROOT)}::{node.name}"] = routes
     assert sites, "the scan found no dispatch site at all: the test is not looking at the right places"
     # These write or recognise the text of a hook command (and `connect --enforce`); they route nothing.
-    exempt = {"briefcase/policy/presets.py::self_command", "briefcase/policy/install.py::hook_command",
+    exempt = {"briefcase/policy/optargs.py::enforcing",  # it is the rule
+              "briefcase/policy/presets.py::self_command", "briefcase/policy/install.py::hook_command",
               "briefcase/policy/install.py::_command_in"}
     missing = [name for name, consults in sites.items() if not consults and name not in exempt]
     assert not missing, f"these routing functions do not consult enforcing(): {missing}"
@@ -193,8 +205,12 @@ def run_with_stub_briefcase(tmp_path, argv, home, stdin, close_stderr=False):
     (stub / "briefcase" / "__init__.py").write_text("")
     env = {"HOME": str(home), "PATH": os.environ.get("PATH", ""), "PYTHONPATH": f"{stub}{os.pathsep}{ROOT}"}
     script = PRELUDE % ([], argv, close_stderr, "briefcase_entry:main")
-    return subprocess.run([sys.executable, "-c", script], input=stdin, capture_output=True, text=True, env=env,
+    done = subprocess.run([sys.executable, "-c", script], input=stdin, capture_output=True, text=True, env=env,
                           timeout=60)
+    from tests.policy import test_hook_invariants as invariants
+
+    invariants.LAST_STDERR = done.stderr  # a bare Codex exit 2 (no reason) must not pass for a block
+    return done
 
 
 @pytest.mark.parametrize("flags", BINDING, ids=["flag", "hash_eq", "hash_sep"])
@@ -219,3 +235,64 @@ def test_the_entrys_fixed_denial_is_byte_for_byte_the_launchers():
     spec.loader.exec_module(launcher)
     assert (briefcase_entry._REASON, briefcase_entry._DENY, briefcase_entry._DENY_CURSOR) == (
         launcher._REASON, launcher._DENY, launcher._DENY_CURSOR)
+
+
+def test_the_dispatch_site_scan_counts_calls_and_not_docstrings(tmp_path):
+    """A docstring that says "enforcing" is not a call: the scan must not accept it."""
+    import ast
+
+    source = 'def route(argv):\n    """consults enforcing() and enforcing_for"""\n    return run_cursor(argv)\n'
+    tree = ast.parse(source)
+    (func,) = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+    called = {c.func.attr if isinstance(c.func, ast.Attribute) else getattr(c.func, "id", "")
+              for c in ast.walk(func) if isinstance(c, ast.Call)}
+    assert not called & {"enforcing", "enforcing_for", "_enforcing"}
+
+
+@pytest.mark.parametrize("leading", [["--debug"], ["--server", "h:1"], ["--no-input", "--deb"]])
+@pytest.mark.parametrize("failure", ["stored_import_error", "dispatcher_import"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_the_in_process_cli_recognizes_a_hook_after_global_options_with_the_consoles_scanner(
+        home, project, monkeypatch, tool, failure, leading):
+    import io
+
+    import briefcase.cli as cli_pkg
+    import briefcase.cli.__main__ as entry_module
+
+    build_state(home, project, "valid_denying")
+    if failure == "stored_import_error":
+        monkeypatch.setattr(entry_module, "_IMPORT_ERROR", ImportError("a command module cannot be imported"))
+    else:
+        monkeypatch.setitem(sys.modules, "briefcase.cli.hook_commands", None)
+        monkeypatch.delattr(cli_pkg, "hook_commands", raising=False)
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload(tool, project))))
+    monkeypatch.setattr(sys, "stdout", out)
+    code = entry_module.main([*leading, "hook", tool, "--require-policy-sha256=" + "0" * 64, "--enforce"])
+    assert denies(tool, code, out.getvalue()), (code, out.getvalue())
+
+
+LAUNCHER_WITHOUT_AN_ENTRY = """
+import os, sys
+def enforcing_for(tool, options): return True
+def strict_for(options): return True
+def load_sibling(name): raise ImportError(name)
+# a launcher that loads and never enters main
+"""
+
+
+@pytest.mark.parametrize("flags", BINDING, ids=["flag", "hash_eq", "hash_sep"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_launcher_that_loads_but_never_enters_main_is_a_denial(home, project, tmp_path, tool, flags):
+    stub = tmp_path / "stub"
+    (stub / "briefcase" / "policy").mkdir(parents=True)
+    (stub / "briefcase" / "__init__.py").write_text("")
+    (stub / "briefcase" / "policy" / "hook_main.py").write_text(LAUNCHER_WITHOUT_AN_ENTRY)
+    env = {"HOME": str(home), "PATH": os.environ.get("PATH", ""), "PYTHONPATH": f"{stub}{os.pathsep}{ROOT}"}
+    script = PRELUDE % ([], ["hook", tool, "--enforce", *flags], False, "briefcase_entry:main")
+    done = subprocess.run([sys.executable, "-c", script], input=json.dumps(payload(tool, project)),
+                          capture_output=True, text=True, env=env, timeout=60)
+    from tests.policy import test_hook_invariants as invariants
+
+    invariants.LAST_STDERR = done.stderr
+    assert denies(tool, done.returncode, done.stdout), (done.returncode, done.stdout, done.stderr)
