@@ -557,7 +557,7 @@ if args[:1] == ["events"]:  # a stream of JSON events; FAKE_DOCKER_EVENTS=silent
             if mode == "silent" or (mode == "stall_after_ready" and ready):
                 continue
             print(json.dumps(event)); sys.stdout.flush()
-            ready = ready or event["Actor"].get("ID", "").startswith("briefcase-watch-")
+            ready = ready or event["Type"] == "volume"  # the first canary came through
         time.sleep(0.05)
 if args[:1] == ["version"]:
     if os.environ.get("FAKE_DOCKER_DOWN"):
@@ -626,7 +626,8 @@ if args[:2] == ["context", "inspect"]:
 if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in args):
     # A row may carry a fourth item, "stopped" (listed only by `ps -a`), and a fifth, its environment list.
     listed = [(i, row) for i, row in enumerate(containers_now())
-              if "-a" in args or not (len(row) > 3 and row[3] == "stopped")]
+              if not (len(row) > 3 and row[3] == "gone")
+              and ("-a" in args or not (len(row) > 3 and row[3] == "stopped"))]
     for i, _ in listed:
         print("c%d" % i)
     if "-a" in args and os.environ.get("FAKE_DOCKER_ADD_REPLICA") and not state.get("replica_added"):
@@ -696,19 +697,24 @@ if args[:2] == ["volume", "ls"]:
         if all(w.split("=", 1)[0] in labels and labels[w.split("=", 1)[0]] == w.split("=", 1)[1] for w in wanted):
             print(name)
     sys.exit(0)
-def add_event(kind, action, name, project=None):
+def add_event(kind, action, name, project=None, ident=None):
     """An event as Docker 29.8.2 prints it: a volume is `Actor.ID`, a container is the `name` attribute."""
     if kind == "volume":
         actor = {"ID": name, "Attributes": {"driver": "local"}}
     else:
-        actor = {"ID": "c-" + name, "Attributes": {"name": name, "com.docker.compose.project": project or ""}}
+        actor = {"ID": ident or "c-" + name, "Attributes": {"name": name, "com.docker.compose.project": project or ""}}
     state.setdefault("events", []).append({"Type": kind, "Action": action, "Actor": actor})
     save()
 
 if args[:2] == ["volume", "create"]:
-    volumes_now()[args[-1]] = {}
-    add_event("volume", "create", args[-1]); save()
-    print(args[-1]); sys.exit(0)
+    labels = {a.split("=", 1)[0]: a.split("=", 1)[1] for i, a in enumerate(args) if i and args[i - 1] == "--label"}
+    named = [a for i, a in enumerate(args[2:], 2) if not a.startswith("--") and args[i - 1] != "--label"]
+    name = named[0] if named else hashlib.sha256(os.urandom(8)).hexdigest()  # the daemon assigns an anonymous name
+    if os.environ.get("FAKE_DOCKER_CANARY_FOREIGN") and "ai.briefcase.watch" in labels:
+        labels = {"ai.briefcase.watch": "someone-else"}  # a volume that is not the one this SDK made
+    volumes_now()[name] = labels
+    add_event("volume", "create", name); save()
+    print(name); sys.exit(0)
 if args[:2] == ["volume", "rm"]:
     name = args[-1]
     failing = (os.environ.get("FAKE_DOCKER_VOLUME_RM_FAIL") or "").split(",")
@@ -723,7 +729,9 @@ if args[:2] == ["volume", "inspect"]:
     name = args[-1]
     if name not in volumes_now():
         sys.stderr.write("Error: No such volume: %s\n" % name); sys.exit(1)
-    print(volumes_now()[name].get("ai.briefcase.engine", ""))
+    import re as _re
+    wanted = _re.search(r'index \.Labels "([^"]+)"', " ".join(args))
+    print(volumes_now()[name].get(wanted.group(1) if wanted else "ai.briefcase.engine", ""))
     sys.exit(0)
 if args[:1] == ["run"]:
     sys.exit(0)
@@ -776,6 +784,11 @@ if args[:1] == ["compose"]:
                 # Compose creates every service; an image the installer did not load (minio, registry) gets an id
                 started.append([service, state["refs"].get(ref) or "sha256:" + hashlib.sha256(ref.encode()).hexdigest(),
                                 path])
+            for i, row in enumerate(started):  # the daemon announces every container Compose creates
+                add_event("container", "create", "briefcase-engine-%s-1" % row[0], "briefcase-engine", "c%d" % i)
+            vanish = os.environ.get("FAKE_DOCKER_VANISH_ON_UP")
+            if vanish:  # removed, and the destroy event was dropped before it reached the subscriber
+                started = [row + ["gone"] if row[0] == vanish else row for row in started]  # keeps the others' ids
             state["containers"] = started
             state["servers"] = [c[1] for c in started if c[0] == "oci-jj-server"]
         save()

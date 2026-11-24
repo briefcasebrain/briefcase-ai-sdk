@@ -647,3 +647,87 @@ def test_a_fresh_start_is_not_reported_when_events_stop_arriving_during_it(env, 
     assert main(["engine", "up"]) != 0
     out = capsys.readouterr()
     assert "started" not in out.out and "unknown" in out.err + out.out
+
+
+# --- round 17 ---------------------------------------------------------------------------------------------------
+
+def test_an_upgrade_that_installs_images_is_refused_early_on_the_wrong_daemon_even_from_a_client_only_install(
+        env, monkeypatch, key, capsys):
+    assert _install("--code", "bci_good", "--no-images") == 0
+    record_daemons(["default unix:///var/run/docker.sock id=AAA"])
+    monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")
+    before = _engine.installed_path().read_text()
+    env["platform"].release = build_release(key, version=_engine.current_install()["version"])
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) != 0
+    capsys.readouterr()
+    assert _engine.installed_path().read_text() == before, "an install record was written before the daemon check"
+
+
+def test_a_daemon_that_changes_during_the_upgrades_checks_receives_no_restart(env, monkeypatch, key, capsys):
+    path, before = tls_upgrade(env, monkeypatch, key)
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    record_daemons(["default unix:///var/run/docker.sock id=AAA"])
+    real = engine_commands.guard_start
+
+    def checks_then_the_daemon_is_replaced(record):
+        stop = real(record)
+        monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # replaced behind the pinned endpoint during the inventory
+        return stop
+
+    monkeypatch.setattr(engine_commands, "guard_start", checks_then_the_daemon_is_replaced)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    assert [c for c in compose_calls(env) if "--remove-orphans" in c["argv"]] == []
+    assert _engine.current_install()["tls"] is False and path.read_bytes() == before
+
+
+def test_a_rollback_removes_only_the_daemons_this_install_added(env, monkeypatch, key, capsys):
+    from briefcase.engine import install as _install_mod
+
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    tls_upgrade(env, monkeypatch, key)
+    real = _install_mod.complete_online
+
+    def install_then_another_records_the_daemon_settle_will_see(*args, **kwargs):
+        record = real(*args, **kwargs)
+        record_daemons(json.loads(_engine.installed_path().read_text())["docker_contexts"]
+                       + ["default unix:///var/run/docker.sock id=BBB"])  # owned by another operation
+        monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")
+        return record
+
+    monkeypatch.setattr(_install_mod, "complete_online", install_then_another_records_the_daemon_settle_will_see)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    history = json.loads(_engine.installed_path().read_text())["docker_contexts"]
+    assert "default unix:///var/run/docker.sock id=BBB" in history, history
+
+
+def test_the_canary_volume_is_removed_only_when_it_carries_this_sdks_label(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_CANARY_FOREIGN", "1")  # the volume that answers is not the one this SDK created
+    main(["engine", "up"])
+    capsys.readouterr()
+    removed = [c for c in calls(env["log"]) if c["argv"][:2] == ["volume", "rm"]]
+    assert removed == [], removed
+
+
+def test_the_canary_volume_gets_a_daemon_assigned_name_and_a_label(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    (create, *_) = [c for c in calls(env["log"]) if c["argv"][:2] == ["volume", "create"]]
+    assert "--label" in create["argv"] and not [a for a in create["argv"][2:] if a.startswith("briefcase")]
+
+
+def test_a_container_created_during_the_start_that_vanished_without_a_destroy_event_is_reported(
+        env, monkeypatch, capsys):
+    """Docker can skip an event for a slow subscriber: the set of containers is compared with `docker ps -a`, not
+    only with the events."""
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_VANISH_ON_UP", "gateway")
+    assert main(["engine", "up"]) != 0
+    out = capsys.readouterr()
+    assert "started" not in out.out and "gateway" in out.err + out.out

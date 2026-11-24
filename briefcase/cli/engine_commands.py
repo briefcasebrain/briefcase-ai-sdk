@@ -775,7 +775,8 @@ def _install(args, upgrading: bool) -> int:
               + (" and the install code was not used." if opts.mode == "code" else "."))
         return 1
 
-    if upgrading and daemons_before and uses_compose_before:  # before anything is written (a stack may be running)
+    if upgrading and daemons_before and (uses_compose_before or not getattr(args, "no_images", False)):
+        # before anything is written: a stack may be running, or this upgrade installs the images that need the daemon
         here = _inst.docker_identity(_runner())
         if here is None or not all(_inst.daemon_matches(entry, here) for entry in daemons_before):
             return _ux.fail("the Docker daemon is not the one the installed engine ran on (it ran on "
@@ -803,7 +804,8 @@ def _install(args, upgrading: bool) -> int:
         return _ux.fail(str(exc), fix=fix)
     except RuntimeError as exc:  # --tls without openssl
         return _ux.fail(str(exc), fix="install openssl, or install without --tls")
-    stop_code = _settle(opts, record, previous, upgrading, log, previous_compose, daemons_before, confirmed)
+    stop_code = _settle(opts, record, previous, upgrading, log, previous_compose, daemons_before, confirmed,
+                        added_daemons=list(_inst.LAST_ADDED))
     if stop_code is not None:
         return stop_code
     if as_json:
@@ -818,7 +820,7 @@ def _install(args, upgrading: bool) -> int:
 
 def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
             previous_compose: Optional[bytes] = None, daemons_before: Optional[List[str]] = None,
-            confirmed: Optional["Confirmed"] = None) -> Optional[int]:
+            confirmed: Optional["Confirmed"] = None, added_daemons: Optional[List[str]] = None) -> Optional[int]:
     """After an install or upgrade wrote ``record``: decide, under the install lock and from what actually runs,
     which release is current, and restart onto ``record`` when an upgrade (or a TLS change) needs it. Current is
     what runs. Anything docker cannot establish (an error, an engine that matches no install, two installs that fit)
@@ -829,14 +831,14 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
     try:
         with _inst.engine_lock(opts.env):
             return _settle_locked(opts, record, previous, upgrading, log, previous_compose, daemons_before or [],
-                                  confirmed)
+                                  confirmed, added_daemons or [])
     except _engine.StateUnreadable as exc:
         return _ux.fail(f"{exc}; engine {record['version']} was installed but not made current", fix=exc.fix)
 
 
 def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
                    previous_compose: Optional[bytes], daemons_before: List[str],
-                   confirmed: Optional["Confirmed"] = None) -> Optional[int]:
+                   confirmed: Optional["Confirmed"] = None, added_daemons: Optional[List[str]] = None) -> Optional[int]:
     """The body of :func:`_settle`, run under the install lock."""
     from briefcase import engine as _engine
     from briefcase.engine import install as _inst
@@ -874,7 +876,7 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
         try:  # undo only what this install added: whatever else was recorded meanwhile stays
             fresh = _engine.load_state_strict(opts.env)
             fresh["docker_contexts"] = [e for e in fresh.get("docker_contexts") or []
-                                        if not (e == str(daemon) and e not in daemons_before)]
+                                        if e not in (added_daemons or [])]
             _inst.save_state(fresh, opts.env)
         except (_engine.StateUnreadable, OSError):
             pass
@@ -909,6 +911,11 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
                 if stop is not None:
                     restore()
                     return stop
+                if not still_the_daemon(daemon):  # the daemon at the pinned endpoint is the one that was identified
+                    restore()
+                    return _ux.fail("the Docker daemon at the verified endpoint is not the one that was identified "
+                                    "(it changed during the checks), so the engine was not restarted",
+                                    fix="briefcase-ai engine doctor")
                 if _inst.note_daemon(_runner(), opts.env, identity=daemon) is None:  # before compose can create one
                     restore()
                     return _ux.fail("the Docker daemon did not state its id, so the engine was not restarted",
@@ -1305,20 +1312,31 @@ class DestroyWatch:
             return str(actor.get("ID") or "")
         return str((actor.get("Attributes") or {}).get("name") or "")
 
+    LABEL = "ai.briefcase.watch"
+
     def _canary(self) -> bool:
-        """Cause an event of our own and wait until it comes back through the subscription."""
-        name = f"briefcase-watch-{uuid.uuid4().hex[:12]}"
-        if _rc(_run(["docker", "volume", "create", name], capture_output=True, text=True)) != 0:
+        """Cause an event of our own and wait until it comes back through the subscription. The volume is created by
+        this call with a label that carries a random token and a name the daemon chooses (so it cannot be an existing
+        volume), and is removed only after the daemon confirms it carries that token."""
+        token = uuid.uuid4().hex
+        created = _run(["docker", "volume", "create", "--label", f"{self.LABEL}={token}"],
+                       capture_output=True, text=True)
+        name = (getattr(created, "stdout", "") or "").strip() if _rc(created) == 0 else ""
+        if not name:
             return False
-        deadline = time.monotonic() + self.TIMEOUT
+        label = _run(["docker", "volume", "inspect", "--format", '{{ index .Labels "' + self.LABEL + '" }}', name],
+                     capture_output=True, text=True)
+        owned = _rc(label) == 0 and (getattr(label, "stdout", "") or "").strip() == token
         seen = False
-        while time.monotonic() < deadline and not seen:
+        deadline = time.monotonic() + self.TIMEOUT
+        while owned and time.monotonic() < deadline and not seen:
             with self._lock:
                 seen = any(e.get("Type") == "volume" and e.get("Action") == "create" and self._name(e) == name
                            for e in self.events)
             if not seen:
                 time.sleep(0.05)
-        _run(["docker", "volume", "rm", name], capture_output=True, text=True)
+        if owned:  # never remove a volume that is not demonstrably the one this call created
+            _run(["docker", "volume", "rm", name], capture_output=True, text=True)
         return seen
 
     def start(self, since: str) -> bool:
@@ -1344,21 +1362,48 @@ class DestroyWatch:
             except subprocess.TimeoutExpired:
                 self.proc.kill()
 
-    def finish(self) -> Tuple[List[str], bool]:
-        """``(names of the engine's containers the daemon destroyed, observed)``; ``observed`` is true only when a
-        second canary came back, so every event before this call has been delivered."""
+    def finish(self, alive: Optional[Set[str]]) -> Tuple[List[str], bool]:
+        """``(names of the engine's containers that were removed, observed)``. Events can be dropped for a slow
+        subscriber, so they are not trusted alone: a container the events announced and that is neither alive in
+        ``alive`` (``docker ps -a``) nor reported destroyed was removed without its event, and a container alive
+        with no announcement means a creation event was dropped (so the observation is incomplete). ``observed`` is
+        true only when a second canary came back and the two views agree about what exists."""
         from briefcase.engine import compose as engine_compose
 
         if self.proc is None:
             return [], False
-        observed = self._canary()
+        observed = self._canary() and alive is not None
         self.stop()
+
+        def mine(event: Dict[str, Any]) -> bool:
+            attrs = (event.get("Actor") or {}).get("Attributes") or {}
+            return (event.get("Type") == "container"
+                    and attrs.get("com.docker.compose.project") == engine_compose.PROJECT)
+
         with self._lock:
-            names = [self._name(e) for e in self.events
-                     if e.get("Type") == "container" and e.get("Action") == "destroy"
-                     and ((e.get("Actor") or {}).get("Attributes") or {}).get(
-                         "com.docker.compose.project") == engine_compose.PROJECT]
+            created = {str((e.get("Actor") or {}).get("ID")): self._name(e) for e in self.events
+                       if mine(e) and e.get("Action") == "create"}
+            destroyed = {str((e.get("Actor") or {}).get("ID")): self._name(e) for e in self.events
+                         if mine(e) and e.get("Action") == "destroy"}
+        names = list(destroyed.values())
+        if alive is not None:
+            names += [name for ident, name in created.items() if ident not in destroyed and ident not in alive]
+            if alive - set(created):  # alive, and never announced: an event was dropped
+                observed = False
         return names, observed
+
+
+def project_container_ids() -> Optional[Set[str]]:
+    """The ids of the engine project's containers (running or not, one-offs excluded), or ``None`` when docker could not
+    say."""
+    from briefcase.engine import compose as engine_compose
+
+    res = _run(["docker", "ps", "-a", "-q", "--no-trunc", "--filter",
+                f"label=com.docker.compose.project={engine_compose.PROJECT}", "--filter",
+                "label=com.docker.compose.oneoff=False"], capture_output=True, text=True)
+    if res is None or _rc(res) != 0:
+        return None
+    return set((getattr(res, "stdout", "") or "").split())
 
 
 def wait_running(record: Dict[str, Any], services: Set[str], timeout: float = 300.0, interval: float = 2.0) -> bool:
@@ -1440,7 +1485,7 @@ def cmd_up(args, store, engine, stack) -> int:
                                     "nothing was started", fix="briefcase-ai engine doctor")
             rc = _rc(_run(command))
             if creating:
-                removed, observed = watch.finish()
+                removed, observed = watch.finish(project_container_ids())
                 if removed:
                     return _ux.fail(f"Compose removed {', '.join(removed)} while starting the engine (another Compose "
                                     "client was creating containers for this project at the same time); its "
