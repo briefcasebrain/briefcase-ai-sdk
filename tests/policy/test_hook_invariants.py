@@ -815,3 +815,25 @@ def test_an_empty_endpoint_never_replaces_the_inherited_receiver_or_marks_it_con
     monkeypatch.delenv("BRIEFCASE_RECEIVER_ENDPOINT")
     options = hook.Options(["claude-code", "--enforce", flag] + ([""] if flag == "--endpoint" else []))
     assert not options.endpoint_set
+
+
+# --- class D: the portable dispatch blocks even when the dispatcher cannot be imported -------------------------
+
+@pytest.mark.parametrize("flags", [["--fail-closed"], ["--require-policy-sha256=" + "0" * 64], []],
+                         ids=["flag", "hash", "open"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_the_portable_command_blocks_when_the_dispatcher_module_cannot_be_imported(
+        home, project, tool, flags, monkeypatch):
+    import briefcase.cli as cli_pkg
+
+    build_state(home, project, "valid_denying")
+    monkeypatch.setitem(sys.modules, "briefcase.cli.hook_commands", None)
+    monkeypatch.delattr(cli_pkg, "hook_commands", raising=False)
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload(tool, project))))
+    monkeypatch.setattr(sys, "stdout", out)
+    code = cli_main(["hook", tool, "--enforce", *flags])
+    if flags:
+        assert denies(tool, code, out.getvalue()), (code, out.getvalue())
+    else:  # not enforcing strictly: the hook cannot judge, and does not block
+        assert code == 0 and not denies(tool, code, out.getvalue() or "{}")

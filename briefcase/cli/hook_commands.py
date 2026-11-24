@@ -84,49 +84,33 @@ def parse_args(argv: List[str]):
     return endpoint, capture_content, timeout
 
 
-def _strict(argv: List[str]) -> bool:
-    """The one answer ``briefcase.policy.optargs`` gives (loaded by the launcher's own path-based reader)."""
-    try:
-        from briefcase.policy import hook_main
-
-        return hook_main.strict_for(argv)
-    except BaseException:  # noqa: B036
-        return any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv)
-
-
 def run_enforce(tool: str, argv: List[str], stdin: Any = None, stdout: Any = None) -> int:
     """``briefcase-ai hook <tool> --enforce``: decide one tool call under the policy.
 
-    Always returns 0; the verdict is the JSON on stdout. Fails open unless the
-    policy or the command line says ``fail_closed`` (see ``briefcase.policy.hook``)."""
+    Always returns 0 unless the command line binds the hook and the verdict could not be delivered (then 2); the
+    verdict is the JSON on stdout. Fails open unless the policy or the command line says ``fail_closed`` (see
+    ``briefcase.policy.hook``)."""
     try:
         from briefcase.policy import hook
         return hook.main([tool] + list(argv), stdin=stdin, stdout=stdout)
     except BaseException:  # noqa: B036 - the policy code could not even be imported
-        if _strict(argv):  # what the command line promised: nothing runs
-            reason = ("Blocked by briefcase-ai policy: the hook could not run and it was installed with "
-                      "--fail-closed. Reinstall with `briefcase-ai policy init`, or turn enforcement off with "
-                      "`briefcase-ai policy off`.")
-            if tool == "cursor":
-                body = json.dumps({"permission": "deny", "user_message": reason, "agent_message": reason})
-            else:
-                body = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                                                          "permissionDecisionReason": reason}})
+        return hook_failed(tool, argv)
+
+
+def hook_failed(tool: str, argv: List[str]) -> int:
+    """A hook entry failed before it could decide. Uses nothing that can fail the same way: the shared launcher module
+    (standard library only), and if even that cannot load, a status-only block when any binding option is named."""
+    try:
+        from briefcase.policy import hook_main
+
+        return hook_main.on_failure(tool, list(argv))
+    except BaseException:  # noqa: B036
+        if any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv):
             try:
-                sys.stdout.write(body + "\n")
-                sys.stdout.flush()
-            except BaseException:  # noqa: B036 - the verdict did not arrive: the host's blocking status
-                try:
-                    sys.stderr.write(reason + "\n")
-                    sys.stderr.flush()
-                except BaseException:  # noqa: B036
-                    pass
-                if sys.stdout is sys.__stdout__:  # the interpreter would retry the failed flush at exit and say 120
-                    os._exit(2)
-                return 2
-            return 0
-        if tool == "cursor":
-            print('{"permission": "allow"}')   # a Cursor permission hook that prints nothing blocks
+                os.write(2, b"Blocked by briefcase-ai policy: the hook could not run and it is fail-closed.\n")
+            except BaseException:  # noqa: B036
+                pass
+            return 2
         return 0
 
 

@@ -182,19 +182,39 @@ def _subparser(parser, name):
     return choices.get(name)
 
 
+def _hook_unavailable(tool, rest) -> int:
+    """The hook dispatcher could not be imported or crashed outright. Plain Cursor forwarding stays silent; an
+    enforcing hook gives the verdict its command line promised, without relying on anything that just failed."""
+    if tool == "cursor" and "--enforce" not in rest:
+        return 0
+    try:
+        from briefcase.policy import hook_main
+
+        return hook_main.on_failure(tool, list(rest))
+    except BaseException:  # noqa: B036
+        if any("--fail-closed" in a or "--require-policy-sha256" in a for a in rest):
+            try:
+                os.write(2, b"Blocked by briefcase-ai policy: the hook could not run and it is fail-closed.\n")
+            except BaseException:  # noqa: B036
+                pass
+            return 2
+        return 0
+
+
 def main(argv=None, store=None, engine=None, stack=None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
-    if argv[:2] == ["hook", "cursor"]:
-        # Hook entry point: must stay fail-open and silent, so it bypasses argparse (which exits
-        # non-zero and prints on a bad flag), command discovery and the store.
-        from briefcase.cli import hook_commands
+    if argv[:1] == ["hook"] and argv[1:2] in (["cursor"], ["claude-code"], ["codex"]):
+        # Hook entry points: must stay silent and fail open (or block, when the command line binds them), so they
+        # bypass argparse (which exits non-zero and prints on a bad flag), command discovery and the store. The import
+        # of the dispatcher is inside the handler too: a failure there still produces the verdict the line promised.
+        try:
+            from briefcase.cli import hook_commands
 
-        return hook_commands.run_cursor(argv[2:])
-    if argv[:1] == ["hook"] and argv[1:2] in (["claude-code"], ["codex"]):
-        # The enforcement hook is the same: a failure building the full parser must not decide the verdict.
-        from briefcase.cli import hook_commands
-
-        return hook_commands.run_enforce(argv[1], argv[2:])
+            if argv[1] == "cursor":
+                return hook_commands.run_cursor(argv[2:])
+            return hook_commands.run_enforce(argv[1], argv[2:])
+        except BaseException:  # noqa: B036
+            return _hook_unavailable(argv[1], argv[2:])
     parser = build_parser()
     args = parser.parse_args(argv)
     _ux.set_debug(args.debug)

@@ -90,6 +90,30 @@ def strict_for(argv):
         return any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv)
 
 
+def block_in_process(tool):
+    """The fixed denial on this process's stdout (exit 0), else the reason on stderr and exit 2. For the SDK's own
+    command, where stdout may be a stream the caller replaced."""
+    try:
+        sys.stdout.write((_DENY_CURSOR if tool == "cursor" else _DENY).decode("ascii"))
+        sys.stdout.flush()
+        return 0
+    except BaseException:  # noqa: B036 - the verdict did not arrive: the host's blocking status
+        _say(sys.stderr, _REASON.decode("ascii") + "\n")
+        if sys.stdout is sys.__stdout__:  # the interpreter would retry the failed flush at exit and say 120
+            os._exit(2)
+        return 2
+
+
+def on_failure(tool, argv):
+    """What a hook entry that failed before it could decide does: block when the command line binds the hook,
+    otherwise allow (Cursor blocks on empty output, so it is told to allow)."""
+    if strict_for(argv):
+        return block_in_process(tool)
+    if tool == "cursor":
+        _say(sys.stdout, '{"permission": "allow"}\n')
+    return 0
+
+
 def _run():
     argv = sys.argv[1:]
     strict = strict_for(argv)
