@@ -46,17 +46,19 @@ class Options(object):
                  "parse_error", "require_given")
 
     def __init__(self, argv):
-        """Hand-rolled on purpose: argparse exits 2 on an unknown flag, and exit 2 blocks the tool call.
+        """Hand-rolled on purpose: argparse exits 2 on an unknown flag, and exit 2 blocks the tool call. The command
+        line is read by :func:`briefcase.policy.optargs.normalize`, the one reading every entry point shares."""
+        from briefcase.policy import optargs
 
-        Strictness is decided first and on its own: ``--fail-closed`` anywhere on the command line turns it on,
-        even where a value-taking option would otherwise have claimed that token as its value."""
+        raw = list(argv)
+        norm = optargs.normalize(raw)
+        argv = norm.argv
         self.tool = argv[0] if argv else ""
-        self.fail_closed = "--fail-closed" in argv
+        self.fail_closed = any(t == "--fail-closed" or t.startswith("--fail-closed=") for t in raw[1:])
         self.require_policy = ""
-        self.require_given = any(arg == "--require-policy-sha256" or arg.startswith("--require-policy-sha256=")
-                                 for arg in argv)
+        self.require_given = norm.require_given
         self.capture_content = False
-        self.parse_error = ""
+        self.parse_error = norm.problems[0] if norm.problems else ""
         self.endpoint = os.environ.get("BRIEFCASE_RECEIVER_ENDPOINT") or ""
         self.endpoint_set = bool(self.endpoint)
         self.report = os.environ.get("BRIEFCASE_POLICY_REPORT", "1") not in ("0", "false", "off", "no")
@@ -67,21 +69,12 @@ class Options(object):
                 self.capture_content = True
             elif flag == "--no-report":
                 self.report = False
-            elif flag.startswith(("--require-policy-sha256=", "--endpoint=")):
-                name, _, value = flag.partition("=")
-                if name == "--endpoint":
-                    self.endpoint, self.endpoint_set = value, True
-                else:
-                    self.require_policy = value.strip().lower()
             elif flag in ("--require-policy-sha256", "--endpoint"):
-                if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
-                    self.parse_error = f"{flag} has no value"  # never swallow the next option as its value
+                index += 1  # normalize left only options that have a value
+                if flag == "--endpoint":
+                    self.endpoint, self.endpoint_set = argv[index], True
                 else:
-                    index += 1
-                    if flag == "--endpoint":
-                        self.endpoint, self.endpoint_set = argv[index], True
-                    else:
-                        self.require_policy = argv[index].strip().lower()
+                    self.require_policy = argv[index].strip().lower()
             index += 1
         if not self.endpoint:
             self.endpoint = DEFAULT_ENDPOINT
@@ -476,8 +469,13 @@ def _main(argv=None, stdin=None, stdout=None):
 
 def _strict(argv):
     """Does the command line itself bind this hook (``--fail-closed``, or a required system policy)? Read from argv, so
-    it holds even when option parsing or anything after it failed."""
-    return "--fail-closed" in argv or "--require-policy-sha256" in argv
+    it holds even when option parsing or anything after it failed; the same answer as every other entry point."""
+    try:
+        from briefcase.policy import optargs
+
+        return optargs.strict(argv)
+    except BaseException:  # noqa: B036 - the reading itself failed: any mention of a binding option binds
+        return any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv)
 
 
 def _block_stderr(why):

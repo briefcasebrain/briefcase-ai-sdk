@@ -84,6 +84,16 @@ def parse_args(argv: List[str]):
     return endpoint, capture_content, timeout
 
 
+def _strict(argv: List[str]) -> bool:
+    """The one answer ``briefcase.policy.optargs`` gives (loaded by the launcher's own path-based reader)."""
+    try:
+        from briefcase.policy import hook_main
+
+        return hook_main.strict_for(argv)
+    except BaseException:  # noqa: B036
+        return any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv)
+
+
 def run_enforce(tool: str, argv: List[str], stdin: Any = None, stdout: Any = None) -> int:
     """``briefcase-ai hook <tool> --enforce``: decide one tool call under the policy.
 
@@ -93,8 +103,7 @@ def run_enforce(tool: str, argv: List[str], stdin: Any = None, stdout: Any = Non
         from briefcase.policy import hook
         return hook.main([tool] + list(argv), stdin=stdin, stdout=stdout)
     except BaseException:  # noqa: B036 - the policy code could not even be imported
-        if "--fail-closed" in argv or any(a == "--require-policy-sha256" or a.startswith("--require-policy-sha256=")
-                                          for a in argv):  # what the command line promised: nothing runs
+        if _strict(argv):  # what the command line promised: nothing runs
             reason = ("Blocked by briefcase-ai policy: the hook could not run and it was installed with "
                       "--fail-closed. Reinstall with `briefcase-ai policy init`, or turn enforcement off with "
                       "`briefcase-ai policy off`.")

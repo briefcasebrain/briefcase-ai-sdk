@@ -62,11 +62,25 @@ def main():
     return _leave(_run())
 
 
+def strict_for(argv):
+    """Does the command line bind this hook? The answer of ``optargs.normalize``, loaded by path so that it does not
+    depend on anything that can fail to import; if even that file cannot be loaded, any mention of a binding option
+    binds."""
+    try:
+        import importlib.util
+
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "optargs.py")
+        spec = importlib.util.spec_from_file_location("_briefcase_optargs", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return bool(module.strict(argv))
+    except BaseException:  # noqa: B036
+        return any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv)
+
+
 def _run():
     argv = sys.argv[1:]
-    # A required policy binds like the flag, in either spelling of the option.
-    strict = "--fail-closed" in argv or any(a == "--require-policy-sha256" or a.startswith("--require-policy-sha256=")
-                                            for a in argv)
+    strict = strict_for(argv)
     try:
         here = os.path.dirname(os.path.abspath(__file__))
         package = os.path.dirname(here)

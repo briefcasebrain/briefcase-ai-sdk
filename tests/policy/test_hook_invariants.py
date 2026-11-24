@@ -73,10 +73,36 @@ def build_state(home, project, state):
     return path
 
 
+def _failing_decide(*args, **kwargs):
+    raise RuntimeError("simulated evaluation failure")
+
+
 def run_entry(entry, tool, flags, body, home):
     global LAST_STDERR
     LAST_STDERR = None
     raw = json.dumps(body)
+    if entry in ("module_decide_error", "cli_decide_error"):  # the hook fails after it has read the options
+        real_decide = hook.decide
+        hook.decide = _failing_decide
+        try:
+            return run_entry(entry.split("_")[0], tool, flags, body, home)
+        finally:
+            hook.decide = real_decide
+    if entry == "module_write_error":
+        class Unflushable(_Broken):  # an allow writes nothing, so the failure has to be in the flush
+            def flush(self):
+                raise OSError("closed pipe")
+
+        code = hook.main([tool, "--enforce", *flags], stdin=io.StringIO(raw), stdout=Unflushable())
+        return code, ""
+    if entry == "launcher_late_error":
+        script = LATE + ("import runpy; sys.argv = ['hook_main.py'] + sys.argv[1:]\n"
+                         "runpy.run_path(%r, run_name='__main__')\n" % install.launcher_path())
+        done = subprocess.run([sys.executable, *ISOLATED, "-c", script, tool, "--enforce", *flags], input=raw,
+                              capture_output=True, text=True, timeout=60,
+                              env={"HOME": str(home), "PATH": os.environ.get("PATH", "")})
+        LAST_STDERR = done.stderr
+        return done.returncode, done.stdout
     if entry in ("module", "module_options_fail"):
         out = io.StringIO()
         real = hook.Options
@@ -744,3 +770,47 @@ def test_the_oracle_does_not_accept_a_bare_exit_2_where_codex_needs_a_reason(mon
     monkeypatch.setattr(sys.modules[__name__], "LAST_STDERR", "Blocked by briefcase-ai policy")
     assert denies("codex", 2, "")
     assert denies("claude-code", 2, "")
+
+
+# --- class A: one option normaliser for every entry and every handler ------------------------------------------
+
+OPTION_CASES = {  # id: (flags, binds the hook to a required policy, a malformed option)
+    "hash_sep_valid": (["--require-policy-sha256", "0" * 64], True, False),
+    "hash_eq_valid": (["--require-policy-sha256=" + "0" * 64], True, False),
+    "hash_sep_empty": (["--require-policy-sha256", ""], True, True),
+    "hash_eq_empty": (["--require-policy-sha256="], True, True),
+    "endpoint_sep_valid": (["--endpoint", "http://127.0.0.1:9"], False, False),
+    "endpoint_eq_valid": (["--endpoint=http://127.0.0.1:9"], False, False),
+    "endpoint_sep_empty": (["--endpoint", ""], False, True),
+    "endpoint_eq_empty": (["--endpoint="], False, True),
+}
+NORMAL = ["module", "cli", "launcher"]
+FAILING = ["module_decide_error", "module_write_error", "cli_decide_error", "cli_broken_import",
+           "launcher_late_error", "launcher_broken_import"]
+OPT_COMBOS = [(c, e, fc) for c in OPTION_CASES for e in NORMAL + FAILING for fc in (False, True)]
+
+
+@pytest.mark.parametrize("case, entry, fail_closed", OPT_COMBOS,
+                         ids=[f"{c}-{e}-{'closed' if f else 'open'}" for c, e, f in OPT_COMBOS])
+def test_every_option_in_both_spellings_gives_one_strictness_answer_on_every_handler_path(
+        home, project, case, entry, fail_closed):
+    flags, binds, malformed = OPTION_CASES[case]
+    flags = flags + (["--fail-closed"] if fail_closed else [])
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "observe"\n')  # allows the call
+    blocked = binds or fail_closed
+    expected = blocked if entry in FAILING else (binds or (malformed and fail_closed))
+    for tool in TOOLS:
+        code, raw = run_entry(entry, tool, flags, payload(tool, project), home)
+        assert denies(tool, code, raw) == expected, (tool, flags, entry, code, raw)
+
+
+@pytest.mark.parametrize("flag", ["--endpoint=", "--endpoint"])
+def test_an_empty_endpoint_never_replaces_the_inherited_receiver_or_marks_it_configured(monkeypatch, flag):
+    monkeypatch.setenv("BRIEFCASE_RECEIVER_ENDPOINT", "http://receiver.example:4318")
+    options = hook.Options(["claude-code", "--enforce", flag] + ([""] if flag == "--endpoint" else []))
+    assert options.parse_error
+    assert options.endpoint == "http://receiver.example:4318" and options.endpoint_set
+    monkeypatch.delenv("BRIEFCASE_RECEIVER_ENDPOINT")
+    options = hook.Options(["claude-code", "--enforce", flag] + ([""] if flag == "--endpoint" else []))
+    assert not options.endpoint_set
