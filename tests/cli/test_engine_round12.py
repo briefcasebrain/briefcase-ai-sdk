@@ -553,3 +553,11 @@ def test_a_context_with_a_client_certificate_but_no_ca_is_pinned_with_an_empty_c
     (down,) = [c for c in calls(env["log"]) if c["argv"][:1] == ["compose"] and "down" in c["argv"]]
     assert down["tls_flags"] == ["--tlscacert="]
     assert (down["host"], down["tls_verify"], down["cert_path"]) == (ENDPOINT, "1", "/ctx/tls/abc/docker")
+
+
+def test_the_upgrade_restart_that_removes_orphans_needs_the_confirmation_token(env, monkeypatch):
+    synthetic(env, [A], A)
+    record = _engine.current_install()
+    with pytest.raises(TypeError):
+        engine_commands.restart_removing_orphans(record, None)
+    assert [c for c in compose_calls(env) if "--remove-orphans" in c["argv"]] == []

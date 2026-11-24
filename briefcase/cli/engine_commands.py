@@ -560,6 +560,14 @@ def _need_token(confirmed: Any) -> None:
         raise TypeError("deleting needs a Confirmed token")
 
 
+def restart_removing_orphans(record: Dict[str, Any], confirmed: Optional[Confirmed]) -> int:
+    """The upgrade's restart: ``up -d --remove-orphans`` recreates what changed and removes the containers of services
+    the new release no longer has, so it needs the confirmation the install asked for."""
+    if not isinstance(confirmed, Confirmed):
+        raise TypeError("restarting onto another release removes containers, which needs a Confirmed token")
+    return _rc(_run(_compose(record, "up", "-d", "--remove-orphans")))
+
+
 def teardown(record: Dict[str, Any], remove_volumes: bool, confirmed: Optional[Confirmed] = None) -> int:
     """``compose down`` without ever passing ``-v`` (it would take a same-named volume of another stack with
     it). With ``remove_volumes``, remove only the volumes carrying this engine's label, check they are gone, and
@@ -756,6 +764,7 @@ def _install(args, upgrading: bool) -> int:
     if previous and manifest is not None and previous.get("version") == manifest.version and not upgrading:
         log(f"engine {manifest.version} is already installed; re-checking files and images")
     answer = _ux.confirm("Go ahead?", assume_yes=bool(getattr(args, "yes", False)))
+    confirmed = Confirmed("Go ahead?", Confirmed._key) if answer else None
     if answer is None:
         return _ux.fail("installing the engine needs confirmation",
                         fix="re-run with --yes (or --dry-run to only look)", code=2)
@@ -792,7 +801,7 @@ def _install(args, upgrading: bool) -> int:
         return _ux.fail(str(exc), fix=fix)
     except RuntimeError as exc:  # --tls without openssl
         return _ux.fail(str(exc), fix="install openssl, or install without --tls")
-    stop_code = _settle(opts, record, previous, upgrading, log, previous_compose, daemons_before)
+    stop_code = _settle(opts, record, previous, upgrading, log, previous_compose, daemons_before, confirmed)
     if stop_code is not None:
         return stop_code
     if as_json:
@@ -806,7 +815,8 @@ def _install(args, upgrading: bool) -> int:
 
 
 def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
-            previous_compose: Optional[bytes] = None, daemons_before: Optional[List[str]] = None) -> Optional[int]:
+            previous_compose: Optional[bytes] = None, daemons_before: Optional[List[str]] = None,
+            confirmed: Optional["Confirmed"] = None) -> Optional[int]:
     """After an install or upgrade wrote ``record``: decide, under the install lock and from what actually runs,
     which release is current, and restart onto ``record`` when an upgrade (or a TLS change) needs it. Current is
     what runs. Anything docker cannot establish (an error, an engine that matches no install, two installs that fit)
@@ -816,13 +826,15 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
 
     try:
         with _inst.engine_lock(opts.env):
-            return _settle_locked(opts, record, previous, upgrading, log, previous_compose, daemons_before or [])
+            return _settle_locked(opts, record, previous, upgrading, log, previous_compose, daemons_before or [],
+                                  confirmed)
     except _engine.StateUnreadable as exc:
         return _ux.fail(f"{exc}; engine {record['version']} was installed but not made current", fix=exc.fix)
 
 
 def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
-                   previous_compose: Optional[bytes], daemons_before: List[str]) -> Optional[int]:
+                   previous_compose: Optional[bytes], daemons_before: List[str],
+                   confirmed: Optional["Confirmed"] = None) -> Optional[int]:
     """The body of :func:`_settle`, run under the install lock."""
     from briefcase import engine as _engine
     from briefcase.engine import install as _inst
@@ -897,7 +909,7 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
                 _inst.note_daemon(_runner(), opts.env, identity=daemon)  # before compose can create a volume
                 log(f"restarting onto {record['version']}" + (" (TLS changed) " if tls_changed else " ")
                     + "(data volumes are kept)...")
-                started = _rc(_run(_compose(record, "up", "-d", "--remove-orphans"))) == 0
+                started = restart_removing_orphans(record, confirmed) == 0
         except Exception as exc:  # noqa: BLE001 - whatever failed, the new transport must not stay half-applied
             restore()
             return _ux.fail(f"{type(exc).__name__}: {exc}", fix="briefcase-ai engine doctor")
