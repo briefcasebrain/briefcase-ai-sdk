@@ -44,6 +44,8 @@ def denies(tool, code, raw):
     nonempty stderr reason with it, so a captured empty stderr is not a block there."""
     if code == 2:
         return not (tool == "codex" and LAST_STDERR is not None and not LAST_STDERR.strip())
+    if code != 0:  # the hosts read stdout only on exit 0; any other status is a failed hook that lets the call run
+        return False
     if not raw.strip():
         return False
     out = json.loads(raw)
@@ -929,3 +931,9 @@ def test_a_strict_hook_denies_a_url_without_a_scheme_and_an_authority(home, proj
     body["tool_input"] = {"url": url}
     code, raw = run_entry(entry, tool, ["--fail-closed"], body, home)
     assert denies(tool, code, raw), f"{url!r} was allowed: {code} {raw!r}"
+
+
+def test_the_oracle_ignores_denial_json_on_exit_codes_the_hosts_do_not_read():
+    deny = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny"}})
+    assert denies("codex", 0, deny)
+    assert not denies("codex", 1, deny) and not denies("claude-code", 3, deny)
