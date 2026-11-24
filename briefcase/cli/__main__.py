@@ -188,22 +188,19 @@ def _subparser(parser, name):
 
 
 def _hook_unavailable(tool, rest) -> int:
-    """The hook dispatcher could not be imported or crashed outright. Plain Cursor forwarding stays silent; an
-    enforcing hook gives the verdict its command line promised, without relying on anything that just failed."""
-    if tool == "cursor" and "--enforce" not in rest:
-        return 0
+    """The hook dispatcher could not be imported or crashed outright. What the command line promised is decided by the
+    same rule as everywhere else (``enforcing``): plain Cursor forwarding stays silent, an enforcing invocation gives
+    its verdict, without relying on anything that just failed."""
     try:
         from briefcase.policy import hook_main
 
+        if not hook_main.enforcing_for(tool, list(rest)):
+            return 0
         return hook_main.on_failure(tool, list(rest))
     except BaseException:  # noqa: B036
-        if any("--fail-closed" in a or "--require-policy-sha256" in a for a in rest):
-            try:
-                os.write(2, b"Blocked by briefcase-ai policy: the hook could not run and it is fail-closed.\n")
-            except BaseException:  # noqa: B036
-                pass
-            return 2
-        return 0
+        import briefcase_entry
+
+        return briefcase_entry.last_resort(tool, list(rest))
 
 
 def main(argv=None, store=None, engine=None, stack=None) -> int:
@@ -215,9 +212,7 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
         try:
             from briefcase.cli import hook_commands
 
-            if argv[1] == "cursor":
-                return hook_commands.run_cursor(argv[2:])
-            return hook_commands.run_enforce(argv[1], argv[2:])
+            return hook_commands.dispatch(argv[1], argv[2:])
         except BaseException:  # noqa: B036
             return _hook_unavailable(argv[1], argv[2:])
     if _IMPORT_ERROR is not None:  # not a hook: the failure is the error

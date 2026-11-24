@@ -44,10 +44,45 @@ def _policy_dir():
     return None
 
 
+# The denial for an entry that could not load the launcher (briefcase/policy/hook_main.py has the same bytes, and a test
+# keeps them equal): this file must be able to deliver it on its own.
+_REASON = (b"Blocked by briefcase-ai policy: the hook could not complete and it was installed with --fail-closed or "
+           b"a required policy. Reinstall with `briefcase-ai policy init`, or turn enforcement off with "
+           b"`briefcase-ai policy off`.")
+_DENY = (b'{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", '
+         b'"permissionDecisionReason": "' + _REASON + b'"}}\n')
+_DENY_CURSOR = (b'{"permission": "deny", "user_message": "' + _REASON + b'", "agent_message": "' + _REASON + b'"}\n')
+
+
+def _write(fd, data):
+    try:
+        while data:
+            data = data[os.write(fd, data):]
+        return True
+    except BaseException:  # noqa: B036
+        return False
+
+
+def _binds(options):
+    return any("--fail-closed" in a or "--require-policy-sha256" in a for a in options)
+
+
+def last_resort(tool, options):
+    """What a hook invocation does when nothing of the policy package could decide: block with the fixed text when the
+    command line binds the hook (the reason on stderr with exit 2, else the JSON denial on stdout with exit 0),
+    otherwise allow (Cursor blocks on empty output, so it is told to allow)."""
+    if _binds(options):
+        if _write(2, _REASON + b"\n"):
+            return 2
+        return 0 if _write(1, _DENY_CURSOR if tool == "cursor" else _DENY) else 2
+    if tool == "cursor":
+        _write(1, b'{"permission": "allow"}\n')
+    return 0
+
+
 def _hook(tool, options):
-    """Every decision (is it strict, is it enforcing, how a denial is delivered) is the launcher module's own, loaded
-    by path: this file has no rules of its own to disagree with it."""
-    launcher = None
+    """Every decision (is it strict, is it enforcing) is the launcher module's own, loaded by path: this file has no
+    rule of its own to disagree with it. Only the fixed denial, for when the launcher cannot be loaded, is kept here."""
     try:
         import importlib.util
 
@@ -71,17 +106,11 @@ def _hook(tool, options):
         try:  # plain Cursor forwarding: silent, never blocks
             from briefcase.cli import hook_commands
 
-            return hook_commands.run_cursor(options)
+            return hook_commands.dispatch(tool, options)
         except BaseException:  # noqa: B036
             return 0
     except BaseException:  # noqa: B036 - nothing may escape without the verdict the command line promised
-        if launcher is not None and launcher.strict_for(options):
-            return launcher.block(tool)
-        if launcher is None:
-            return 2 if any("--fail-closed" in a or "--require-policy-sha256" in a for a in options) else 0
-        if tool == "cursor":
-            launcher._fd_write(1, b'{"permission": "allow"}\n')  # Cursor blocks on empty output
-        return 0
+        return last_resort(tool, options)
 
 
 def main():

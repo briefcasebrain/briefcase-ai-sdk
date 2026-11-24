@@ -117,3 +117,105 @@ def test_the_entry_package_is_declared_for_the_wheel_and_the_console_script():
     assert console_target() == "briefcase_entry:main"
     assert re.search(r'^python-packages = \[[^\]]*"briefcase_entry"', text, re.M)
     assert (ROOT / "briefcase_entry" / "__init__.py").is_file()
+
+
+# --- round 17: every dispatch site consults optargs.enforcing; the entry carries its own fixed denial ---------------
+
+def test_every_function_that_routes_a_hook_invocation_consults_enforcing():
+    """Grep-driven: any function that calls run_cursor/run_enforce, or compares an argument list with "--enforce",
+    must itself consult enforcing() (the one rule); a new dispatch site cannot skip it. `dispatch` is the one function
+    that may call the two runners."""
+    import ast
+
+    sites, callers = {}, {}
+    for path in list((ROOT / "briefcase").rglob("*.py")) + [ROOT / "briefcase_entry" / "__init__.py"]:
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            text = ast.get_source_segment(path.read_text(), node) or ""
+            names = {n.attr if isinstance(n, ast.Attribute) else n.id for n in ast.walk(node)
+                     if isinstance(n, (ast.Attribute, ast.Name))}
+            compares = any(isinstance(c, ast.Constant) and c.value == "--enforce" for c in ast.walk(node)
+                           if isinstance(c, ast.Constant)) and any(isinstance(n, ast.Compare) for n in ast.walk(node))
+            routes = names & {"run_cursor", "run_enforce"}
+            if routes or compares:
+                sites[f"{path.relative_to(ROOT)}::{node.name}"] = "enforcing" in text or "enforcing_for" in text
+            if routes:
+                callers[f"{path.relative_to(ROOT)}::{node.name}"] = routes
+    assert sites, "the scan found no dispatch site at all: the test is not looking at the right places"
+    # These write or recognise the text of a hook command (and `connect --enforce`); they route nothing.
+    exempt = {"briefcase/policy/presets.py::self_command", "briefcase/policy/install.py::hook_command",
+              "briefcase/policy/install.py::_command_in"}
+    missing = [name for name, consults in sites.items() if not consults and name not in exempt]
+    assert not missing, f"these routing functions do not consult enforcing(): {missing}"
+    # run_cursor (the forwarder) and run_enforce may only be called from dispatch, which consults enforcing.
+    called_outside = [name for name in callers if not name.endswith("::dispatch")]
+    assert not called_outside, called_outside
+
+
+@pytest.mark.parametrize("flags", [["--require-policy-sha256=" + "0" * 64], ["--fail-closed"]], ids=["hash", "flag"])
+def test_in_process_cursor_without_enforce_and_a_binding_flag_is_enforced(home, project, monkeypatch, flags):
+    import io
+
+    from briefcase.cli.__main__ import main as cli_main
+
+    build_state(home, project, "valid_denying")
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload("cursor", project))))
+    monkeypatch.setattr(sys, "stdout", out)
+    code = cli_main(["hook", "cursor", *flags])  # no --enforce
+    assert denies("cursor", code, out.getvalue()), (code, out.getvalue())
+
+
+@pytest.mark.parametrize("flags", [["--require-policy-sha256=" + "0" * 64], ["--fail-closed"]], ids=["hash", "flag"])
+def test_in_process_cursor_import_failure_without_enforce_and_a_binding_flag_still_blocks(
+        home, project, monkeypatch, flags):
+    import io
+
+    import briefcase.cli as cli_pkg
+    from briefcase.cli.__main__ import main as cli_main
+
+    build_state(home, project, "valid_denying")
+    monkeypatch.setitem(sys.modules, "briefcase.cli.hook_commands", None)
+    monkeypatch.delattr(cli_pkg, "hook_commands", raising=False)
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload("cursor", project))))
+    monkeypatch.setattr(sys, "stdout", out)
+    code = cli_main(["hook", "cursor", *flags])
+    assert denies("cursor", code, out.getvalue()), (code, out.getvalue())
+
+
+def run_with_stub_briefcase(tmp_path, argv, home, stdin, close_stderr=False):
+    """The entry on a cold interpreter where `briefcase` is a bare package with no policy/hook_main.py."""
+    stub = tmp_path / "stub"
+    (stub / "briefcase").mkdir(parents=True, exist_ok=True)
+    (stub / "briefcase" / "__init__.py").write_text("")
+    env = {"HOME": str(home), "PATH": os.environ.get("PATH", ""), "PYTHONPATH": f"{stub}{os.pathsep}{ROOT}"}
+    script = PRELUDE % ([], argv, close_stderr, "briefcase_entry:main")
+    return subprocess.run([sys.executable, "-c", script], input=stdin, capture_output=True, text=True, env=env,
+                          timeout=60)
+
+
+@pytest.mark.parametrize("flags", BINDING, ids=["flag", "hash_eq", "hash_sep"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_missing_launcher_still_delivers_the_denial_text(home, project, tmp_path, tool, flags):
+    done = run_with_stub_briefcase(tmp_path, ["hook", tool, "--enforce", *flags], home,
+                                   json.dumps(payload(tool, project)))
+    assert done.returncode == 2 and "Blocked by briefcase-ai policy" in done.stderr, done
+    closed = run_with_stub_briefcase(tmp_path, ["hook", tool, "--enforce", *flags], home,
+                                     json.dumps(payload(tool, project)), close_stderr=True)
+    assert denies(tool, closed.returncode, closed.stdout), closed
+
+
+def test_the_entrys_fixed_denial_is_byte_for_byte_the_launchers():
+    import importlib.util
+
+    import briefcase_entry
+
+    path = ROOT / "briefcase" / "policy" / "hook_main.py"
+    spec = importlib.util.spec_from_file_location("_hook_main_for_test", path)
+    launcher = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(launcher)
+    assert (briefcase_entry._REASON, briefcase_entry._DENY, briefcase_entry._DENY_CURSOR) == (
+        launcher._REASON, launcher._DENY, launcher._DENY_CURSOR)

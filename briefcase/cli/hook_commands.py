@@ -105,19 +105,41 @@ def hook_failed(tool: str, argv: List[str]) -> int:
 
         return hook_main.on_failure(tool, list(argv))
     except BaseException:  # noqa: B036
-        if any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv):
-            try:
-                os.write(2, b"Blocked by briefcase-ai policy: the hook could not run and it is fail-closed.\n")
-            except BaseException:  # noqa: B036
-                pass
-            return 2
-        return 0
+        return _last_resort(tool, argv)
+
+
+def _last_resort(tool: str, argv: List[str]) -> int:
+    """Nothing of the policy package can be loaded: the entry package's fixed denial, if the command line binds."""
+    try:
+        import briefcase_entry
+
+        return briefcase_entry.last_resort(tool, list(argv))
+    except BaseException:  # noqa: B036
+        return 2 if any("--fail-closed" in a or "--require-policy-sha256" in a for a in argv) else 0
+
+
+def _enforcing(tool: str, options: List[str]) -> bool:
+    """:func:`briefcase.policy.optargs.enforcing`, the one rule for whether an invocation is an enforcing one."""
+    try:
+        from briefcase.policy import hook_main
+
+        return hook_main.enforcing_for(tool, list(options))
+    except BaseException:  # noqa: B036 - cannot be decided: any mention of a binding option or --enforce enforces
+        return tool != "cursor" or any(a == "--enforce" or "--fail-closed" in a or "--require-policy-sha256" in a
+                                       for a in options)
+
+
+def dispatch(tool: str, options: List[str], stdin: Any = None, stdout: Any = None) -> int:
+    """Route one ``hook <tool>`` invocation: enforcement when :func:`_enforcing` says so, else (plain Cursor) event
+    forwarding. The only function that calls :func:`run_enforce` or :func:`run_cursor`."""
+    if _enforcing(tool, options):
+        return run_enforce(tool, options, stdin, stdout)
+    return run_cursor(options, stdin)
 
 
 def run_cursor(argv: List[str], stdin: Any = None) -> int:
-    """Always returns 0 and writes nothing to stdout (except with ``--enforce``)."""
-    if "--enforce" in argv:
-        return run_enforce("cursor", argv, stdin)
+    """Forward a Cursor event to the receiver. Always returns 0 and writes nothing to stdout. Called by
+    :func:`dispatch` only when the invocation does not enforce."""
     try:
         endpoint, capture_content, timeout = parse_args(argv)
         stream = stdin if stdin is not None else sys.stdin
@@ -137,11 +159,11 @@ def run_cursor(argv: List[str], stdin: Any = None) -> int:
 
 
 def cmd_hook_cursor(args, store=None, engine=None, stack=None) -> int:
-    return run_cursor(getattr(args, "hook_args", []) or [])
+    return dispatch("cursor", getattr(args, "hook_args", []) or [])
 
 
 def cmd_hook_enforce(args, store=None, engine=None, stack=None) -> int:
-    return run_enforce(args.hook_tool, getattr(args, "hook_args", []) or [])
+    return dispatch(args.hook_tool, getattr(args, "hook_args", []) or [])
 
 
 def register(sub) -> None:
