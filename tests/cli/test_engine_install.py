@@ -972,7 +972,7 @@ def test_up_status_logs_down_drive_the_installed_compose(env, capsys):
     compose_calls = [a for a in _docker(env) if a[0] == "compose"]
     for argv in compose_calls:
         assert argv[1:3] == ["--project-name", "briefcase-engine"] and "--env-file" in argv
-    assert [a[a.index("--env-file") + 2] for a in compose_calls] == ["up", "logs", "down"]
+    assert [a[a.index("--env-file") + 2] for a in compose_calls] == ["config", "up", "logs", "down"]
 
 
 def _up(env, capsys):

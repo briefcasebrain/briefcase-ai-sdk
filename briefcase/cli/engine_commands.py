@@ -24,7 +24,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
 from briefcase.cli import _ux
 
@@ -1120,16 +1120,16 @@ def _container_tls(service: str, env: List[str]) -> Optional[bool]:
     return None if target is None else target.startswith("https://")
 
 
-def existing_containers_problem(record: Dict[str, Any]) -> Optional[str]:
-    """Why ``up`` must not run, from the containers that already exist (running or stopped), or ``None``.
+def existing_containers_state(record: Dict[str, Any]) -> Tuple[Optional[str], Set[str]]:
+    """``(problem, services that have a container)`` for the containers that already exist, running or stopped.
 
-    ``up`` keeps what exists (``--no-recreate``), so what exists must be what ``record`` describes: a container made
-    from another release's image, or serving the other transport, would be reused and reported as started. And
-    Compose removes the containers a service has beyond the one its file declares before it looks at
-    ``--no-recreate``, which discards their writable layers."""
+    ``up`` keeps what exists, so what exists must be what ``record`` describes: a container made from another
+    release's image, or serving the other transport, would be reused and reported as started. ``problem`` is ``None``
+    when nothing is wrong."""
     ok, rows = project_containers(stopped=True)
     if not ok:
-        return "docker could not list the engine's containers"
+        return "docker could not list the engine's containers", set()
+    present = {row["service"] for row in rows}
     recorded = record.get("image_ids") or {}
     want_tls = bool(record.get("tls"))
     counts: Dict[str, int] = {}
@@ -1155,12 +1155,34 @@ def existing_containers_problem(record: Dict[str, Any]) -> Optional[str]:
             stale.append(f"{service} was created for {'TLS' if has_tls else 'plaintext'} but engine "
                          f"{record['version']} is installed {'with' if want_tls else 'without'} TLS")
     if stale:
-        return "; ".join(stale)
+        return "; ".join(stale), present
     extra = sorted(f"{service} ({n})" for service, n in counts.items() if n > 1)
     if extra:
-        return (f"more than one container exists for {', '.join(extra)}, and `up` would make Compose remove the "
-                "extra ones (with their writable layers)")
-    return None
+        return (f"more than one container exists for {', '.join(extra)}, which `up` does not touch but the engine "
+                "was not made to run"), present
+    return None, present
+
+
+def _start_argv(record: Dict[str, Any], present: Set[str], wait: bool) -> Tuple[Optional[List[str]], str]:
+    """The Compose command that starts the engine without being able to delete anything, or ``(None, why)``.
+
+    With every service already having a container, ``compose start``: it only starts containers that exist (Compose
+    v5.5.0 start.go, startService), so a replica another client adds meanwhile is left alone. ``compose up`` runs
+    the scale-down of reconcile.go (reconcileService) first, and removes the extra container with its writable
+    layer. ``up --no-recreate`` is used only when no service has a container at all, so there is nothing to scale
+    down. A partial stack would need both and is refused."""
+    res = _run(_compose(record, "config", "--services"), capture_output=True, text=True)
+    services = {ln.strip() for ln in (getattr(res, "stdout", "") or "").splitlines() if ln.strip()}
+    if res is None or _rc(res) != 0 or not services:
+        return None, "docker compose could not list the engine's services, so nothing was started"
+    tail = ["--wait", "--wait-timeout", "300"] if wait else []
+    if not present:
+        return _compose(record, "up", "-d", "--no-recreate", *tail), ""
+    missing = sorted(services - present)
+    if missing:
+        return None, (f"the stack is partial (no container for {', '.join(missing)}); starting it would need Compose "
+                      "to create containers beside existing ones, which can remove containers")
+    return _compose(record, "start", *tail), ""
 
 
 def _locked(args):
@@ -1181,13 +1203,13 @@ def cmd_up(args, store, engine, stack) -> int:
         record = _require_stack(args)
         if record is None:
             return 1
-        # Never --remove-orphans, and --no-recreate: `up` starts what is missing and changes nothing that exists (a
-        # recreated container loses its writable layer). Moving to another release is an upgrade, which asks.
-        argv = _compose(record, "up", "-d", "--no-recreate")
-        if getattr(args, "wait", False):
-            argv += ["--wait", "--wait-timeout", "300"]
+        # Starting changes nothing that exists (a recreated or removed container loses its writable layer): see
+        # _start_argv. Moving to another release is an upgrade, which asks.
         if _dry(args):
-            print("dry run: would run " + " ".join(argv) + "\nnothing was started, recreated or removed.")
+            shown = _compose(record, "up", "-d", "--no-recreate") + (
+                ["--wait", "--wait-timeout", "300"] if getattr(args, "wait", False) else [])
+            print("dry run: would run `docker compose start` over existing containers, or " + " ".join(shown)
+                  + " on a fresh stack\nnothing was started, recreated or removed.")
             return 0
         daemon = _inst.docker_identity(_runner())
         if daemon is None:
@@ -1197,15 +1219,18 @@ def cmd_up(args, store, engine, stack) -> int:
             stop = guard_start(record)
             if stop is not None:
                 return stop
-            problem = existing_containers_problem(record)
+            problem, present = existing_containers_state(record)
             if problem:
                 return _ux.fail(f"{problem}; nothing was started, because `up` would reuse them as they are",
                                 fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
+            command, why = _start_argv(record, present, bool(getattr(args, "wait", False)))
+            if command is None:
+                return _ux.fail(why, fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
             try:
                 _inst.note_daemon(_runner(), identity=daemon)  # before compose can create a volume
             except _engine.StateUnreadable as exc:
                 return _ux.fail(str(exc), fix=exc.fix)
-            rc = _rc(_run(argv))
+            rc = _rc(_run(command))
     if rc != 0:
         return _ux.fail("docker compose up failed (see above)", fix="briefcase-ai engine doctor")
     print(f"engine {record['version']} started: gRPC {record['grpc_addr']}, registry gateway {record['gateway']}")

@@ -600,9 +600,17 @@ if args[:2] == ["context", "inspect"]:
     print(host); sys.exit(0)
 if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in args):
     # A row may carry a fourth item, "stopped" (listed only by `ps -a`), and a fifth, its environment list.
-    for i, row in enumerate(containers_now()):
-        if "-a" in args or not (len(row) > 3 and row[3] == "stopped"):
-            print("c%d" % i)
+    listed = [(i, row) for i, row in enumerate(containers_now())
+              if "-a" in args or not (len(row) > 3 and row[3] == "stopped")]
+    for i, _ in listed:
+        print("c%d" % i)
+    if "-a" in args and os.environ.get("FAKE_DOCKER_ADD_REPLICA") and not state.get("replica_added"):
+        # Another Compose client adds a replica of a service right after this listing.
+        rows = containers_now()
+        extra = list(next(r for r in rows if r[0] == os.environ["FAKE_DOCKER_ADD_REPLICA"]))
+        state["containers"] = rows + [extra[:3]]  # a running extra replica
+        state["replica_added"] = True
+        save()
     sys.exit(0)
 def container_env(row):
     """What `docker inspect` shows as the container's environment: the row's own fifth item, else the environment of its
@@ -693,6 +701,24 @@ if args[:1] == ["compose"]:
                 sys.stderr.write("no such service: %s\n" % service); sys.exit(1)
     if "up" in args and os.environ.get("FAKE_DOCKER_COMPOSE_UP_FAIL"):
         sys.stderr.write("service failed to start\n"); sys.exit(1)
+    if "config" in args and "--services" in args:
+        import re as _re
+        for name in _re.findall(r"^  (\S+):\n", open(args[args.index("-f") + 1]).read().split("volumes:")[0], _re.M):
+            print(name)
+        sys.exit(0)
+    if "-f" in args and "start" in args:
+        servers_now()  # `compose start` only starts what exists: nothing is created or removed
+        state["containers"] = [r[:3] for r in containers_now()]
+        save()
+        sys.exit(0)
+    if "-f" in args and "up" in args and "--no-recreate" in args:
+        rows, seen, removed = containers_now(), set(), []
+        for r in rows:  # Compose removes the replicas a service has beyond one before it looks at --no-recreate
+            if r[0] in seen:
+                removed.append(r[0])
+            seen.add(r[0])
+        state["removed"] = state.get("removed", []) + removed
+        save()
     if "-f" in args and ("up" in args or "down" in args):
         import re as _re
         servers_now()

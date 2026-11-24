@@ -164,7 +164,7 @@ def test_up_reuses_stopped_containers_that_match_the_record(env, monkeypatch, ca
     monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))))
     assert main(["engine", "up"]) == 0
     capsys.readouterr()
-    assert [c for c in compose_calls(env) if "up" in c["argv"]]
+    assert [c for c in compose_calls(env) if "start" in c["argv"]]  # they exist: started, not created
 
 
 def test_up_refuses_stopped_containers_made_from_another_release(env, monkeypatch, capsys):
@@ -282,4 +282,45 @@ def test_up_ignores_one_off_containers_when_counting_replicas(env, monkeypatch, 
     monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))
     assert main(["engine", "up"]) == 0
     capsys.readouterr()
-    assert [c for c in compose_calls(env) if "up" in c["argv"]]
+    assert [c for c in compose_calls(env) if "start" in c["argv"]]
+
+
+# --- G: `up` starts what exists with a command that cannot remove anything --------------------------------------
+
+def compose_verbs(env):
+    return [c["argv"] for c in compose_calls(env) if any(v in c["argv"] for v in ("up", "start", "down", "rm"))]
+
+
+def test_up_over_existing_containers_uses_start_which_cannot_scale_down(env, monkeypatch, capsys):
+    from tests.cli.engine_fakes import docker_state
+    from tests.cli.test_engine_invariants import containers_for
+
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "none")
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))[:2]))  # server and gateway
+    monkeypatch.setenv("FAKE_DOCKER_ADD_REPLICA", "gateway")  # another client adds a replica after our snapshot
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    verbs = compose_verbs(env)
+    assert len(verbs) == 1 and "start" in verbs[0] and "up" not in verbs[0], verbs
+    assert docker_state(env["log"]).get("removed", []) == [], "a container that appeared later was removed"
+
+
+def test_up_on_a_fresh_stack_creates_it_without_recreating_or_removing(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    (verb,) = compose_verbs(env)
+    assert "up" in verb and "--no-recreate" in verb and "--remove-orphans" not in verb
+
+
+def test_up_refuses_a_partial_stack_instead_of_mixing_start_and_create(env, monkeypatch, capsys):
+    from tests.cli.test_engine_invariants import containers_for
+
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "none")
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))[:1]))  # no gateway container
+    assert main(["engine", "up"]) == 1
+    out = capsys.readouterr()
+    assert compose_verbs(env) == [] and "gateway" in out.err + out.out
