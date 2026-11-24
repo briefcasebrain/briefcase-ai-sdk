@@ -858,9 +858,22 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
     tls_differs = bool(previous and previous.get("version") == record["version"]
                        and bool(previous.get("tls")) != bool(record.get("tls")))
 
+    def undo_history() -> None:
+        """Take back this install's own change to the daemon history, and only that: what it added goes, a legacy
+        entry it completed comes back as it was, and whatever another command recorded meanwhile stays."""
+        removed, added = history_change
+        try:
+            fresh = _engine.load_state_strict(opts.env)
+            current = [e for e in fresh.get("docker_contexts") or [] if e not in added]
+            fresh["docker_contexts"] = current + [e for e in removed if e not in current]
+            _inst.save_state(fresh, opts.env)
+        except (_engine.StateUnreadable, OSError):
+            pass
+
     def restore() -> None:
-        """The install already wrote the new transport (record and Compose file); put back what is running. Reads
-        the state strictly: a record that cannot be read is not rewritten from nothing."""
+        """The install already wrote the new transport (record and Compose file) and its daemon-history change; put
+        back what is running. Reads the state strictly: a record that cannot be read is not rewritten from nothing."""
+        undo_history()
         if tls_differs and previous:
             try:
                 fresh = _engine.load_state_strict(opts.env)
@@ -878,28 +891,14 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
         return _ux.fail("could not tell which Docker daemon this is, so what runs could not be checked and engine "
                         f"{record['version']} was installed but not made current", fix="briefcase-ai engine doctor")
 
-    def undo_history() -> None:
-        """Take back this install's own change to the daemon history, and only that: what it added goes, a legacy
-        entry it completed comes back as it was, and whatever another command recorded meanwhile stays."""
-        removed, added = history_change
-        try:
-            fresh = _engine.load_state_strict(opts.env)
-            current = [e for e in fresh.get("docker_contexts") or [] if e not in added]
-            fresh["docker_contexts"] = current + [e for e in removed if e not in current]
-            _inst.save_state(fresh, opts.env)
-        except (_engine.StateUnreadable, OSError):
-            pass
-
     if preflight_daemon is not None and not _inst.same_daemon_id(preflight_daemon, daemon):
         restore()
-        undo_history()
         return _ux.fail(f"the Docker daemon is not the one that was verified before the install ({preflight_daemon}; "
                         f"now {daemon}), so engine {record['version']} was installed but not made current",
                         fix="briefcase-ai engine doctor")
     if (upgrading or tls_differs) and daemons_before \
             and not all(_inst.daemon_matches(entry, daemon) for entry in daemons_before):
         restore()
-        undo_history()
         was = (previous or {}).get("version", "the old release")
         return _ux.fail(f"the Docker daemon is not the one engine {was} ran on (it ran on "
                         f"{', '.join(daemons_before)}; now {daemon}), so what runs there could not be checked and "

@@ -726,3 +726,24 @@ def test_up_reports_an_expected_container_that_is_missing_after_the_start(env, m
     assert main(["engine", "up"]) != 0
     out = capsys.readouterr()
     assert "started" not in out.out and "gateway" in out.err + out.out
+
+
+def test_every_refusal_after_the_install_puts_back_the_legacy_history_entry_it_completed(
+        env, monkeypatch, key, capsys):
+    from briefcase.engine import install as _install_mod
+
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    tls_upgrade(env, monkeypatch, key)
+    legacy = "default unix:///var/run/docker.sock"
+    record_daemons([legacy])
+    real = _install_mod.complete_online
+
+    def install_then_the_daemon_cannot_be_identified(*args, **kwargs):
+        record = real(*args, **kwargs)
+        monkeypatch.setenv("FAKE_DOCKER_FAIL", "context show")  # settlement cannot say which daemon this is
+        return record
+
+    monkeypatch.setattr(_install_mod, "complete_online", install_then_the_daemon_cannot_be_identified)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    assert json.loads(_engine.installed_path().read_text())["docker_contexts"] == [legacy]
