@@ -1209,6 +1209,26 @@ def _start_argv(record: Dict[str, Any], present: Set[str], wait: bool) -> Tuple[
     return _compose(record, "start", *tail), ""
 
 
+def _daemon_time() -> Optional[str]:
+    """The daemon's own clock (RFC 3339), so event windows do not depend on this machine's clock."""
+    res = _run(["docker", "info", "--format", "{{.SystemTime}}"], capture_output=True, text=True)
+    text = (getattr(res, "stdout", "") or "").strip() if res is not None and _rc(res) == 0 else ""
+    return text or None
+
+
+def destroyed_since(since: str, until: str) -> Optional[List[str]]:
+    """Names of the engine project's containers the daemon destroyed between two of its own times, or ``None`` when it
+    could not say."""
+    from briefcase.engine import compose as engine_compose
+
+    res = _run(["docker", "events", "--since", since, "--until", until, "--filter", "type=container",
+                "--filter", "event=destroy", "--filter", f"label=com.docker.compose.project={engine_compose.PROJECT}",
+                "--format", "{{.Actor.Attributes.name}}"], capture_output=True, text=True)
+    if res is None or _rc(res) != 0:
+        return None
+    return [ln.strip() for ln in (getattr(res, "stdout", "") or "").splitlines() if ln.strip()]
+
+
 def _locked(args):
     """The install lock for a command that changes something; a dry run takes none (it would create the lock file
     and the engine directory on a clean home) and reads state as it is."""
@@ -1254,7 +1274,25 @@ def cmd_up(args, store, engine, stack) -> int:
                 _inst.note_daemon(_runner(), identity=daemon)  # before compose can create a volume
             except _engine.StateUnreadable as exc:
                 return _ux.fail(str(exc), fix=exc.fix)
+            creating = "up" in command
+            since = _daemon_time() if creating else None
+            if creating and since is None:
+                return _ux.fail("could not read the Docker daemon's clock, so a removal during the start could not "
+                                "be detected and nothing was started", fix="briefcase-ai engine doctor")
             rc = _rc(_run(command))
+            if rc == 0 and creating:
+                # Every Compose create path reconciles and scales a service down to its expected count (v5.5.0
+                # reconcile.go), so a second Compose client adding replicas during this start can have one removed. That
+                # cannot be prevented from here; it is detected from the daemon's own events and reported.
+                until = _daemon_time()
+                removed = destroyed_since(since or "", until) if until else None
+                if removed is None:
+                    return _ux.fail("could not check whether Compose removed a container during the start",
+                                    fix="briefcase-ai engine status")
+                if removed:
+                    return _ux.fail(f"Compose removed {', '.join(removed)} while starting the engine (another Compose "
+                                    "client was creating containers for this project at the same time); its "
+                                    "writable layer is gone", fix="briefcase-ai engine status")
     if rc != 0:
         return _ux.fail("docker compose up failed (see above)", fix="briefcase-ai engine doctor")
     print(f"engine {record['version']} started: gRPC {record['grpc_addr']}, registry gateway {record['gateway']}")

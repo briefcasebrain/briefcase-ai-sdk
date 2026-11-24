@@ -539,8 +539,13 @@ for spec in (os.environ.get("FAKE_DOCKER_FAIL") or "").split(","):
     parts = spec.split()
     if parts and args[:1] == parts[:1] and all(p in args for p in parts[1:]):
         sys.stderr.write("simulated failure: " + spec + "\n"); sys.exit(1)
-if args[:1] == ["info"]:  # the daemon's own id, as `docker info --format {{.ID}}` prints it
-    print(os.environ.get("FAKE_DOCKER_ID", "")); sys.exit(0)
+if args[:1] == ["info"]:  # `docker info --format ...`: the daemon's own id, or its clock
+    fmt = args[args.index("--format") + 1] if "--format" in args else ""
+    print("2026-01-01T00:00:00Z" if "SystemTime" in fmt else os.environ.get("FAKE_DOCKER_ID", "")); sys.exit(0)
+if args[:1] == ["events"]:  # the destroy events a compose command caused (see FAKE_DOCKER_DESTROY_ON_UP)
+    for name in state.get("destroyed", []):
+        print(name)
+    sys.exit(0)
 if args[:1] == ["version"]:
     if os.environ.get("FAKE_DOCKER_DOWN"):
         sys.stderr.write("Cannot connect to the Docker daemon\n"); sys.exit(1)
@@ -724,6 +729,10 @@ if args[:1] == ["compose"]:
                 removed.append(r[0])
             seen.add(r[0])
         state["removed"] = state.get("removed", []) + removed
+        save()
+    if "-f" in args and "up" in args and os.environ.get("FAKE_DOCKER_DESTROY_ON_UP"):
+        # Compose's reconcile scaled down a replica another client created while this `up` was running.
+        state["destroyed"] = state.get("destroyed", []) + [os.environ["FAKE_DOCKER_DESTROY_ON_UP"]]
         save()
     if "-f" in args and ("up" in args or "down" in args):
         import re as _re

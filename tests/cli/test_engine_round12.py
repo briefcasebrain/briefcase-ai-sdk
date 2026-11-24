@@ -457,3 +457,24 @@ def test_a_client_that_dials_another_destination_than_the_servers_is_refused(env
     assert main(["engine", "up"]) == 1
     out = capsys.readouterr()
     assert compose_verbs(env) == [] and service in out.err + out.out
+
+
+# --- G2: a fresh stack's `up` is verified afterwards, and never claims success over a removal ------------------
+
+def test_up_on_a_fresh_stack_fails_when_compose_removed_a_container_during_the_start(env, monkeypatch, capsys):
+    """Every Compose v5.5.0 create path (up, create) reconciles, and reconcile.go scales a service down to its expected
+    count, so a second client creating replicas during `up` can have one removed. That cannot be prevented, so it is
+    detected from the daemon's destroy events and reported, never passed off as a start."""
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_DESTROY_ON_UP", "briefcase-engine-gateway-2")
+    assert main(["engine", "up"]) == 1
+    out = capsys.readouterr()
+    assert "briefcase-engine-gateway-2" in out.err + out.out and "started" not in out.out
+
+
+def test_up_on_a_fresh_stack_reports_success_when_nothing_was_removed(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    assert main(["engine", "up"]) == 0
+    assert "started" in capsys.readouterr().out
