@@ -1233,3 +1233,26 @@ def test_a_strict_hook_allows_a_canonical_ipv6_host(home, project, url):
     body["tool_input"] = {"url": url}
     code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
     assert not denies("claude-code", code, raw), (url, code, raw)
+
+
+USERINFO_IPV6 = ["https://[::1]@[0::1]/x", "https://u@[0:0:0:0:0:0:0:1]/x", "https://[::1]:p@[::0001]:8443/x",
+                 "https://a@b@[0::1]/x"]
+
+
+@pytest.mark.parametrize("url", USERINFO_IPV6)
+@pytest.mark.parametrize("tool", ["claude-code", "cursor"])
+def test_ipv6_canonical_form_is_checked_on_the_host_not_on_bracketed_user_information(home, project, tool, url):
+    _observe(home)
+    body = _events(tool, project)["pre_web" if tool == "cursor" else "web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry("module", tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), f"{url!r} was allowed: {code} {raw!r}"
+
+
+@pytest.mark.parametrize("url", ["https://user:pw@[::1]/x", "https://[::1]@[::1]:8443/x"])
+def test_a_canonical_ipv6_host_with_user_information_is_allowed(home, project, url):
+    _observe(home)
+    body = _events("claude-code", project)["web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
+    assert not denies("claude-code", code, raw), (url, code, raw)

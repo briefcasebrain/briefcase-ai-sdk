@@ -219,7 +219,8 @@ def _absolute_url_problem(url):
             address = ipaddress.IPv6Address(host)
         except ValueError:
             return "its IPv6 host is malformed"
-        written = parts.netloc[parts.netloc.index("[") + 1:parts.netloc.index("]")].lower()
+        hostport = parts.netloc.rsplit("@", 1)[-1]  # after the user information, as the parser and the matcher read it
+        written = hostport[hostport.index("[") + 1:hostport.index("]")].lower()
         if address.ipv4_mapped is not None or written != address.compressed:
             return "its IPv6 address is not in canonical (compressed, lowercase) form"
     else:
