@@ -909,9 +909,10 @@ def note_daemon(runner=subprocess.run, env: Optional[Mapping[str, str]] = None,
 
 
 def set_current(version: str, env: Optional[Mapping[str, str]] = None, locked: bool = False) -> None:
-    """Make an installed release the current one, under the install lock (``locked``: the caller holds it)."""
+    """Make an installed release the current one, under the install lock (``locked``: the caller holds it). Raises
+    ``StateUnreadable`` when ``installed.json`` exists but cannot be read."""
     def write() -> None:
-        state = _engine.load_state(env)
+        state = _engine.load_state_strict(env)
         if version in (state.get("installs") or {}) and state.get("current") != version:
             state["current"] = version
             save_state(state, env)

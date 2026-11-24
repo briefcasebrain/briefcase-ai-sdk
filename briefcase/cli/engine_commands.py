@@ -778,74 +778,90 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
     from briefcase import engine as _engine
     from briefcase.engine import install as _inst
 
-    with _inst.engine_lock(opts.env):
-        installs = _engine.load_state(opts.env).get("installs") or {}
-        if not any(isinstance(r, dict) and r.get("compose") for r in installs.values()):
-            # Client-only installs: there is no stack to ask docker about, so this works without docker.
-            _inst.set_current(record["version"], opts.env, locked=True)
-            return None
-        tls_differs = bool(previous and previous.get("version") == record["version"]
-                           and bool(previous.get("tls")) != bool(record.get("tls")))
+    try:
+        with _inst.engine_lock(opts.env):
+            return _settle_locked(opts, record, previous, upgrading, log, previous_compose)
+    except _engine.StateUnreadable as exc:
+        return _ux.fail(f"{exc}; engine {record['version']} was installed but not made current", fix=exc.fix)
 
-        def restore() -> None:
-            """The install already wrote the new transport (record and Compose file); put back what is running. Reads
-            the state strictly: a record that cannot be read is not rewritten from nothing."""
-            if tls_differs and previous:
-                try:
-                    fresh = _engine.load_state_strict(opts.env)
-                    fresh.setdefault("installs", {})[record["version"]] = previous
-                    _inst.save_state(fresh, opts.env)
-                    if previous_compose is not None and previous.get("compose") == record.get("compose"):
-                        Path(previous["compose"]).write_bytes(previous_compose)
-                except (_engine.StateUnreadable, OSError) as exc:
-                    print(f"error: could not put the previous transport back ({exc}); the engine record and the "
-                          "running server may disagree: run `briefcase-ai engine install` again", file=sys.stderr)
 
-        daemon = _inst.docker_identity(_runner(), opts.env)
+def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
+                   previous_compose: Optional[bytes]) -> Optional[int]:
+    """The body of :func:`_settle`, run under the install lock."""
+    from briefcase import engine as _engine
+    from briefcase.engine import install as _inst
+
+    installs = _engine.load_state_strict(opts.env).get("installs") or {}
+    if not any(isinstance(r, dict) and r.get("compose") for r in installs.values()):
+        # Client-only installs: there is no stack to ask docker about, so this works without docker.
+        _inst.set_current(record["version"], opts.env, locked=True)
+        return None
+    tls_differs = bool(previous and previous.get("version") == record["version"]
+                       and bool(previous.get("tls")) != bool(record.get("tls")))
+
+    def restore() -> None:
+        """The install already wrote the new transport (record and Compose file); put back what is running. Reads
+        the state strictly: a record that cannot be read is not rewritten from nothing."""
+        if tls_differs and previous:
+            try:
+                fresh = _engine.load_state_strict(opts.env)
+                fresh.setdefault("installs", {})[record["version"]] = previous
+                _inst.save_state(fresh, opts.env)
+                if previous_compose is not None and previous.get("compose") == record.get("compose"):
+                    Path(previous["compose"]).write_bytes(previous_compose)
+            except (_engine.StateUnreadable, OSError) as exc:
+                print(f"error: could not put the previous transport back ({exc}); the engine record and the "
+                      "running server may disagree: run `briefcase-ai engine install` again", file=sys.stderr)
+
+    daemon = _inst.docker_identity(_runner(), opts.env)
+    try:
         with _pinned(daemon):  # what runs is read on the daemon the restart would use
             status, running, why = running_releases()
-        current = _engine.current_install(opts.env) or previous
-        keep = current["version"] if current else "the old release"
-        if status != "ok":
+    except Exception as exc:  # noqa: BLE001 - the install already wrote the new transport
+        restore()
+        return _ux.fail(f"{type(exc).__name__}: {exc}", fix="briefcase-ai engine doctor")
+    current = _engine.current_install(opts.env) or previous
+    keep = current["version"] if current else "the old release"
+    if status != "ok":
+        restore()
+        return _ux.fail(f"{why}, so engine {record['version']} was installed but not made current; {keep} is "
+                        "still current", fix="briefcase-ai engine doctor")
+    others = [v for v in running if v != record["version"]]
+    tls_changed = bool(previous and previous.get("version") == record["version"]
+                       and bool(previous.get("tls")) != bool(record.get("tls")) and running)
+    if upgrading and (others or tls_changed):
+        if not record.get("compose"):
             restore()
-            return _ux.fail(f"{why}, so engine {record['version']} was installed but not made current; {keep} is "
-                            "still current", fix="briefcase-ai engine doctor")
-        others = [v for v in running if v != record["version"]]
-        tls_changed = bool(previous and previous.get("version") == record["version"]
-                           and bool(previous.get("tls")) != bool(record.get("tls")) and running)
-        if upgrading and (others or tls_changed):
-            if not record.get("compose"):
+            return _ux.fail(f"engine {(others or running)[0]} is running and {record['version']} was installed "
+                            "without images, so it cannot take over", fix="briefcase-ai engine down")
+        try:
+            if daemon is None:
                 restore()
-                return _ux.fail(f"engine {(others or running)[0]} is running and {record['version']} was installed "
-                                "without images, so it cannot take over", fix="briefcase-ai engine down")
-            try:
-                if daemon is None:
+                return _ux.fail("could not tell which Docker daemon this is, so the engine was not restarted",
+                                fix="briefcase-ai engine doctor")
+            with _pinned(daemon):  # the checks, the record and the start all reach the same daemon
+                stop = guard_start(record)
+                if stop is not None:
                     restore()
-                    return _ux.fail("could not tell which Docker daemon this is, so the engine was not restarted",
-                                    fix="briefcase-ai engine doctor")
-                with _pinned(daemon):  # the checks, the record and the start all reach the same daemon
-                    stop = guard_start(record)
-                    if stop is not None:
-                        restore()
-                        return stop
-                    _inst.note_daemon(_runner(), opts.env, identity=daemon)  # before compose can create a volume
-                    log(f"restarting onto {record['version']}" + (" (TLS changed) " if tls_changed else " ")
-                        + "(data volumes are kept)...")
-                    started = _rc(_run(_compose(record, "up", "-d", "--remove-orphans"))) == 0
-            except Exception as exc:  # noqa: BLE001 - whatever failed, the new transport must not stay half-applied
-                restore()
-                return _ux.fail(f"{type(exc).__name__}: {exc}", fix="briefcase-ai engine doctor")
-            if not started:
-                restore()
-                return _ux.fail("the new engine did not start", fix="briefcase-ai engine logs")
-            _inst.set_current(record["version"], opts.env, locked=True)
-            return None
-        if not upgrading and others:  # an install next to a running release leaves that one current
-            _inst.set_current(others[0], opts.env, locked=True)
-            log(f"engine {others[0]} is running and stays current; `briefcase-ai engine upgrade` moves to "
-                f"{record['version']}")
-            return None
+                    return stop
+                _inst.note_daemon(_runner(), opts.env, identity=daemon)  # before compose can create a volume
+                log(f"restarting onto {record['version']}" + (" (TLS changed) " if tls_changed else " ")
+                    + "(data volumes are kept)...")
+                started = _rc(_run(_compose(record, "up", "-d", "--remove-orphans"))) == 0
+        except Exception as exc:  # noqa: BLE001 - whatever failed, the new transport must not stay half-applied
+            restore()
+            return _ux.fail(f"{type(exc).__name__}: {exc}", fix="briefcase-ai engine doctor")
+        if not started:
+            restore()
+            return _ux.fail("the new engine did not start", fix="briefcase-ai engine logs")
         _inst.set_current(record["version"], opts.env, locked=True)
+        return None
+    if not upgrading and others:  # an install next to a running release leaves that one current
+        _inst.set_current(others[0], opts.env, locked=True)
+        log(f"engine {others[0]} is running and stays current; `briefcase-ai engine upgrade` moves to "
+            f"{record['version']}")
+        return None
+    _inst.set_current(record["version"], opts.env, locked=True)
     return None
 
 

@@ -108,3 +108,37 @@ def test_up_refuses_when_a_service_has_more_containers_than_it_will_keep(env, mo
     out = capsys.readouterr()
     assert [c for c in compose_calls(env) if "up" in c["argv"]] == []
     assert "gateway" in out.err + out.out
+
+
+# --- S1/S2: the settle restores on any failure and refuses to read state permissively ---------------
+
+def test_an_exception_from_the_first_probe_restores_the_record_and_the_compose_file(env, monkeypatch, key, capsys):
+    path, before = tls_upgrade(env, monkeypatch, key)
+
+    def boom():
+        raise PermissionError("simulated docker socket")
+
+    monkeypatch.setattr(engine_commands, "running_releases", boom)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    assert _engine.current_install()["tls"] is False and path.read_bytes() == before
+
+
+def test_an_unreadable_record_fails_the_settle_instead_of_passing_for_client_only(env, capsys):
+    from types import SimpleNamespace
+
+    synthetic(env, [A], A)
+    _engine.installed_path().write_text("{not json")
+    opts = SimpleNamespace(env=None)
+    code = engine_commands._settle(opts, {"version": A, "compose": "x"}, None, False, lambda *_: None)
+    assert code not in (None, 0), "an unreadable installed.json was treated as a client-only install"
+    assert _engine.installed_path().read_text() == "{not json"
+
+
+def test_set_current_does_not_read_an_unreadable_record_as_empty(env):
+    from briefcase.engine import install as _install_mod
+
+    synthetic(env, [A], A)
+    _engine.installed_path().write_text("{not json")
+    with pytest.raises(_engine.StateUnreadable):
+        _install_mod.set_current(A)
