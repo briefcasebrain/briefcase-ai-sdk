@@ -604,9 +604,41 @@ if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in 
         if "-a" in args or not (len(row) > 3 and row[3] == "stopped"):
             print("c%d" % i)
     sys.exit(0)
+def container_env(row):
+    """What `docker inspect` shows as the container's environment: the row's own fifth item, else the environment of its
+    service in the Compose file it was created from (as Compose copies it)."""
+    import re
+    if len(row) > 4:
+        return row[4]
+    path = (row[2] or "").split(",")[0]
+    try:
+        text = open(path).read()
+    except OSError:
+        return []
+    block = re.search(r"^  %s:\n((?:    .*\n|\n)*)" % re.escape(row[0]), text, re.M)
+    env = re.search(r"^    environment:\n((?:      .*\n)*)", block.group(1), re.M) if block else None
+    return [m.group(1) + "=" + m.group(2).strip().strip('"') for m in
+            re.finditer(r"^      (\w+): (.*)$", env.group(1), re.M)] if env else []
+
 if args[:1] == ["inspect"]:
+    # Only what the template asks for is printed, in its order; a field the fake does not know fails the call.
     c = containers_now()[int(args[-1][1:])]
-    print("%s\t%s\t%s\t%s" % (c[1], c[0], c[2], json.dumps(c[4] if len(c) > 4 else []))); sys.exit(0)
+    fmt = args[args.index("--format") + 1] if "--format" in args else ""
+    out = []
+    for part in fmt.split("\t"):
+        if part == "{{.Image}}":
+            out.append(c[1])
+        elif "com.docker.compose.service" in part:
+            out.append(c[0])
+        elif "config_files" in part:
+            out.append(c[2])
+        elif part == "{{json .Config.Env}}":
+            out.append(json.dumps(container_env(c)))
+        elif "com.docker.compose.oneoff" in part:
+            out.append("True" if len(c) > 5 and c[5] else "False")
+        else:
+            sys.stderr.write("fake docker: unsupported inspect template field %r\n" % part); sys.exit(1)
+    print("\t".join(out)); sys.exit(0)
 if args[:1] == ["ps"]:
     # `docker ps --filter label=com.docker.compose.service=oci-jj-server ...`: FAKE_DOCKER_PS holds
     # "project<TAB>container" lines, as Docker prints them with the Compose labels in the format.

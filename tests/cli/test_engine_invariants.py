@@ -57,7 +57,9 @@ def synthetic(env, installs, current, shared_server=False):
         refs.update({images[n]: ids[n] for n in images})
         (directory / "docker-compose.yml").write_text(
             f"services:\n  oci-jj-server:\n    image: {images['server']}\n    pull_policy: never\n"
-            f"  gateway:\n    image: {images['gateway']}\n    pull_policy: never\n")
+            '    environment:\n      OCI_JJ_ALLOW_PLAINTEXT: "1"\n'
+            f"  gateway:\n    image: {images['gateway']}\n    pull_policy: never\n"
+            "    environment:\n      OCI_JJ_SERVER_GRPC: oci-jj-server:50051\n")
         (directory / "engine-manifest.json").write_text("{}")
         state["installs"][version] = {
             "version": version, "compose": str(directory / "docker-compose.yml"), "env_file": str(home / "engine.env"),

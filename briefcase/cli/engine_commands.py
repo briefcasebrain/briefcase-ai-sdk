@@ -993,14 +993,18 @@ def project_containers(stopped: bool = False) -> Tuple[bool, List[Dict[str, str]
         return False, []
     rows = []
     fmt = ('{{.Image}}\t{{index .Config.Labels "com.docker.compose.service"}}\t'
-           '{{index .Config.Labels "com.docker.compose.project.config_files"}}\t{{json .Config.Env}}')
+           '{{index .Config.Labels "com.docker.compose.project.config_files"}}\t{{json .Config.Env}}\t'
+           '{{index .Config.Labels "com.docker.compose.oneoff"}}')
     for container in (getattr(res, "stdout", "") or "").split():
         inspected = _run(["docker", "inspect", "--format", fmt, container], capture_output=True, text=True)
         if inspected is None or _rc(inspected) != 0:
             return False, []
         image, _, rest = (getattr(inspected, "stdout", "") or "").strip().partition("\t")
         service, _, rest = rest.partition("\t")
-        config, _, env_json = rest.partition("\t")
+        config, _, rest = rest.partition("\t")
+        env_json, _, oneoff = rest.partition("\t")
+        if oneoff.strip().lower() == "true":  # a `compose run` leftover: Compose's own reconcile ignores it
+            continue
         rows.append({"image": image, "service": service, "config": config, "env": env_json})
     return True, rows
 
@@ -1101,6 +1105,21 @@ def _reinstall_fix(record: Dict[str, Any]) -> str:
     return f"get a new install code at {portal} and run the command it shows"
 
 
+TRANSPORT_SERVICES = ("oci-jj-server", "gateway", "workers", "reconstructor", "verdict-worker")
+
+
+def _container_tls(service: str, env: List[str]) -> Optional[bool]:
+    """Does this container's own configuration say gRPC runs over TLS? The server says it by serving a certificate
+    (or by allowing plaintext), every client by the scheme of the address it dials. ``None`` when it says neither."""
+    values = dict(e.partition("=")[::2] for e in env)
+    if service == "oci-jj-server":
+        if "OCI_JJ_TLS_CERT" in values:
+            return True
+        return False if values.get("OCI_JJ_ALLOW_PLAINTEXT") == "1" else None
+    target = values.get("OCI_JJ_SERVER_GRPC")
+    return None if target is None else target.startswith("https://")
+
+
 def existing_containers_problem(record: Dict[str, Any]) -> Optional[str]:
     """Why ``up`` must not run, from the containers that already exist (running or stopped), or ``None``.
 
@@ -1112,23 +1131,29 @@ def existing_containers_problem(record: Dict[str, Any]) -> Optional[str]:
     if not ok:
         return "docker could not list the engine's containers"
     recorded = record.get("image_ids") or {}
+    want_tls = bool(record.get("tls"))
     counts: Dict[str, int] = {}
     stale: List[str] = []
     for row in rows:
         service = row["service"]
         counts[service] = counts.get(service, 0) + 1
         key = "server" if service == "oci-jj-server" else service.replace("-", "_")
-        if key in recorded and row["image"] != recorded[key]:
+        if key not in recorded:
+            continue  # a sidecar this release does not pin
+        if row["image"] != recorded[key]:
             stale.append(f"{service} runs a different image than engine {record['version']} verified")
-        if service == "oci-jj-server":
-            try:
-                env = [e for e in json.loads(row.get("env") or "[]") if isinstance(e, str)]
-            except ValueError:
-                env = []
-            has_tls = any(e.startswith("OCI_JJ_TLS_CERT=") for e in env)
-            if env and has_tls != bool(record.get("tls")):
-                stale.append(f"{service} was created for {'TLS' if has_tls else 'plaintext'} but engine "
-                             f"{record['version']} is installed {'with' if record.get('tls') else 'without'} TLS")
+        if service not in TRANSPORT_SERVICES:
+            continue
+        try:
+            env = [e for e in json.loads(row.get("env") or "[]") if isinstance(e, str)]
+        except ValueError:
+            env = []
+        has_tls = _container_tls(service, env)
+        if has_tls is None:
+            stale.append(f"the transport {service} was created for could not be read from docker")
+        elif has_tls != want_tls:
+            stale.append(f"{service} was created for {'TLS' if has_tls else 'plaintext'} but engine "
+                         f"{record['version']} is installed {'with' if want_tls else 'without'} TLS")
     if stale:
         return "; ".join(stale)
     extra = sorted(f"{service} ({n})" for service, n in counts.items() if n > 1)

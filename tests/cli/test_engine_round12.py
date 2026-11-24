@@ -239,3 +239,47 @@ def test_an_upgrade_that_cannot_identify_the_daemon_is_refused_even_when_the_pro
     assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
     capsys.readouterr()
     assert _engine.current_install()["tls"] is False and path.read_bytes() == before
+
+
+# --- F: every service the record defines is checked, from the real inspect template ----------------------------
+
+def test_up_refuses_a_stopped_plaintext_gateway_for_a_tls_record_with_no_server_container(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    state = json.loads(_engine.installed_path().read_text())
+    state["installs"][A]["tls"] = True
+    _engine.installed_path().write_text(json.dumps(state))
+    configure(env, monkeypatch, "ok", "ours", "none")
+    from tests.cli.test_engine_invariants import containers_for
+
+    gateway = [row for row in containers_for(A) if row[0] == "gateway"]  # created from the plaintext compose file
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(gateway)))
+    assert main(["engine", "up"]) == 1
+    out = capsys.readouterr()
+    assert [c for c in compose_calls(env) if "up" in c["argv"]] == [] and "gateway" in out.err + out.out
+
+
+def test_up_refuses_stopped_workers_made_for_the_other_transport(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "none")
+    state = json.loads(_engine.installed_path().read_text())
+    state["installs"][A]["image_ids"]["workers"] = "sha256:" + "w" * 64
+    _engine.installed_path().write_text(json.dumps(state))
+    rows = [["workers", "sha256:" + "w" * 64, "", "stopped", ["OCI_JJ_SERVER_GRPC=https://oci-jj-server:50051"]]]
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))  # TLS workers, plaintext record
+    assert main(["engine", "up"]) == 1
+    assert [c for c in compose_calls(env) if "up" in c["argv"]] == []
+    capsys.readouterr()
+
+
+def test_up_ignores_one_off_containers_when_counting_replicas(env, monkeypatch, capsys):
+    from tests.cli.test_engine_invariants import containers_for
+
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "none")
+    rows = stopped(containers_for(A))
+    gateway = rows[1]  # a `docker compose run gateway ...` leftover: Compose's own reconcile ignores one-off containers
+    rows.append(gateway[:4] + [["OCI_JJ_SERVER_GRPC=https://x"], True])
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    assert [c for c in compose_calls(env) if "up" in c["argv"]]
