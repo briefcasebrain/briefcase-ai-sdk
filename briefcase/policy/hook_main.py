@@ -22,12 +22,30 @@ import sys
 
 
 def _say(stream, text):
-    """Write and flush, never raising: a closed pipe must not change the exit status the caller chose."""
+    """Write and flush, never raising: a closed pipe must not change the exit status the caller chose. Whether the text
+    was delivered."""
     try:
         stream.write(text)
         stream.flush()
+        return True
     except BaseException:  # noqa: B036
-        pass
+        return False
+
+
+def _block(tool, reason):
+    """Block the call and return the exit status. The reason goes to stderr with exit 2, which all three tools read as
+    a block (Codex needs the reason to be nonempty). When stderr cannot carry it, the same reason goes to stdout as
+    the tool's JSON denial with exit 0; only when neither stream works is the status alone left."""
+    if _say(sys.stderr, reason + "\n"):
+        return 2
+    if tool == "cursor":
+        body = {"permission": "deny", "user_message": reason, "agent_message": reason}
+    else:
+        body = {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                       "permissionDecisionReason": reason}}
+    import json
+
+    return 0 if _say(sys.stdout, json.dumps(body) + "\n") else 2
 
 
 def _leave(code):
@@ -63,11 +81,10 @@ def _run():
         from briefcase.policy import hook
     except BaseException as exc:  # noqa: B036
         if strict:
-            _say(sys.stderr,
-                 f"Blocked by briefcase-ai policy: the hook could not start ({type(exc).__name__}: {exc}) and it "
-                 "was installed with --fail-closed. Reinstall with `briefcase-ai policy init`, or turn "
-                 "enforcement off with `briefcase-ai policy off`.\n")
-            return 2
+            return _block(argv[0] if argv else "",
+                          f"Blocked by briefcase-ai policy: the hook could not start ({type(exc).__name__}: {exc}) "
+                          "and it was installed with --fail-closed. Reinstall with `briefcase-ai policy init`, or "
+                          "turn enforcement off with `briefcase-ai policy off`.")
         if argv[:1] == ["cursor"]:
             _say(sys.stdout, '{"permission": "allow"}\n')   # Cursor blocks on empty output
         return 0
@@ -75,9 +92,9 @@ def _run():
         return hook.main(argv)
     except BaseException as exc:  # noqa: B036 - a late import or any failure the hook did not catch
         if strict:
-            _say(sys.stderr, f"Blocked by briefcase-ai policy: the hook failed ({type(exc).__name__}) and it was "
-                             "installed with --fail-closed.\n")
-            return 2
+            return _block(argv[0] if argv else "",
+                          f"Blocked by briefcase-ai policy: the hook failed ({type(exc).__name__}) and it was "
+                          "installed with --fail-closed.")
         if argv[:1] == ["cursor"]:
             _say(sys.stdout, '{"permission": "allow"}\n')
         return 0

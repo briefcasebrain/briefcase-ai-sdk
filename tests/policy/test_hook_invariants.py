@@ -36,10 +36,14 @@ def payload(tool, project):
     return base
 
 
+LAST_STDERR = None  # what the last subprocess entry wrote to stderr (None: not captured)
+
+
 def denies(tool, code, raw):
-    """Did the hook block the call, judged from the tool's documented response?"""
+    """Did the hook block the call, judged from the tool's documented response? Exit 2 blocks, but Codex needs a
+    nonempty stderr reason with it, so a captured empty stderr is not a block there."""
     if code == 2:
-        return True
+        return not (tool == "codex" and LAST_STDERR is not None and not LAST_STDERR.strip())
     if not raw.strip():
         return False
     out = json.loads(raw)
@@ -70,6 +74,8 @@ def build_state(home, project, state):
 
 
 def run_entry(entry, tool, flags, body, home):
+    global LAST_STDERR
+    LAST_STDERR = None
     raw = json.dumps(body)
     if entry in ("module", "module_options_fail"):
         out = io.StringIO()
@@ -114,6 +120,7 @@ def run_entry(entry, tool, flags, body, home):
                 "runpy.run_path(%r, run_name='__main__')" % install.launcher_path(),
                 tool, "--enforce", *flags]
     done = subprocess.run(argv, input=raw, capture_output=True, text=True, env=env, timeout=60)
+    LAST_STDERR = done.stderr
     return done.returncode, done.stdout
 
 
@@ -697,3 +704,43 @@ def test_the_broken_import_fixture_is_a_real_import_failure(home, project):
     finally:
         policy_pkg.hook = saved[0]
         sys.modules["briefcase.policy.hook"] = saved[1]
+
+
+# --- verdict delivery ------------------------------------------------------------------------
+
+LATE = ("import sys, types\n"
+        "root = types.ModuleType('briefcase'); root.__path__ = []\n"
+        "policy = types.ModuleType('briefcase.policy'); policy.__path__ = []\n"
+        "hook = types.ModuleType('briefcase.policy.hook')\n"
+        "def main(argv):\n    raise RuntimeError('late failure')\n"
+        "hook.main = main; policy.hook = hook\n"
+        "sys.modules.update({'briefcase': root, 'briefcase.policy': policy, 'briefcase.policy.hook': hook})\n")
+BROKEN = "import sys; sys.modules['briefcase.policy.hook'] = None\n"
+
+
+@pytest.mark.parametrize("flags", [["--fail-closed"], ["--require-policy-sha256", "0" * 64]], ids=["flag", "hash"])
+@pytest.mark.parametrize("scenario", [LATE, BROKEN], ids=["late_failure", "import_failure"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_launcher_failure_with_stderr_unusable_still_delivers_a_denial_on_stdout(
+        home, project, tool, scenario, flags):
+    script = scenario + ("import runpy; sys.argv = ['hook_main.py'] + sys.argv[1:]\n"
+                         "runpy.run_path(%r, run_name='__main__')\n" % install.launcher_path())
+    argv = [sys.executable, *ISOLATED, "-c", script, tool, "--enforce", *flags]
+    child = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             env={"HOME": str(home), "PATH": os.environ.get("PATH", "")})
+    child.stderr.close()
+    child.stdin.write(json.dumps(payload(tool, project)).encode())
+    child.stdin.close()
+    raw = child.stdout.read().decode()
+    child.stdout.close()
+    child.wait(timeout=60)
+    assert child.returncode == 0 and raw.strip(), (child.returncode, raw)
+    assert denies(tool, child.returncode, raw)
+
+
+def test_the_oracle_does_not_accept_a_bare_exit_2_where_codex_needs_a_reason(monkeypatch):
+    monkeypatch.setattr(sys.modules[__name__], "LAST_STDERR", "")
+    assert not denies("codex", 2, "")
+    monkeypatch.setattr(sys.modules[__name__], "LAST_STDERR", "Blocked by briefcase-ai policy")
+    assert denies("codex", 2, "")
+    assert denies("claude-code", 2, "")
