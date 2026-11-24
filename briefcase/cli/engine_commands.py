@@ -170,7 +170,7 @@ def _runner():
         if "env" not in kw and argv[:1] == ["docker"]:
             env = dict(os.environ)
             if argv[:2] == ["docker", "compose"]:
-                env.pop("COMPOSE_REMOVE_ORPHANS", None)
+                env["COMPOSE_REMOVE_ORPHANS"] = "false"
             if _PINS:
                 for name in ("DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
                     env.pop(name, None)
@@ -961,13 +961,13 @@ def cmd_verify(args, store, engine, stack) -> int:
     return 0
 
 
-def project_containers() -> Tuple[bool, List[Dict[str, str]]]:
-    """``(ok, containers)``: every running container of the engine Compose project as ``{image, service, config}``
-    (image id, Compose service, and the Compose file it was started from). ``ok`` is false when docker could not
-    answer."""
+def project_containers(stopped: bool = False) -> Tuple[bool, List[Dict[str, str]]]:
+    """``(ok, containers)``: every running container of the engine Compose project (with ``stopped``, the stopped ones
+    too) as ``{image, service, config}`` (image id, Compose service, and the Compose file it was started from).
+    ``ok`` is false when docker could not answer."""
     from briefcase.engine import compose as engine_compose
 
-    res = _run(["docker", "ps", "-q", "--no-trunc",
+    res = _run(["docker", "ps", "-q", "--no-trunc", *(["-a"] if stopped else []),
                 "--filter", f"label=com.docker.compose.project={engine_compose.PROJECT}"],
                capture_output=True, text=True)
     if res is None or _rc(res) != 0:
@@ -1081,6 +1081,23 @@ def _reinstall_fix(record: Dict[str, Any]) -> str:
     return f"get a new install code at {portal} and run the command it shows"
 
 
+def surplus_containers(record: Dict[str, Any]) -> Optional[str]:
+    """Why ``up`` must not run: Compose removes the containers a service has beyond the one its file declares before it
+    looks at ``--no-recreate``, and that discards their writable layers. ``None`` when every service has at most one
+    container (running or stopped), and also when docker could not say (the caller's own checks fail on that)."""
+    ok, rows = project_containers(stopped=True)
+    if not ok:
+        return "docker could not list the engine's containers"
+    counts: Dict[str, int] = {}
+    for row in rows:
+        counts[row["service"]] = counts.get(row["service"], 0) + 1
+    extra = sorted(f"{service} ({n})" for service, n in counts.items() if n > 1)
+    if extra:
+        return (f"more than one container exists for {', '.join(extra)}, and `up` would make Compose remove the "
+                "extra ones (with their writable layers)")
+    return None
+
+
 def _locked(args):
     """The install lock for a command that changes something; a dry run takes none (it would create the lock file
     and the engine directory on a clean home) and reads state as it is."""
@@ -1115,6 +1132,10 @@ def cmd_up(args, store, engine, stack) -> int:
             stop = guard_start(record)
             if stop is not None:
                 return stop
+            surplus = surplus_containers(record)
+            if surplus:
+                return _ux.fail(surplus + "; nothing was started",
+                                fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
             try:
                 _inst.note_daemon(_runner(), identity=daemon)  # before compose can create a volume
             except _engine.StateUnreadable as exc:

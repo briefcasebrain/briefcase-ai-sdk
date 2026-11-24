@@ -10,6 +10,9 @@ restores what it changed.
   N1  `up` reuses stopped containers only when they match the current record
 """
 import json
+import os
+
+import pytest
 
 from briefcase import engine as _engine
 from briefcase.cli import engine_commands
@@ -73,3 +76,35 @@ def test_an_upgrade_probes_what_runs_inside_the_pin(env, monkeypatch, key, capsy
     capsys.readouterr()
     probes = [c for c in calls(env["log"])[before:] if c["argv"][:1] in (["ps"], ["inspect"])]
     assert probes and all(c["host"] == ENDPOINT for c in probes), [(c["argv"][:2], c["host"]) for c in probes]
+
+
+# --- U1: `up` deletes nothing -------------------------------------------------------------------
+
+def compose_calls(env):
+    return [c for c in calls(env["log"]) if c["argv"][:1] == ["compose"]]
+
+
+@pytest.mark.parametrize("where", ["caller_environment", "engine_env_file"])
+def test_up_never_lets_compose_remove_orphans(env, monkeypatch, capsys, where):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    if where == "caller_environment":
+        monkeypatch.setenv("COMPOSE_REMOVE_ORPHANS", "true")
+    else:  # Compose imports COMPOSE_* variables that are unset in the process from --env-file
+        with open(env["home"] / "engine" / "engine.env", "a") as handle:
+            handle.write("COMPOSE_REMOVE_ORPHANS=true\n")
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    ups = [c for c in compose_calls(env) if "up" in c["argv"]]
+    assert ups and all(c["orphans"] == "false" for c in ups), [c["orphans"] for c in ups]
+
+
+def test_up_refuses_when_a_service_has_more_containers_than_it_will_keep(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "A")
+    rows = json.loads(os.environ["FAKE_DOCKER_CONTAINERS"])
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows + [rows[1]]))  # a second gateway container
+    assert main(["engine", "up"]) == 1
+    out = capsys.readouterr()
+    assert [c for c in compose_calls(env) if "up" in c["argv"]] == []
+    assert "gateway" in out.err + out.out

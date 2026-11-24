@@ -11,6 +11,7 @@
   D6  a failed same-version TLS restart restores the compose file as well as the record
 """
 import json
+import os
 
 import pytest
 
@@ -381,7 +382,8 @@ def test_up_runs_every_step_against_the_daemon_it_recorded_and_changes_nothing_t
 
     def spy(argv, **kw):
         if argv[:2] == ["docker", "compose"] or "--context" in argv:
-            seen.append((list(argv), (kw.get("env") or {}).get("COMPOSE_REMOVE_ORPHANS")))
+            inherited = kw["env"] if kw.get("env") is not None else os.environ  # omitted env is inherited
+            seen.append((list(argv), inherited.get("COMPOSE_REMOVE_ORPHANS")))
         return real(argv, **kw)
 
     monkeypatch.setattr(engine_commands.subprocess, "run", spy)
@@ -391,7 +393,7 @@ def test_up_runs_every_step_against_the_daemon_it_recorded_and_changes_nothing_t
     (up,) = compose_ups(env)
     assert up["host"] == "unix:///var/run/docker.sock", "compose ran on the active daemon, not the one identified"
     assert "--no-recreate" in up["argv"] and "--remove-orphans" not in up["argv"]
-    assert all(env_value is None for _, env_value in seen), "COMPOSE_REMOVE_ORPHANS reached a compose call"
+    assert all(env_value == "false" for _, env_value in seen), "COMPOSE_REMOVE_ORPHANS reached a compose call"
     checks = [c for c in calls(env["log"]) if c["argv"][:1] in (["volume"], ["image"], ["ps"])]
     assert checks and all(c["host"] == "unix:///var/run/docker.sock" for c in checks), "a check ran before the pin"
 
