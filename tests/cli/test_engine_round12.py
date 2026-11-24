@@ -541,3 +541,15 @@ def test_up_wait_polls_inside_the_daemon_pin(env, monkeypatch, capsys):
     capsys.readouterr()
     polls = [c for c in compose_calls(env) if "ps" in c["argv"] and "--all" in c["argv"]]
     assert polls and all(c["host"] == "unix:///var/run/docker.sock" for c in polls)
+
+
+def test_a_context_with_a_client_certificate_but_no_ca_is_pinned_with_an_empty_ca_flag(env, monkeypatch, capsys):
+    """Checked on Docker 29.8.2: with DOCKER_CERT_PATH and DOCKER_TLS_VERIFY alone the CLI reads a ca.pem that is not
+    there; `--tlscacert=` makes it use the system roots, which is what `--context` does for such a context."""
+    named_context(env, monkeypatch, tlspath="/ctx/tls/abc")
+    monkeypatch.setenv("FAKE_DOCKER_TLSFILES", "cert.pem,key.pem")
+    assert main(["engine", "down", "--yes"]) == 0
+    capsys.readouterr()
+    (down,) = [c for c in calls(env["log"]) if c["argv"][:1] == ["compose"] and "down" in c["argv"]]
+    assert down["tls_flags"] == ["--tlscacert="]
+    assert (down["host"], down["tls_verify"], down["cert_path"]) == (ENDPOINT, "1", "/ctx/tls/abc/docker")

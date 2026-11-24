@@ -850,7 +850,7 @@ class DaemonIdentity(str):
 
 
 _INSPECT_FORMAT = ("{{.Endpoints.docker.Host}}\t{{.Storage.TLSPath}}\t{{.Endpoints.docker.SkipTLSVerify}}\t"
-                   '{{range index .TLSMaterial "docker"}}x{{end}}')
+                   '{{range index .TLSMaterial "docker"}}{{.}},{{end}}')
 _TLS_VARIABLES = ("DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH", "DOCKER_TLS")
 # TLS without verification and without certificate files, which is what the CLI does for a context that only skips
 # verification (Docker 29.8.2: DOCKER_TLS=1 and a bare --tls fail on the missing ca.pem; these flags do not).
@@ -941,12 +941,17 @@ def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = No
                 return None
             pin = {"DOCKER_HOST": host}
             skip = skip_verify.strip() == "true"
-            if material.strip():
+            files = {name.strip() for name in material.split(",") if name.strip()}
+            if files:
                 if tls_path.startswith("<"):  # "<IN MEMORY>" (the default context): the caller's variables are it
                     pin.update({v: env[v] for v in _TLS_VARIABLES if v in env})
                 else:
                     pin["DOCKER_CERT_PATH"] = tls_path + "/docker"
                     pin["DOCKER_TLS" if skip else "DOCKER_TLS_VERIFY"] = "1"
+                    # The CLI reads ca.pem, cert.pem and key.pem from that directory unless told otherwise; a file the
+                    # context does not have is switched off (no CA: the system roots, as `--context` does).
+                    pin_args = [flag for name, flag in (("ca.pem", "--tlscacert="), ("cert.pem", "--tlscert="),
+                                                        ("key.pem", "--tlskey=")) if name not in files]
             elif skip:
                 pin_args = list(_TLS_NO_CERTIFICATES)
         base = f"{context} {host}"

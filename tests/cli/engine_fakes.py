@@ -615,7 +615,8 @@ if args[:2] == ["context", "inspect"]:
     host = os.environ.get("FAKE_DOCKER_HOST", "unix:///var/run/docker.sock")
     if os.environ.get("FAKE_DOCKER_TLSPATH"):  # a context that carries client certificates (or only skips verification)
         host += "\t" + os.environ["FAKE_DOCKER_TLSPATH"] + "\t" + os.environ.get("FAKE_DOCKER_SKIPTLS", "false") \
-            + "\t" + ("" if os.environ.get("FAKE_DOCKER_NOCERTS") else "xxx")
+            + "\t" + ("" if os.environ.get("FAKE_DOCKER_NOCERTS")
+                       else os.environ.get("FAKE_DOCKER_TLSFILES", "ca.pem,cert.pem,key.pem") + ",")
     print(host); sys.exit(0)
 if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in args):
     # A row may carry a fourth item, "stopped" (listed only by `ps -a`), and a fifth, its environment list.
