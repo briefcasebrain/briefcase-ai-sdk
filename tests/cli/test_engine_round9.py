@@ -203,8 +203,8 @@ def test_destructive_calls_are_bound_to_the_verified_daemon(env, monkeypatch, ca
     destructive = [c for c in calls(env["log"]) if c["argv"][:2] in (["volume", "rm"], ["image", "rm"])
                    or (c["argv"][:1] == ["compose"] and "down" in c["argv"])]
     assert destructive, "the purge should have run"
-    assert all(c["context"] == "remote" for c in destructive), \
-        "a destructive call was not pinned to the verified daemon's context"
+    assert all(c["host"] == "ssh://elsewhere" and c["context"] is None for c in destructive), \
+        "a destructive call was not pinned to the verified daemon's endpoint"
 
 
 # --- D4: the daemon is recorded before the first operation that can create a volume ----------------
@@ -389,11 +389,11 @@ def test_up_runs_every_step_against_the_daemon_it_recorded_and_changes_nothing_t
     capsys.readouterr()
     del subprocess_run
     (up,) = compose_ups(env)
-    assert up["context"] == "default", "compose ran on the active context, not the one that was identified"
+    assert up["host"] == "unix:///var/run/docker.sock", "compose ran on the active daemon, not the one identified"
     assert "--no-recreate" in up["argv"] and "--remove-orphans" not in up["argv"]
     assert all(env_value is None for _, env_value in seen), "COMPOSE_REMOVE_ORPHANS reached a compose call"
     checks = [c for c in calls(env["log"]) if c["argv"][:1] in (["volume"], ["image"], ["ps"])]
-    assert checks and all(c["context"] == "default" for c in checks), "a start check ran before the pin"
+    assert checks and all(c["host"] == "unix:///var/run/docker.sock" for c in checks), "a check ran before the pin"
 
 
 def test_docker_identity_follows_the_precedence_the_docker_cli_has():
@@ -411,10 +411,10 @@ def test_docker_identity_follows_the_precedence_the_docker_cli_has():
     assert _install_mod.docker_identity(runner, both) == "default tcp://from-host:2375"
     asked.clear()
     assert _install_mod.docker_identity(runner, {"DOCKER_CONTEXT": "work"}) == "work ssh://from-context"
-    assert ["docker", "context", "inspect", "work", "--format", "{{.Endpoints.docker.Host}}"] in asked
+    assert any(a[:5] == ["docker", "context", "inspect", "work", "--format"] for a in asked)
 
 
-def test_a_context_pin_is_the_context_itself_so_tls_material_stays(env, monkeypatch, capsys):
+def test_a_context_pin_is_its_verified_endpoint(env, monkeypatch, capsys):
     synthetic(env, [A], A)
     state = json.loads(_engine.installed_path().read_text())
     state["docker_contexts"] = ["tlsctx tcp://remote:2376"]
@@ -425,7 +425,7 @@ def test_a_context_pin_is_the_context_itself_so_tls_material_stays(env, monkeypa
     main(["engine", "uninstall", "--purge", "--yes"])
     capsys.readouterr()
     pinned = [c for c in calls(env["log"]) if c["argv"][:2] in (["volume", "rm"], ["image", "rm"])]
-    assert pinned and all(c["context"] == "tlsctx" and c["host"] is None for c in pinned)
+    assert pinned and all(c["host"] == "tcp://remote:2376" and c["context"] is None for c in pinned)
 
 
 def test_plain_down_refuses_a_daemon_the_record_does_not_name(env, monkeypatch, capsys):

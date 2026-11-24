@@ -832,7 +832,24 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
     return record
 
 
-def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = None) -> Optional[str]:
+class DaemonIdentity(str):
+    """``"<context> <endpoint>"`` for the Docker daemon that was verified, plus ``pin_env``: the environment that makes
+    ``docker`` talk to exactly that endpoint (with the certificates the context holds) whatever the context is
+    repointed to afterwards. It compares and is stored as the plain string."""
+
+    pin_env: Dict[str, str]
+
+    def __new__(cls, text: str, pin_env: Optional[Mapping[str, str]] = None) -> "DaemonIdentity":
+        self = super().__new__(cls, text)
+        self.pin_env = dict(pin_env or {})
+        return self
+
+
+_INSPECT_FORMAT = ("{{.Endpoints.docker.Host}}\t{{.Storage.TLSPath}}\t{{.Endpoints.docker.SkipTLSVerify}}\t"
+                   '{{range index .TLSMaterial "docker"}}x{{end}}')
+
+
+def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = None) -> Optional[DaemonIdentity]:
     """Which Docker daemon ``docker`` talks to: the active context's name and endpoint (``DOCKER_HOST`` wins). The
     volumes an install created live on that daemon; a probe made against another one proves nothing about them.
     ``None`` when it cannot be established."""
@@ -845,21 +862,29 @@ def docker_identity(runner=subprocess.run, env: Optional[Mapping[str, str]] = No
             name = runner(["docker", "context", "show"], capture_output=True, text=True)
             context = (name.stdout or "").strip() if getattr(name, "returncode", 1) == 0 else ""
             context = context or "default"
-        elif env.get("DOCKER_CONTEXT"):
-            context, host = env["DOCKER_CONTEXT"], ""
+            return DaemonIdentity(f"{context} {host}", {"DOCKER_HOST": host})
+        if env.get("DOCKER_CONTEXT"):
+            context = env["DOCKER_CONTEXT"]
         else:
             name = runner(["docker", "context", "show"], capture_output=True, text=True)
             if getattr(name, "returncode", 1) != 0:
                 return None
             context = (name.stdout or "").strip() or "default"
-            host = ""
+        info = runner(["docker", "context", "inspect", context, "--format", _INSPECT_FORMAT],
+                      capture_output=True, text=True)  # one read: the endpoint and the certificates it uses
+        if getattr(info, "returncode", 1) != 0:
+            return None
+        host, _, rest = (info.stdout or "").strip("\r\n").partition("\t")
+        tls_path, _, rest = rest.partition("\t")
+        skip_verify, _, material = rest.partition("\t")
+        host = host.strip()
         if not host:
-            info = runner(["docker", "context", "inspect", context, "--format", "{{.Endpoints.docker.Host}}"],
-                          capture_output=True, text=True)
-            if getattr(info, "returncode", 1) != 0:
-                return None
-            host = (info.stdout or "").strip()
-        return f"{context} {host}"
+            return None
+        pin = {"DOCKER_HOST": host}
+        if material.strip() and tls_path.strip():
+            pin["DOCKER_CERT_PATH"] = tls_path.strip() + "/docker"
+            pin["DOCKER_TLS" if skip_verify.strip() == "true" else "DOCKER_TLS_VERIFY"] = "1"
+        return DaemonIdentity(f"{context} {host}", pin)
     except (OSError, ValueError):
         return None
 

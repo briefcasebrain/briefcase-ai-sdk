@@ -157,26 +157,24 @@ def _dry(args) -> bool:
     return bool(getattr(args, "engine_dry_run", False) or getattr(args, "dry_run", False))
 
 
-_PINS: List[Tuple[str, str]] = []
+_PINS: List[Dict[str, str]] = []
 
 
 def _runner():
-    """``subprocess.run`` for docker, honouring the daemon pinned by :func:`_pinned` and never letting the caller's
-    ``COMPOSE_REMOVE_ORPHANS`` turn one of our Compose calls into a deletion."""
+    """``subprocess.run`` for docker, honouring the daemon pinned by :func:`_pinned`. A Compose call runs with
+    ``COMPOSE_REMOVE_ORPHANS`` set to false: unset, Compose would take it from ``engine.env``, and the caller's own
+    value must not turn one of our calls into a deletion either (``--remove-orphans`` on the command line still
+    wins where an upgrade asks for it)."""
     def run(argv, **kw):
         argv = list(argv)
-        env = None
-        if argv[:2] == ["docker", "compose"] and "env" not in kw:
-            env = {k: v for k, v in os.environ.items() if k != "COMPOSE_REMOVE_ORPHANS"}
-        if _PINS and argv[:1] == ["docker"]:
-            kind, value = _PINS[-1]
-            if kind == "host":  # the environment chose the daemon (DOCKER_HOST ranks above DOCKER_CONTEXT)
-                if "env" not in kw:
-                    env = {k: v for k, v in (env or os.environ).items() if k != "DOCKER_CONTEXT"}
-                    env["DOCKER_HOST"] = value
-            else:  # `--context` outranks both variables and carries the context's own TLS material
-                argv = [argv[0], "--context", value, *argv[1:]]
-        if env is not None and "env" not in kw:
+        if "env" not in kw and argv[:1] == ["docker"]:
+            env = dict(os.environ)
+            if argv[:2] == ["docker", "compose"]:
+                env.pop("COMPOSE_REMOVE_ORPHANS", None)
+            if _PINS:
+                for name in ("DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
+                    env.pop(name, None)
+                env.update(_PINS[-1])
             kw["env"] = env
         return subprocess.run(argv, **kw)
     return run
@@ -184,15 +182,14 @@ def _runner():
 
 @contextlib.contextmanager
 def _pinned(identity: Optional[str]) -> Iterator[None]:
-    """Run every docker call inside the block against the daemon whose identity was verified. A daemon chosen by
-    ``DOCKER_HOST`` is pinned by that endpoint; one chosen by a context is pinned by ``--context`` (the context
-    itself, so a TLS context keeps its certificates)."""
-    if not identity or " " not in identity:
+    """Run every docker call inside the block against the daemon whose identity was verified, by the endpoint (and the
+    certificates) that verification read: a context repointed afterwards, while a confirmation waits, changes
+    nothing."""
+    pin = getattr(identity, "pin_env", None)
+    if not pin:
         yield
         return
-    name, host = identity.split(" ", 1)
-    pin = ("host", host.strip()) if os.environ.get("DOCKER_HOST") else ("context", name)
-    _PINS.append(pin)
+    _PINS.append(dict(pin))
     try:
         yield
     finally:
@@ -435,12 +432,12 @@ def _daemon_check(state: Dict[str, Any], need_record: bool) -> Tuple[Optional[st
         if need_record:
             return None, ["the record does not say which Docker daemon this install used, so a probe here says "
                           "nothing about its volumes"]
-        return None, []
+        return here, []
     if here is None or set(recorded) != {here}:
         return None, ["the Docker daemon is not the one this install used (it used "
                       f"{', '.join(recorded)}; now {here or 'unknown'}), so a probe here says nothing about "
                       "its volumes"]
-    return recorded[0], []
+    return here, []
 
 
 def _engine_state_used(state: Dict[str, Any]) -> bool:
@@ -804,7 +801,9 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
                     print(f"error: could not put the previous transport back ({exc}); the engine record and the "
                           "running server may disagree: run `briefcase-ai engine install` again", file=sys.stderr)
 
-        status, running, why = running_releases()
+        daemon = _inst.docker_identity(_runner(), opts.env)
+        with _pinned(daemon):  # what runs is read on the daemon the restart would use
+            status, running, why = running_releases()
         current = _engine.current_install(opts.env) or previous
         keep = current["version"] if current else "the old release"
         if status != "ok":
@@ -820,7 +819,6 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
                 return _ux.fail(f"engine {(others or running)[0]} is running and {record['version']} was installed "
                                 "without images, so it cannot take over", fix="briefcase-ai engine down")
             try:
-                daemon = _inst.docker_identity(_runner(), opts.env)
                 if daemon is None:
                     restore()
                     return _ux.fail("could not tell which Docker daemon this is, so the engine was not restarted",

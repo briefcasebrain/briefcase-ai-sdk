@@ -437,12 +437,32 @@ except (OSError, ValueError):
 def save():
     json.dump(state, open(state_path, "w"))
 
+def compose_orphans():
+    """COMPOSE_REMOVE_ORPHANS as Compose resolves it: the process environment (which this subprocess really
+    inherited, so a filtered variable is absent here) and, only when that is unset, the --env-file."""
+    if args[:1] != ["compose"]:
+        return None
+    if "COMPOSE_REMOVE_ORPHANS" in os.environ:
+        return os.environ["COMPOSE_REMOVE_ORPHANS"]
+    if "--env-file" in args:
+        try:
+            for line in open(args[args.index("--env-file") + 1]).read().splitlines():
+                if line.startswith("COMPOSE_REMOVE_ORPHANS="):
+                    return line.split("=", 1)[1]
+        except OSError:
+            pass
+    return None
+
 def record(stdin=""):
     with open(log, "a") as f:
         f.write(json.dumps({"tool": tool, "argv": args, "stdin": stdin,
                             "token": os.environ.get("OCI_JJ_AUTH_TOKEN"),
                             "context": pin_context or os.environ.get("DOCKER_CONTEXT"),
-                            "host": os.environ.get("DOCKER_HOST")}) + "\n")
+                            "host": os.environ.get("DOCKER_HOST"),
+                            "tls_verify": os.environ.get("DOCKER_TLS_VERIFY"),
+                            "tls": os.environ.get("DOCKER_TLS"),
+                            "cert_path": os.environ.get("DOCKER_CERT_PATH"),
+                            "orphans": compose_orphans()}) + "\n")
 
 def blob(tar, names, digest):
     return json.loads(tar.extractfile(names["blobs/sha256/" + digest[7:]]).read())
@@ -573,7 +593,10 @@ if args[:2] == ["context", "show"]:
     print(pin_context or ("default" if os.environ.get("DOCKER_HOST") else None)
           or os.environ.get("DOCKER_CONTEXT") or os.environ.get("FAKE_DOCKER_CONTEXT", "default")); sys.exit(0)
 if args[:2] == ["context", "inspect"]:
-    print(os.environ.get("FAKE_DOCKER_HOST", "unix:///var/run/docker.sock")); sys.exit(0)
+    host = os.environ.get("FAKE_DOCKER_HOST", "unix:///var/run/docker.sock")
+    if os.environ.get("FAKE_DOCKER_TLSPATH"):  # a context that carries client certificates
+        host += "\t" + os.environ["FAKE_DOCKER_TLSPATH"] + "\tfalse\txxx"
+    print(host); sys.exit(0)
 if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in args):
     for i, _ in enumerate(containers_now()):
         print("c%d" % i)
