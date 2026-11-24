@@ -143,7 +143,7 @@ all = ["briefcase-ai[replay,drift,sanitize,otel,storage,validate,guardrails,rag,
 
 [project.scripts]
 briefcase-ai-mcp = "briefcase.mcp.__main__:main"
-briefcase-ai = "briefcase.cli.__main__:main"
+briefcase-ai = "briefcase_entry:main"
 
 [tool.pytest.ini_options]
 # `tests/` mocks briefcase._native process-wide, so it cannot share an
@@ -236,6 +236,8 @@ features = ["pyo3/extension-module"]
 manifest-path = "bindings/python/Cargo.toml"
 module-name = "briefcase._native"
 python-source = "."
+# The console script's stdlib-only entry package ships beside the main one.
+python-packages = ["briefcase_entry"]
 # Bundle the license files into the sdist/wheel. maturin declares
 # `License-File: LICENSE` in the metadata, so the file must be present or PyPI
 # rejects the upload with a 400.
