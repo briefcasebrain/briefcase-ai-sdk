@@ -427,3 +427,12 @@ def test_threads_reserving_never_overshoot(table):
 
 def test_store_default_is_memory():
     assert isinstance(Budgets().store, MemoryBudgetStore)
+
+
+def test_the_default_store_follows_the_injected_clock_not_the_wall_clock(table):
+    """Counters expire a day after their window ends. With a clock set to any past date the default store must age
+    them by that clock: aged by the wall clock they were already gone, and spend read back as zero."""
+    for year in (2001, 2026):
+        eng = engine(table, Budget("daily", usd=10), clock=Clock(datetime(year, 1, 5, 10, 30, tzinfo=timezone.utc)))
+        eng.reserve("gpt-4o", 1000, 500)
+        assert used(eng)[1] == 1500

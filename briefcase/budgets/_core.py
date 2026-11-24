@@ -398,12 +398,16 @@ class Budgets:
             raise ValueError(f"unpriced must be one of {UNPRICED_POLICIES}, got {unpriced!r}")
         from briefcase.budgets.stores import MemoryBudgetStore
 
-        self.store = store if store is not None else MemoryBudgetStore()
+        self.clock = clock or (lambda: datetime.now(timezone.utc))
+        # Counters age by the engine's clock: a store on the wall clock drops a window the injected clock still calls
+        # current, and spend reads back as zero.
+        if store is None:
+            store = MemoryBudgetStore(clock=lambda: self.clock().timestamp())
+        self.store = store
         self.unpriced = unpriced
         self.default_max_tokens = int(default_max_tokens)
         self.token_counter = token_counter
         self._pricing = pricing
-        self.clock = clock or (lambda: datetime.now(timezone.utc))
         self._budgets: Dict[str, Budget] = {}
         self._lock = threading.Lock()
         self._warned_unpriced: set = set()
