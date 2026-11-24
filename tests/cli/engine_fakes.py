@@ -714,7 +714,8 @@ if args[:1] == ["compose"]:
         sys.stderr.write("service failed to start\n"); sys.exit(1)
     if "config" in args and "--services" in args:
         import re as _re
-        for name in _re.findall(r"^  (\S+):\n", open(args[args.index("-f") + 1]).read().split("volumes:")[0], _re.M):
+        text = open(args[args.index("-f") + 1]).read().split("\nvolumes:\n")[0]  # the top-level volumes key
+        for name in _re.findall(r"^  (\S+):\n", text, _re.M):
             print(name)
         sys.exit(0)
     if "-f" in args and "start" in args:
@@ -745,8 +746,9 @@ if args[:1] == ["compose"]:
             text = open(path).read()
             started = []
             for service, ref in _re.findall(r"^  (\S+):\n(?:    .*\n)*?    image: (\S+)", text, _re.M):
-                if ref in state["refs"]:
-                    started.append([service, state["refs"][ref], path])
+                # Compose creates every service; an image the installer did not load (minio, registry) gets an id
+                started.append([service, state["refs"].get(ref) or "sha256:" + hashlib.sha256(ref.encode()).hexdigest(),
+                                path])
             state["containers"] = started
             state["servers"] = [c[1] for c in started if c[0] == "oci-jj-server"]
         save()

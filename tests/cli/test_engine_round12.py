@@ -478,3 +478,48 @@ def test_up_on_a_fresh_stack_reports_success_when_nothing_was_removed(env, monke
     configure(env, monkeypatch, "ok", "none", "none")
     assert main(["engine", "up"]) == 0
     assert "started" in capsys.readouterr().out
+
+
+# --- can-follows -------------------------------------------------------------------------------------------
+
+def test_the_fake_lists_every_service_of_the_generated_compose_file(env, key, capsys):
+    from pathlib import Path
+
+    from briefcase.engine import compose as _compose
+    from tests.cli.test_engine_install import _install
+
+    assert _install("--code", "bci_good") == 0
+    record = _engine.current_install()
+    capsys.readouterr()
+    import re
+
+    text = open(record["compose"]).read().split("\nvolumes:\n")[0]
+    declared = set(re.findall(r"^  (\S+):\n", text, re.M))
+    assert {"postgres", "minio", "registry", "oci-jj-server", "gateway", "workers"} <= declared
+    argv = _compose.compose_argv(Path(record["compose"]), Path(record["env_file"]), "config", "--services")
+    out = engine_commands._run(argv, capture_output=True, text=True)
+    assert set(out.stdout.split()) == declared
+
+
+def test_up_wait_over_existing_containers_starts_then_waits_without_start_wait_flags(env, monkeypatch, capsys):
+    from tests.cli.test_engine_invariants import containers_for
+
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "none")
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))[:2]))
+    waited = []
+    monkeypatch.setattr(engine_commands, "wait_running", lambda record, *a, **k: waited.append(record) or True)
+    assert main(["engine", "up", "--wait"]) == 0
+    capsys.readouterr()
+    (start,) = [c["argv"] for c in compose_calls(env) if "start" in c["argv"]]
+    assert "--wait" not in start and waited
+
+
+def test_wait_running_waits_for_health_and_gives_up(monkeypatch):
+    answers = iter([[{"service": "s", "state": "running", "health": "starting"}],
+                    [{"service": "s", "state": "running", "health": "healthy"}]])
+    monkeypatch.setattr(engine_commands, "_services", lambda record: next(answers))
+    assert engine_commands.wait_running({}, timeout=5, interval=0)
+    monkeypatch.setattr(engine_commands, "_services",
+                        lambda record: [{"service": "s", "state": "exited", "health": ""}])
+    assert not engine_commands.wait_running({}, timeout=0, interval=0)

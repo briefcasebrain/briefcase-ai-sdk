@@ -22,6 +22,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
@@ -1199,14 +1200,13 @@ def _start_argv(record: Dict[str, Any], present: Set[str], wait: bool) -> Tuple[
     services = {ln.strip() for ln in (getattr(res, "stdout", "") or "").splitlines() if ln.strip()}
     if res is None or _rc(res) != 0 or not services:
         return None, "docker compose could not list the engine's services, so nothing was started"
-    tail = ["--wait", "--wait-timeout", "300"] if wait else []
     if not present:
-        return _compose(record, "up", "-d", "--no-recreate", *tail), ""
+        return _compose(record, "up", "-d", "--no-recreate", *(["--wait", "--wait-timeout", "300"] if wait else [])), ""
     missing = sorted(services - present)
     if missing:
         return None, (f"the stack is partial (no container for {', '.join(missing)}); starting it would need Compose "
                       "to create containers beside existing ones, which can remove containers")
-    return _compose(record, "start", *tail), ""
+    return _compose(record, "start"), ""  # `start` has no --wait before Compose 2.24.7: cmd_up waits itself
 
 
 def _daemon_time() -> Optional[str]:
@@ -1227,6 +1227,18 @@ def destroyed_since(since: str, until: str) -> Optional[List[str]]:
     if res is None or _rc(res) != 0:
         return None
     return [ln.strip() for ln in (getattr(res, "stdout", "") or "").splitlines() if ln.strip()]
+
+
+def wait_running(record: Dict[str, Any], timeout: float = 300.0, interval: float = 2.0) -> bool:
+    """Wait until every service of the engine is running and, where it has a health check, healthy."""
+    deadline = time.monotonic() + timeout
+    while True:
+        services = _services(record)
+        if services and all(s["state"] == "running" and s["health"] in ("", "healthy") for s in services):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(interval)
 
 
 def _locked(args):
@@ -1293,6 +1305,8 @@ def cmd_up(args, store, engine, stack) -> int:
                     return _ux.fail(f"Compose removed {', '.join(removed)} while starting the engine (another Compose "
                                     "client was creating containers for this project at the same time); its "
                                     "writable layer is gone", fix="briefcase-ai engine status")
+    if rc == 0 and getattr(args, "wait", False) and "start" in command and not wait_running(record):
+        return _ux.fail("the engine did not become healthy within 300 seconds", fix="briefcase-ai engine logs")
     if rc != 0:
         return _ux.fail("docker compose up failed (see above)", fix="briefcase-ai engine doctor")
     print(f"engine {record['version']} started: gRPC {record['grpc_addr']}, registry gateway {record['gateway']}")
