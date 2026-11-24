@@ -129,7 +129,10 @@ def _tool_call(tool, tool_name, tool_input, cwd, common):
         path = _first_path(tool_input) or (cwd if tool_name != "Read" else None)
         if not path:
             return ToolCall("invalid", tool, tool_name, note="no file path in the hook input", **common)
-        return ToolCall("read", tool, tool_name, paths=[path], cwd=cwd, defect=_path_defect([path], cwd), **common)
+        defect = _path_defect([path], cwd)
+        if not defect and tool_name in ("Glob", "Grep") and not _text(tool_input.get("pattern")):
+            defect = f"{tool_name} names no pattern, so what it searches for cannot be judged"
+        return ToolCall("read", tool, tool_name, paths=[path], cwd=cwd, defect=defect, **common)
     if tool_name in _WRITE_TOOLS:
         path = _first_path(tool_input)
         if not path:
@@ -178,15 +181,23 @@ def parse(tool, payload):
     return validate(_parse(tool, payload))
 
 
+_FORBIDDEN_HOST = re.compile(r"[\x00-\x20#/:<>?@\[\\\]^|%\x7f]")
+
+
 def _absolute_url_problem(url):
-    """Why ``url`` is not an absolute URL with a well-formed authority (``None`` when it is). Parsed the way a URL
-    parser reads it, and required to agree with the host the policy engine matches rules against: a rule about hosts
-    has nothing to match on a relative string or an authority the two readings split differently."""
+    """Why ``url`` is not an absolute URL a fetch client would read the way the policy engine does (``None`` when it
+    is). The authority must parse, have a well-formed port, and name a host in its canonical form: ASCII, none of the
+    code points the URL Standard forbids in a host, no percent-encoding, and a number only as a canonical dotted
+    IPv4 address (``0x7f.0.0.1`` and ``2130706433`` are 127.0.0.1 to a client and a different string to a rule). A
+    malformed percent escape anywhere is refused, and the host must agree with the one rules are matched against."""
+    import ipaddress
     from urllib.parse import urlsplit
 
     from briefcase.policy.engine import host_of
 
     text = url.strip()
+    if re.search(r"%(?![0-9A-Fa-f]{2})", text):
+        return "it has a malformed percent escape"
     try:
         parts = urlsplit(text)
         host = parts.hostname
@@ -199,6 +210,25 @@ def _absolute_url_problem(url):
         return "it has no host"
     if re.search(r"[\s\\]", parts.netloc):
         return "its authority has whitespace or a backslash"
+    if not host.isascii():
+        return "its host is not ASCII"
+    if "%" in host:
+        return "its host is percent-encoded or has a zone identifier"
+    if "[" in parts.netloc:
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError:
+            return "its IPv6 host is malformed"
+    else:
+        if _FORBIDDEN_HOST.search(host):
+            return "its host has a character a host cannot contain"
+        last = host.rstrip(".").rsplit(".", 1)[-1].lower()
+        if last.isdigit() or last.startswith("0x"):
+            try:
+                if str(ipaddress.IPv4Address(host.rstrip("."))) != host.rstrip("."):
+                    raise ValueError(host)
+            except ValueError:
+                return "its host is a number that is not a canonical IPv4 address"
     if host_of(text) != host.rstrip(".").lower():
         return "the policy engine reads another host from it"
     return None

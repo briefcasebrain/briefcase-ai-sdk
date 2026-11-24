@@ -1067,11 +1067,50 @@ EXPLICIT = [
 ]
 
 
-@pytest.mark.parametrize("policy, allowed", EXPLICIT, ids=["implicit", "declared_default", "allow_rule", "observe",
-                                                          "observe_deny"])
+@pytest.mark.parametrize("policy, allowed", EXPLICIT,
+                         ids=["implicit", "declared_default", "allow_rule", "observe", "observe_deny"])
 @pytest.mark.parametrize("entry", ["module", "launcher"])
 @pytest.mark.parametrize("tool", TOOLS)
 def test_a_bound_hook_allows_only_what_the_required_policy_explicitly_allows(
         home, project, tmp_path, monkeypatch, tool, policy, allowed, entry):
     code, raw = _bound(tool, project, policy, tmp_path, monkeypatch, _harmless(tool, project), entry)
     assert (not denies(tool, code, raw)) == allowed, (code, raw)
+
+
+# --- round 15: URLs a fetch client would read differently, and searches with nothing to search for -------------------
+
+AMBIGUOUS_URLS = ["https://example.com/%zz", "https://example.com/%", "https://exa%mple.com/", "https://%65xample.com/",
+                  "https://exa<mple.com/", "https://exa|mple.com/", "https://ex^ample.com/", "http://0x7f.0.0.1/",
+                  "http://127.1/", "http://2130706433/", "https://exämple.com/", "https://[::1%25eth0]/x",
+                  "https://[zz::1]/x", "https://example.com:8080:9/x"]
+GOOD_URLS = ["https://example.com/a%20b", "https://[::1]:8443/x", "http://127.0.0.1:8080/",
+             "https://Example.COM./x?q=%41"]
+
+
+@pytest.mark.parametrize("url", AMBIGUOUS_URLS)
+@pytest.mark.parametrize("tool", ["claude-code", "cursor"])
+def test_a_strict_hook_denies_a_url_a_fetch_client_would_read_differently(home, project, tool, url):
+    _observe(home)
+    body = _events(tool, project)["pre_web" if tool == "cursor" else "web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry("module", tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), f"{url!r} was allowed: {code} {raw!r}"
+
+
+@pytest.mark.parametrize("url", GOOD_URLS)
+def test_a_strict_hook_still_allows_a_well_formed_url(home, project, url):
+    _observe(home)
+    body = _events("claude-code", project)["web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
+    assert not denies("claude-code", code, raw), f"{url!r} was denied: {code} {raw!r}"
+
+
+@pytest.mark.parametrize("tool_name", ["Glob", "Grep"])
+@pytest.mark.parametrize("tool_input", [{}, {"pattern": "  "}, {"path": "/tmp"}])
+def test_a_strict_hook_denies_a_search_with_no_pattern(home, project, tool_name, tool_input):
+    _observe(home)
+    body = _events("claude-code", project)["bash"]
+    body["tool_name"], body["tool_input"] = tool_name, tool_input
+    code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
+    assert denies("claude-code", code, raw), (tool_name, tool_input, code, raw)
