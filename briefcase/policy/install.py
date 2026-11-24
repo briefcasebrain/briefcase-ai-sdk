@@ -37,6 +37,14 @@ class HookOptions:
     endpoint: str = DEFAULT_ENDPOINT
     portable: bool = False
     require_policy_sha: str = ""  # a managed hook names the system policy it requires, by hash
+    accept_codex_startup_risk: bool = False  # Codex cannot be made to block when its hook executable is missing
+
+
+CODEX_STARTUP_RISK = (
+    "Codex starts the hook command itself. If its executable is missing or not on PATH when Codex starts, the "
+    "command fails with a status Codex treats as an ordinary hook failure and runs the tool anyway; "
+    "briefcase-ai cannot block that, because none of its code has started. --fail-closed for Codex covers every "
+    "failure after the hook starts, not that one")
 
 
 def launcher_path() -> str:
@@ -137,6 +145,10 @@ class PolicyAdapter(Adapter):
             # A startup guarantee that cannot be met is refused, not installed with a note.
             from briefcase.connect.adapters import ProfileError
 
+            if self.tool == "codex" and not self.options.accept_codex_startup_risk:
+                raise ProfileError(CODEX_STARTUP_RISK + ". Pass --accept-codex-startup-risk to install it anyway, "
+                                   "knowing that")
+
             if self.options.portable and not shutil.which("briefcase-ai"):
                 raise ProfileError("--fail-closed needs `briefcase-ai` on PATH for the portable hook, and it is "
                                    "not: a hook that cannot start would not block")
@@ -153,9 +165,11 @@ class PolicyAdapter(Adapter):
             if self.options.fail_closed:
                 version = parse_version(self.version())
                 if version is None:
-                    notes.append(f"fail_closed: `{field['name']}: \"{field['value']}\"` needs Claude Code "
-                                 f"{field['min_version']}+; the installed version could not be read, so it is "
-                                 "written anyway")
+                    from briefcase.connect.adapters import ProfileError
+
+                    raise ProfileError(f"--fail-closed needs Claude Code {field['min_version']}+ for "
+                                       f"`{field['name']}: \"{field['value']}\"`, and the installed version could "
+                                       "not be read: without it a hook that cannot start would not block")
                 elif version < (parse_version(field["min_version"]) or (0,)):
                     from briefcase.connect.adapters import ProfileError
 
@@ -185,6 +199,8 @@ class PolicyAdapter(Adapter):
                 path = ctx.project_dir / ".codex" / "hooks.json"
             else:
                 path = self.path("user_hooks")
+            if self.options.fail_closed:
+                notes.append("fail-closed: " + CODEX_STARTUP_RISK)
             notes += ["experimental: taken from Codex's documentation, never run against Codex",
                       "Codex skips a new hook until you trust it: open /hooks in Codex once after this",
                       "Codex cannot ask from a hook, so an `ask` rule becomes the policy's ask_fallback"]

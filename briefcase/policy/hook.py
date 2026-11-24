@@ -42,32 +42,38 @@ FIX = "Fix it with `briefcase-ai policy check`, or turn enforcement off with `br
 
 
 class Options(object):
-    __slots__ = ("tool", "fail_closed", "capture_content", "endpoint", "endpoint_set", "report", "require_policy")
+    __slots__ = ("tool", "fail_closed", "capture_content", "endpoint", "endpoint_set", "report", "require_policy",
+                 "parse_error")
 
     def __init__(self, argv):
-        """Hand-rolled on purpose: argparse exits 2 on an unknown flag, and exit 2 blocks the tool call."""
+        """Hand-rolled on purpose: argparse exits 2 on an unknown flag, and exit 2 blocks the tool call.
+
+        Strictness is decided first and on its own: ``--fail-closed`` anywhere on the command line turns it on,
+        even where a value-taking option would otherwise have claimed that token as its value."""
         self.tool = argv[0] if argv else ""
-        self.fail_closed = False
+        self.fail_closed = "--fail-closed" in argv
         self.require_policy = ""
         self.capture_content = False
+        self.parse_error = ""
         self.endpoint = os.environ.get("BRIEFCASE_RECEIVER_ENDPOINT") or ""
         self.endpoint_set = bool(self.endpoint)
         self.report = os.environ.get("BRIEFCASE_POLICY_REPORT", "1") not in ("0", "false", "off", "no")
         index = 1
         while index < len(argv):
             flag = argv[index]
-            if flag == "--fail-closed":
-                self.fail_closed = True
-            elif flag == "--capture-content":
+            if flag == "--capture-content":
                 self.capture_content = True
             elif flag == "--no-report":
                 self.report = False
-            elif flag == "--require-policy-sha256" and index + 1 < len(argv):
-                index += 1
-                self.require_policy = argv[index].strip().lower()
-            elif flag == "--endpoint" and index + 1 < len(argv):
-                index += 1
-                self.endpoint, self.endpoint_set = argv[index], True
+            elif flag in ("--require-policy-sha256", "--endpoint"):
+                if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+                    self.parse_error = f"{flag} has no value"  # never swallow the next option as its value
+                else:
+                    index += 1
+                    if flag == "--endpoint":
+                        self.endpoint, self.endpoint_set = argv[index], True
+                    else:
+                        self.require_policy = argv[index].strip().lower()
             index += 1
         if not self.endpoint:
             self.endpoint = DEFAULT_ENDPOINT
@@ -246,32 +252,53 @@ def spawn_report(options, event):
 
 # --- the hook -----------------------------------------------------------------
 
-def _required_policy_present(model, wanted):
-    """Is the system policy file there, and exactly the one this hook was deployed with?"""
+def _read_required(model, wanted):
+    """``(bytes, "")`` when the system policy file is the one this hook was deployed with, else ``(None, why)``.
+
+    The bytes returned are the bytes that were hashed; the caller hands them to the loader, so what is judged is
+    exactly what was authenticated and a file swapped in between cannot be."""
     import hashlib
 
     try:
         with open(model.system_policy_path(), "rb") as handle:
-            return hashlib.sha256(handle.read()).hexdigest() == wanted
+            data = handle.read()
     except OSError:
-        return False
+        data = None
+    if data is not None and hashlib.sha256(data).hexdigest() == wanted:
+        return data, ""
+    return None, ("the system policy this hook was deployed with is missing or is not the one it requires "
+                  f"(sha256 {wanted[:12]}...), so no weaker policy is used in its place")
 
 
 def _load_errors(loaded):
     return "; ".join(f"{path or source}: {text}" for source, path, text in loaded.errors)
 
 
+def _verdict(tool, event, started, entry, effect, text, rule, problem=None):
+    entry.update(effect=effect, would=effect, rule=rule, source="setting")
+    if problem:
+        entry["error"] = problem
+    entry["ms"] = round((time.perf_counter() - started) * 1000, 2)
+    from briefcase.policy import tools
+    return tools.respond(tool, event, effect, text), entry
+
+
 def decide(options, payload):
-    """``(stdout, log entry or None)`` for one hook payload. Raises on anything unexpected."""
+    """``(stdout, log entry or None)`` for one hook payload. Raises on anything unexpected.
+
+    The only way to ``allow`` under strictness is: a fully valid event of a tool the policy covers, the required
+    policy (if one is named) loaded from the very bytes that were hashed, every policy file applied, and the
+    policy's own explicit ``allow``. Every other path ends in a deny."""
     from briefcase.policy import engine, model, tools
 
     tool = options.tool
     started = time.perf_counter()
     call = tools.parse(tool, payload)
     event = tools.event_of(tool, payload)
-    if call.kind == "other":
-        return tools.respond(tool, event, "allow"), None
-    loaded = model.load(call.project_dir or call.cwd)
+    required, required_problem = (None, "")
+    if options.require_policy:
+        required, required_problem = _read_required(model, options.require_policy)
+    loaded = model.load(call.project_dir or call.cwd, texts={"system": required} if required is not None else None)
     fail_closed = options.fail_closed = options.fail_closed or loaded.fail_closed
     entry = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "tool": tool, "event": event, "kind": call.kind,
@@ -286,26 +313,35 @@ def decide(options, payload):
         entry["target_hmac_sha256"] = keyed_hash(target)
         if options.capture_content:
             entry["target"] = target[:4000]
-    warning = None
-    problem = None
-    if call.kind == "invalid":
-        entry["note"] = call.note
-        if not fail_closed:  # not enforcing strictly: an event this policy cannot judge is not blocked
+    if required_problem:  # terminal, strict or not: a hook bound to a policy never judges by another
+        record_problem(required_problem, tool, True)
+        return _verdict(tool, event, started, entry, "deny", f"Blocked by briefcase-ai policy: {required_problem}. "
+                        f"{FIX}", "fail_closed", required_problem)
+    if options.parse_error and fail_closed:
+        problem = f"the hook command line is malformed ({options.parse_error})"
+        return _verdict(tool, event, started, entry, "deny",
+                        f"Blocked by briefcase-ai policy: {problem}, and the policy is fail_closed. {FIX}",
+                        "fail_closed", problem)
+    defect = call.note if call.kind == "invalid" else call.defect
+    if defect:
+        if fail_closed:
+            problem = f"the hook input is not a complete {tool} event for a tool this policy covers ({defect})"
+            return _verdict(tool, event, started, entry, "deny",
+                            f"Blocked by briefcase-ai policy: {problem}, and the policy is fail_closed, so nothing "
+                            f"runs. {FIX}", "fail_closed", defect)
+        if call.kind == "other":
+            return tools.respond(tool, event, "allow"), None
+        if call.kind == "invalid":  # not enforcing strictly: an event this policy cannot judge is not blocked
+            entry["note"] = call.note
             entry.update(effect="allow", would="allow", rule="not_judged", source="setting")
             entry["ms"] = round((time.perf_counter() - started) * 1000, 2)
             return tools.respond(tool, event, "allow"), entry
-        text = (f"Blocked by briefcase-ai policy: the hook input is not a valid {tool} event ({call.note}), and "
-                f"the policy is fail_closed, so nothing runs. {FIX}")
-        entry.update(effect="deny", would="deny", rule="fail_closed", source="setting", error=call.note)
-        entry["ms"] = round((time.perf_counter() - started) * 1000, 2)
-        return tools.respond(tool, event, "deny", text), entry
-    if options.require_policy and not _required_policy_present(model, options.require_policy):
-        problem = ("the system policy this hook was deployed with is missing or is not the one it requires "
-                   f"(sha256 {options.require_policy[:12]}...), so no weaker policy is used in its place")
-    elif loaded.policy is None:
+    warning = None
+    problem = None
+    if loaded.policy is None:
         if loaded.errors:
             problem = "the policy cannot be applied (" + _load_errors(loaded) + ")"
-        elif options.fail_closed:
+        elif fail_closed:
             problem = "no policy file was found, and the hook was installed with --fail-closed"
         else:
             problem = "no policy file was found (" + model.user_policy_path() + ")"
@@ -334,6 +370,8 @@ def decide(options, payload):
     if effect == "ask" and not tools.can_ask(tool, event):
         effect = loaded.policy.settings["ask_fallback"]
         downgraded = True
+    if fail_closed and effect not in ("allow", "deny", "ask"):
+        effect = "deny"
     entry.update(effect=effect, would=decision.would, mode=decision.mode, rule=decision.rule_id,
                  source=decision.match.source if decision.match else None)
     if decision.match is not None:
@@ -351,8 +389,28 @@ def decide(options, payload):
     return tools.respond(tool, event, effect, text, warning=warning), entry
 
 
+def settle(code):
+    """Make ``code`` the process's exit status even when stdout is a broken pipe.
+
+    A buffered stdout that failed to flush is flushed again by the interpreter at shutdown, and a failure there
+    turns the exit status into 120: a blocking 2 would read as an ordinary hook failure. Flush now, and if that
+    fails leave without the second attempt."""
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except BaseException:  # noqa: B036
+        os._exit(code)
+    return code
+
+
 def main(argv=None, stdin=None, stdout=None):
-    """Entry point. Always returns 0: the verdict is in the JSON on stdout."""
+    """Entry point. Returns 0, or 2 (the hosts' blocking status) when a fail-closed verdict could not be delivered.
+    The process's own exit status is settled here when this writes to the real stdout."""
+    code = _main(argv, stdin, stdout)
+    return settle(code) if stdout is None else code
+
+
+def _main(argv=None, stdin=None, stdout=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     options = None
     tool = argv[0] if argv else ""

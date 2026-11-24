@@ -37,10 +37,11 @@ class ToolCall(object):
     ``write``, ``mcp``, ``web`` or ``other`` (never judged)."""
 
     __slots__ = ("kind", "tool", "tool_name", "command", "cwd", "paths", "server", "name", "url",
-                 "project_dir", "dialect", "session_id", "tool_use_id", "note")
+                 "project_dir", "dialect", "session_id", "tool_use_id", "note", "defect")
 
     def __init__(self, kind, tool="", tool_name="", command=None, cwd=None, paths=(), server=None, name=None,
-                 url=None, project_dir=None, dialect="posix", session_id=None, tool_use_id=None, note=None):
+                 url=None, project_dir=None, dialect="posix", session_id=None, tool_use_id=None, note=None,
+                 defect=None):
         self.kind = kind
         self.tool = tool
         self.tool_name = tool_name
@@ -55,6 +56,9 @@ class ToolCall(object):
         self.session_id = session_id
         self.tool_use_id = tool_use_id
         self.note = note
+        # What is wrong with an otherwise judgeable event (no event name, an empty command, an unrecognised tool).
+        # A lenient hook still judges the call; a fail-closed one denies it.
+        self.defect = defect
 
     def target(self):
         """The text a decision is about: the command, the path, ``server.tool`` or the URL."""

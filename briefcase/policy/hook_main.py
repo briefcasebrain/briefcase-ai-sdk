@@ -21,7 +21,30 @@ import os
 import sys
 
 
+def _say(stream, text):
+    """Write and flush, never raising: a closed pipe must not change the exit status the caller chose."""
+    try:
+        stream.write(text)
+        stream.flush()
+    except BaseException:  # noqa: B036
+        pass
+
+
+def _leave(code):
+    """Exit with ``code`` even when a stream cannot be flushed at shutdown (the interpreter would say 120)."""
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except BaseException:  # noqa: B036
+        os._exit(code)
+    return code
+
+
 def main():
+    return _leave(_run())
+
+
+def _run():
     argv = sys.argv[1:]
     try:
         here = os.path.dirname(os.path.abspath(__file__))
@@ -37,23 +60,23 @@ def main():
         from briefcase.policy import hook
     except BaseException as exc:  # noqa: B036
         if "--fail-closed" in argv:
-            sys.stderr.write(
-                f"Blocked by briefcase-ai policy: the hook could not start ({type(exc).__name__}: {exc}) and it was "
-                "installed with --fail-closed. Reinstall with `briefcase-ai policy init`, or turn enforcement off "
-                "with `briefcase-ai policy off`.\n")
+            _say(sys.stderr,
+                 f"Blocked by briefcase-ai policy: the hook could not start ({type(exc).__name__}: {exc}) and it "
+                 "was installed with --fail-closed. Reinstall with `briefcase-ai policy init`, or turn "
+                 "enforcement off with `briefcase-ai policy off`.\n")
             return 2
         if argv[:1] == ["cursor"]:
-            sys.stdout.write('{"permission": "allow"}\n')   # Cursor blocks on empty output
+            _say(sys.stdout, '{"permission": "allow"}\n')   # Cursor blocks on empty output
         return 0
     try:
         return hook.main(argv)
     except BaseException as exc:  # noqa: B036 - a late import or any failure the hook did not catch
         if "--fail-closed" in argv:
-            sys.stderr.write(f"Blocked by briefcase-ai policy: the hook failed ({type(exc).__name__}) and it was "
+            _say(sys.stderr, f"Blocked by briefcase-ai policy: the hook failed ({type(exc).__name__}) and it was "
                              "installed with --fail-closed.\n")
             return 2
         if argv[:1] == ["cursor"]:
-            sys.stdout.write('{"permission": "allow"}\n')
+            _say(sys.stdout, '{"permission": "allow"}\n')
         return 0
 
 

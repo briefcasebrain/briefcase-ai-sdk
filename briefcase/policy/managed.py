@@ -554,6 +554,11 @@ def cmd_managed(args, out=print) -> int:
             print(f"error: {args.policy} is not a valid policy: {exc}\nCheck it with: briefcase-ai policy check",
                   file=sys.stderr)
             return 1
+    if policy_text is not None and "codex" in tools and not getattr(args, "accept_codex_startup_risk", False):
+        if model.parse_layer(policy_text, "system", "policy.toml").settings.get("fail_closed", False):
+            print("error: " + install.CODEX_STARTUP_RISK + ". Pass --accept-codex-startup-risk to write the Codex "
+                  "hook anyway, or leave codex out with --tools.", file=sys.stderr)
+            return 1
     ctx = Context(endpoint=(getattr(args, "endpoint", None) or DEFAULT_ENDPOINT).rstrip("/"), headers=headers,
                   capture_content=bool(getattr(args, "capture_content", False)), mcp=False)
     pack = build(tools, ctx, policy_text)

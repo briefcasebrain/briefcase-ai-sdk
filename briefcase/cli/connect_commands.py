@@ -56,6 +56,9 @@ def register(sub) -> None:
     p.add_argument("--out", metavar="DIR", default=None, help="With --managed: the directory to write the pack to.")
     p.add_argument("--policy", metavar="FILE", default=None,
                    help="With --managed: a policy file to enforce on every machine.")
+    p.add_argument("--accept-codex-startup-risk", action="store_true",
+                   help="With --managed, a fail_closed policy and Codex: accept that a hook executable that is "
+                        "missing when Codex starts cannot be blocked by briefcase-ai.")
     p.add_argument("--tools", nargs="+", metavar="TOOL", default=None, dest="managed_tools",
                    help="With --managed: the tools to include (default: claude-code cursor codex cowork).")
     p.set_defaults(func=cmd_connect, telemetry=True)

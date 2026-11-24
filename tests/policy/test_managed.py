@@ -105,7 +105,8 @@ def test_fail_closed_policy_adds_the_documented_failure_fields(home, tmp_path):
     policy = tmp_path / "closed.toml"
     policy.write_text(POLICY.replace('preset = "guarded"', 'preset = "guarded"\nfail_closed = true'))
     out = tmp_path / "closed"
-    assert managed.cmd_managed(args(out, policy=str(policy)), out=lambda line: None) == 0
+    assert managed.cmd_managed(args(out, policy=str(policy), accept_codex_startup_risk=True),
+                               out=lambda line: None) == 0
     handler = json.loads((out / "claude-code/managed-settings.d/10-briefcase.json").read_text())[
         "hooks"]["PreToolUse"][0]["hooks"][0]
     assert handler["onFailure"] == "block"
@@ -218,3 +219,20 @@ def test_regenerating_a_pack_removes_what_the_old_pack_wrote_and_hash_owns_the_m
     manifest.write_text(manifest.read_text().replace("claude-code", "mine", 1))
     assert managed.cmd_managed(args(out, managed_tools=["claude-code"], force=True)) == 1
     assert "mine" in manifest.read_text(), "an edited manifest is the user's now"
+
+
+def test_a_fail_closed_pack_with_codex_needs_the_startup_risk_acknowledged(home, tmp_path, capsys):
+    policy = tmp_path / "closed.toml"
+    policy.write_text(POLICY.replace('preset = "guarded"', 'preset = "guarded"\nfail_closed = true'))
+    out = tmp_path / "closed"
+    assert managed.cmd_managed(args(out, policy=str(policy)), out=lambda line: None) == 1
+    err = capsys.readouterr().err
+    assert "cannot block" in err and "--accept-codex-startup-risk" in err and not out.exists()
+    # Leaving Codex out needs no acknowledgement; acknowledging writes it.
+    other = tmp_path / "other"
+    assert managed.cmd_managed(args(other, policy=str(policy), managed_tools=["claude-code"]),
+                               out=lambda line: None) == 0
+    third = tmp_path / "third"
+    assert managed.cmd_managed(args(third, policy=str(policy), accept_codex_startup_risk=True),
+                               out=lambda line: None) == 0
+    assert (third / "codex/hooks.json").exists()

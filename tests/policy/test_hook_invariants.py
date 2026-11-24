@@ -270,3 +270,179 @@ def test_fail_closed_is_not_installed_where_the_hook_could_not_start(home, proje
                                               portable=False, capture_content=False, endpoint=None, force=False,
                                               policy_dry_run=False, dry_run=False, yes=True), out=lines.append)
     assert code == 1 and not (home / ".claude" / "settings.json").exists()
+
+
+# --- round 9: one verdict function, strictness parsed on its own, a status that survives shutdown --------------------
+
+def _call(tool, project, **fields):
+    if tool == "cursor":
+        base = {"conversation_id": "c", "generation_id": "g", "model": "m", "cursor_version": "1",
+                "workspace_roots": [str(project)], "transcript_path": None, "cwd": str(project)}
+        return dict(base, **fields)
+    base = {"session_id": "s", "transcript_path": None, "cwd": str(project), "tool_use_id": "t"}
+    return dict(base, **fields)
+
+
+def _cases(tool, project):
+    """Inputs a strict hook must deny however the policy is written: name a tool it does not cover, a command that is
+    empty, an event with no name."""
+    if tool == "cursor":
+        return {
+            "unknown_tool": _call(tool, project, hook_event_name="preToolUse", tool_name="Teleport", tool_input={}),
+            "empty_command": _call(tool, project, hook_event_name="beforeShellExecution", command="  "),
+            "no_event_name": _call(tool, project, command="ls"),
+        }
+    return {
+        "unknown_tool": _call(tool, project, hook_event_name="PreToolUse", tool_name="Teleport", tool_input={}),
+        "empty_command": _call(tool, project, hook_event_name="PreToolUse", tool_name="Bash",
+                               tool_input={"command": ""}),
+        "no_event_name": _call(tool, project, tool_name="Bash", tool_input={"command": "ls"}),
+    }
+
+
+DEFECTS = ["unknown_tool", "empty_command", "no_event_name"]
+D_COMBOS = [(t, k, e, st) for t in TOOLS for k in DEFECTS for e in ("module", "cli", "launcher")
+            for st in ("absent", "valid_denying", "allow_everything")]
+
+
+@pytest.mark.parametrize("tool, kind, entry, state", D_COMBOS,
+                         ids=[f"{t}-{k}-{e}-{s}" for t, k, e, s in D_COMBOS])
+def test_a_strict_hook_denies_an_unknown_tool_an_empty_command_and_a_missing_event_name(home, project, tool, kind,
+                                                                                        entry, state):
+    if state == "allow_everything":
+        path = home / ".briefcase" / "policy.toml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('version = 1\npreset = "observe"\n')
+    else:
+        build_state(home, project, state)
+    body = _cases(tool, project)[kind]
+    code, raw = run_entry(entry, tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), f"fail-closed let {kind} through: exit {code}, output {raw!r}"
+    code, raw = run_entry(entry, tool, [], body, home)  # not strict: judged as before
+    assert not denies(tool, code, raw) or state == "valid_denying"
+
+
+def test_a_policy_that_says_fail_closed_also_denies_a_tool_it_does_not_cover(home, project):
+    path = home / ".briefcase" / "policy.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('version = 1\npreset = "observe"\nfail_closed = true\n')
+    body = _cases("claude-code", project)["unknown_tool"]
+    code, raw = run_entry("module", "claude-code", [], body, home)  # no flag on the command line
+    assert denies("claude-code", code, raw)
+
+
+@pytest.mark.parametrize("flags", [["--endpoint", "--fail-closed"], ["--require-policy-sha256", "--fail-closed"],
+                                   ["--fail-closed", "--endpoint"],
+                                   ["--endpoint", "--fail-closed", "--capture-content"]])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_an_option_without_a_value_cannot_swallow_fail_closed(home, project, tool, flags):
+    build_state(home, project, "absent")  # fail open would allow
+    out = io.StringIO()
+    code = hook.main([tool, "--enforce", *flags], stdin=io.StringIO(json.dumps(payload(tool, project))), stdout=out)
+    assert denies(tool, code, out.getvalue()), (code, out.getvalue())
+
+
+def _closed_pipe_run(argv, body, env):
+    """Run a hook whose stdout is a pipe nobody reads, so the verdict cannot be written."""
+    child = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    child.stdout.close()
+    try:
+        child.stdin.write(body.encode())
+        child.stdin.close()
+    except BrokenPipeError:
+        pass
+    child.wait(timeout=60)
+    stderr = child.stderr.read().decode()
+    child.stderr.close()
+    return child.returncode, stderr
+
+
+@pytest.mark.parametrize("closed", [True, False])
+@pytest.mark.parametrize("entry", ["launcher", "module"])
+def test_the_blocking_status_survives_interpreter_shutdown_on_a_broken_pipe(home, project, entry, closed):
+    """Python retries the failed flush at exit and replaces the status with 120; the hosts treat only 2 as a block."""
+    build_state(home, project, "valid_denying")
+    flags = ["--fail-closed"] if closed else []
+    env = {"HOME": str(home), "PATH": os.environ.get("PATH", ""),
+           "BRIEFCASE_SYSTEM_POLICY": os.environ["BRIEFCASE_SYSTEM_POLICY"]}
+    if entry == "launcher":
+        argv = [sys.executable, *ISOLATED, install.launcher_path(), "claude-code", "--enforce", *flags]
+    else:
+        root = os.path.dirname(os.path.dirname(os.path.abspath(install.launcher_path())))
+        script = ("import sys, types; m = types.ModuleType('briefcase'); m.__path__ = [%r]; "
+                  "sys.modules['briefcase'] = m; from briefcase.policy import hook; "
+                  "sys.exit(hook.main(sys.argv[1:]))" % root)
+        argv = [sys.executable, *ISOLATED, "-c", script, "claude-code", "--enforce", *flags]
+    code, stderr = _closed_pipe_run(argv, json.dumps(payload("claude-code", project)), env)
+    assert code == (2 if closed else 0), (code, stderr)
+
+
+def test_the_launcher_fallbacks_do_not_lose_their_status_on_a_broken_pipe(home, project, tmp_path):
+    """The launcher's own deny-on-import-failure path writes to stderr/stdout too."""
+    env = {"HOME": str(home), "PATH": os.environ.get("PATH", "")}
+    argv = [sys.executable, *ISOLATED, "-c",
+            "import sys; sys.modules['briefcase.policy.hook'] = None; "
+            "import runpy; sys.argv = ['hook_main.py'] + sys.argv[1:]; "
+            "runpy.run_path(%r, run_name='__main__')" % install.launcher_path(),
+            "cursor", "--enforce", "--fail-closed"]
+    child = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    child.stderr.close()
+    child.stdout.close()
+    child.stdin.close()
+    child.wait(timeout=60)
+    assert child.returncode == 2
+
+
+class _SwapAfterFirstRead(object):
+    """Open the system policy normally, but replace the file the moment it has been opened once."""
+
+    def __init__(self, path, replacement, real_open):
+        self.path, self.replacement, self.real_open, self.opened = str(path), replacement, real_open, 0
+
+    def __call__(self, file, *args, **kwargs):
+        handle = self.real_open(file, *args, **kwargs)
+        if str(file) == self.path:
+            self.opened += 1
+            if self.opened == 1:
+                data = handle.read()
+                handle.close()
+                with self.real_open(self.path, "w") as out:
+                    out.write(self.replacement)
+                return io.BytesIO(data) if "b" in (args[0] if args else kwargs.get("mode", "r")) else io.StringIO(
+                    data.decode() if isinstance(data, bytes) else data)
+        return handle
+
+
+def test_the_required_policy_is_judged_from_the_bytes_that_were_hashed(home, project, monkeypatch, tmp_path):
+    import builtins
+    import hashlib
+
+    system = tmp_path / "system" / "policy.toml"
+    system.parent.mkdir()
+    strict = 'version = 1\npreset = "guarded"\ndefault = "deny"\n'
+    system.write_text('version = 1\npreset = "observe"\n')  # a weak policy is in place when the hook first looks
+    monkeypatch.setenv("BRIEFCASE_SYSTEM_POLICY", str(system))
+    required = hashlib.sha256(strict.encode()).hexdigest()
+    harmless = dict(payload("claude-code", project), tool_input={"command": "ls"})
+    # ... and the required file replaces it right after that first read. Whatever is judged must be what was hashed.
+    swap = _SwapAfterFirstRead(system, strict, builtins.open)
+    monkeypatch.setattr(builtins, "open", swap)
+    out = io.StringIO()
+    hook.main(["claude-code", "--enforce", "--require-policy-sha256", required],
+              stdin=io.StringIO(json.dumps(harmless)), stdout=out)
+    assert swap.opened >= 1 and system.read_text() == strict
+    assert denies("claude-code", 0, out.getvalue()), "a policy other than the authenticated bytes was judged"
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_required_policy_mismatch_denies_even_without_fail_closed(home, project, tool, monkeypatch, tmp_path):
+    system = tmp_path / "gone" / "policy.toml"
+    monkeypatch.setenv("BRIEFCASE_SYSTEM_POLICY", str(system))
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "observe"\n')
+    harmless = dict(payload(tool, project))
+    harmless["command" if tool == "cursor" else "tool_input"] = "ls" if tool == "cursor" else {"command": "ls"}
+    out = io.StringIO()
+    code = hook.main([tool, "--enforce", "--require-policy-sha256", "0" * 64],
+                     stdin=io.StringIO(json.dumps(harmless)), stdout=out)
+    assert denies(tool, code, out.getvalue())

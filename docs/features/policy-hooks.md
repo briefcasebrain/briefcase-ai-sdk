@@ -298,7 +298,23 @@ $ (hook stdout for `rm -rf ~` with that broken policy)
 Then a broken policy blocks every call with a message naming `briefcase-ai policy check`; the line
 `fail_closed = true` is honoured even when the rest of the file does not parse. The installed
 hook entries get the tools' own failure switches: Claude Code `onFailure: "block"` (2.1.295+;
-left out with a note for older versions), Cursor `failClosed: true`. Codex has no such switch.
+`policy init --fail-closed` is refused when the installed version is older or cannot be read),
+Cursor `failClosed: true`. Codex has no such switch.
+
+**Codex and a missing executable.** Codex starts the hook command itself. If the executable it
+names is missing or not on PATH when Codex starts, the command fails with a status Codex treats
+as an ordinary hook failure and runs the tool anyway. briefcase-ai cannot block that, because
+none of its code has started. `--fail-closed` for Codex covers every failure after the hook
+starts (an unreadable policy, a malformed event, a verdict that cannot be written), not that one.
+`policy init --fail-closed` for Codex, and `connect --managed` with a `fail_closed` policy that
+includes Codex, therefore refuse until you pass `--accept-codex-startup-risk`.
+
+A fail-closed hook allows a call only when the event is complete and names a tool the policy
+covers, the policy loaded without error (a managed hook: from the exact bytes of the file whose
+hash it was deployed with), and the policy itself says allow. An unknown tool, an empty command,
+a missing event name, an option left without a value, and a verdict that cannot be written all
+block. A managed hook that finds its system policy missing or changed blocks whether or not
+`--fail-closed` was passed.
 
 What happens when the hook cannot even start (the virtualenv was deleted, briefcase moved):
 Python exits with code 2 for a script that does not exist, and exit code 2 *blocks* in all three

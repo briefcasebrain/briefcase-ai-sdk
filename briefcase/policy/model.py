@@ -327,20 +327,22 @@ def load_layer(path, source):
     return parse_layer(text, source, path)
 
 
-def declares_fail_closed(path):
+def declares_fail_closed(path, text=None):
     """Does a file that may not even parse say ``fail_closed = true``?
 
     A syntax error elsewhere in the file must not turn a fail-closed policy
     into a fail-open one, so the hook falls back to this line scan when the
     file is rejected."""
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as handle:
-            for line in handle:
-                compact = line.split("#", 1)[0].replace(" ", "").replace("\t", "").strip().lower()
-                if compact == "fail_closed=true":
-                    return True
+        if text is None:
+            with open(path, "r", encoding="utf-8", errors="replace") as handle:
+                text = handle.read()
     except OSError:
-        pass
+        return False
+    for line in text.splitlines():
+        compact = line.split("#", 1)[0].replace(" ", "").replace("\t", "").strip().lower()
+        if compact == "fail_closed=true":
+            return True
     return False
 
 
@@ -475,22 +477,33 @@ def layer_paths(project_dir=None):
     return out
 
 
-def load(project_dir=None):
+def load(project_dir=None, texts=None):
     """Read and merge every policy file that applies to ``project_dir``.
 
     Never raises. A rejected file is left out whole and reported in
     ``errors``; ``fail_closed`` is true when any file that loaded, or any
     rejected file's text, asks for it.
+
+    ``texts`` maps a source (``"system"``) to bytes already read from it: that layer is parsed from those bytes
+    instead of being opened again, so a caller that authenticated the bytes judges exactly what it authenticated.
     """
     layers, errors, paths = [], [], []
     fail_closed = False
+    texts = texts or {}
     for source, path in layer_paths(project_dir):
+        given = texts.get(source)
         try:
-            layer = load_layer(path, source)
-        except PolicyError as exc:
+            if given is not None:
+                layer = parse_layer(given.decode("utf-8") if isinstance(given, bytes) else given, source, path)
+            else:
+                layer = load_layer(path, source)
+        except (PolicyError, UnicodeDecodeError) as exc:
+            if isinstance(exc, UnicodeDecodeError):
+                exc = PolicyError(f"cannot read: {exc}", path)
             errors.append((source, path, str(exc)))
             paths.append((source, path, False))
-            fail_closed = fail_closed or declares_fail_closed(path)
+            fail_closed = fail_closed or declares_fail_closed(
+                path, given.decode("utf-8", "replace") if isinstance(given, bytes) else given)
             continue
         if layer is None:
             continue

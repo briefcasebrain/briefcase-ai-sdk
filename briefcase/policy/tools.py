@@ -94,10 +94,12 @@ def _tool_call(tool, tool_name, tool_input, cwd, common):
         where = _text(tool_input.get("working_directory")) or cwd
         if command is None:
             return ToolCall("invalid", tool, tool_name, note="no command in the hook input", **common)
-        return ToolCall("shell", tool, tool_name, command=command, cwd=where, **common)
+        return ToolCall("shell", tool, tool_name, command=command, cwd=where,
+                        defect=None if command.strip() else "the command is empty", **common)
     if tool_name == "PowerShell":
         command = _command_text(tool_input.get("command")) or ""
-        return ToolCall("shell", tool, tool_name, command=command, cwd=cwd, dialect="powershell", **common)
+        return ToolCall("shell", tool, tool_name, command=command, cwd=cwd, dialect="powershell",
+                        defect=None if command.strip() else "the command is empty", **common)
     if tool_name in _READ_TOOLS:
         path = _first_path(tool_input) or (cwd if tool_name != "Read" else None)
         if not path:
@@ -119,7 +121,8 @@ def _tool_call(tool, tool_name, tool_input, cwd, common):
         return ToolCall("mcp", tool, tool_name, server=server, name=name, cwd=cwd, **common)
     if tool_name.startswith("MCP:"):
         return ToolCall("mcp", tool, tool_name, server=None, name=tool_name[4:] or None, cwd=cwd, **common)
-    return ToolCall("other", tool, tool_name, cwd=cwd, **common)
+    return ToolCall("other", tool, tool_name, cwd=cwd, defect=f"a tool this policy does not cover ({tool_name})",
+                    **common)
 
 
 def patch_paths(patch):
@@ -155,10 +158,12 @@ def parse(tool, payload):
             command = _command_text(payload.get("command"))
             if command is None:
                 return ToolCall("invalid", tool, event, note="no command in the hook input", **common)
-            return ToolCall("shell", tool, "Shell", command=command, cwd=cwd or project, **common)
+            return ToolCall("shell", tool, "Shell", command=command, cwd=cwd or project,
+                            defect=None if command.strip() else "the command is empty", **common)
         if event == "beforeMCPExecution":
-            return ToolCall("mcp", tool, "MCP", server=_text(payload.get("mcp_server_name")),
-                            name=_text(payload.get("tool_name")), cwd=cwd or project, **common)
+            server, name = _text(payload.get("mcp_server_name")), _text(payload.get("tool_name"))
+            return ToolCall("mcp", tool, "MCP", server=server, name=name, cwd=cwd or project,
+                            defect=None if (server or name) else "the MCP call names no server or tool", **common)
         if event == "beforeReadFile":
             path = _text(payload.get("file_path"))
             if not path:
@@ -173,6 +178,15 @@ def parse(tool, payload):
               "session_id": _text(payload.get("session_id")), "tool_use_id": _text(payload.get("tool_use_id"))}
     if event and event not in ("PreToolUse", "preToolUse"):
         return ToolCall("invalid", tool, event, note=f"an event this hook is not installed for ({event})", **common)
+
+    call = _claude_codex_call(tool, payload, common)
+    if not event and call.kind != "invalid" and not call.defect:
+        call.defect = "the hook input names no event"
+    return call
+
+
+def _claude_codex_call(tool, payload, common):
+    cwd = _text(payload.get("cwd"))
     tool_name = _text(payload.get("tool_name")) or ""
     tool_input = payload.get("tool_input")
     if tool == "codex" and tool_name == "apply_patch":

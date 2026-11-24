@@ -122,6 +122,19 @@ def test_reinstall_with_other_settings_changes_nothing_until_off(home, capsys, f
     assert "fail_closed = true" in (home / ".briefcase" / "policy.toml").read_text()
 
 
+def test_fail_closed_is_refused_where_the_claude_version_is_unknown(home):
+    code, out = init(tools=["claude-code"], fail_closed=True)  # no `claude` on PATH: the version cannot be read
+    assert code == 1 and "could not be read" in out and not files(home)["claude"].exists()
+
+
+def test_fail_closed_for_codex_says_plainly_what_it_cannot_do_and_needs_an_acknowledgement(home, fake_bin):
+    code, out = init(tools=["codex"], fail_closed=True)
+    assert code == 1 and "cannot block" in out and "--accept-codex-startup-risk" in out
+    assert not files(home)["codex"].exists()
+    code, out = init(tools=["codex"], fail_closed=True, accept_codex_startup_risk=True)
+    assert code == 0 and "cannot block" in out and files(home)["codex"].exists()
+
+
 def test_fail_closed_is_refused_for_claude_code_older_than_documented(home, fake_bin):
     fake_bin("claude", "2.1.200 (Claude Code)")
     code, out = init(tools=["claude-code"], fail_closed=True)

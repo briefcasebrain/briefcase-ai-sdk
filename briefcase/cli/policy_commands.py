@@ -67,6 +67,9 @@ def register(sub) -> None:
                            ".briefcase/policy.toml and the project's tool settings, which can only add restrictions.")
     init.add_argument("--fail-closed", action="store_true",
                       help="Block tool calls when the policy or the hook is broken (default: allow and report).")
+    init.add_argument("--accept-codex-startup-risk", action="store_true",
+                      help="With --fail-closed and Codex: accept that a hook executable that is missing when Codex "
+                           "starts cannot be blocked by briefcase-ai (Codex then runs the tool).")
     init.add_argument("--portable", action="store_true",
                       help="Install `briefcase-ai hook <tool> --enforce` instead of an absolute path (slower start).")
     init.add_argument("--capture-content", action="store_true",
@@ -412,6 +415,7 @@ def _run_init(args, out: Callable[[str], None] = print, ask: Optional[Callable[[
         fail_closed=fail_closed, capture_content=bool(getattr(args, "capture_content", False)),
         endpoint=(getattr(args, "endpoint", None) or DEFAULT_ENDPOINT).rstrip("/"),
         portable=bool(getattr(args, "portable", False)) or project,
+        accept_codex_startup_risk=bool(getattr(args, "accept_codex_startup_risk", False)),
     )
     adapters = install.adapters(options)
     if named:

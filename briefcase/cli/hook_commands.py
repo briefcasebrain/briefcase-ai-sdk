@@ -98,10 +98,22 @@ def run_enforce(tool: str, argv: List[str], stdin: Any = None, stdout: Any = Non
                       "--fail-closed. Reinstall with `briefcase-ai policy init`, or turn enforcement off with "
                       "`briefcase-ai policy off`.")
             if tool == "cursor":
-                print(json.dumps({"permission": "deny", "user_message": reason, "agent_message": reason}))
+                body = json.dumps({"permission": "deny", "user_message": reason, "agent_message": reason})
             else:
-                print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                                                         "permissionDecisionReason": reason}}))
+                body = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                                          "permissionDecisionReason": reason}})
+            try:
+                sys.stdout.write(body + "\n")
+                sys.stdout.flush()
+            except BaseException:  # noqa: B036 - the verdict did not arrive: the host's blocking status
+                try:
+                    sys.stderr.write(reason + "\n")
+                    sys.stderr.flush()
+                except BaseException:  # noqa: B036
+                    pass
+                if sys.stdout is sys.__stdout__:  # the interpreter would retry the failed flush at exit and say 120
+                    os._exit(2)
+                return 2
             return 0
         if tool == "cursor":
             print('{"permission": "allow"}')   # a Cursor permission hook that prints nothing blocks

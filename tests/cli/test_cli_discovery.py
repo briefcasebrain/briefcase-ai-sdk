@@ -35,7 +35,8 @@ ALLOWED_ADDITIONS = {
     # `briefcase-ai hook claude-code|codex` are the enforcement hook entry points (stdin JSON,
     # always exit 0); `hook cursor` is unchanged apart from honouring `--enforce`.
     "hook": (set(), {"claude-code", "codex"}, set()),
-    "connect": ({"--enforce", "--preset", "--managed", "--out", "--policy", "--tools"}, set(), set()),
+    "connect": ({"--enforce", "--preset", "--managed", "--out", "--policy", "--tools",
+                "--accept-codex-startup-risk"}, set(), set()),
     # plugins-mcp package: `doctor --plugins` reports installed briefcase plugins only.
     "doctor": ({"--plugins"}, set(), set()),
     # engine package: `run attach --result verdict.json` (AttachBench inline record) and
