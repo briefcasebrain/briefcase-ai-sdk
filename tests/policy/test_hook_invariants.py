@@ -1302,3 +1302,19 @@ def test_a_strict_hook_denies_a_working_directory_with_a_nul_character(home, pro
     finally:
         os.environ.pop("CLAUDE_PROJECT_DIR", None)
     assert denies(tool, code, raw), (code, raw)
+
+
+MALFORMED_PORTS = ["https://example.com:/x", "https://[::1]:/x", "https://exa\tmple.com/x",
+                   "https://example.com:8\n0/x", "https://[::1]:\t80/x", "https://example.com\n:80/x",
+                   "https://example.com:80\r/x"]
+
+
+@pytest.mark.parametrize("url", MALFORMED_PORTS, ids=lambda u: repr(u))
+def test_a_port_delimiter_needs_digits_and_the_original_text_has_no_control_characters(home, project, url):
+    """urlsplit silently removes tabs and newlines before the authority is split, so the check must run on the text as
+    it was sent, and `:` with no digits after it is not a port."""
+    _observe(home)
+    body = _events("claude-code", project)["web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
+    assert denies("claude-code", code, raw), f"{url!r} was allowed: {code} {raw!r}"

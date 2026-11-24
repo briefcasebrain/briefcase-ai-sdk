@@ -203,6 +203,8 @@ def _absolute_url_problem(url):
     from briefcase.policy.engine import host_of
 
     text = url.strip()
+    if re.search(r"[\x00-\x20\x7f]", text):  # urlsplit would drop tabs and newlines unseen, and space is no URL
+        return "it has a control character or whitespace"
     if re.search(r"%(?![0-9A-Fa-f]{2})", text):
         return "it has a malformed percent escape"
     try:
@@ -220,8 +222,8 @@ def _absolute_url_problem(url):
     # The raw host-and-port text (after the user information) must be exactly a host and a port, and the parser's
     # reading must be that same host and port: older parsers drop text between `]` and the port, newer ones keep it.
     hostport = parts.netloc.rsplit("@", 1)[-1]
-    shape = re.match(r"^\[([0-9A-Fa-f:.]+)\](?::([0-9]*))?$", hostport) or re.match(
-        r"^([^:\[\]]*)(?::([0-9]*))?$", hostport)
+    shape = re.match(r"^\[([0-9A-Fa-f:.]+)\](?::([0-9]+))?$", hostport) or re.match(
+        r"^([^:\[\]]*)(?::([0-9]+))?$", hostport)
     if shape is None:
         return "its host and port are not written as a host and a port"
     if shape.group(1).lower() != host or (int(shape.group(2)) if shape.group(2) else None) != parts.port:
