@@ -979,7 +979,8 @@ def cmd_verify(args, store, engine, stack) -> int:
 
 def project_containers(stopped: bool = False) -> Tuple[bool, List[Dict[str, str]]]:
     """``(ok, containers)``: every running container of the engine Compose project (with ``stopped``, the stopped ones
-    too) as ``{image, service, config}`` (image id, Compose service, and the Compose file it was started from).
+    too) as ``{image, service, config, env}`` (image id, Compose service, the Compose file it was started from, and
+    its environment as JSON).
     ``ok`` is false when docker could not answer."""
     from briefcase.engine import compose as engine_compose
 
@@ -990,14 +991,15 @@ def project_containers(stopped: bool = False) -> Tuple[bool, List[Dict[str, str]
         return False, []
     rows = []
     fmt = ('{{.Image}}\t{{index .Config.Labels "com.docker.compose.service"}}\t'
-           '{{index .Config.Labels "com.docker.compose.project.config_files"}}')
+           '{{index .Config.Labels "com.docker.compose.project.config_files"}}\t{{json .Config.Env}}')
     for container in (getattr(res, "stdout", "") or "").split():
         inspected = _run(["docker", "inspect", "--format", fmt, container], capture_output=True, text=True)
         if inspected is None or _rc(inspected) != 0:
             return False, []
         image, _, rest = (getattr(inspected, "stdout", "") or "").strip().partition("\t")
-        service, _, config = rest.partition("\t")
-        rows.append({"image": image, "service": service, "config": config})
+        service, _, rest = rest.partition("\t")
+        config, _, env_json = rest.partition("\t")
+        rows.append({"image": image, "service": service, "config": config, "env": env_json})
     return True, rows
 
 
@@ -1097,16 +1099,36 @@ def _reinstall_fix(record: Dict[str, Any]) -> str:
     return f"get a new install code at {portal} and run the command it shows"
 
 
-def surplus_containers(record: Dict[str, Any]) -> Optional[str]:
-    """Why ``up`` must not run: Compose removes the containers a service has beyond the one its file declares before it
-    looks at ``--no-recreate``, and that discards their writable layers. ``None`` when every service has at most one
-    container (running or stopped), and also when docker could not say (the caller's own checks fail on that)."""
+def existing_containers_problem(record: Dict[str, Any]) -> Optional[str]:
+    """Why ``up`` must not run, from the containers that already exist (running or stopped), or ``None``.
+
+    ``up`` keeps what exists (``--no-recreate``), so what exists must be what ``record`` describes: a container made
+    from another release's image, or serving the other transport, would be reused and reported as started. And
+    Compose removes the containers a service has beyond the one its file declares before it looks at
+    ``--no-recreate``, which discards their writable layers."""
     ok, rows = project_containers(stopped=True)
     if not ok:
         return "docker could not list the engine's containers"
+    recorded = record.get("image_ids") or {}
     counts: Dict[str, int] = {}
+    stale: List[str] = []
     for row in rows:
-        counts[row["service"]] = counts.get(row["service"], 0) + 1
+        service = row["service"]
+        counts[service] = counts.get(service, 0) + 1
+        key = "server" if service == "oci-jj-server" else service.replace("-", "_")
+        if key in recorded and row["image"] != recorded[key]:
+            stale.append(f"{service} runs a different image than engine {record['version']} verified")
+        if service == "oci-jj-server":
+            try:
+                env = [e for e in json.loads(row.get("env") or "[]") if isinstance(e, str)]
+            except ValueError:
+                env = []
+            has_tls = any(e.startswith("OCI_JJ_TLS_CERT=") for e in env)
+            if env and has_tls != bool(record.get("tls")):
+                stale.append(f"{service} was created for {'TLS' if has_tls else 'plaintext'} but engine "
+                             f"{record['version']} is installed {'with' if record.get('tls') else 'without'} TLS")
+    if stale:
+        return "; ".join(stale)
     extra = sorted(f"{service} ({n})" for service, n in counts.items() if n > 1)
     if extra:
         return (f"more than one container exists for {', '.join(extra)}, and `up` would make Compose remove the "
@@ -1148,9 +1170,9 @@ def cmd_up(args, store, engine, stack) -> int:
             stop = guard_start(record)
             if stop is not None:
                 return stop
-            surplus = surplus_containers(record)
-            if surplus:
-                return _ux.fail(surplus + "; nothing was started",
+            problem = existing_containers_problem(record)
+            if problem:
+                return _ux.fail(f"{problem}; nothing was started, because `up` would reuse them as they are",
                                 fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
             try:
                 _inst.note_daemon(_runner(), identity=daemon)  # before compose can create a volume

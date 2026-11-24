@@ -142,3 +142,53 @@ def test_set_current_does_not_read_an_unreadable_record_as_empty(env):
     _engine.installed_path().write_text("{not json")
     with pytest.raises(_engine.StateUnreadable):
         _install_mod.set_current(A)
+
+
+# --- N1: `up` reuses stopped containers only when they match the record ------------------------------
+
+def stopped(rows, env_for_server=None):
+    out = []
+    for row in rows:
+        row = list(row) + ["stopped"]
+        if row[0] == "oci-jj-server" and env_for_server is not None:
+            row.append(env_for_server)
+        out.append(row)
+    return out
+
+
+def test_up_reuses_stopped_containers_that_match_the_record(env, monkeypatch, capsys):
+    from tests.cli.test_engine_invariants import containers_for
+
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "none")
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))))
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    assert [c for c in compose_calls(env) if "up" in c["argv"]]
+
+
+def test_up_refuses_stopped_containers_made_from_another_release(env, monkeypatch, capsys):
+    from tests.cli.test_engine_invariants import B, containers_for
+
+    synthetic(env, [A, B], B)  # the record now says B; the stopped containers were made from A
+    configure(env, monkeypatch, "ok", "ours", "none")
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))))
+    assert main(["engine", "up"]) == 1
+    out = capsys.readouterr()
+    assert [c for c in compose_calls(env) if "up" in c["argv"]] == []
+    assert "started" not in out.out
+
+
+def test_a_tls_change_after_a_stop_is_not_reported_as_started_on_the_old_transport(env, monkeypatch, key, capsys):
+    path, _ = tls_upgrade(env, monkeypatch, key)
+    record = _engine.current_install()
+    rows = stopped([["oci-jj-server", record["image_ids"]["server"], record["compose"]]],
+                   ["OCI_JJ_ALLOW_PLAINTEXT=1"])
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) == 0  # nothing runs: no restart
+    assert _engine.current_install()["tls"] is True
+    capsys.readouterr()
+    assert main(["engine", "up"]) == 1
+    out = capsys.readouterr()
+    assert [c for c in compose_calls(env) if "up" in c["argv"] and "--no-recreate" in c["argv"]] == []
+    assert "started" not in out.out and path.exists()

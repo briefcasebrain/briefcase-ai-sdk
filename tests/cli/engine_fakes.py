@@ -598,12 +598,14 @@ if args[:2] == ["context", "inspect"]:
         host += "\t" + os.environ["FAKE_DOCKER_TLSPATH"] + "\tfalse\txxx"
     print(host); sys.exit(0)
 if args[:1] == ["ps"] and any("label=com.docker.compose.project=" in a for a in args):
-    for i, _ in enumerate(containers_now()):
-        print("c%d" % i)
+    # A row may carry a fourth item, "stopped" (listed only by `ps -a`), and a fifth, its environment list.
+    for i, row in enumerate(containers_now()):
+        if "-a" in args or not (len(row) > 3 and row[3] == "stopped"):
+            print("c%d" % i)
     sys.exit(0)
 if args[:1] == ["inspect"]:
     c = containers_now()[int(args[-1][1:])]
-    print("%s\t%s\t%s" % (c[1], c[0], c[2])); sys.exit(0)
+    print("%s\t%s\t%s\t%s" % (c[1], c[0], c[2], json.dumps(c[4] if len(c) > 4 else []))); sys.exit(0)
 if args[:1] == ["ps"]:
     # `docker ps --filter label=com.docker.compose.service=oci-jj-server ...`: FAKE_DOCKER_PS holds
     # "project<TAB>container" lines, as Docker prints them with the Compose labels in the format.
