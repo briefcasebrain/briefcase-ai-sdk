@@ -365,7 +365,7 @@ jobs:
         if: matrix.python-version == '3.11'
         run: |
           pip install mypy
-          mypy briefcase/
+          mypy briefcase/ briefcase_entry/
 
       - name: Flake8
         # Config lives in .flake8. One version is enough; the oldest supported
@@ -373,7 +373,7 @@ jobs:
         if: matrix.python-version == '3.9'
         run: |
           pip install flake8
-          flake8 briefcase/ scripts/ tests/ bindings/python/tests/ examples/
+          flake8 briefcase/ briefcase_entry/ scripts/ tests/ bindings/python/tests/ examples/
 
       - name: Check version targets are reconciled
         # A stale target aborts `version_sync.py set` at release time, which is

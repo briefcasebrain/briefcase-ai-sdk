@@ -109,3 +109,11 @@ def test_the_denial_reaches_stdout_when_stderr_cannot_carry_it(home, project, to
     done = run_console(["hook", tool, "--enforce", *flags], blocked, home, json.dumps(payload(tool, project)),
                        close_stderr=True)
     assert denies(tool, done.returncode, done.stdout), (done.returncode, done.stdout, done.stderr)
+
+
+def test_the_entry_package_is_declared_for_the_wheel_and_the_console_script():
+    """Without the maturin declaration the wheel would name a module it does not contain."""
+    text = (ROOT / "pyproject.toml").read_text()
+    assert console_target() == "briefcase_entry:main"
+    assert re.search(r'^python-packages = \[[^\]]*"briefcase_entry"', text, re.M)
+    assert (ROOT / "briefcase_entry" / "__init__.py").is_file()
