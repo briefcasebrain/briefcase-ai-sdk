@@ -199,6 +199,19 @@ def _pinned(identity: Optional[str]) -> Iterator[None]:
         _PINS.pop()
 
 
+def still_the_daemon(daemon: Optional[str]) -> bool:
+    """Called inside the pin, after the confirmation: does the daemon at the pinned endpoint still report the id it had
+    when it was verified? ``True`` when nothing was pinned (nothing needs the daemon)."""
+    from briefcase.engine import install as _install_mod
+
+    if daemon is None or not getattr(daemon, "pin_env", None):
+        return True
+    wanted = _install_mod._split_id(daemon)[1]
+    pin_env, pin_args = getattr(daemon, "pin_env"), getattr(daemon, "pin_args", [])
+    now = _install_mod._daemon_id(subprocess.run, os.environ, pin_env, pin_args)
+    return wanted is not None and now == wanted
+
+
 def _pinned_runner():
     return _runner()
 
@@ -740,6 +753,12 @@ def _install(args, upgrading: bool) -> int:
               + (" and the install code was not used." if opts.mode == "code" else "."))
         return 1
 
+    if upgrading and daemons_before:  # before anything is written: the daemon must be one the old engine ran on
+        here = _inst.docker_identity(_runner())
+        if here is None or not all(_inst.daemon_matches(entry, here) for entry in daemons_before):
+            return _ux.fail("the Docker daemon is not the one the installed engine ran on (it ran on "
+                            f"{', '.join(daemons_before)}; now {here or 'unknown'}), so nothing was installed",
+                            fix="briefcase-ai engine doctor")
     try:
         if opts.mode == "bundle":
             record = _inst.offline_install(opts, runner=_runner(), log=log, verified=verified)
@@ -826,7 +845,13 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
                         f"{record['version']} was installed but not made current", fix="briefcase-ai engine doctor")
     if (upgrading or tls_differs) and daemons_before \
             and not all(_inst.daemon_matches(entry, daemon) for entry in daemons_before):
-        restore()  # the install already added this daemon to the history: it is not the one that ran the old engine
+        restore()
+        try:  # the install already added this daemon to the history; it is not the one that ran the old engine
+            fresh = _engine.load_state_strict(opts.env)
+            fresh["docker_contexts"] = list(daemons_before)
+            _inst.save_state(fresh, opts.env)
+        except (_engine.StateUnreadable, OSError):
+            pass
         was = (previous or {}).get("version", "the old release")
         return _ux.fail(f"the Docker daemon is not the one engine {was} ran on (it ran on "
                         f"{', '.join(daemons_before)}; now {daemon}), so what runs there could not be checked and "
@@ -1283,7 +1308,9 @@ def cmd_up(args, store, engine, stack) -> int:
             if command is None:
                 return _ux.fail(why, fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
             try:
-                _inst.note_daemon(_runner(), identity=daemon)  # before compose can create a volume
+                if _inst.note_daemon(_runner(), identity=daemon) is None:  # before compose can create a volume
+                    return _ux.fail("the Docker daemon did not state its id, so it cannot be told from another one "
+                                    "at the same address and nothing was started", fix="briefcase-ai engine doctor")
             except _engine.StateUnreadable as exc:
                 return _ux.fail(str(exc), fix=exc.fix)
             creating = "up" in command
@@ -1343,6 +1370,10 @@ def cmd_down(args, store, engine, stack) -> int:
         if token is None:
             return code
         with _pinned(plan.daemon):
+            if not still_the_daemon(plan.daemon):
+                return _ux.fail("the Docker daemon at the verified endpoint is not the one that was verified (it "
+                                "changed while the confirmation was open); nothing was deleted",
+                                fix="briefcase-ai engine doctor")
             rc = teardown(plan.record, plan.volumes, token)
     if rc != 0:
         return _ux.fail("docker compose down failed, or an engine volume could not be removed (see above)",
@@ -1615,6 +1646,9 @@ def _remove_install(version: Optional[str], purge: bool, force_without_docker: b
     if plan.problems:
         return "blocked", _purge_blocked(plan.problems)
     with _pinned(plan.daemon):
+        if plan.daemon is not None and not still_the_daemon(plan.daemon):
+            return "blocked", ("the Docker daemon at the verified endpoint is not the one that was verified (it "
+                               "changed while the confirmation was open); nothing was removed")
         # Every release shares one Compose project, so only the release whose server is up is taken down.
         if plan.mode == "install" and plan.stop and plan.record is not None:
             running = running_install(plan.record)

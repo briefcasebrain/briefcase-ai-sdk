@@ -822,7 +822,7 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
     if compose_file is not None:  # the daemon this install's volumes live on
         identity = docker_identity(runner, env)
         known = list(state.get("docker_contexts") or [])
-        if identity:
+        if identity is not None and has_id(identity):  # one with no id is not recorded: it would match any daemon
             known = _merge_daemon(known, identity)
         state["docker_contexts"] = known
     state.setdefault("installs", {})[manifest.version] = record
@@ -863,11 +863,18 @@ def _split_id(identity: str) -> Tuple[str, Optional[str]]:
 
 
 def daemon_matches(recorded: str, here: str) -> bool:
-    """Is ``here`` the daemon ``recorded`` names? Same context and endpoint, and the same daemon id when the record
-    has one (a record from before ids existed matches by endpoint alone)."""
+    """Is ``here`` the daemon ``recorded`` names? ``here`` must have stated its id (an endpoint alone proves nothing: a
+    tunnel can be pointed at another daemon); the record matches by that id when it has one, and a record from before
+    ids existed matches by endpoint."""
     recorded_base, recorded_id = _split_id(recorded)
     here_base, here_id = _split_id(here)
+    if here_id is None:
+        return False
     return recorded_base == here_base and (recorded_id is None or recorded_id == here_id)
+
+
+def has_id(identity: Optional[str]) -> bool:
+    return identity is not None and _split_id(identity)[1] is not None
 
 
 def _merge_daemon(known: List[str], identity: str) -> List[str]:
@@ -955,8 +962,8 @@ def note_daemon(runner=subprocess.run, env: Optional[Mapping[str, str]] = None,
     about to hold them, and return that identity so the caller can run Compose against exactly it. ``None`` (nothing
     recorded, nothing may start) when the daemon cannot be identified."""
     identity = identity or docker_identity(runner, env)
-    if identity is None:
-        return None
+    if identity is None or not has_id(identity):
+        return None  # an identity that never asked the daemon who it is is not recorded, and nothing starts on it
     state = _engine.load_state_strict(env)
     known = list(state.get("docker_contexts") or [])
     merged = _merge_daemon(known, identity)

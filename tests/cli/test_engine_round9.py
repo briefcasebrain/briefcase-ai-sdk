@@ -234,8 +234,9 @@ def test_the_daemon_is_recorded_before_compose_up_runs(env, monkeypatch, capsys,
     main(["engine", "up"])
     capsys.readouterr()
     after = _engine.load_state()
-    assert after["compose_used"] and after["docker_contexts"] == ["default unix:///var/run/docker.sock"]
-    assert seen and seen[0] == (True, ["default unix:///var/run/docker.sock"]), "recorded only after compose ran"
+    daemon = ["default unix:///var/run/docker.sock id=fake-daemon-id"]
+    assert after["compose_used"] and after["docker_contexts"] == daemon
+    assert seen and seen[0] == (True, daemon), "recorded only after compose ran"
 
 
 def test_up_does_not_start_where_the_daemon_cannot_be_identified(env, monkeypatch, capsys):
