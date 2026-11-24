@@ -1114,3 +1114,31 @@ def test_a_strict_hook_denies_a_search_with_no_pattern(home, project, tool_name,
     body["tool_name"], body["tool_input"] = tool_name, tool_input
     code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
     assert denies("claude-code", code, raw), (tool_name, tool_input, code, raw)
+
+
+# --- round 15: a project policy that cannot be inspected is not skipped -------------------------------------------
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root reads everything")
+@pytest.mark.parametrize("where", ["project", "ancestor"])
+@pytest.mark.parametrize("entry", ["module", "launcher"])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_a_strict_hook_denies_when_the_project_policy_directory_cannot_be_inspected(
+        home, project, tool, where, entry):
+    (home / ".briefcase").mkdir(exist_ok=True)
+    (home / ".briefcase" / "policy.toml").write_text('version = 1\npreset = "observe"\ndefault = "allow"\n')
+    guarded = project / ".briefcase"
+    guarded.mkdir()
+    (guarded / "policy.toml").write_text('version = 1\n[[rule]]\nid = "no"\ntool = "shell"\neffect = "deny"\n'
+                                         'command = ["ls"]\n')
+    work = project
+    if where == "ancestor":
+        work = project / "sub" / "dir"
+        work.mkdir(parents=True)
+    body = payload(tool, work)
+    body["command" if tool == "cursor" else "tool_input"] = "ls" if tool == "cursor" else {"command": "ls"}
+    guarded.chmod(0)  # the restriction exists, and cannot be read
+    try:
+        code, raw = run_entry(entry, tool, ["--fail-closed"], body, home)
+    finally:
+        guarded.chmod(0o700)
+    assert denies(tool, code, raw), f"the project policy was never inspected and the call was allowed: {code} {raw!r}"

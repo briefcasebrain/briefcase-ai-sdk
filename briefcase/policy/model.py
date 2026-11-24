@@ -22,6 +22,7 @@ hook on every tool call.
 from __future__ import annotations
 
 import os
+import stat
 import sys
 
 VERSION = 1
@@ -110,7 +111,17 @@ def find_project_policy(start):
     current = os.path.realpath(start)
     for _ in range(64):
         candidate = os.path.join(current, ".briefcase", "policy.toml")
-        if os.path.isfile(candidate) and os.path.realpath(candidate) != user:
+        try:
+            exists = stat.S_ISREG(os.stat(candidate).st_mode)
+        except (FileNotFoundError, NotADirectoryError):
+            exists = False
+        except OSError:
+            # Permission denied (or anything else) on the way to it: there may be a restriction in there. Report it
+            # as a policy that cannot be read instead of walking past it to a weaker one.
+            if os.path.realpath(candidate) != user:
+                return candidate
+            exists = False
+        if exists and os.path.realpath(candidate) != user:
             return candidate
         parent = os.path.dirname(current)
         if parent == current or current == home:
