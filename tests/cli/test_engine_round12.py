@@ -787,3 +787,48 @@ def test_fresh_up_reports_a_daemon_that_changed_during_the_start(env, monkeypatc
     assert main(["engine", "up"]) != 0
     out = capsys.readouterr()
     assert "started" not in out.out and "changed" in out.err + out.out
+
+
+def test_an_install_writes_no_daemon_history_so_a_transient_identity_is_never_recorded(env, monkeypatch, key, capsys):
+    from briefcase.engine import install as _install_mod
+
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    tls_upgrade(env, monkeypatch, key)
+    legacy = "default unix:///var/run/docker.sock"
+    record_daemons([legacy])
+    real = _install_mod.complete_online
+    seen = []
+
+    def install_while_the_endpoint_briefly_answers_as_b(*args, **kwargs):
+        monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # a transient endpoint change during the install
+        record = real(*args, **kwargs)
+        seen.append(json.loads(_engine.installed_path().read_text())["docker_contexts"])
+        monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")  # and settlement verifies A
+        return record
+
+    monkeypatch.setattr(_install_mod, "complete_online", install_while_the_endpoint_briefly_answers_as_b)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) == 0
+    capsys.readouterr()
+    assert seen == [[legacy]], "the install itself recorded a daemon"
+    assert json.loads(_engine.installed_path().read_text())["docker_contexts"] == [f"{legacy} id=AAA"]
+
+
+def test_a_refusal_keeps_a_daemon_another_up_recorded_between_install_and_settlement(env, monkeypatch, key, capsys):
+    from briefcase.engine import install as _install_mod
+
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    tls_upgrade(env, monkeypatch, key)
+    real = _install_mod.complete_online
+
+    def install_then_another_up_records_b(*args, **kwargs):
+        record = real(*args, **kwargs)
+        monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")
+        identity = _install_mod.docker_identity(engine_commands._runner())
+        _install_mod.note_daemon(engine_commands._runner(), identity=identity)  # a successful `up` relied on B
+        return record
+
+    monkeypatch.setattr(_install_mod, "complete_online", install_then_another_up_records_b)
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
+    capsys.readouterr()
+    history = json.loads(_engine.installed_path().read_text())["docker_contexts"]
+    assert any("id=BBB" in entry for entry in history), history

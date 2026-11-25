@@ -807,7 +807,6 @@ def _install(args, upgrading: bool) -> int:
     except RuntimeError as exc:  # --tls without openssl
         return _ux.fail(str(exc), fix="install openssl, or install without --tls")
     stop_code = _settle(opts, record, previous, upgrading, log, previous_compose, daemons_before, confirmed,
-                        history_change=getattr(record, "history_change", ([], [])),
                         preflight_daemon=preflight_daemon)
     if stop_code is not None:
         return stop_code
@@ -824,7 +823,6 @@ def _install(args, upgrading: bool) -> int:
 def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
             previous_compose: Optional[bytes] = None, daemons_before: Optional[List[str]] = None,
             confirmed: Optional["Confirmed"] = None,
-            history_change: Optional[Tuple[List[str], List[str]]] = None,
             preflight_daemon: Optional[str] = None) -> Optional[int]:
     """After an install or upgrade wrote ``record``: decide, under the install lock and from what actually runs,
     which release is current, and restart onto ``record`` when an upgrade (or a TLS change) needs it. Current is
@@ -836,7 +834,7 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
     try:
         with _inst.engine_lock(opts.env):
             return _settle_locked(opts, record, previous, upgrading, log, previous_compose, daemons_before or [],
-                                  confirmed, history_change or ([], []), preflight_daemon)
+                                  confirmed, preflight_daemon)
     except _engine.StateUnreadable as exc:
         return _ux.fail(f"{exc}; engine {record['version']} was installed but not made current", fix=exc.fix)
 
@@ -844,7 +842,6 @@ def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], up
 def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
                    previous_compose: Optional[bytes], daemons_before: List[str],
                    confirmed: Optional["Confirmed"] = None,
-                   history_change: Tuple[List[str], List[str]] = ([], []),
                    preflight_daemon: Optional[str] = None) -> Optional[int]:
     """The body of :func:`_settle`, run under the install lock."""
     from briefcase import engine as _engine
@@ -858,22 +855,22 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
     tls_differs = bool(previous and previous.get("version") == record["version"]
                        and bool(previous.get("tls")) != bool(record.get("tls")))
 
-    def undo_history() -> None:
-        """Take back this install's own change to the daemon history, and only that: what it added goes, a legacy
-        entry it completed comes back as it was, and whatever another command recorded meanwhile stays."""
-        removed, added = history_change
-        try:
-            fresh = _engine.load_state_strict(opts.env)
-            current = [e for e in fresh.get("docker_contexts") or [] if e not in added]
-            fresh["docker_contexts"] = current + [e for e in removed if e not in current]
+    def commit_history() -> None:
+        """The daemon this outcome verified is recorded as the owner of the stack's volumes, under the lock that decided
+        it, and only then: an install writes no history of its own, so a refusal has nothing to undo and no other
+        command's entry to lose."""
+        if not _inst.has_id(daemon):
+            return
+        fresh = _engine.load_state_strict(opts.env)
+        known = list(fresh.get("docker_contexts") or [])
+        merged = _inst._merge_daemon(known, str(daemon))
+        if merged != known:
+            fresh["docker_contexts"] = merged
             _inst.save_state(fresh, opts.env)
-        except (_engine.StateUnreadable, OSError):
-            pass
 
     def restore() -> None:
         """The install already wrote the new transport (record and Compose file) and its daemon-history change; put
         back what is running. Reads the state strictly: a record that cannot be read is not rewritten from nothing."""
-        undo_history()
         if tls_differs and previous:
             try:
                 fresh = _engine.load_state_strict(opts.env)
@@ -948,13 +945,16 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
         if not started:
             restore()
             return _ux.fail("the new engine did not start", fix="briefcase-ai engine logs")
+        commit_history()
         _inst.set_current(record["version"], opts.env, locked=True)
         return None
     if not upgrading and others:  # an install next to a running release leaves that one current
+        commit_history()
         _inst.set_current(others[0], opts.env, locked=True)
         log(f"engine {others[0]} is running and stays current; `briefcase-ai engine upgrade` moves to "
             f"{record['version']}")
         return None
+    commit_history()
     _inst.set_current(record["version"], opts.env, locked=True)
     return None
 
