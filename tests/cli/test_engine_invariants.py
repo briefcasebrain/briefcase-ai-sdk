@@ -46,7 +46,7 @@ def synthetic(env, installs, current, shared_server=False):
     (home / "tls" / "ca.pem").write_text("x")
     state = {"schema": 2, "current": current, "installs": {}, "compose_used": True,
              "docker_contexts": ["default unix:///var/run/docker.sock"]}
-    refs = {}
+    refs = {compose.MINIO_IMAGE: "sha256:" + "m" * 64}
     for version in installs:
         directory = home / version
         directory.mkdir(parents=True, exist_ok=True)

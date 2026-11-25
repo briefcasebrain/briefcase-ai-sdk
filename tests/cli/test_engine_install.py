@@ -1171,7 +1171,9 @@ def _second_install(version="0.5.0", binary_only=False):
 
 def _project_runs(monkeypatch, record):
     """Make the fake docker report that the engine project's server container runs this record's image."""
-    monkeypatch.setenv("FAKE_DOCKER_SERVERS", json.dumps([record["image_ids"]["server"]]))
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps([
+        ["oci-jj-server", record["image_ids"]["server"], record["compose"]],
+    ]))
 
 
 def test_purge_keeps_the_secrets_and_the_install_when_a_volume_cannot_be_removed(env, capsys, monkeypatch):

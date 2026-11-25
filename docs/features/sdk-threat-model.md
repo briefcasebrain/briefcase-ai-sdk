@@ -21,3 +21,7 @@ The SDK assumes the endpoint continues to identify the same daemon between the f
 ## Release evidence
 
 Record the installed versions and observed outcomes for Codex, Claude Code, Cursor and Docker Compose. Host tests use isolated configuration and harmless observable actions. Compose tests use disposable projects and data. Keep deterministic fake-host tests for failure paths. SDK 4.5.0 requires clean independent review and green CI on the exact release commit.
+
+On 2026-11-25, Docker Compose 5.5.0 resolved all six stock services. The disposable startup fixture created a server, stopped it, and reused the same container ID on the second SDK startup.
+
+On 2026-11-25, Claude Code 2.1.332, Codex 0.170.0 and Cursor 2026.09.18-9a7762b each attempted the requested marker command in separate allow and deny projects. The fixture checked the hook response for that command. Each allow created the marker and each deny left it absent. Cursor used temporary configuration and data directories.

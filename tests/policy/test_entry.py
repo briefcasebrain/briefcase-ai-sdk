@@ -389,7 +389,8 @@ def test_the_smoke_check_accepts_only_a_complete_host_verdict():
         def __init__(self, code, out="", err=""):
             self.returncode, self.stdout, self.stderr = code, out, err
 
-    full = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny"}})
+    full = json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "fixture rule"}})
     nameless = json.dumps({"hookSpecificOutput": {"permissionDecision": "deny"}})
     assert script.blocked("claude-code", Done(0, full))
     assert not script.blocked("claude-code", Done(0, nameless)), "the host ignores a denial without the event name"
@@ -700,3 +701,20 @@ def test_cursor_hook_command_survives_host_configuration_loading():
     command = install.hook_command("cursor", install.HookOptions(portable=True, endpoint=endpoint, fail_closed=True))
     assert "//" not in command
     assert shlex.split(command)[-2:] == ["--endpoint", endpoint]
+
+
+def test_text_delivery_retries_short_writes():
+    from briefcase.policy.hook_main import _say
+
+    chunks = []
+
+    class Stream:
+        def write(self, text):
+            chunks.append(text[:2])
+            return len(chunks[-1])
+
+        def flush(self):
+            pass
+
+    assert _say(Stream(), "hello")
+    assert "".join(chunks) == "hello"

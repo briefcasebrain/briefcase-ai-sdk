@@ -21,11 +21,20 @@ import os
 import sys
 
 
+def write_text(stream, text):
+    """Write the complete verdict or raise if the stream stops accepting characters."""
+    while text:
+        count = stream.write(text)
+        if not isinstance(count, int) or not 0 < count <= len(text):
+            raise OSError("hook output stream made no progress")
+        text = text[count:]
+
+
 def _say(stream, text):
     """Write and flush, never raising: a closed pipe must not change the exit status the caller chose. Whether the text
     was delivered."""
     try:
-        stream.write(text)
+        write_text(stream, text)
         stream.flush()
         return True
     except BaseException:  # noqa: B036

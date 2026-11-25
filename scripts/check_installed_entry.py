@@ -37,8 +37,14 @@ def blocked(tool, done):
     out = json.loads(done.stdout)
     if tool == "cursor":
         return out.get("permission") == "deny"
+    if set(out) != {"hookSpecificOutput"}:
+        return False
     specific = out.get("hookSpecificOutput", {})  # the host recognises a deny only in this exact shape
-    return specific.get("permissionDecision") == "deny" and specific.get("hookEventName") == "PreToolUse"
+    fields = {"permissionDecision", "hookEventName", "permissionDecisionReason"}
+    return (isinstance(specific, dict) and set(specific) == fields
+            and specific["permissionDecision"] == "deny" and specific["hookEventName"] == "PreToolUse"
+            and isinstance(specific["permissionDecisionReason"], str)
+            and bool(specific["permissionDecisionReason"].strip()))
 
 
 def console_script(entry_points_text, name):

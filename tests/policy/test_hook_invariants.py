@@ -57,9 +57,15 @@ def denies(tool, code, raw):
     out = json.loads(raw)
     if tool == "cursor":
         return out.get("permission") == "deny"
+    if set(out) != {"hookSpecificOutput"}:
+        return False
     specific = out.get("hookSpecificOutput", {})
     # The host recognises a deny only in this exact shape: the event name is part of it.
-    return specific.get("permissionDecision") == "deny" and specific.get("hookEventName") == "PreToolUse"
+    fields = {"permissionDecision", "hookEventName", "permissionDecisionReason"}
+    return (isinstance(specific, dict) and set(specific) == fields
+            and specific["permissionDecision"] == "deny" and specific["hookEventName"] == "PreToolUse"
+            and isinstance(specific["permissionDecisionReason"], str)
+            and bool(specific["permissionDecisionReason"].strip()))
 
 
 def build_state(home, project, state):
@@ -940,7 +946,8 @@ def test_a_strict_hook_denies_a_url_without_a_scheme_and_an_authority(home, proj
 
 
 def test_the_oracle_ignores_denial_json_on_exit_codes_the_hosts_do_not_read():
-    deny = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny"}})
+    deny = json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "fixture rule"}})
     assert denies("codex", 0, deny)
     assert not denies("codex", 1, deny) and not denies("claude-code", 3, deny)
 
@@ -1203,7 +1210,7 @@ def test_one_allow_rule_does_not_authorize_a_different_command_with_the_same_dis
     assert denies(tool, code, raw), f"the second command has no rule that allows it: {code} {raw!r}"
 
 
-@pytest.mark.parametrize("tool", ["codex"])  # the host that cannot ask from a shell hook
+@pytest.mark.parametrize("tool", ["codex", "claude-code", "cursor"])
 def test_an_ask_fallback_of_allow_does_not_authorize_a_call_for_a_bound_hook(
         home, project, tmp_path, monkeypatch, tool):
     policy = ('version = 1\npreset = "guarded"\nask_fallback = "allow"\n[[rule]]\nid = "ask-ls"\ntool = "shell"\n'

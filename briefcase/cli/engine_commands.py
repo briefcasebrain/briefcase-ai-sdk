@@ -577,6 +577,11 @@ def teardown(record: Dict[str, Any], remove_volumes: bool, confirmed: Optional[C
     ``down`` failed or a labelled volume remains."""
     if not isinstance(confirmed, Confirmed):
         raise TypeError("stopping the engine removes its containers, which needs a Confirmed token")
+    try:
+        require_owned_containers(record)
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     rc = _rc(_run(_compose(record, "down")))
     if rc != 0 or not remove_volumes:
         return rc
@@ -727,10 +732,11 @@ def _install(args, upgrading: bool) -> int:
         opts.tls = bool(previous.get("tls"))  # an upgrade keeps what was installed unless told otherwise
     # Which release is current is decided after the install, under the install lock, from what actually runs
     # (see _settle); until then an upgrade, or an install next to compose releases, leaves current alone.
+    opts.make_current = False  # _settle publishes current after checking the selected daemon
+    state_before = _engine.load_state_strict()
     uses_compose_before = any(isinstance(r, dict) and r.get("compose")
-                              for r in (_engine.load_state().get("installs") or {}).values())
-    opts.make_current = not upgrading and not uses_compose_before
-    daemons_before = list(_engine.load_state().get("docker_contexts") or [])
+                              for r in (state_before.get("installs") or {}).values())
+    daemons_before = list(state_before.get("docker_contexts") or [])
     log = (lambda line: None) if as_json else print
     portal = _inst.portal(opts.platform_url)
     used_up = f"this install code is now used up; get a new one at {portal} and run the command it shows"
@@ -938,6 +944,11 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
                 if stop is not None:
                     restore()
                     return stop
+                services = compose_services(record)
+                invalid = check_service_images(record, services) if services else "could not read Compose services"
+                if invalid:
+                    restore()
+                    return _ux.fail(invalid, fix=_reinstall_fix(record))
                 if not still_the_daemon(daemon):  # the daemon at the pinned endpoint is the one that was identified
                     restore()
                     return _ux.fail("the Docker daemon at the verified endpoint is not the one that was identified "
@@ -949,6 +960,10 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
                                     fix="briefcase-ai engine doctor")
                 log(f"restarting onto {record['version']}" + (" (TLS changed) " if tls_changed else " ")
                     + "(data volumes are kept)...")
+                owner = previous if tls_changed else (state.get("installs") or {}).get(others[0])
+                if not owner:
+                    raise RuntimeError("the running release has no install record")
+                require_owned_containers(owner)
                 started = restart_removing_orphans(record, confirmed) == 0
         except Exception as exc:  # noqa: BLE001 - whatever failed, the new transport must not stay half-applied
             restore()
@@ -1082,7 +1097,7 @@ def cmd_verify(args, store, engine, stack) -> int:
     return 0
 
 
-def project_containers(stopped: bool = False) -> Tuple[bool, List[Dict[str, str]]]:
+def project_containers(stopped: bool = False, include_oneoffs: bool = False) -> Tuple[bool, List[Dict[str, str]]]:
     """``(ok, containers)``: every running container of the engine Compose project (with ``stopped``, the stopped ones
     too) as ``{image, service, config, env}`` (image id, Compose service, the Compose file it was started from, and
     its environment as JSON).
@@ -1106,10 +1121,30 @@ def project_containers(stopped: bool = False) -> Tuple[bool, List[Dict[str, str]
         service, _, rest = rest.partition("\t")
         config, _, rest = rest.partition("\t")
         env_json, _, oneoff = rest.partition("\t")
-        if oneoff.strip().lower() == "true":  # a `compose run` leftover: Compose's own reconcile ignores it
+        if not include_oneoffs and oneoff.strip().lower() == "true":  # Compose up ignores one-off containers
             continue
         rows.append({"image": image, "service": service, "config": config, "env": env_json})
     return True, rows
+
+
+def require_owned_containers(record: Dict[str, Any]) -> None:
+    """Check every container Compose could remove against the release that created it."""
+    from briefcase.engine import compose, install
+
+    ok, rows = project_containers(stopped=True, include_oneoffs=True)
+    if not ok:
+        raise RuntimeError("docker could not list the engine containers")
+    ids = record.get("image_ids") or {}
+    sidecars = {"minio": compose.MINIO_IMAGE, "registry": compose.REGISTRY_IMAGE}
+    docker = install.Docker(_runner())
+    for row in rows:
+        service = row["service"]
+        key = record_key(ids, service)
+        expected = ids.get(key) if key is not None else None
+        if key is None and service in sidecars:
+            expected = docker.image_id(sidecars[service])
+        if not expected or expected != row["image"] or row["config"] != record.get("compose"):
+            raise RuntimeError(f"could not verify ownership of the {service} container")
 
 
 def running_releases() -> Tuple[str, List[str], str]:
@@ -1253,6 +1288,28 @@ def compose_services(record: Dict[str, Any]) -> Optional[Dict[str, Optional[str]
             for name, spec in services.items()}
 
 
+def check_service_images(record: Dict[str, Any], services: Dict[str, Optional[str]]) -> Optional[str]:
+    from briefcase.engine import install as _inst
+
+    recorded = record.get("image_ids") or {}
+    mapped = {record_key(recorded, service) for service in services}
+    service_keys = {"server", "gateway", "workers", "postgres", "registry", "minio", "reconstructor",
+                    "verdict-worker", "verdict_worker"}
+    missing = service_keys.intersection(recorded) - mapped
+    if set(_inst.REQUIRED_IMAGES) <= set(recorded):
+        missing.update({"minio", "registry"}.difference(services))
+    if missing:
+        return "Compose configuration omits recorded services: " + ", ".join(sorted(missing))
+    for service, reference in services.items():
+        key = record_key(recorded, service)
+        if not (reference and reference.strip()):
+            return f"there is no local image to compare {service} with (its Compose service names no image)"
+        if key is not None and reference != (record.get("images") or {}).get(key):
+            if _inst.Docker(_runner()).image_id(reference) != recorded[key]:
+                return f"Compose names an unverified image for {service}"
+    return None
+
+
 def existing_containers_state(record: Dict[str, Any], services: Dict[str, Optional[str]],
                               surplus_is_a_problem: bool = True) -> Tuple[Optional[str], Set[str]]:
     """``(problem, services that have a container)`` for the containers that already exist, running or stopped.
@@ -1265,9 +1322,6 @@ def existing_containers_state(record: Dict[str, Any], services: Dict[str, Option
         return "docker could not list the engine's containers", set()
     present = {row["service"] for row in rows}
     recorded = record.get("image_ids") or {}
-    for service, reference in services.items():
-        if record_key(recorded, service) is None and not (reference and reference.strip()):
-            return f"there is no local image to compare {service} with (its Compose service names no image)", present
     want_tls = bool(record.get("tls"))
     counts: Dict[str, int] = {}
     stale: List[str] = []
@@ -1384,6 +1438,9 @@ def cmd_up(args, store, engine, stack) -> int:
             if services is None:
                 return _ux.fail("docker compose could not describe the engine's services (`compose config`), so "
                                 "nothing was inspected or started", fix="briefcase-ai engine doctor")
+            invalid = check_service_images(record, services)
+            if invalid:
+                return _ux.fail(invalid, fix=_reinstall_fix(record))
             problem, present = existing_containers_state(record, services)
             if problem:
                 return _ux.fail(f"{problem}; nothing was started, because `up` would reuse them as they are",
@@ -1748,7 +1805,7 @@ def _remove_install(version: Optional[str], purge: bool, force_without_docker: b
             if running is None:
                 return "blocked", ("could not tell whether engine " + str(version) + " is running (docker "
                                    "failed), so nothing was removed")
-            if running and _rc(_run(_compose(plan.record, "down"))) != 0:
+            if running and teardown(plan.record, False, confirmed) != 0:
                 return "blocked", (f"docker compose down failed (see above), so nothing was removed of engine "
                                    f"{version}")
         if plan.volumes:
@@ -1761,8 +1818,18 @@ def _remove_install(version: Optional[str], purge: bool, force_without_docker: b
                 print(_kept_message(kept))
         if plan.mode == "install" and plan.record is not None:
             docker = _install_mod.Docker(_pinned_runner())
+            images = plan.record.get("images") or {}
+            verified = plan.record.get("image_ids") or {}
             for ref in plan.images:
-                docker.remove_image(ref)
+                expected = {verified.get(name) for name, tag in images.items() if tag == ref}
+                try:
+                    actual = docker.image_id(ref, strict=True)
+                    if actual and expected == {actual}:
+                        docker.remove_image(ref)
+                    elif actual:
+                        print(f"  kept {ref}: its image ID does not match the install record")
+                except _install_mod.InstallError as exc:
+                    return "blocked", str(exc)
             if plan.directory is not None and plan.directory.name == version:
                 shutil.rmtree(plan.directory, ignore_errors=True)
             history = _engine_state_used(state)  # before the install that implies it is gone

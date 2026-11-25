@@ -25,7 +25,8 @@ def check(directory: Path) -> None:
     generated = compose.write(directory, {s: f"localhost/briefcase-engine/{s}:fixture" for s in services}, "fixture")
     record = {"version": "fixture", "compose": str(generated), "env_file": str(env_file)}
     configured = compose_services(record)
-    assert configured and all(configured.values()) and "oci-jj-server" in configured, configured
+    assert configured and set(configured) == {"oci-jj-server", "gateway", "workers", "postgres", "minio", "registry"}
+    assert all(configured.values()), configured
     print("Generated engine configuration:", ", ".join(sorted(configured)), flush=True)
 
     # Same service identity and transport checks as the shipped engine, using a harmless local image.

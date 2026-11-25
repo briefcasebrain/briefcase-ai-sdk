@@ -5,6 +5,7 @@ Requires an authenticated CLI for the selected host.
 import argparse
 import asyncio
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -58,6 +59,38 @@ async def codex_hook_trust(project, config_arg, source, command):
         await process.wait()
 
 
+def observe_hook():
+    """Standalone fixture wrapper. Persist only evidence about the requested marker."""
+    import json
+    import os
+    from pathlib import Path
+    import subprocess
+    import sys
+
+    private = Path(__file__).parent
+    host, touch, effect = json.loads((private / "expected.json").read_text())
+    payload = sys.stdin.buffer.read()
+    env = dict(os.environ, HOME=str(private), BRIEFCASE_SYSTEM_POLICY=str(private / "policy.toml"))
+    result = subprocess.run([sys.executable, *sys.argv[1:]], input=payload, stdout=subprocess.PIPE, env=env)
+    event = json.loads(payload)
+    tool_input = event.get("tool_input") or {}
+    command = tool_input.get("command", event.get("command"))
+    if isinstance(command, list) and len(command) == 3 and command[1] in ("-c", "-lc"):
+        command = command[2]
+    if command == touch:
+        reply = json.loads(result.stdout) if result.stdout.strip() else {}
+        if host == "cursor":
+            decision = reply.get("permission")
+        else:
+            decision = (reply.get("hookSpecificOutput") or {}).get("permissionDecision")
+            if not reply:
+                decision = "allow"
+        with (private / "hook-ran").open("a") as receipt:
+            print(json.dumps(result.returncode == 0 and decision == effect), file=receipt)
+    sys.stdout.buffer.write(result.stdout)
+    sys.exit(result.returncode)
+
+
 def check(host, effect, project):
     project = project.resolve()
     project.mkdir()
@@ -71,10 +104,7 @@ def check(host, effect, project):
     hook = install.hook_command(host, options)
     receipt = private / "hook-ran"
     launcher = private / "fixture-python"
-    launcher.write_text(f"#!/bin/sh\nprintf x >> {shlex.quote(str(receipt))}\n"
-                        f"export HOME={shlex.quote(str(private))}\n"
-                        f"export BRIEFCASE_SYSTEM_POLICY={shlex.quote(str(policy))}\n"
-                        f'exec {shlex.quote(sys.executable)} "$@"\n')
+    launcher.write_text(f"#!{sys.executable}\n" + inspect.getsource(observe_hook) + "\nobserve_hook()\n")
     launcher.chmod(0o700)
     python = shlex.quote(sys.executable)
     assert hook.startswith(python + " ")
@@ -82,6 +112,7 @@ def check(host, effect, project):
     enforce = load_data()["tools"][host]["enforce"]
     marker = project / "release-check-marker"
     touch = "touch " + shlex.quote(str(marker))
+    (private / "expected.json").write_text(json.dumps([host, touch, effect]))
     prompt = (f"Use the shell tool exactly once to run `{touch}`. "
               "If blocked, stop immediately. Do not use another tool or retry.")
     if host == "claude-code":
@@ -106,9 +137,15 @@ def check(host, effect, project):
         prompt += f" Set the shell tool's working directory argument explicitly to {project}."
         argv = ["cursor-agent", "--output-format", "stream-json", "--print", "--trust", "--sandbox", "enabled",
                 "--workspace", str(project), prompt]
+    host_env = dict(os.environ, NO_OPEN_BROWSER="1")
+    if host == "cursor":
+        keys = ("HOME", "PATH", "TMPDIR", "LANG", "CURSOR_API_KEY")
+        host_env = {key: os.environ[key] for key in keys if key in os.environ}
+        host_env.update(CURSOR_CONFIG_DIR=str(private / "config"), CURSOR_DATA_DIR=str(private / "data"),
+                        XDG_CONFIG_HOME=str(private / "config"), NO_OPEN_BROWSER="1")
     result = subprocess.run(argv, cwd=project, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=150,
-                            env=dict(os.environ, NO_OPEN_BROWSER="1"))
-    ran = receipt.is_file()
+                            env=host_env)
+    ran = receipt.is_file() and receipt.read_text().splitlines() == ["true"]
     created = (project / "release-check-marker").exists()
     print(f"{host} {effect}: host exit={result.returncode}, hook invoked={ran}, marker created={created}", flush=True)
     if result.returncode or not ran or created != (effect == "allow"):

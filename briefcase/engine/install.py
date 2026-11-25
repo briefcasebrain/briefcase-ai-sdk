@@ -344,11 +344,16 @@ class Docker:
             return None
         return (getattr(res, "stdout", "") or "").strip() or "unknown"
 
-    def image_id(self, ref: str) -> Optional[str]:
+    def image_id(self, ref: str, strict: bool = False) -> Optional[str]:
         res = self._run(["image", "inspect", "--format", "{{.Id}}", ref], capture_output=True, text=True)
         if res is None or getattr(res, "returncode", 1) != 0:
+            if strict and "no such image:" not in self._err(res).lower():
+                raise InstallError(f"docker could not inspect {ref}")
             return None
-        return (getattr(res, "stdout", "") or "").strip() or None
+        image = (getattr(res, "stdout", "") or "").strip()
+        if strict and not image:
+            raise InstallError(f"docker returned no image ID for {ref}")
+        return image or None
 
     def has_image(self, ref: str) -> bool:
         return self.image_id(ref) is not None
@@ -370,7 +375,9 @@ class Docker:
         self._run(["image", "rm", "--no-prune", ref], capture_output=True, text=True)
 
     def remove_image(self, ref: str) -> None:
-        self._run(["image", "rm", ref], capture_output=True, text=True)
+        res = self._run(["image", "rm", ref], capture_output=True, text=True)
+        if res is None or getattr(res, "returncode", 1) != 0:
+            raise InstallError(f"docker could not remove {ref}")
 
 
 # --------------------------------------------------------------------------- options + state
@@ -820,7 +827,7 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
         state["compose_used"] = any(r.get("compose") for r in (state.get("installs") or {}).values())
     state["compose_used"] = bool(state["compose_used"]) or compose_file is not None  # sticky: volumes may exist
     state.setdefault("installs", {})[manifest.version] = record
-    if opts.make_current or not state.get("current"):
+    if opts.make_current:
         state["current"] = manifest.version
     save_state(state, env)
     return record

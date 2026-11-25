@@ -913,8 +913,10 @@ def test_a_sidecar_is_checked_whatever_the_compose_file_looks_like(env, monkeypa
     path = _engine.current_install()["compose"]
     text = open(path).read().replace(f"    image: {PINNED}\n", f'    "image":   "{PINNED}"\n')
     open(path, "w").write(text)
+    images = _engine.current_install()["images"]
     monkeypatch.setenv("FAKE_DOCKER_CONFIG_JSON", json.dumps({"services": {
-        "oci-jj-server": {"image": "x"}, "gateway": {"image": "x"}, "minio": {"image": PINNED}}}))
+        "oci-jj-server": {"image": images["server"]},
+        "gateway": {"image": images["gateway"]}, "minio": {"image": PINNED}}}))
     assert main(["engine", "up"]) == 1
     out = capsys.readouterr()
     assert compose_verbs(env) == [] and "minio" in out.err + out.out
@@ -936,8 +938,10 @@ def test_an_expected_service_with_no_image_to_compare_is_refused(env, monkeypatc
     synthetic(env, [A], A)
     configure(env, monkeypatch, "ok", "ours", "none")
     monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A)) if existing else []))
+    images = _engine.current_install()["images"]
     monkeypatch.setenv("FAKE_DOCKER_CONFIG_JSON", json.dumps({"services": {
-        "oci-jj-server": {"image": "x"}, "gateway": {"image": "x"}, "minio": {}}}))  # minio: nothing to compare with
+        "oci-jj-server": {"image": images["server"]},
+        "gateway": {"image": images["gateway"]}, "minio": {}}}))  # minio: nothing to compare with
     assert main(["engine", "up"]) == 1
     capsys.readouterr()
     assert compose_verbs(env) == []
@@ -966,3 +970,44 @@ def test_secondary_install_on_empty_daemon_preserves_current_stack_transport(env
     assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 0
     assert _engine.current_install()["version"] == "0.6.0"
     assert _engine.current_install()["tls"]
+
+
+@pytest.mark.parametrize("missing", [True, False], ids=["omitted", "no-image"])
+def test_start_requires_every_recorded_service_image(env, monkeypatch, capsys, missing):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    services = {"oci-jj-server": {"image": _engine.current_install()["images"]["server"]}}
+    if not missing:
+        services["gateway"] = {}
+    monkeypatch.setenv("FAKE_DOCKER_CONFIG_JSON", json.dumps({"services": services}))
+    assert main(["engine", "up"]) == 1
+    assert "gateway" in capsys.readouterr().err
+    assert compose_verbs(env) == []
+
+
+def test_removal_requires_verified_image_and_compose_file(monkeypatch):
+    record = {"compose": "/fixture/compose.yml", "image_ids": {"server": "image-a"}}
+    row = {"image": "image-a", "config": record["compose"], "service": "oci-jj-server"}
+
+    def inventory(stopped, include_oneoffs):
+        assert stopped and include_oneoffs
+        return True, [row]
+
+    monkeypatch.setattr(engine_commands, "project_containers", inventory)
+    engine_commands.require_owned_containers(record)
+    for key, value in (("image", "image-b"), ("config", "/another/compose.yml")):
+        with monkeypatch.context() as patch:
+            patch.setitem(row, key, value)
+            with pytest.raises(RuntimeError, match="ownership"):
+                engine_commands.require_owned_containers(record)
+
+
+def test_refused_install_with_daemon_history_keeps_current_unset(env, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    assert _install("--code", "bci_good") == 0
+    state = _engine.load_state()
+    state["current"] = None
+    _engine.installed_path().write_text(json.dumps(state))
+    monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")
+    assert _install("--token", "bcl_good") == 1
+    assert _engine.load_state()["current"] is None

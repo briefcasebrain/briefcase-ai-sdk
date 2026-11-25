@@ -33,6 +33,8 @@ import os
 import sys
 import time
 
+from briefcase.policy.hook_main import write_text
+
 MAX_STDIN_BYTES = 4 * 1024 * 1024
 DEFAULT_ENDPOINT = "http://127.0.0.1:4318"
 REPORT_PATH = "/v1/policy/decisions"
@@ -383,16 +385,13 @@ def decide(options, payload):
         # Bound to a required policy: only that policy's own verdict counts. Observe mode does not turn a deny into an
         # allow, and an allow must come from a rule or a `default` the policy states, not from the built-in default.
         effect = decision.would
-        if effect == "allow" and not decision.explicit_allow:
+        if effect == "ask" or (effect == "allow" and not decision.explicit_allow):
             effect, unauthorized = "deny", True
             decision.would = "deny"
     downgraded = False
     if effect == "ask" and not tools.can_ask(tool, event):
         effect = loaded.policy.settings["ask_fallback"]
         downgraded = True
-        if options.require_given and effect == "allow":  # a fallback is the host's convenience, not authorization
-            effect, unauthorized = "deny", True
-            decision.would = "deny"
     if fail_closed and (effect not in ("allow", "deny", "ask")
                         or (call.kind == "shell" and not decision.units)):  # nothing was judged: nothing is allowed
         effect = "deny"
@@ -457,7 +456,7 @@ def _main(argv=None, stdin=None, stdout=None):
         text, entry = decide(options, payload)
         try:
             if text:
-                out.write(text + "\n")
+                write_text(out, text + "\n")
             out.flush()
         except BaseException:  # noqa: B036 - the verdict could not be delivered
             if _strict(argv) or options.fail_closed:
@@ -497,8 +496,9 @@ def _block_stderr(why):
     """The reason, on stderr and first: Codex takes a nonempty stderr with exit 2 as its block. When stdout and
     stderr both fail nothing can be shown, and exit status 2 is all that is left."""
     try:
-        sys.stderr.write(f"Blocked by briefcase-ai policy: {why}, and the hook is fail-closed or bound to a required "
-                         f"policy. {FIX}\n")
+        message = (f"Blocked by briefcase-ai policy: {why}, and the hook is fail-closed or bound to a required "
+                   f"policy. {FIX}\n")
+        write_text(sys.stderr, message)
         sys.stderr.flush()
     except BaseException:  # noqa: B036
         pass
@@ -518,19 +518,20 @@ def _failed(tool, options, exc, out, argv_fail_closed=False):
         pass
     try:
         if fail_closed and tool not in tools.TOOLS:
-            out.write(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                                                         "permissionDecisionReason": f"Blocked: {problem}"}}) + "\n")
+            verdict = {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                       "permissionDecisionReason": f"Blocked: {problem}"}
+            write_text(out, json.dumps({"hookSpecificOutput": verdict}) + "\n")
         elif fail_closed:
             event = "beforeShellExecution" if tool == "cursor" else "PreToolUse"
             text = (f"Blocked by briefcase-ai policy: {problem}. The hook was installed with --fail-closed, "
                     f"so nothing runs. {FIX}")
-            out.write(tools.respond(tool, event, "deny", text) + "\n")
+            write_text(out, tools.respond(tool, event, "deny", text) + "\n")
         else:
             text = tools.fail_open_output(tool)
             if not text and warn and tool in tools.TOOLS:
                 text = json.dumps({"systemMessage": f"briefcase-ai policy: {problem}. This call was allowed. {FIX}"})
             if text:
-                out.write(text + "\n")
+                write_text(out, text + "\n")
         out.flush()
     except BaseException:  # noqa: B036
         return False
