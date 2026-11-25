@@ -857,10 +857,10 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
 
     def commit_history() -> None:
         """The daemon this outcome verified is recorded as the owner of the stack's volumes, under the lock that decided
-        it, and only then: an install writes no history of its own, so a refusal has nothing to undo and no other
-        command's entry to lose."""
-        if not _inst.has_id(daemon):
-            return
+        it, and only then (an install writes no history of its own, so a refusal has nothing to undo), and only when
+        the operation put a stack on it: a client-only install uses no daemon, so it establishes no ownership."""
+        if not record.get("compose") or not _inst.has_id(daemon):
+            return  # a client-only install loads no image and creates no volume on whatever daemon is selected
         fresh = _engine.load_state_strict(opts.env)
         known = list(fresh.get("docker_contexts") or [])
         merged = _inst._merge_daemon(known, str(daemon))

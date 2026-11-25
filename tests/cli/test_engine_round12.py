@@ -878,3 +878,29 @@ def test_a_sidecar_made_from_the_pinned_image_is_started(env, monkeypatch, capsy
     assert main(["engine", "up"]) == 0
     capsys.readouterr()
     assert [c for c in compose_calls(env) if "start" in c["argv"]]
+
+
+# --- round 21 ---------------------------------------------------------------------------------------------------
+
+def test_a_client_only_install_next_to_a_running_stack_records_no_daemon(env, monkeypatch, key, capsys):
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    tls_upgrade(env, monkeypatch, key)
+    before = json.loads(_engine.installed_path().read_text())["docker_contexts"]
+    monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # another daemon is selected; this install uses no volumes on it
+    env["platform"].release = build_release(key, version="0.5.0")
+    assert _install("--token", "bcl_good", "--no-images") == 0
+    capsys.readouterr()
+    assert json.loads(_engine.installed_path().read_text())["docker_contexts"] == before
+
+
+def test_after_a_client_only_install_the_next_upgrade_with_images_still_passes_preflight(
+        env, monkeypatch, key, capsys):
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    tls_upgrade(env, monkeypatch, key)
+    monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")
+    env["platform"].release = build_release(key, version="0.5.0")
+    assert _install("--token", "bcl_good", "--no-images") == 0
+    capsys.readouterr()
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")  # back on the daemon that holds the volumes
+    env["platform"].release = build_release(key, version="0.6.0")
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 0
