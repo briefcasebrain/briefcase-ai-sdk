@@ -1230,10 +1230,15 @@ def image_drift(record: Dict[str, Any], docker=None) -> List[str]:
     from briefcase.engine import install as _inst
 
     docker = docker or _inst.Docker(_runner())
+    images = record.get("images") or {}
+    verified = record.get("image_ids") or {}
+    if record.get("compose") and (not images or images.keys() != verified.keys()):
+        return ["the install record lacks a complete verified image inventory"]
     out = []
-    for name, ref in sorted((record.get("images") or {}).items()):
-        expected = (record.get("image_ids") or {}).get(name)
-        if not expected:
+    for name, ref in sorted(images.items()):
+        expected = verified.get(name)
+        if not expected or not ref:
+            out.append(f"the install record lacks a verified image for {name}")
             continue
         actual = docker.image_id(ref)
         if actual != expected:
@@ -1859,14 +1864,12 @@ def _remove_install(version: Optional[str], purge: bool, force_without_docker: b
                     owner, problems = _daemon_check(state, need_record=True)
                     if owner is not None and not problems:
                         with _pinned(owner):
-                            status, running, _ = running_releases()
+                            status, active_versions, _ = running_releases()
                             if status == "ok" and still_the_daemon(owner):
-                                if running and running[0] in remaining:
-                                    state["current"] = running[0]
-                                elif not running:
-                                    candidate = state["installs"][remaining[-1]]
-                                    if not candidate.get("compose") or not image_drift(candidate):
-                                        state["current"] = remaining[-1]
+                                name = active_versions[0] if active_versions else remaining[-1]
+                                candidate = state["installs"].get(name)
+                                if candidate and not image_drift(candidate):
+                                    state["current"] = name
     if plan.secrets:
         for path in (_engine.secrets_path(), _engine.engine_dir() / "tls"):
             if path.is_dir():
