@@ -53,18 +53,39 @@ def launcher_path() -> str:
     return str(Path(__file__).with_name("hook_main.py"))
 
 
-_STRICT_START = ("import sys\n"
-                 "try:\n"
-                 "    import runpy\n"
-                 "    status = runpy.run_path({path})['main']()\n"
-                 "    assert isinstance(status, int)\n"
-                 "except BaseException as stop:\n"
-                 "    if isinstance(stop, SystemExit) and isinstance(stop.code, int):\n"
-                 "        sys.exit(stop.code)\n"
-                 "    sys.stderr.write('Blocked by briefcase-ai policy: the hook launcher could not run and the hook "
-                 "is fail-closed. Reinstall with `briefcase-ai policy init`.\\n')\n"
-                 "    sys.exit(2)\n"
-                 "sys.exit(status)\n")
+_STRICT_START = (
+    "import sys\n"
+    "P = sys.argv[1]\n"
+    "del sys.argv[1]\n"
+    "def deny(tool):\n"
+    "    import os\n"
+    "    try:\n"
+    "        os.write(2, {reason!r} + b'\\n')\n"
+    "        return 2\n"
+    "    except OSError:\n"
+    "        pass\n"
+    "    try:\n"
+    "        os.write(1, {cursor!r} if tool == 'cursor' else {plain!r})\n"
+    "        return 0\n"
+    "    except OSError:\n"
+    "        return 2\n"
+    "try:\n"
+    "    import runpy\n"
+    "    status = runpy.run_path(P)['main']()\n"
+    "    assert type(status) is int\n"
+    "except BaseException:\n"
+    "    sys.exit(deny(sys.argv[1] if len(sys.argv) > 1 else ''))\n"
+    "sys.exit(status)\n")  # any exit while loading is a denial: the launcher's verdict is the status main() returns
+
+
+def _strict_code() -> str:
+    """The ``-c`` program of a fail-closed command. It takes the launcher path as an argument (a path with non-BMP
+    characters survives that, but not being written into source) and delivers a denial with the launcher's own bytes
+    (``hook_main``): the reason on stderr with exit 2, else the JSON denial on stdout with exit 0."""
+    from briefcase.policy import hook_main
+
+    return "exec(" + repr(_STRICT_START.format(reason=hook_main._REASON, cursor=hook_main._DENY_CURSOR,
+                                               plain=hook_main._DENY)) + ")"
 
 
 def hook_command(tool: str, options: HookOptions) -> str:
@@ -95,8 +116,7 @@ def hook_command(tool: str, options: HookOptions) -> str:
     elif options.fail_closed:
         # The launcher is loaded and its named main() called here, so a file that is missing, truncated or without a
         # working main is a block (exit 2 with a reason), not a silent exit 0.
-        code = "exec(" + repr(_STRICT_START.format(path=json.dumps(launcher_path()))) + ")"
-        base = [sys.executable] + flags_py + ["-c", code, tool]
+        base = [sys.executable] + flags_py + ["-c", _strict_code(), launcher_path(), tool]
     else:
         code = f'import runpy; runpy.run_path({json.dumps(launcher_path())}, run_name="__main__")'
         base = [sys.executable] + flags_py + ["-c", code, tool]

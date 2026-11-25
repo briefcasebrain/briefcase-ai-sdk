@@ -445,3 +445,53 @@ def test_a_scanner_failure_blocks_directly_whatever_the_position_of_the_binding(
     code = entry_module.main(argv_shape)
     named = "cursor" if "cursor" in argv_shape else "claude-code"
     assert code == 0 and denies(named, 0, out.getvalue()), (code, out.getvalue())
+
+
+def _run_generated_command(tool, launcher_dir_name, launcher_text, tmp_path, monkeypatch, home, project,
+                           close_stderr=False):
+    import shlex
+
+    from briefcase.policy import install
+
+    directory = tmp_path / launcher_dir_name
+    directory.mkdir()
+    stub = directory / "hook_main.py"
+    stub.write_text(launcher_text)
+    monkeypatch.setattr(install, "launcher_path", lambda: str(stub))
+    command = install.hook_command(tool, install.HookOptions(fail_closed=True, endpoint="http://127.0.0.1:1"))
+    child = subprocess.Popen(shlex.split(command), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, env={"HOME": str(home), "PATH": os.environ.get("PATH", "")})
+    if close_stderr:
+        child.stderr.close()
+    child.stdin.write(json.dumps(payload(tool, project)).encode())
+    child.stdin.close()
+    out = child.stdout.read().decode()
+    err = "" if close_stderr else child.stderr.read().decode()
+    child.wait(timeout=60)
+    return child.returncode, out, err
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+def test_the_strict_local_command_turns_any_exit_during_loading_into_a_denial(
+        home, project, tmp_path, monkeypatch, tool):
+    code, out, err = _run_generated_command(tool, "d", "import sys\nsys.exit(0)  # a silent success while loading\n",
+                                            tmp_path, monkeypatch, home, project)
+    assert code == 2 and err.strip(), (code, out, err)
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+def test_the_strict_local_command_delivers_the_json_denial_when_stderr_is_unusable(
+        home, project, tmp_path, monkeypatch, tool):
+    code, out, err = _run_generated_command(tool, "d", "x = 1\n", tmp_path, monkeypatch, home, project,
+                                            close_stderr=True)
+    assert code == 0 and denies(tool, 0, out), (code, out)
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+def test_the_strict_local_command_keeps_the_launchers_own_status_and_a_path_with_non_bmp_characters(
+        home, project, tmp_path, monkeypatch, tool):
+    """The launcher's verdict is the status main() returns; and a virtualenv path with an emoji reaches Python as an
+    argument, not as source text where it would turn into surrogates."""
+    code, out, err = _run_generated_command(tool, "venv-\U0001F642", "def main():\n    return 0\n",
+                                            tmp_path, monkeypatch, home, project)
+    assert (code, out) == (0, ""), (code, out, err)
