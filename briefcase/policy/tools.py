@@ -202,7 +202,7 @@ def _absolute_url_problem(url):
 
     from briefcase.policy.engine import host_of
 
-    text = url.strip()
+    text = url  # exactly as sent: a leading or trailing control or space is a defect, not something to trim
     if re.search(r"[\x00-\x20\x7f]", text):  # urlsplit would drop tabs and newlines unseen, and space is no URL
         return "it has a control character or whitespace"
     if re.search(r"%(?![0-9A-Fa-f]{2})", text):

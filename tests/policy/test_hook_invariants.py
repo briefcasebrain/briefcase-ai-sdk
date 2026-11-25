@@ -1341,3 +1341,18 @@ def test_a_bound_call_whose_wildcard_expands_beyond_the_cap_is_not_authorized(ho
                        monkeypatch, body)
     decision = json.loads(raw)["hookSpecificOutput"]["permissionDecision"] if raw.strip() else "allow"
     assert decision in ("deny", "ask"), (code, raw)  # never an allow: what the wildcard names is undecided
+
+
+EDGE_WHITESPACE = [" https://example.com/x", "https://example.com/x ", "\thttps://example.com/x",
+                   "https://example.com/x\n", "\x0bhttps://example.com/x", "\x01https://example.com/x",
+                   "https://example.com/x\x7f"]
+
+
+@pytest.mark.parametrize("url", EDGE_WHITESPACE, ids=lambda u: repr(u))
+@pytest.mark.parametrize("tool", ["claude-code", "cursor"])
+def test_leading_or_trailing_whitespace_and_controls_are_a_defect_not_trimmed(home, project, tool, url):
+    _observe(home)
+    body = _events(tool, project)["pre_web" if tool == "cursor" else "web"]
+    body["tool_input"] = {"url": url}
+    code, raw = run_entry("module", tool, ["--fail-closed"], body, home)
+    assert denies(tool, code, raw), f"{url!r} was allowed: {code} {raw!r}"
