@@ -747,3 +747,43 @@ def test_every_refusal_after_the_install_puts_back_the_legacy_history_entry_it_c
     assert main(["engine", "upgrade", "--yes", "--token", "bcl_good", "--tls"]) != 0
     capsys.readouterr()
     assert json.loads(_engine.installed_path().read_text())["docker_contexts"] == [legacy]
+
+
+# --- round 20 ---------------------------------------------------------------------------------------------------
+
+def test_fresh_up_rechecks_the_daemon_immediately_before_compose(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    real = engine_commands.existing_containers_state
+    taken = []
+
+    def inventory_then_the_tunnel_moves(record, **kwargs):
+        result = real(record, **kwargs)
+        if not taken:  # the inventory that decides between `up` and `start`
+            taken.append(1)
+            monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # a daemon whose replicas were never inventoried
+        return result
+
+    monkeypatch.setattr(engine_commands, "existing_containers_state", inventory_then_the_tunnel_moves)
+    assert main(["engine", "up"]) != 0
+    capsys.readouterr()
+    assert [c for c in compose_calls(env) if "up" in c["argv"] or "start" in c["argv"]] == []
+
+
+def test_fresh_up_reports_a_daemon_that_changed_during_the_start(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    real = engine_commands._run
+
+    def run_then_the_tunnel_moves(argv, **kw):
+        result = real(argv, **kw)
+        if argv[:2] == ["docker", "compose"] and "up" in argv:
+            monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")
+        return result
+
+    monkeypatch.setattr(engine_commands, "_run", run_then_the_tunnel_moves)
+    assert main(["engine", "up"]) != 0
+    out = capsys.readouterr()
+    assert "started" not in out.out and "changed" in out.err + out.out

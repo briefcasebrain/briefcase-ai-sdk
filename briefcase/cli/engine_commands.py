@@ -1355,7 +1355,14 @@ def cmd_up(args, store, engine, stack) -> int:
                                     "at the same address and nothing was started", fix="briefcase-ai engine doctor")
             except _engine.StateUnreadable as exc:
                 return _ux.fail(str(exc), fix=exc.fix)
+            if not still_the_daemon(daemon):  # the last look before Compose opens its own connection
+                return _ux.fail("the Docker daemon at the verified endpoint is not the one that was inspected (it "
+                                "changed after the inventory), so nothing was started",
+                                fix="briefcase-ai engine doctor")
             rc = _rc(_run(command))
+            if not still_the_daemon(daemon):
+                return _ux.fail("the Docker daemon at the verified endpoint changed during the start, so what the "
+                                "inventory says cannot be trusted", fix="briefcase-ai engine status")
             if rc == 0:
                 # What Compose created or started is checked against the record: every expected service has its
                 # container, image and transport. A container another Compose client made Compose remove while it
