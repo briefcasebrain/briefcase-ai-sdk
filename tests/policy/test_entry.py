@@ -617,3 +617,39 @@ def test_the_wheel_checker_accepts_the_exact_entry(tmp_path):
                    "[console_scripts]\nbriefcase-ai-mcp=briefcase.mcp.__main__:main\n"
                    "briefcase-ai = briefcase_entry:main\n")
     assert _script().wheel_contents(str(tmp_path)) == []
+
+
+OLD_STRICT = ("import sys\ntry:\n    import runpy\n    status = runpy.run_path({path})['main']()\n"
+              "except BaseException:\n    sys.exit(2)\nsys.exit(status)\n")  # the form 5621b59..cba5559 generated
+
+
+@pytest.mark.parametrize("name", ["plain", "café", "venv-\U0001F642"])
+def test_status_finds_the_launcher_in_a_previously_installed_embedded_path_command(tmp_path, name):
+    import shlex
+
+    from briefcase.policy import install
+
+    path = str(tmp_path / name / "hook_main.py")
+    command = " ".join(shlex.quote(p) for p in [
+        sys.executable, "-I", "-c", "exec(" + repr(OLD_STRICT.format(path=json.dumps(path))) + ")", "codex",
+        "--enforce"])
+    assert path in install._launcher_paths(shlex.split(command))
+
+
+@pytest.mark.parametrize("name", ["plain", "café", "venv-\U0001F642"])
+def test_status_finds_the_launcher_in_a_newly_generated_strict_command(tmp_path, monkeypatch, name):
+    import shlex
+
+    from briefcase.policy import install
+
+    path = str(tmp_path / name / "hook_main.py")
+    monkeypatch.setattr(install, "launcher_path", lambda: path)
+    command = install.hook_command("codex", install.HookOptions(fail_closed=True, endpoint="http://127.0.0.1:1"))
+    assert path in install._launcher_paths(shlex.split(command))
+
+
+def test_the_guides_describe_the_strict_launcher_and_the_endpoint_limit():
+    hooks = (ROOT / "docs" / "features" / "policy-hooks.md").read_text()
+    engine = (ROOT / "docs" / "features" / "engine.md").read_text()
+    assert "calls its `main()`" in hooks and "passes the file directly" not in hooks
+    assert "outside the threat model" in engine

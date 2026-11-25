@@ -330,11 +330,13 @@ shown, and exit status 2 is all the hook can offer; a host that ignores it, or o
 out, is outside what a command-line hook can guarantee.
 
 What happens when the hook cannot even start (the virtualenv was deleted, briefcase moved):
-Python exits with code 2 for a script that does not exist, and exit code 2 *blocks* in all three
-tools. So the default command starts the launcher through `-c` and `runpy`, which exits 1 when
-the file is gone (a failed hook, allowed); the fail-closed command passes the file directly, so
-a missing launcher exits 2 and blocks, in Codex too. `briefcase-ai policy status` flags a launcher
-that no longer exists. A project policy that turns `fail_closed` on and is broken blocks only
+the default command starts the launcher through `-c` and `runpy`, which exits 1 when the file is
+gone (a failed hook, allowed). The fail-closed command runs a short `-c` program that is given the
+launcher's path as an argument, loads the file and calls its `main()`; a launcher that is missing,
+truncated, exits while loading, has no `main()` or returns anything but 0 or 2 makes it exit 2 with a
+reason on stderr (or, when stderr cannot carry it, the JSON denial on stdout), in Codex too.
+`briefcase-ai policy status` flags a launcher that no longer exists, for commands installed in
+either form. A project policy that turns `fail_closed` on and is broken blocks only
 inside that project.
 
 ### What a local policy cannot guarantee

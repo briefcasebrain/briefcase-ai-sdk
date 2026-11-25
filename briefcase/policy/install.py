@@ -349,16 +349,30 @@ def installed() -> List[Dict[str, Any]]:
 
 
 def _launcher_paths(parts: List[str]) -> List[str]:
-    """The launcher file(s) a hook command names: an absolute ``*.py`` argument, or the
-    path inside the ``-c "import runpy; runpy.run_path('...')"`` form."""
+    """The launcher file(s) a hook command names: an absolute ``*.py`` argument (the current forms), or the path
+    written inside the program of an earlier form (``run_path("...")``, a JSON string, possibly inside an
+    ``exec('...')`` literal), decoded as the program would read it."""
+    import ast
     import re
 
     found = []
     for part in parts[1:]:
         if os.path.isabs(part) and part.endswith(".py"):
             found.append(part)
-        for match in re.finditer(r"run_path\((['\"])(.+?)\1", part):
-            found.append(match.group(2))
+        code = part
+        if part.startswith("exec(") and part.endswith(")"):
+            try:
+                value = ast.literal_eval(part[5:-1])
+                code = value if isinstance(value, str) else part
+            except (ValueError, SyntaxError):
+                code = part
+        for match in re.finditer(r"run_path\((['\"])(.+?)\1", code):
+            text = match.group(2)
+            try:
+                text = json.loads('"' + text + '"') if "\\" in text else text
+            except ValueError:
+                pass
+            found.append(text)
     return found
 
 
