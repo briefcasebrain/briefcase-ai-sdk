@@ -418,3 +418,30 @@ def test_the_wheel_content_check_names_a_wheel_that_omits_the_entry_package(tmp_
     problems = script.wheel_contents(str(tmp_path))
     assert any("bad-1" in p and "briefcase_entry/__init__.py" in p for p in problems)
     assert not any("good-1" in p for p in problems)
+
+
+@pytest.mark.parametrize("argv_shape", [
+    ["--require-policy-sha256=" + "0" * 64, "hook", "codex", "--enforce"],        # a binding before `hook`
+    ["--fail-closed", "--debug", "hook", "cursor"],                                 # before, and no --enforce
+    ["--server", "hook", "hook", "codex", "--fail-closed"],                         # a global value named `hook`
+    ["--repo", "hook", "--fail-closed", "hook", "claude-code", "--enforce"],
+], ids=["binding_before_hook", "binding_and_global_before_cursor", "value_named_hook", "value_named_hook_2"])
+def test_a_scanner_failure_blocks_directly_whatever_the_position_of_the_binding(
+        home, project, monkeypatch, argv_shape):
+    import io
+
+    import briefcase.cli.__main__ as entry_module
+
+    monkeypatch.setitem(sys.modules, "briefcase_entry", None)  # the shared scanner cannot be imported
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
+    monkeypatch.setattr(sys, "stdout", out)
+    monkeypatch.setattr(sys, "stderr", err)
+    code = entry_module.main(argv_shape)
+    assert code == 2 and err.getvalue().strip() and not out.getvalue().strip(), (code, out.getvalue(), err.getvalue())
+    monkeypatch.setattr(sys, "stderr", None)  # stderr unusable: the JSON denial goes to stdout, in the format of the
+    out = io.StringIO()                       # host the command line names (Cursor's differs), never the wrong one
+    monkeypatch.setattr(sys, "stdout", out)
+    code = entry_module.main(argv_shape)
+    named = "cursor" if "cursor" in argv_shape else "claude-code"
+    assert code == 0 and denies(named, 0, out.getvalue()), (code, out.getvalue())

@@ -201,11 +201,26 @@ def _hook_invocation(argv):
         return hook_invocation(argv)
     except BaseException:  # noqa: B036 - the scanner itself is unavailable
         if "hook" in argv and _binds_anywhere(argv):
-            at = argv.index("hook")
-            tool = argv[at + 1] if argv[at + 1:at + 2] and argv[at + 1] in ("cursor", "claude-code", "codex") else ""
-            return tool, argv[at + 2:] if tool else argv
+            return "", argv  # which token is the tool cannot be told reliably: block directly (see main)
         return (argv[1], argv[2:]) if argv[:1] == ["hook"] and argv[1:2] in (["cursor"], ["claude-code"], ["codex"]) \
             else None
+
+
+def _blocked_directly(argv) -> int:
+    """A command line that names ``hook`` and carries a binding flag, and a scanner that cannot say which host it is
+    for: deliver a block without choosing a tool by guesswork (the host format only matters for the stdout fallback,
+    where Cursor's differs and is chosen by the name on the command line)."""
+    tool = "cursor" if "cursor" in argv else "claude-code"
+    try:
+        from briefcase.policy import hook_main
+
+        return hook_main.block_in_process(tool)
+    except BaseException:  # noqa: B036
+        try:
+            os.write(2, b"Blocked by briefcase-ai policy: the hook could not start and it is bound to a policy.\n")
+        except BaseException:  # noqa: B036
+            pass
+        return 2
 
 
 def _hook_unavailable(tool, rest) -> int:
@@ -237,6 +252,8 @@ def _hook_unavailable(tool, rest) -> int:
 def main(argv=None, store=None, engine=None, stack=None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     found = _hook_invocation(argv)
+    if found is not None and found[0] == "":
+        return _blocked_directly(argv)
     if found is not None:
         # Hook entry points: must stay silent and fail open (or block, when the command line binds them), so they
         # bypass argparse (which exits non-zero and prints on a bad flag), command discovery and the store. The import
