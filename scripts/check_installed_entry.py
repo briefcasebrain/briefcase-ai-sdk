@@ -41,6 +41,23 @@ def blocked(tool, done):
     return specific.get("permissionDecision") == "deny" and specific.get("hookEventName") == "PreToolUse"
 
 
+def console_script(entry_points_text, name):
+    """The target of ``name`` in the ``[console_scripts]`` section of an entry_points.txt, parsed as INI (a comment,
+    another section or another script's line cannot stand in for it); ``None`` when there is none."""
+    import configparser
+
+    parser = configparser.ConfigParser(interpolation=None, delimiters=("=",), comment_prefixes=("#", ";"))
+    parser.optionxform = str  # script names are case-sensitive
+    try:
+        parser.read_string(entry_points_text)
+    except configparser.Error:
+        return None
+    if not parser.has_section("console_scripts"):
+        return None
+    value = parser.get("console_scripts", name, fallback=None)
+    return value.strip() if value is not None else None
+
+
 def wheel_contents(directory):
     """Every wheel in ``directory`` ships briefcase_entry and a console script that names it; returns the problems."""
     import glob
@@ -51,11 +68,12 @@ def wheel_contents(directory):
     for wheel in wheels:
         with zipfile.ZipFile(wheel) as archive:
             names = archive.namelist()
-            scripts = "".join(archive.read(n).decode() for n in names if n.endswith("entry_points.txt"))
+            metadata = [archive.read(n).decode() for n in names if n.endswith(".dist-info/entry_points.txt")]
         if "briefcase_entry/__init__.py" not in names:
             problems.append(f"{os.path.basename(wheel)} does not contain briefcase_entry/__init__.py")
-        if "briefcase-ai=briefcase_entry:main" not in scripts.replace(" ", ""):
-            problems.append(f"{os.path.basename(wheel)}'s console script is not briefcase_entry:main")
+        if not any(console_script(text, "briefcase-ai") == "briefcase_entry:main" for text in metadata):
+            problems.append(f"{os.path.basename(wheel)}'s console script briefcase-ai is not exactly "
+                            "briefcase_entry:main")
     return problems
 
 

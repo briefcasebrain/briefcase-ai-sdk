@@ -589,3 +589,31 @@ def test_a_system_exit_raised_inside_main_is_a_denial_too(monkeypatch, tmp_path)
     code = _exec_wrapper(monkeypatch, tmp_path, "import sys\ndef main():\n    sys.exit(0)\n", "claude-code",
                          lambda fd, data: len(data))
     assert code == 2
+
+
+@pytest.mark.parametrize("metadata", [
+    "[console_scripts]\nbriefcase-ai=briefcase.cli.__main__:main\n# briefcase-ai=briefcase_entry:main\n",
+    "[gui_scripts]\nbriefcase-ai=briefcase_entry:main\n[console_scripts]\nbriefcase-ai=briefcase.cli.__main__:main\n",
+    "[console_scripts]\nbriefcase-ai-mcp=briefcase_entry:main\nbriefcase-ai=briefcase.cli.__main__:main\n",
+    "[console_scripts]\nbriefcase-ai=briefcase_entry:main_old\n",
+    "[console_scripts]\nxbriefcase-ai=briefcase_entry:main\n",
+], ids=["comment", "other_section", "other_script", "other_function", "other_name"])
+def test_the_wheel_checker_parses_the_exact_console_script_entry(tmp_path, metadata):
+    import zipfile
+
+    with zipfile.ZipFile(tmp_path / "w-1-py3-none-any.whl", "w") as z:
+        z.writestr("briefcase_entry/__init__.py", "")
+        z.writestr("w.dist-info/entry_points.txt", metadata)
+    problems = _script().wheel_contents(str(tmp_path))
+    assert any("console script" in p for p in problems), problems
+
+
+def test_the_wheel_checker_accepts_the_exact_entry(tmp_path):
+    import zipfile
+
+    with zipfile.ZipFile(tmp_path / "w-1-py3-none-any.whl", "w") as z:
+        z.writestr("briefcase_entry/__init__.py", "")
+        z.writestr("w.dist-info/entry_points.txt",
+                   "[console_scripts]\nbriefcase-ai-mcp=briefcase.mcp.__main__:main\n"
+                   "briefcase-ai = briefcase_entry:main\n")
+    assert _script().wheel_contents(str(tmp_path)) == []
