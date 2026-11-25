@@ -1,0 +1,11 @@
+{
+  "id": "cli-shell",
+  "title": "Guided setup and status",
+  "verb": "connect",
+  "one_line": "One command to get started and one screen that shows what is on.",
+  "command": "briefcase-ai setup",
+  "docs_slug": "connect/cli-shell",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Guided setup (all three paths), status, features and bash completion run for real in a temp HOME on Linux, with a stand-in `claude` executable for the connect step. The zsh and fish completion scripts were generated but never loaded in those shells."
+}

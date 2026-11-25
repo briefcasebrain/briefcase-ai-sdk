@@ -1,0 +1,304 @@
+"""The single-box compose file and per-install secrets for a local engine.
+
+The layout and settings follow oci-jj's own compose files as of branch charming-planck-41fz08
+(commits e89ddbf "server: secure defaults, tenant-scoped datasets", 8a52297 "gateway,
+reconstructor: authenticate callers and forward the caller's credential", be043d9 "verdict
+worker sends its token; datasets only via server-minted presigned URLs", read 2026-11-22):
+
+* every first-party image is the one the signed release manifest pins by digest: the installer
+  verifies it, tags it ``localhost/briefcase-engine/<name>:<version>`` and the compose file uses
+  that tag with ``pull_policy: never`` (a ``docker load``-ed image has no registry digest to
+  reference, so the digest is checked at install and by ``engine up``/``doctor`` instead);
+* nothing is hard-coded: :func:`ensure_secrets` generates every password and token once into
+  ``~/.briefcase/engine/engine.env`` (mode 0600); upgrades reuse it because the Postgres and
+  MinIO volumes keep what they were first initialised with;
+* gRPC auth is required by the server. ``OCI_JJ_AUTH_TOKENS`` is oci-jj's
+  ``${OCI_JJ_WORKER_TOKEN}:platform:admin,${OCI_JJ_TENANT_TOKENS}``: the internal worker token
+  (admin role, given ONLY to ``workers`` and ``verdict-worker``) plus the tenant tokens, here a
+  tenant token for the CLI and a read-only one, both for tenant ``local``. The gateway and
+  reconstructor hold no credential: they forward each caller's own token (they refuse to start
+  with ``OCI_JJ_AUTH_TOKEN``);
+* the RLS role ``oci_jj_app`` gets ``OCI_JJ_APP_PASSWORD`` from the postgres image's first-boot
+  hook (``docker/postgres-app-password.sh``); the schema creates it without one;
+* verdict datasets: ``s3://oci-jj-datasets/tenants/local/...`` only; the server presigns per-job
+  GET URLs (``OCI_JJ_DATASET_S3_*``) and the verdict worker holds no object-store credentials;
+* ports are published on 127.0.0.1 only; without ``--tls`` the server needs
+  ``OCI_JJ_ALLOW_PLAINTEXT=1`` to listen on the compose network, with ``--tls`` it serves the
+  self-signed certificate under ``~/.briefcase/engine/tls`` and every client trusts it;
+* MinIO is the pinned ``bitnamilegacy/minio`` build oci-jj now uses (``minio/minio`` is no longer
+  published on Docker Hub), creating both buckets itself. Redis and Temporal are left out:
+  single-box does not use them.
+"""
+from __future__ import annotations
+
+import os
+import secrets
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Dict, Mapping, Optional
+
+SECRET_KEYS = (
+    "PG_SUPERUSER_PASSWORD",
+    "OCI_JJ_APP_PASSWORD",
+    "MINIO_ROOT_USER",
+    "MINIO_ROOT_PASSWORD",
+    "OCI_JJ_WORKER_TOKEN",
+    "OCI_JJ_TENANT_TOKENS",
+    "OCIBAI_DEDUP_HMAC_KEY",
+)
+# The credentials a data volume is created with: a replacement leaves the volume unreadable by the server.
+VOLUME_BOUND_KEYS = ("PG_SUPERUSER_PASSWORD", "OCI_JJ_APP_PASSWORD", "MINIO_ROOT_USER", "MINIO_ROOT_PASSWORD")
+TENANT = "local"
+BLOB_BUCKET = "oci-jj-blobs"
+DATASET_BUCKET = "oci-jj-datasets"
+MINIO_IMAGE = ("bitnamilegacy/minio:2025.7.23"
+               "@sha256:8935e75fa5d11295c17171e4aa49efe390a1193cd7f12e4d21b92af9ffef09d7")
+PROJECT = "briefcase-engine"
+ENGINE_LABEL = "ai.briefcase.engine"  # marks a volume this engine created
+VOLUME_KEYS = ("pgdata", "miniodata", "regdata")
+REGISTRY_IMAGE = ("registry:2.8.3"
+                  "@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373")
+
+
+def _new_secret(key: str) -> str:
+    if key == "MINIO_ROOT_USER":
+        return "briefcase"
+    if key == "OCI_JJ_TENANT_TOKENS":
+        # oci-jj's format: `tok:tenant[:reader]`, comma-separated. The first is the CLI's.
+        return f"{secrets.token_urlsafe(32)}:{TENANT},{secrets.token_urlsafe(32)}:{TENANT}:reader"
+    if key.endswith("HMAC_KEY"):
+        return secrets.token_hex(32)
+    return secrets.token_urlsafe(32)
+
+
+def check_secrets(path: Path, volumes_may_exist: bool = False) -> Dict[str, str]:
+    """The values in ``engine.env``, or :class:`~briefcase.engine.StateUnreadable` when it is unreadable or lacks a
+    credential its volumes were created with (see :func:`ensure_secrets`). A missing file is ``{}``."""
+    from briefcase.engine import StateUnreadable, read_env_file
+
+    values = read_env_file(path, strict=True)
+    if path.exists():
+        missing = [key for key in VOLUME_BOUND_KEYS if not values.get(key)]
+        if missing:
+            raise StateUnreadable(f"{path} is incomplete (no {', '.join(missing)}); its passwords are not "
+                                  "replaced, because the data volumes were created with the originals. Restore it "
+                                  "from a backup, or remove the engine's data with `briefcase-ai engine uninstall "
+                                  "--purge` and install again")
+    elif volumes_may_exist:
+        raise StateUnreadable(f"{path} is missing but the engine's data volumes may exist, so new passwords are "
+                              "not generated for them. Restore it from a backup, or remove the data with "
+                              "`briefcase-ai engine uninstall --purge` and install again")
+    return values
+
+
+def ensure_secrets(path: Path, volumes_may_exist: bool = False) -> Dict[str, str]:
+    """Read ``engine.env``, add any missing secret, write it back with mode 0600.
+
+    Only a file that is absent starts a fresh set, and not even that when ``volumes_may_exist``. A file that exists
+    but lacks a credential its volumes were created with (truncated, emptied, hand-edited) raises
+    :class:`~briefcase.engine.StateUnreadable` instead of being completed with new passwords. Secrets added by a
+    newer release (tokens, keys no volume holds) are still generated."""
+    values = check_secrets(path, volumes_may_exist)
+    changed = False
+    for key in SECRET_KEYS:
+        if not values.get(key):
+            values[key] = _new_secret(key)
+            changed = True
+    if changed or not path.exists():
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        body = "# Generated by `briefcase-ai engine install`. Keep private: these are the local\n" \
+               "# engine's database passwords and gRPC tokens.\n" + \
+               "".join(f"{key}={values[key]}\n" for key in sorted(values))
+        import tempfile
+
+        fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")  # mode 0600
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(body)
+        os.replace(tmp, path)
+    if os.name == "posix":
+        try:
+            path.chmod(0o600)
+        except OSError:
+            pass
+    return values
+
+
+def make_tls(tls_dir: Path, runner=subprocess.run) -> Dict[str, str]:
+    """A self-signed certificate for the engine (``openssl`` required). Reused when present."""
+    cert, key = tls_dir / "server.crt", tls_dir / "server.key"
+    if cert.exists() and key.exists():
+        return {"cert": str(cert), "key": str(key), "ca": str(cert)}
+    if shutil.which("openssl") is None:
+        raise RuntimeError("--tls needs `openssl` on PATH to create a certificate")
+    tls_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    result = runner([
+        "openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1",
+        "-nodes", "-days", "825", "-subj", "/CN=briefcase-engine",
+        "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:oci-jj-server",
+        "-keyout", str(key), "-out", str(cert),
+    ], capture_output=True, text=True)
+    if getattr(result, "returncode", 1) != 0:
+        raise RuntimeError(f"openssl failed: {(getattr(result, 'stderr', '') or '').strip()[:300]}")
+    key.chmod(0o644)  # read by the server container's non-root user; the directory stays 0700
+    return {"cert": str(cert), "key": str(key), "ca": str(cert)}
+
+
+LOCAL_PREFIX = "localhost/briefcase-engine/"
+
+
+def _pinned(ref: str) -> bool:
+    return "@sha256:" in ref or ref.startswith(LOCAL_PREFIX)
+
+
+def render(images: Mapping[str, str], version: str, tls: bool = False,
+           grpc_port: int = 50051, gateway_port: int = 8080,
+           digests: Optional[Mapping[str, str]] = None) -> str:
+    """The compose file text. ``images`` maps service keys (``server``, ``gateway``,
+    ``reconstructor``, ``workers``, ``postgres``, optional ``verdict_worker``, ``minio``,
+    ``registry``) to either ``<ref>@sha256:<digest>`` or the local tag the installer gave a
+    verified image (``localhost/briefcase-engine/<name>:<version>``). Local tags get
+    ``pull_policy: never`` (Compose must never fetch them from anywhere) and a comment with
+    the digest the signed manifest pins (``digests``)."""
+    for required in ("server", "gateway", "workers", "postgres"):
+        if not _pinned(images.get(required) or ""):
+            raise ValueError(f"image {required!r} is not pinned by digest: {images.get(required)!r}")
+    digests = digests or {}
+
+    def image(key: str, default: Optional[str] = None) -> str:
+        ref = images.get(key) or default or ""
+        line = f"    image: {ref}\n"
+        if ref.startswith(LOCAL_PREFIX):
+            line += "    pull_policy: never\n"
+            if digests.get(key):
+                line = f"    # signed manifest: {digests[key]}\n" + line
+        return line
+    grpc_target = ("https://" if tls else "") + "oci-jj-server:50051"
+    client_tls = "      OCI_JJ_TLS_CA: /tls/server.crt\n" if tls else ""
+    tls_volume = "    volumes:\n      - ../tls:/tls:ro\n" if tls else ""
+    server_tls = ("      OCI_JJ_TLS_CERT: /tls/server.crt\n      OCI_JJ_TLS_KEY: /tls/server.key\n"
+                  if tls else '      OCI_JJ_ALLOW_PLAINTEXT: "1"\n')
+
+    def client(name: str, key: str, extra: str = "", ports: str = "", token: bool = False) -> str:
+        # Only the internal workers hold a credential (the admin-plane worker token); the gateway
+        # and reconstructor forward each caller's own token.
+        auth = "      OCI_JJ_AUTH_TOKEN: ${OCI_JJ_WORKER_TOKEN}\n" if token else ""
+        return (
+            f"  {name}:\n"
+            f"{image(key)}"
+            "    restart: unless-stopped\n"
+            "    environment:\n"
+            f"      OCI_JJ_SERVER_GRPC: {grpc_target}\n"
+            f"{auth}{client_tls}{extra}"
+            "    depends_on:\n      - oci-jj-server\n"
+            f"{tls_volume}{ports}"
+        )
+
+    services = [
+        "  postgres:\n"
+        f"{image('postgres')}"
+        "    restart: unless-stopped\n"
+        "    environment:\n"
+        "      POSTGRES_USER: oci_jj\n"
+        "      POSTGRES_PASSWORD: ${PG_SUPERUSER_PASSWORD}\n"
+        "      POSTGRES_DB: oci_jj\n"
+        "      # Applied to the RLS role oci_jj_app on first boot (docker/postgres-app-password.sh).\n"
+        "      OCI_JJ_APP_PASSWORD: ${OCI_JJ_APP_PASSWORD}\n"
+        "    volumes:\n      - pgdata:/var/lib/postgresql/data\n"
+        "    healthcheck:\n"
+        '      test: ["CMD-SHELL", "pg_isready -U oci_jj -d oci_jj"]\n'
+        "      interval: 5s\n      timeout: 5s\n      retries: 30\n",
+        "  minio:\n"
+        f"{image('minio', MINIO_IMAGE)}"
+        "    restart: unless-stopped\n"
+        "    environment:\n"
+        "      MINIO_ROOT_USER: ${MINIO_ROOT_USER}\n"
+        "      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}\n"
+        f"      MINIO_DEFAULT_BUCKETS: {BLOB_BUCKET},{DATASET_BUCKET}\n"
+        "    volumes:\n      - miniodata:/bitnami/minio/data\n"
+        "    healthcheck:\n"
+        '      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]\n'
+        "      interval: 5s\n      timeout: 5s\n      retries: 30\n",
+        "  registry:\n"
+        f"{image('registry', REGISTRY_IMAGE)}"
+        "    restart: unless-stopped\n"
+        "    volumes:\n      - regdata:/var/lib/registry\n",
+        "  oci-jj-server:\n"
+        f"{image('server')}"
+        "    restart: unless-stopped\n"
+        "    environment:\n"
+        "      OCI_JJ_SERVER_GRPC_ADDR: 0.0.0.0:50051\n"
+        f"{server_tls}"
+        "      OCI_JJ_AUTH_TOKENS: ${OCI_JJ_WORKER_TOKEN}:platform:admin,${OCI_JJ_TENANT_TOKENS}\n"
+        "      OCI_JJ_CATALOG_URL: postgres://oci_jj_app:${OCI_JJ_APP_PASSWORD}@postgres:5432/oci_jj\n"
+        "      OCI_JJ_GRAPH_URL: postgres://oci_jj:${PG_SUPERUSER_PASSWORD}@postgres:5432/oci_jj\n"
+        "      OCI_JJ_BACKING_REGISTRY: http://registry:5000\n"
+        "      OCI_JJ_OBJECT_STORE: s3\n"
+        "      OCI_JJ_S3_ENDPOINT: http://minio:9000\n"
+        f"      OCI_JJ_S3_BUCKET: {BLOB_BUCKET}\n"
+        "      OCI_JJ_S3_ACCESS_KEY: ${MINIO_ROOT_USER}\n"
+        "      OCI_JJ_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}\n"
+        '      OCI_JJ_CAS_INGEST: "1"\n'
+        "      OCI_JJ_DEDUP_HMAC_KEY: ${OCIBAI_DEDUP_HMAC_KEY}\n"
+        f"      OCI_JJ_DATASET_S3_BUCKET: {DATASET_BUCKET}\n"
+        "      OCI_JJ_DATASET_S3_ENDPOINT: http://minio:9000\n"
+        "      OCI_JJ_DATASET_S3_ACCESS_KEY: ${MINIO_ROOT_USER}\n"
+        "      OCI_JJ_DATASET_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}\n"
+        "      RUST_LOG: info\n"
+        "    depends_on:\n"
+        "      postgres:\n        condition: service_healthy\n"
+        "      minio:\n        condition: service_healthy\n"
+        f"{tls_volume}"
+        "    ports:\n"
+        f'      - "127.0.0.1:{grpc_port}:50051"\n',
+        client("gateway", "gateway",
+               extra='      OCI_JJ_GATEWAY_ADDR: ":8080"\n'
+                     "      OCI_JJ_BACKING_REGISTRY: http://registry:5000\n"
+                     '      OCI_JJ_GATEWAY_BLOB_SOURCE: "1"\n'
+                     '      OCI_JJ_GATEWAY_CORS_ORIGINS: ""\n',
+               ports=f'    ports:\n      - "127.0.0.1:{gateway_port}:8080"\n'),
+        client("workers", "workers", token=True,
+               extra="      OCI_JJ_BACKING_REGISTRY: http://registry:5000\n"
+                     "      OCI_JJ_GC_INTERVAL: 5m\n"
+                     '      SYFT_REGISTRY_INSECURE_USE_HTTP: "true"\n'),
+    ]
+    if images.get("reconstructor"):
+        services.append(client("reconstructor", "reconstructor",
+                               extra='      OCI_JJ_RECONSTRUCTOR_ADDR: ":8090"\n'))
+    if images.get("verdict_worker"):
+        # No object-store credentials: datasets arrive as server-minted presigned URLs, which the
+        # worker checks point at this endpoint.
+        services.append(client("verdict-worker", "verdict_worker", token=True,
+                               extra="      OCI_JJ_S3_ENDPOINT: http://minio:9000\n"))
+    header = (
+        f"# Generated by `briefcase-ai engine install` for engine {version}. Do not edit: run\n"
+        "# `briefcase-ai engine upgrade` to regenerate. Secrets come from ../engine.env.\n"
+        "# Layout: oci-jj docker-compose.yml + deploy/single-box. First-party images are the ones\n"
+        "# the signed release manifest pins by digest (verified at install, tagged locally, never\n"
+        "# pulled by Compose); auth required, only the workers hold a service token, ports on\n"
+        "# 127.0.0.1 only.\n"
+    )
+    return header + f"name: {PROJECT}\n\nservices:\n" + "\n".join(services) + \
+        "\nvolumes:\n" + "".join(f'  {key}:\n    labels:\n      {ENGINE_LABEL}: "1"\n' for key in VOLUME_KEYS)
+
+
+def write(target_dir: Path, images: Mapping[str, str], version: str, tls: bool = False,
+          grpc_port: int = 50051, gateway_port: int = 8080, digests: Optional[Mapping[str, str]] = None) -> Path:
+    target_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    compose = target_dir / "docker-compose.yml"
+    compose.write_text(render(images, version, tls, grpc_port, gateway_port, digests), encoding="utf-8")
+    return compose
+
+
+def compose_argv(compose_file: Path, env_file: Path, *args: str, docker: Optional[str] = None) -> list:
+    return [docker or "docker", "compose", "--project-name", PROJECT,
+            "-f", str(compose_file), "--env-file", str(env_file), *args]
+
+
+def tenant_token(values: Mapping[str, str], role: str = "tenant") -> Optional[str]:
+    """The first ``OCI_JJ_TENANT_TOKENS`` entry with that role (``tenant`` or ``reader``)."""
+    for entry in (values.get("OCI_JJ_TENANT_TOKENS") or "").split(","):
+        parts = entry.strip().split(":")
+        if len(parts) >= 2 and parts[0] and (parts[2] if len(parts) > 2 else "tenant") == role:
+            return parts[0]
+    return None

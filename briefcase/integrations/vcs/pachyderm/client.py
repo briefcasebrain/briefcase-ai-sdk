@@ -1,9 +1,13 @@
 """Pachyderm client for container-native data versioning.
 
-Requires ``pachyderm-sdk`` for live mode:
-``pip install briefcase-ai[vcs-pachyderm]`` or ``pip install pachyderm-sdk``.
-The import is lazy; without it the client runs in mock mode (reads return
-placeholder bytes, writes and versions are recorded in metadata only).
+Requires ``pachyderm-sdk``: ``pip install briefcase-ai[vcs-pachyderm]`` or
+``pip install pachyderm-sdk``. Without it the constructor raises ``ImportError``.
+
+The object operations (``read_object``, ``write_object``,
+``create_version``) have no live implementation yet and raise
+``NotImplementedError``; subclass and override the ``_*_impl`` hooks to
+wire them. ``mock=True`` opts into an offline stub that returns placeholder
+bytes and version ids, tagged ``"mock": True`` in every metadata dict.
 """
 
 from typing import Optional, Dict
@@ -50,6 +54,7 @@ class PachydermClient(VcsClientBase):
         briefcase_client=None,
         endpoint: Optional[str] = None,
         token: Optional[str] = None,
+        mock: bool = False,
         **extra
     ):
         """
@@ -61,6 +66,7 @@ class PachydermClient(VcsClientBase):
             briefcase_client: Optional BriefcaseClient for instrumentation
             endpoint: Pachyderm API endpoint (grpc address)
             token: Authentication token
+            mock: Opt into the offline stub (placeholder reads and version ids).
             **extra: Additional Pachyderm configuration
         """
         resolved_endpoint = (
@@ -76,27 +82,27 @@ class PachydermClient(VcsClientBase):
             briefcase_client=briefcase_client,
             endpoint=resolved_endpoint,
             token=token,
+            mock=mock,
             **extra
         )
 
+        if self.mock:
+            return
         try:
             from pachyderm_sdk import Client as PachClient
-            self._provider_client = PachClient.from_pachd_address(self.endpoint)
-            self._has_provider = True
-        except Exception as e:
-            logger.warning(f"Pachyderm not available: {e}. Using mock mode. {_PACHYDERM_INSTALL_HINT}")
-            self._has_provider = False
+        except ImportError as e:
+            raise ImportError(
+                f"PachydermClient requires pachyderm_sdk. {_PACHYDERM_INSTALL_HINT} "
+                "Pass mock=True for an offline stub."
+            ) from e
+        self._provider_client = PachClient.from_pachd_address(self.endpoint)
+        self._has_provider = True
 
     def _read_object_impl(self, path: str) -> bytes:
-        """Read an object from the Pachyderm repository."""
-        if not self._has_provider:
+        """Read an object. Placeholder bytes only with ``mock=True``."""
+        if self.mock:
             return b"Mock Pachyderm content: " + path.encode()
-
-        try:
-            return f"Pachyderm file: {path}".encode()
-        except Exception as e:
-            logger.error(f"Failed to read Pachyderm object: {e}")
-            raise
+        raise self._not_implemented("read_object")
 
     def _write_object_impl(
         self,
@@ -104,28 +110,18 @@ class PachydermClient(VcsClientBase):
         data: bytes,
         content_type: str
     ) -> None:
-        """Write an object into the Pachyderm repository."""
-        if not self._has_provider:
+        """Write an object. A no-op only with ``mock=True``."""
+        if self.mock:
             logger.info(f"Mock Pachyderm: Would put {len(data)} bytes to {path}")
             return
-
-        try:
-            logger.info(f"Pachyderm: Wrote {len(data)} bytes to {path}")
-        except Exception as e:
-            logger.error(f"Failed to write Pachyderm object: {e}")
-            raise
+        raise self._not_implemented("write_object")
 
     def _create_version_impl(
         self,
         message: str,
         metadata: Optional[Dict[str, str]]
     ) -> str:
-        """Create a Pachyderm version (start/finish commit)."""
-        if not self._has_provider:
+        """Create a version. A placeholder id only with ``mock=True``."""
+        if self.mock:
             return f"pachyderm-{self.branch}-mock-commit"
-
-        try:
-            return f"pach-commit-{len(message)}"
-        except Exception as e:
-            logger.error(f"Failed to create Pachyderm version: {e}")
-            raise
+        raise self._not_implemented("create_version")

@@ -1,0 +1,12 @@
+[package]
+name = "pricing-native-oracle"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+briefcase-core = { path = "../../../crates/briefcase-core" }
+serde_json = "1"
+
+# Standalone: not a member of the repository workspace, and it adds nothing to crates/.
+[workspace]

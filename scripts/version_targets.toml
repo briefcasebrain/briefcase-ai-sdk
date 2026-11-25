@@ -30,15 +30,6 @@ path = "bindings/python/Cargo.toml"
 pattern = '(?P<pre>briefcase-core = \{ version = ")(?P<version>[^"]+)(?P<post>")'
 replacement = '{pre}{version}{post}'
 
-# The compat manifest the `briefcase` CLI ships: its briefcase_ai field is the SDK's own version and
-# must track the canonical version. (oci_jj_image_tag is oci-jj's version and is intentionally NOT a
-# target — it tracks the oci-jj release the SDK is pinned to.)
-[[targets]]
-id = "compat_briefcase_ai"
-path = "briefcase/cli/stack/compat.json"
-pattern = '(?P<pre>"briefcase_ai": ")(?P<version>[^"]+)(?P<post>")'
-replacement = '{pre}{version}{post}'
-
 # The npm controls package releases in lockstep with the SDK. The pattern is
 # indentation-anchored to the top-level version key only.
 [[targets]]
@@ -54,10 +45,42 @@ path = "js/runtime/package.json"
 pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
 replacement = '{pre}{version}{post}'
 
+[[targets]]
+id = "npm_auto"
+path = "js/auto/package.json"
+pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
+replacement = '{pre}{version}{post}'
+
+[[targets]]
+id = "npm_auto_scope_version"
+path = "js/auto/src/exporters.ts"
+pattern = '(?m)^(?P<pre>export const SCOPE_VERSION = ")(?P<version>[^"]+)(?P<post>";)$'
+replacement = '{pre}{version}{post}'
+
 # The npm native binding releases in lockstep; every platform binary
 # ships inside this one package.
 [[targets]]
 id = "npm_native"
 path = "bindings/node/package.json"
 pattern = '(?m)^(?P<pre>  "version": ")(?P<version>[^"]+)(?P<post>",)$'
+replacement = '{pre}{version}{post}'
+
+# Cargo.lock records the version of each workspace crate; `cargo ... --locked` (CI and
+# publish.yml) fails when it lags the manifests, so a bump must rewrite these entries too.
+[[targets]]
+id = "cargo_lock_core"
+path = "Cargo.lock"
+pattern = '(?m)^(?P<pre>name = "briefcase-core"\nversion = ")(?P<version>[^"]+)(?P<post>")$'
+replacement = '{pre}{version}{post}'
+
+[[targets]]
+id = "cargo_lock_node"
+path = "Cargo.lock"
+pattern = '(?m)^(?P<pre>name = "briefcase-node"\nversion = ")(?P<version>[^"]+)(?P<post>")$'
+replacement = '{pre}{version}{post}'
+
+[[targets]]
+id = "cargo_lock_python"
+path = "Cargo.lock"
+pattern = '(?m)^(?P<pre>name = "briefcase-python"\nversion = ")(?P<version>[^"]+)(?P<post>")$'
 replacement = '{pre}{version}{post}'

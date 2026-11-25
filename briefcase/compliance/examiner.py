@@ -191,3 +191,63 @@ class ExaminerBundle:
     @classmethod
     def from_json(cls, s: str) -> "ExaminerBundle":
         return cls.from_dict(json.loads(s))
+
+    # ------------------------------------------------------------------
+    # The unified evidence bundle (briefcase.compliance.bundle)
+    # ------------------------------------------------------------------
+
+    def to_bundle(self, path: Any, *, signers: Any = ()) -> Any:
+        """Write this bundle as a format-2 evidence bundle (ZIP) at ``path``.
+
+        The records are the decision, the policy and the evidence; the
+        as-of time, ``schema_version``, ``metadata`` and this bundle's
+        ``content_hash`` go into the manifest context. ``signers`` (Ed25519,
+        AWS KMS, ...) seal the new bundle; a KMS signature already on a
+        :class:`SignedExaminerBundle` is carried along and still verifies.
+        Check the result with ``briefcase-ai bundle verify`` or
+        :func:`briefcase.compliance.verify_bundle`.
+        """
+        from briefcase.compliance.bundle import examiner_context, legacy_to_records, write_bundle
+
+        payload = self.to_dict()
+        if not self.content_hash:
+            payload["content_hash"] = self._compute_hash()
+        return write_bundle(path, legacy_to_records(payload), subject="examiner",
+                            context=examiner_context(payload), signers=signers)
+
+    @classmethod
+    def from_bundle(cls, path: Any) -> "ExaminerBundle":
+        """Read an examiner bundle back from a format-2 ZIP or a format-1 JSON file.
+
+        This only reads; call :func:`briefcase.compliance.verify_bundle` to
+        check the file and :meth:`verify` to check the content hash.
+        """
+        import zipfile
+
+        from briefcase.compliance.bundle import load_legacy
+
+        legacy = load_legacy(path)
+        if legacy is not None:
+            return cls.from_dict(legacy)
+        with zipfile.ZipFile(path) as zf:
+            manifest = json.loads(zf.read("manifest.json").decode("utf-8"))
+            lines = [json.loads(raw) for raw in zf.read("records.jsonl").decode("utf-8").splitlines() if raw.strip()]
+        if manifest.get("subject") != "examiner":
+            raise BundleIntegrityError("%s is a %r bundle, not an examiner bundle" % (path, manifest.get("subject")))
+        context = manifest.get("context") or {}
+        by_role: Dict[str, List[Any]] = {}
+        for line in lines:
+            by_role.setdefault(line.get("role", "record"), []).append(line["record"])
+        data = {
+            "decision": (by_role.get("decision") or [None])[0],
+            "policy": (by_role.get("policy") or [None])[0],
+            "evidence": by_role.get("evidence") or [],
+            "as_of_transaction_time": context.get("as_of_transaction_time"),
+            "content_hash": context.get("examiner_content_hash", ""),
+            "schema_version": context.get("examiner_schema_version", "1"),
+            "metadata": context.get("metadata") or {},
+        }
+        for sig in context.get("legacy_signatures") or []:
+            data.update(kms_key_id=sig.get("key_id", ""), signature=sig.get("value", ""),
+                        signing_algorithm=sig.get("algorithm"), signed_at=sig.get("signed_at"))
+        return cls.from_dict(data)

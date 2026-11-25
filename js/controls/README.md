@@ -38,12 +38,18 @@ if (outcome.ok) {
 }
 ```
 
-`MemoryQuotaStore` is in-process; production stores implement the `QuotaStore` port.
+`MemoryQuotaStore` is in-process; production stores implement the `QuotaStore`
+port. It denies (fails closed) when a bucket policy is missing or invalid, and
+evicts buckets once they have refilled to capacity.
 
 ## Bedrock subpath
 
 `@briefcase-ai/controls/bedrock` exports model-id resolution, Converse
-capability probes, list-price lookup, and a memoized credential provider; the
+capability probes, list-price lookup, and a memoized credential provider.
+Prices are per model and mirror the Rust cost engine's table;
+`priceForUsage` returns `undefined` for a model it has no rate for (pass
+`{ fallbackRate }` to estimate anyway) rather than guessing from the family
+name. The
 `@ai-sdk/amazon-bedrock` and `@aws-sdk/credential-providers` peer dependencies
 are optional and only needed by the credential provider and adapters.
 

@@ -1,6 +1,7 @@
 """Tests for the stdlib-only eval log parsers and the replay helper."""
 
 import json
+import os
 import subprocess
 import sys
 import zipfile
@@ -393,6 +394,11 @@ class TestEncoding:
             [sys.executable, "-X", "warn_default_encoding",
              "-W", "error::EncodingWarning", str(script)],
             capture_output=True, text=True, cwd=str(Path(__file__).parent.parent),
+            # The child must import briefcase from this checkout even when the
+            # package is not installed.
+            env={**os.environ, "PYTHONPATH": os.pathsep.join(
+                filter(None, [str(Path(__file__).parent.parent),
+                              os.environ.get("PYTHONPATH", "")]))},
         )
         assert completed.returncode == 0, completed.stderr
 

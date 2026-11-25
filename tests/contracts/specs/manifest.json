@@ -1,0 +1,58 @@
+{
+  "retrieved": "2026-11-23",
+  "specs": {
+    "openai-openapi": {
+      "title": "OpenAI API OpenAPI 3.1 specification",
+      "url": "https://raw.githubusercontent.com/openai/openai-openapi/2a24deae6f89f84d0e88ce3c9d96c00304dca0b8/openapi.json",
+      "source": "https://github.com/openai/openai-openapi (HEAD 2a24deae6f89f84d0e88ce3c9d96c00304dca0b8)",
+      "version": "info.version 2.3.0 (OpenAPI 3.1.0)",
+      "retrieved": "2026-11-23",
+      "sha256": "a778b243532405d1be219d83e8070c62f995b405fc2cf4897e261a8349fbfa2a",
+      "licence": "MIT (LICENSE in the repository; info.license in the spec)",
+      "licence_file": "LICENSE.openai-openapi",
+      "vendored": true,
+      "file": "openai-openapi.json.gz",
+      "latest_url": "https://raw.githubusercontent.com/openai/openai-openapi/master/openapi.json",
+      "git": "https://github.com/openai/openai-openapi"
+    },
+    "anthropic-types": {
+      "title": "Anthropic Messages API request/response types (JSON Schema generated from the anthropic SDK)",
+      "url": "https://pypi.org/project/anthropic/2.12.0/",
+      "source": "anthropic==2.12.0 types (MessageCreateParamsNonStreaming, MessageCreateParamsStreaming, Message, RawMessageStreamEvent) rendered by pydantic 2.13.5 TypeAdapter.json_schema; regenerate with scripts/refresh_provider_specs.py --write",
+      "version": "anthropic 2.12.0",
+      "retrieved": "2026-11-23",
+      "sha256": "7bf73467c3bc549976b79a47a330199cdb81d7bfb0e4891c2956e7b0e332931b",
+      "licence": "derived from the anthropic SDK (Apache-2.0 / MIT, see its dist-info licenses); Anthropic publishes no machine-readable API spec",
+      "vendored": true,
+      "file": "anthropic-types.json.gz",
+      "sdk": "anthropic",
+      "sdk_version": "2.12.0",
+      "latest_url": "https://pypi.org/pypi/anthropic/json"
+    },
+    "gemini-discovery-v1beta": {
+      "title": "Gemini API (generativelanguage v1beta) discovery document",
+      "url": "https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta",
+      "version": "revision 20261122",
+      "retrieved": "2026-11-23",
+      "sha256": "1da18b6a4453002ba88e13b30ca576b1d8834f2171a58feb384581b935716d9d",
+      "licence": "Google APIs Terms of Service; no redistribution licence, so not vendored: downloaded at test time into the cache",
+      "vendored": false,
+      "cache_file": "gemini-discovery-v1beta.json",
+      "latest_url": "https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta",
+      "sha256_of": "canonical JSON (keys sorted, compact separators): the service returns the same document with a varying key order (raw bytes of the 2026-11-23 copy: 43a3e885da675fedff707ccbf3934f13c6309806d60e88e233cc2ae078a3b31a)"
+    },
+    "botocore-bedrock-runtime": {
+      "title": "Amazon Bedrock Runtime service model (botocore)",
+      "url": "https://raw.githubusercontent.com/boto/botocore/1.44.9/botocore/data/bedrock-runtime/2023-09-30/service-2.json",
+      "source": "botocore 1.44.9, botocore/data/bedrock-runtime/2023-09-30/service-2.json (identical to the copy in the installed wheel)",
+      "version": "apiVersion 2023-09-30, botocore 1.44.9",
+      "retrieved": "2026-11-23",
+      "sha256": "e1ba19360248bf7f114fd60989b9482f4da1085f7ef2c1c548e90e26ca17e273",
+      "licence": "Apache-2.0 (botocore; NOTICE copied to NOTICE.botocore)",
+      "licence_file": "NOTICE.botocore",
+      "vendored": true,
+      "file": "botocore-bedrock-runtime-2023-09-30.json.gz",
+      "latest_url": "https://raw.githubusercontent.com/boto/botocore/develop/botocore/data/bedrock-runtime/2023-09-30/service-2.json"
+    }
+  }
+}

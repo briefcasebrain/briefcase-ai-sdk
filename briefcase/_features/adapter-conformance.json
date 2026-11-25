@@ -1,0 +1,11 @@
+{
+  "id": "adapter-conformance",
+  "title": "Adapter conformance checks",
+  "verb": "connect",
+  "one_line": "Know when a coding tool update breaks its briefcase connection.",
+  "command": "briefcase-ai doctor --connect",
+  "docs_slug": "connect/adapter-conformance",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Claude Code 2.1.330 (real install: connect, mcp list/get, plugin validate, doctor, and real telemetry mapped to records through a local stub model API); Codex CLI 0.171.0 (real install: config accepted by mcp list/get and doctor, no telemetry); Gemini CLI 0.70.0 (real install: settings load without error only, no telemetry); Copilot CLI 1.0.114 (real install, print-only adapter, docs-only); Cursor and VS Code Copilot (not installed, docs only). The GitHub workflow has been parsed as YAML but never run on GitHub."
+}

@@ -160,3 +160,52 @@ def test_custom_factory_resolution_is_not_written_to_the_shared_cache(monkeypatc
     resolved = t._get_resolved()
     assert resolved is not None
     assert dict(ReflectionTransport._CACHE) == before
+
+
+# ---- oci-jj client settings: OCI_JJ_TLS_CA / client cert / OCI_JJ_AUTH_TOKEN ----
+def test_tls_ca_env_dials_tls_with_that_root_even_for_http(monkeypatch, tmp_path):
+    """Parity with oci-jj's go/grpcauth: OCI_JJ_TLS_CA alone turns TLS on, and the CA replaces the
+    system roots (a private-CA server failed CERTIFICATE_VERIFY_FAILED before)."""
+    ca = tmp_path / "ca.pem"
+    ca.write_bytes(b"CA-PEM")
+    seen = {}
+
+    def creds(**kw):
+        seen.update(kw)
+        return "CREDS"
+
+    monkeypatch.setattr(grpc, "ssl_channel_credentials", creds)
+    monkeypatch.setattr(grpc, "secure_channel", lambda ep, c: ("SECURE", ep, c))
+    t = ReflectionTransport("http://localhost:50051", env={"OCI_JJ_TLS_CA": str(ca)})
+    assert t._channel_factory(t.endpoint) == ("SECURE", "localhost:50051", "CREDS")
+    assert seen == {"root_certificates": b"CA-PEM", "private_key": None, "certificate_chain": None}
+
+
+def test_client_cert_and_key_present_an_identity(monkeypatch, tmp_path):
+    for name in ("ca", "crt", "key"):
+        (tmp_path / name).write_bytes(name.upper().encode())
+    seen = {}
+    monkeypatch.setattr(grpc, "ssl_channel_credentials", lambda **kw: seen.update(kw) or "C")
+    monkeypatch.setattr(grpc, "secure_channel", lambda ep, c: "SECURE")
+    t = ReflectionTransport("https://h:1", env={
+        "OCI_JJ_TLS_CA": str(tmp_path / "ca"),
+        "OCI_JJ_TLS_CLIENT_CERT": str(tmp_path / "crt"),
+        "OCI_JJ_TLS_CLIENT_KEY": str(tmp_path / "key"),
+    })
+    t._channel_factory(t.endpoint)
+    assert seen == {"root_certificates": b"CA", "private_key": b"KEY", "certificate_chain": b"CRT"}
+
+
+def test_cache_key_separates_trust_roots():
+    a = ReflectionTransport("https://h:1", env={"OCI_JJ_TLS_CA": "/a.pem"})
+    b = ReflectionTransport("https://h:1", env={"OCI_JJ_TLS_CA": "/b.pem"})
+    sys_roots = ReflectionTransport("https://h:1", env={})
+    assert len({a._cache_key, b._cache_key, sys_roots._cache_key}) == 3
+
+
+def test_token_env_becomes_bearer_metadata():
+    t = ReflectionTransport("http://h:1", env={"OCI_JJ_AUTH_TOKEN": "sek"})
+    assert t._metadata == (("authorization", "Bearer sek"),)
+    assert ReflectionTransport("http://h:1", env={})._metadata is None
+    t.set_token("other")
+    assert t._metadata == (("authorization", "Bearer other"),)

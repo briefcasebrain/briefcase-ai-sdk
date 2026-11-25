@@ -1,0 +1,12 @@
+{
+  "id": "typescript-auto",
+  "title": "Zero-code capture for Node (TypeScript)",
+  "verb": "capture",
+  "one_line": "Record every OpenAI, Anthropic, Gemini and Bedrock call in Node apps.",
+  "command": "node --import @briefcase-ai/auto/register app.js",
+  "docs_slug": "capture/typescript-auto",
+  "status": "experimental",
+  "runtime": "node",
+  "requires_extra": null,
+  "verified_against": "openai 7.62.0, @anthropic-ai/sdk 1.12.0, @google/genai 3.6.1, @aws-sdk/client-bedrock-runtime 3.1175.0 (installed packages read; calls exercised offline through each SDK's own fetch/requestHandler with fake JSON, SSE and AWS event-stream bodies; no live provider calls); Node 22.23.5 only; OTLP/JSON shape checked against opentelemetry.io/docs/specs/otlp and opentelemetry-proto trace.proto (2026-11-21) and against briefcase's Python OTelExporter and receiver"
+}

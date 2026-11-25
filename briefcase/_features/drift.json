@@ -1,0 +1,13 @@
+{
+  "id": "drift",
+  "title": "Drift detection",
+  "verb": "review",
+  "one_line": "Measure how consistent a model's answers are across repeated runs.",
+  "command": "briefcase-ai features drift",
+  "docs_slug": "review/drift",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Rust core and native binding tests run the real calculator; the facade tests in tests/ use a mock core. Needs the compiled core.",
+  "docs_path": "llms-full.txt",
+  "snippet": "from briefcase.drift import DriftCalculator\n\nd = DriftCalculator()\nm = d.calculate_drift([\"positive\", \"positive\", \"negative\"])\nprint(m.consistency_score, m.consensus_output)"
+}

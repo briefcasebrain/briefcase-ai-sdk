@@ -301,8 +301,8 @@ class VersionedClient:
                                 lakefs_attrs.LAKEFS_COMMIT_SHA: self.commit
                             }
                         )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("list_objects: ignored error: %s", exc)
             return mock_results
 
         try:
@@ -416,6 +416,7 @@ class VersionedClient:
                 repository=self.repository,
                 lakefs_client=self._lakefs_client,
                 briefcase_client=self.briefcase_client,
+                mock=self.mock,
             )
         return self._branch_manager
 

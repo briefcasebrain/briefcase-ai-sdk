@@ -1,0 +1,11 @@
+{
+  "id": "drift-baseline",
+  "title": "Baseline drift checks",
+  "verb": "review",
+  "one_line": "Save what normal looked like and flag when latency, errors or outputs shift.",
+  "command": "briefcase-ai drift baseline save prod --from runs.jsonl",
+  "docs_slug": "review/drift-baseline",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Pure Python, stdlib only. Statistics unit-tested against hand-computed fixtures and textbook chi-square critical values; CLI run end to end on synthetic records only (no production data). Refusal finish reasons read from installed openai 3.57.0, anthropic 2.12.0, google-genai 3.6.1, botocore 1.44.9."
+}

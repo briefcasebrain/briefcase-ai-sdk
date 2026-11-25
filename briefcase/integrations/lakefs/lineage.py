@@ -32,6 +32,7 @@ class ArtifactLineageConfig:
     base_uri: Optional[str] = None
     config_path: Optional[str] = None
     local_state_dir: Path = field(default_factory=lambda: Path("tmp/lakefs_lineage"))
+    command_timeout: float = 120.0  # seconds, per lakectl invocation
 
 
 @dataclass
@@ -274,8 +275,13 @@ class ArtifactLineageClient:
                 check=True,
                 capture_output=True,
                 text=True,
+                timeout=self.config.command_timeout,
             )
             return f"{completed.stdout}\n{completed.stderr}".strip()
+        except subprocess.TimeoutExpired as exc:
+            raise ArtifactLineageError(
+                f"lakectl command timed out after {self.config.command_timeout}s: {' '.join(cmd)}"
+            ) from exc
         except subprocess.CalledProcessError as exc:
             combined = f"{exc.stdout}\n{exc.stderr}".strip()
             lowered = combined.lower()

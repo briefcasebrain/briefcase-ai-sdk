@@ -50,6 +50,13 @@ class JSONLFileExporter(BaseExporter):
                 except FileExistsError:
                     pass
 
+    def _after_fork_in_child(self) -> None:
+        """Called by the export pipeline in a forked child: the lock may
+        have been held by a thread that does not exist there. The append-mode
+        handle is shared with the parent, which is safe (each line is written
+        and flushed under the lock, so nothing is left in the buffer)."""
+        self._lock = threading.Lock()
+
     def _ensure_open(self):
         if self._fh is None:
             self._fh = open(self._path, "a", encoding="utf-8", opener=_opener)

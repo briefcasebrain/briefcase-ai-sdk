@@ -1,15 +1,36 @@
 {
-  "description": "Bedrock list prices, USD per 1M tokens (us-east-1). Authoritative table; the TS bedrock pricing module carries a copy and its tests assert parity against this file, as will the Rust cost engine's bedrock entries. Ordered case-insensitive regex match; first hit wins; default applies when nothing matches.",
+  "description": "Bedrock list prices, USD per 1M tokens (us-east-1), one row per model. Every price is the Rust cost engine's (crates/briefcase-core/src/cost.rs): tests/controls/test_bedrock_rates_fixture.py reads cost.rs and fails on any row it does not register at the same rate. js/controls/src/bedrock/pricing.ts carries a copy and js/controls/test/bedrock.test.ts asserts it equals this file row for row. `model` is the engine's canonical name, looked up exactly after id normalization; `aliases` map a normalized Bedrock id to a priced model and carry no price. A model that is not listed has no price. `opt_in_fallback_rate` is never applied by default: callers pass it explicitly to estimate an unlisted model, and it must equal `fallback_rate_model`'s row.",
   "currency": "USD",
   "per_tokens": 1000000,
   "rates": [
-    { "match": "opus", "input": 15, "output": 75 },
-    { "match": "sonnet", "input": 3, "output": 15 },
-    { "match": "haiku", "input": 0.8, "output": 4 },
-    { "match": "nova-pro", "input": 0.8, "output": 3.2 },
-    { "match": "nova-lite", "input": 0.06, "output": 0.24 },
-    { "match": "nova-micro", "input": 0.035, "output": 0.14 },
-    { "match": "(cohere|embed|titan-embed)", "input": 0.1, "output": 0 }
+    { "model": "claude-opus-4-8", "input": 5, "output": 25 },
+    { "model": "claude-opus-4-7", "input": 5, "output": 25 },
+    { "model": "claude-opus-4-6", "input": 5, "output": 25 },
+    { "model": "claude-opus-4-5", "input": 5, "output": 25 },
+    { "model": "claude-opus-4-1", "input": 15, "output": 75 },
+    { "model": "claude-sonnet-4-6", "input": 3, "output": 15 },
+    { "model": "claude-sonnet-4-5", "input": 3, "output": 15 },
+    { "model": "claude-haiku-4-5", "input": 1, "output": 5 },
+    { "model": "claude-haiku-3-5", "input": 0.8, "output": 4 },
+    { "model": "claude-3-5-sonnet", "input": 3, "output": 15 },
+    { "model": "claude-3-opus", "input": 15, "output": 75 },
+    { "model": "claude-3-sonnet", "input": 3, "output": 15 },
+    { "model": "claude-3-haiku", "input": 0.25, "output": 1.25 },
+    { "model": "nova-premier", "input": 2.5, "output": 12.5 },
+    { "model": "nova-pro", "input": 0.8, "output": 3.2 },
+    { "model": "nova-lite", "input": 0.06, "output": 0.24 },
+    { "model": "nova-micro", "input": 0.035, "output": 0.14 },
+    { "model": "titan-embed-text", "input": 0.1, "output": 0 },
+    { "model": "cohere-embed", "input": 0.1, "output": 0 }
   ],
-  "default": { "input": 3, "output": 15 }
+  "aliases": {
+    "claude-3-5-haiku": "claude-haiku-3-5",
+    "embed-english": "cohere-embed",
+    "embed-multilingual": "cohere-embed"
+  },
+  "fallback_rate_model": "claude-sonnet-4-6",
+  "opt_in_fallback_rate": {
+    "input": 3,
+    "output": 15
+  }
 }

@@ -2,8 +2,9 @@
 
 ![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 
-Governance infrastructure for AI decisions: enforce controls, record context,
-replay later.
+Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models.
+
+Enforce controls, record context, replay later.
 
 ## Install
 
@@ -25,7 +26,7 @@ npm install @briefcase-ai/controls @briefcase-ai/runtime
 ```python
 import briefcase
 
-briefcase.observe("console")          # send records to stderr (or "memory" / "runs.jsonl")
+briefcase.observe("console")          # send records to stderr (or "memory" / "runs.jsonl" / an https:// URL)
 
 @briefcase.capture(decision_type="classify_text")
 def classify(text: str) -> str:
@@ -40,9 +41,40 @@ call to `briefcase.observe(...)` (or `briefcase.setup(exporter=...)`), `@capture
 records decisions but has nowhere to send them.
 
 **Exporters.** `briefcase.observe(...)` accepts `"console"`, `"memory"` (records
-collected on `exporter.records`), a `"*.jsonl"` path, or any
-`briefcase.exporters.BaseExporter` instance — subclass `BaseExporter` to ship
-records to your own backend.
+collected on `exporter.records`), a `"*.jsonl"` path, an `https://` URL (JSON
+batches via the stdlib-only `HTTPExporter`; pass `HTTPExporter(url, token=...)`
+for auth), or any `briefcase.exporters.BaseExporter` instance — subclass
+`BaseExporter` to ship records to your own backend. The exporter classes are
+also importable from the top level (`briefcase.JSONLFileExporter`, …).
+
+**Delivery.** Records are exported on a background thread through a bounded
+queue (10,000 records by default; `briefcase.configure_export(...)` tunes the
+bound, retries, and timeout). If the exporter cannot keep up, new records are
+dropped, counted in `briefcase.export_stats()`, and reported at WARNING. Queued
+records are drained at interpreter exit for up to 5 seconds, with no explicit
+call; use `briefcase.shutdown(timeout=...)` (or `briefcase.flush()`) to drain
+earlier, or before `os._exit`.
+
+**What gets captured.** `@capture` works on functions, coroutines, generators,
+and async generators (a generator emits one record when it finishes, with the
+collected chunks as output). Cancelled or timed-out async calls are recorded
+with `status: "cancelled"`. Records carry a `schema_version`, plus
+`workflow_id` / `trace_id` when a `briefcase.correlation` workflow or an
+OpenTelemetry span is active. `capture(sample_rate=0.1)` records a fraction of
+calls.
+
+**Content rule.** Briefcase records prompt, completion and tool content only
+where someone chose to record it. Every automatic path (`briefcase.auto()`
+for frameworks and provider SDKs, `briefcase-ai exec`, `connect` and the
+receiver, eval records) records none until you opt in with
+`capture_content="full"` (or `"hash"`), `--capture-content` / `--keep-content`,
+or `BRIEFCASE_CAPTURE_CONTENT=full`. `@capture` on your own function is itself
+that choice: it records the function's arguments and return value (pass
+`capture_content="hash"` or `"none"` to keep them out).
+
+`import briefcase` does not require the compiled core: the pure-Python surface
+(capture, exporters, controls, events, routing) works from a source checkout,
+and native-backed names raise a clear `ImportError` only when used.
 
 ## Evaluations and RL
 
@@ -92,7 +124,25 @@ briefcase.enable_logging("DEBUG")     # or set BRIEFCASE_LOG_LEVEL=DEBUG
 This repo ships machine-readable usage guidance: [`llms.txt`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/llms.txt) /
 [`llms-full.txt`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/llms-full.txt), an [`AGENTS.md`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/AGENTS.md), and copy-paste
 editor rules under [`docs/llm/`](https://github.com/briefcasebrain/briefcase-ai-sdk/tree/main/docs/llm/). An MCP server is available via
-`pip install briefcase-ai[mcp]` then `briefcase-mcp`.
+`pip install briefcase-ai[mcp]` then `briefcase-ai-mcp`.
+
+## Plug-and-play integrations
+
+Connect the coding tools on your machine in one command. Nothing to configure by hand:
+
+```bash
+briefcase-ai connect     # detects Claude Code, Codex, Cursor, VS Code Copilot, ...; shows a diff; asks once
+briefcase-ai receive     # local OTLP receiver: their telemetry becomes briefcase decision records
+```
+
+`connect` writes each tool's telemetry and MCP settings as key-level edits with
+a backup, and `briefcase-ai connect --undo` removes exactly what it wrote.
+Prompts, responses, tool input, e-mail addresses and host paths are redacted
+unless you opt in (`--capture-content` / `--keep-content`). Claude Code and
+Cursor work on a bare install; Codex and VS Code Copilot send protobuf, which needs
+`pip install 'briefcase-ai[receiver]'`. `briefcase-ai mcp link cursor` prints a
+one-click install link for the MCP server. Per-tool details:
+[`docs/integrations/`](https://github.com/briefcasebrain/briefcase-ai-sdk/blob/main/docs/integrations/README.md).
 
 ## Extras
 
@@ -127,17 +177,27 @@ editor rules under [`docs/llm/`](https://github.com/briefcasebrain/briefcase-ai-
 | `controls` | Gateway, quota, throttle classification, and retry (no extra dependencies) |
 | `integrity` | Tamper-evident hash chains, canonical JSON, Ed25519 signing over digests and JSON manifests (signing adds `pynacl`) |
 | `langchain` / `crewai` / `llamaindex` / `autogen` / `ag2` / `pageindex` / `openai-agents` | Framework auto-instrumentation via `briefcase.auto` (each adds its framework) |
-| `mcp` | MCP server (`briefcase-mcp`) exposing the SDK to AI agents |
-| `dev` | Dev tooling: pytest, mypy, flake8, moto |
-| `all` | Installs every optional extra listed above except `kdb` |
+| `mcp` | MCP server (`briefcase-ai-mcp`) exposing the SDK to AI agents |
+| `run` | gRPC client for the `briefcase-ai` evaluation-run CLI (adds `grpcio`, `grpcio-reflection`, `protobuf`) |
+| `engine` | gRPC client for `briefcase-ai engine`, `graph` and `env` against the licensed Briefcase engine (adds `grpcio`, `protobuf`, `cryptography`; the engine itself is installed with `briefcase-ai engine install`) |
+| `receiver` | OTLP/protobuf decoding for `briefcase-ai receive` (adds `opentelemetry-proto`; OTLP/JSON needs no extra) |
+| `budgets-redis` / `budgets-postgres` / `budgets-mysql` | Shared stores for `briefcase.budgets` (each adds its client: `redis`, `psycopg`, `pymysql`) |
+| `dev` | Dev tooling: pytest, mypy, flake8, moto (not part of `all`) |
+| `all` | Installs every optional extra listed above except `kdb` and `dev` |
 
-Most features are native- or pure-Python-backed and ship with the base package —
-their extras (`replay`, `drift`, `sanitize`, `storage`, `routing`, `bitemporal`,
-`compliance`, …) are convenience groupings that pull in **no** additional
-dependencies. The extras that install third-party packages are `otel`,
-`lakefs`, `bitemporal-iceberg`, `bitemporal-glue`, `kdb`, `compliance-kms`,
-`gym`, `evals`, `mcp`, `opa`, `kafka`, `gcp-logging`, `integrity`, the `rag-*` and `vcs-*`
-store adapters, and the framework auto-instrumentation extras.
+Most features are native- or pure-Python-backed and ship with the base package.
+These extras are convenience groupings that pull in **no** additional
+dependencies: `replay`, `drift`, `sanitize`, `storage`, `validate`,
+`guardrails`, `rag`, `correlation`, `external`, `events`, `webhook`, `routing`,
+`vcs`, `bitemporal`, `compliance`, and `controls`. The extras that install
+third-party packages are `otel`, `kafka`, `gcp-logging`, `opa`, `lakefs`,
+`rag-chroma`, `rag-pinecone`, `rag-weaviate`, `vcs-dvc`, `vcs-pachyderm`,
+`vcs-ducklake`, `vcs-iceberg`, `gym`, `evals`, `bitemporal-iceberg`,
+`bitemporal-glue`, `kdb`, `compliance-kms`, `integrity`, `langchain`, `crewai`,
+`llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`, `mcp`, `run`,
+`engine`, `receiver`, `budgets-redis`, `budgets-postgres`, and `budgets-mysql`.
+`all` installs every one of those except `kdb`; `dev` is the test tooling and is
+not part of `all`.
 
 ## Managed platform
 

@@ -4,8 +4,9 @@
 //! for use cases that don't require async functionality.
 
 use super::{
-    ChangeType, Comparator, ExecutionConfig, FieldChange, PolicyViolation, ReplayError, ReplayMode,
-    ReplayPolicy, ReplayResult, ReplayStats, ReplayStatus, SnapshotDiff, SyncModelExecutor,
+    check_policy, check_result_policy, ChangeType, ExecutionConfig, FieldChange, PolicyViolation,
+    ReplayError, ReplayMode, ReplayPolicy, ReplayResult, ReplayStats, ReplayStatus, SnapshotDiff,
+    SyncModelExecutor,
 };
 use crate::models::DecisionSnapshot;
 use crate::storage::sync::SyncStorageBackend;
@@ -71,41 +72,20 @@ impl<S: SyncStorageBackend> SyncReplayEngine<S> {
 
         match replay_mode {
             ReplayMode::ValidationOnly => {
-                // Just validate without re-executing
+                // Nothing re-executes, so nothing was compared: Pending with
+                // no match claimed, as in the async engine.
                 Ok(ReplayResult {
-                    status: ReplayStatus::Success,
+                    status: ReplayStatus::Pending,
                     original_snapshot,
                     replay_output: None,
-                    outputs_match: true, // Assume match for validation-only
+                    outputs_match: false,
                     diff: None,
                     policy_violations: Vec::new(),
                     execution_time_ms: start_time.elapsed().as_millis() as f64,
                 })
             }
             ReplayMode::Strict | ReplayMode::Tolerant => {
-                // Use the executor if available, otherwise fall back to simulation
-                if self.executor.is_some() {
-                    self.execute_replay(&original_snapshot, replay_mode, start_time)
-                } else {
-                    // For sync implementation, we'll simulate replay
-                    let simulated_output = simulate_execution(&original_snapshot);
-                    let outputs_match =
-                        compare_outputs(&original_snapshot, &simulated_output, &replay_mode);
-
-                    Ok(ReplayResult {
-                        status: if outputs_match {
-                            ReplayStatus::Success
-                        } else {
-                            ReplayStatus::Failed
-                        },
-                        original_snapshot,
-                        replay_output: Some(simulated_output),
-                        outputs_match,
-                        diff: None, // TODO: Implement diff calculation
-                        policy_violations: Vec::new(),
-                        execution_time_ms: start_time.elapsed().as_millis() as f64,
-                    })
-                }
+                self.execute_replay(&original_snapshot, replay_mode, start_time)
             }
         }
     }
@@ -119,9 +99,9 @@ impl<S: SyncStorageBackend> SyncReplayEngine<S> {
     ) -> Result<ReplayResult, ReplayError> {
         let mut result = self.replay(snapshot_id, mode, None)?;
 
-        // Validate against policy
-        let violations = self.validate(snapshot_id, policy)?;
-        result.policy_violations = violations;
+        // Rules are checked against what the replay produced, so a policy can
+        // only pass when something actually re-executed.
+        result.policy_violations = check_result_policy(&result, policy);
 
         if !result.policy_violations.is_empty() {
             result.status = ReplayStatus::Failed;
@@ -130,7 +110,11 @@ impl<S: SyncStorageBackend> SyncReplayEngine<S> {
         Ok(result)
     }
 
-    /// Validate a snapshot against a policy
+    /// Validate a snapshot against a policy (without re-executing).
+    ///
+    /// No replay runs, so there is nothing to compare the recorded values
+    /// against: every rule reports as unverified rather than passing, exactly
+    /// as `ReplayEngine::validate` does.
     pub fn validate(
         &self,
         snapshot_id: &str,
@@ -141,56 +125,7 @@ impl<S: SyncStorageBackend> SyncReplayEngine<S> {
             .load_decision(snapshot_id)
             .map_err(|e| ReplayError::StorageError(e.to_string()))?;
 
-        let mut violations = Vec::new();
-
-        // Apply policy rules
-        for rule in &policy.rules {
-            match rule.comparator {
-                Comparator::ExactMatch => {
-                    // For exact match, we'd need to compare with expected values
-                    // This is a simplified implementation
-                    if rule.field == "function_name" {
-                        // Example validation logic
-                        if snapshot.function_name.is_empty() {
-                            violations.push(PolicyViolation {
-                                rule_name: format!("exact_match_{}", rule.field),
-                                field: rule.field.clone(),
-                                expected: "non-empty function name".to_string(),
-                                actual: "empty".to_string(),
-                                message: "Function name cannot be empty".to_string(),
-                            });
-                        }
-                    }
-                }
-                Comparator::SemanticSimilarity => {
-                    // For similarity threshold, we'd need reference values
-                    // This is a simplified implementation
-                    if rule.field == "output" && snapshot.outputs.is_empty() {
-                        violations.push(PolicyViolation {
-                            rule_name: format!("similarity_{}", rule.field),
-                            field: rule.field.clone(),
-                            expected: "at least one output".to_string(),
-                            actual: "no outputs".to_string(),
-                            message: "At least one output is required".to_string(),
-                        });
-                    }
-                }
-                Comparator::MaxIncreasePercent => {
-                    // Placeholder for cost/performance checks
-                    // Would need historical data for comparison
-                }
-                Comparator::MaxDecreasePercent => {
-                    // Placeholder for cost/performance checks
-                    // Would need historical data for comparison
-                }
-                Comparator::WithinRange => {
-                    // Placeholder for range checks
-                    // Would need expected ranges for comparison
-                }
-            }
-        }
-
-        Ok(violations)
+        Ok(check_policy(&snapshot, None, policy))
     }
 
     /// Execute replay with a model executor, if available
@@ -266,84 +201,64 @@ impl<S: SyncStorageBackend> SyncReplayEngine<S> {
                 execution_time_ms: execution_time,
             })
         } else {
-            // Fall back to simulation if no executor is set
-            self.simulate_replay(original, mode, start_time)
+            self.unverified_replay(original, start_time)
         }
     }
 
-    /// Get replay statistics for a list of snapshots
+    /// Get replay statistics for a list of snapshots. Counts follow
+    /// `ReplayEngine::get_replay_stats`: a replay that re-executed is
+    /// "successful" whether it matched or not, one that re-executed nothing
+    /// is "unverified", and one that returned an error is "failed".
     pub fn get_replay_stats(&self, snapshot_ids: &[String]) -> Result<ReplayStats, ReplayError> {
-        let mut total_replays = 0;
-        let mut successful_replays = 0;
-        let mut failed_replays = 0;
-        let mut exact_matches = 0;
-        let mut mismatches = 0;
-        let mut total_execution_time_ms = 0.0;
+        let mut stats = ReplayStats {
+            total_replays: snapshot_ids.len(),
+            ..Default::default()
+        };
 
         for snapshot_id in snapshot_ids {
             match self.replay(snapshot_id, None, None) {
                 Ok(result) => {
-                    total_replays += 1;
-                    total_execution_time_ms += result.execution_time_ms;
+                    stats.total_execution_time_ms += result.execution_time_ms;
 
-                    match result.status {
-                        ReplayStatus::Success => {
-                            successful_replays += 1;
-                            if result.outputs_match {
-                                exact_matches += 1;
-                            } else {
-                                mismatches += 1;
-                            }
-                        }
-                        _ => {
-                            failed_replays += 1;
-                            mismatches += 1;
+                    if matches!(result.status, ReplayStatus::Pending | ReplayStatus::Running) {
+                        stats.unverified_replays += 1;
+                    } else {
+                        stats.successful_replays += 1;
+                        if result.outputs_match {
+                            stats.exact_matches += 1;
+                        } else {
+                            stats.mismatches += 1;
                         }
                     }
                 }
-                Err(_) => {
-                    total_replays += 1;
-                    failed_replays += 1;
-                    mismatches += 1;
-                }
+                Err(_) => stats.failed_replays += 1,
             }
         }
 
-        let average_execution_time_ms = if total_replays > 0 {
-            total_execution_time_ms / total_replays as f64
+        let completed = stats.successful_replays + stats.unverified_replays;
+        stats.average_execution_time_ms = if completed > 0 {
+            stats.total_execution_time_ms / completed as f64
         } else {
             0.0
         };
 
-        Ok(ReplayStats {
-            total_replays,
-            successful_replays,
-            failed_replays,
-            exact_matches,
-            mismatches,
-            average_execution_time_ms,
-            total_execution_time_ms,
-        })
+        Ok(stats)
     }
 
-    fn simulate_replay(
+    /// No executor is set, so nothing re-executes and there is no second
+    /// answer to compare against. Reporting the recorded output as a match
+    /// would turn "not checked" into "verified"; the result is Pending with
+    /// no match claimed and no replay output, as in the async engine.
+    fn unverified_replay(
         &self,
         original: &DecisionSnapshot,
-        mode: ReplayMode,
         start_time: Instant,
     ) -> Result<ReplayResult, ReplayError> {
-        let simulated_output = simulate_execution(original);
-        let outputs_match = compare_outputs(original, &simulated_output, &mode);
-
         Ok(ReplayResult {
-            status: if outputs_match {
-                ReplayStatus::Success
-            } else {
-                ReplayStatus::Failed
-            },
+            status: ReplayStatus::Pending,
             original_snapshot: original.clone(),
-            replay_output: Some(simulated_output),
-            outputs_match,
+            replay_output: None,
+            outputs_match: false,
             diff: None,
             policy_violations: Vec::new(),
             execution_time_ms: start_time.elapsed().as_millis() as f64,
@@ -364,52 +279,11 @@ where
     }
 }
 
-/// Simulate execution for demo purposes
-/// In a real implementation, this would re-execute the decision
-fn simulate_execution(decision: &DecisionSnapshot) -> serde_json::Value {
-    // For now, just return the first output if available
-    if let Some(output) = decision.outputs.first() {
-        output.value.clone()
-    } else {
-        serde_json::Value::Null
-    }
-}
-
-/// Compare outputs based on replay mode
-fn compare_outputs(
-    decision: &DecisionSnapshot,
-    simulated_output: &serde_json::Value,
-    mode: &ReplayMode,
-) -> bool {
-    if let Some(original_output) = decision.outputs.first() {
-        match mode {
-            ReplayMode::Strict => {
-                // Exact match required
-                original_output.value == *simulated_output
-            }
-            ReplayMode::Tolerant => {
-                // Allow some differences (simplified implementation)
-                if original_output.value == *simulated_output {
-                    true
-                } else {
-                    // Could implement fuzzy matching here
-                    false
-                }
-            }
-            ReplayMode::ValidationOnly => {
-                // Always true for validation-only mode
-                true
-            }
-        }
-    } else {
-        simulated_output.is_null()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::models::*;
+    use crate::replay::{Comparator, ValidationRule};
     use crate::storage::sync::MemoryStorageBackend;
     use serde_json::json;
 
@@ -438,59 +312,187 @@ mod tests {
             .replay(&decision_id, Some(ReplayMode::ValidationOnly), None)
             .unwrap();
 
-        assert_eq!(result.status, ReplayStatus::Success);
-        assert!(result.outputs_match);
+        // Nothing was compared, so no match may be claimed.
+        assert_eq!(result.status, ReplayStatus::Pending);
+        assert!(!result.outputs_match);
         assert!(result.replay_output.is_none());
     }
 
+    /// Returns a fixed output; `execute` sleeps so the replay has a
+    /// measurable duration.
+    struct FixedExecutor(serde_json::Value);
+
+    impl SyncModelExecutor for FixedExecutor {
+        fn execute(
+            &self,
+            _inputs: &[Input],
+            _model_params: Option<&ModelParameters>,
+            _context: &ExecutionContext,
+            _config: &ExecutionConfig,
+        ) -> Result<super::super::ExecutionResult, ReplayError> {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            Ok(super::super::ExecutionResult {
+                outputs: vec![Output::new("test_output", self.0.clone(), "string")],
+                execution_time_ms: 5.0,
+                metadata: Default::default(),
+                raw_response: None,
+            })
+        }
+
+        fn supports_model(&self, _model_name: &str) -> bool {
+            true
+        }
+
+        fn executor_name(&self) -> &str {
+            "fixed"
+        }
+    }
+
+    fn engine_with(output: serde_json::Value) -> SyncReplayEngine<MemoryStorageBackend> {
+        SyncReplayEngine::new(MemoryStorageBackend::new())
+            .with_executor(Arc::new(FixedExecutor(output)))
+    }
+
     #[test]
-    fn test_sync_replay_tolerant_mode() {
-        let storage = MemoryStorageBackend::new();
-        let engine = SyncReplayEngine::new(storage);
+    fn test_sync_replay_without_executor_is_unverified() {
+        for mode in [ReplayMode::Tolerant, ReplayMode::Strict] {
+            let engine = SyncReplayEngine::new(MemoryStorageBackend::new());
+            let decision_id = engine
+                .storage
+                .save_decision(&create_test_decision())
+                .unwrap();
 
-        let decision = create_test_decision();
-        let decision_id = engine.storage.save_decision(&decision).unwrap();
+            let result = engine.replay(&decision_id, Some(mode), None).unwrap();
 
-        let result = engine
-            .replay(&decision_id, Some(ReplayMode::Tolerant), None)
+            // Nothing re-executed: the recorded output must not be echoed
+            // back as a matching replay.
+            assert_eq!(result.status, ReplayStatus::Pending);
+            assert!(!result.outputs_match);
+            assert!(result.replay_output.is_none());
+        }
+    }
+
+    #[test]
+    fn test_sync_replay_with_executor_gives_a_verdict() {
+        let engine = engine_with(json!("result"));
+        let id = engine
+            .storage
+            .save_decision(&create_test_decision())
             .unwrap();
-
+        let result = engine.replay(&id, Some(ReplayMode::Strict), None).unwrap();
         assert_eq!(result.status, ReplayStatus::Success);
-        assert!(result.replay_output.is_some());
+        assert!(result.outputs_match);
+
+        let engine = engine_with(json!("something else entirely"));
+        let id = engine
+            .storage
+            .save_decision(&create_test_decision())
+            .unwrap();
+        let result = engine.replay(&id, Some(ReplayMode::Strict), None).unwrap();
+        assert_eq!(result.status, ReplayStatus::Failed);
+        assert!(!result.outputs_match);
     }
 
     #[test]
     fn test_sync_replay_stats() {
-        let storage = MemoryStorageBackend::new();
-        let engine = SyncReplayEngine::new(storage);
+        // No executor: both replays are unverified, neither a success nor a
+        // failure nor a match.
+        let engine = SyncReplayEngine::new(MemoryStorageBackend::new());
+        let id1 = engine
+            .storage
+            .save_decision(&create_test_decision())
+            .unwrap();
+        let id2 = engine
+            .storage
+            .save_decision(&create_test_decision())
+            .unwrap();
 
-        let decision1 = create_test_decision();
-        let decision2 = create_test_decision();
+        let stats = engine
+            .get_replay_stats(&[id1, id2, "missing".to_string()])
+            .unwrap();
 
-        let id1 = engine.storage.save_decision(&decision1).unwrap();
-        let id2 = engine.storage.save_decision(&decision2).unwrap();
+        assert_eq!(stats.total_replays, 3);
+        assert_eq!(stats.unverified_replays, 2);
+        assert_eq!(stats.successful_replays, 0);
+        assert_eq!(stats.exact_matches, 0);
+        assert_eq!(stats.mismatches, 0);
+        assert_eq!(stats.failed_replays, 1);
 
-        let stats = engine.get_replay_stats(&[id1, id2]).unwrap();
-
-        assert_eq!(stats.total_replays, 2);
-        assert!(stats.total_execution_time_ms >= 0.0);
-        assert!(stats.average_execution_time_ms >= 0.0);
+        // With an executor the replays carry verdicts.
+        let engine = engine_with(json!("result"));
+        let id = engine
+            .storage
+            .save_decision(&create_test_decision())
+            .unwrap();
+        let stats = engine.get_replay_stats(&[id]).unwrap();
+        assert_eq!(stats.successful_replays, 1);
+        assert_eq!(stats.exact_matches, 1);
+        assert_eq!(stats.unverified_replays, 0);
     }
 
     #[test]
-    fn test_sync_replay_policy_validation() {
-        let storage = MemoryStorageBackend::new();
-        let engine = SyncReplayEngine::new(storage);
+    fn test_sync_validate_never_passes_an_unchecked_rule() {
+        let engine = SyncReplayEngine::new(MemoryStorageBackend::new());
+        let policy = ReplayPolicy::new("test_policy").with_exact_match("function_name");
+        let id = engine
+            .storage
+            .save_decision(&create_test_decision())
+            .unwrap();
 
-        let policy = ReplayPolicy::new("test_policy".to_string())
-            .with_exact_match("function_name".to_string());
+        let violations = engine.validate(&id, &policy).unwrap();
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].actual, "not replayed");
+        assert_eq!(violations[0].expected, "test_function");
+    }
 
-        let decision = create_test_decision();
-        let decision_id = engine.storage.save_decision(&decision).unwrap();
+    #[test]
+    fn test_sync_policy_without_executor_fails() {
+        let engine = SyncReplayEngine::new(MemoryStorageBackend::new());
+        let policy = ReplayPolicy::new("p").with_exact_match("test_output");
+        let id = engine
+            .storage
+            .save_decision(&create_test_decision())
+            .unwrap();
 
-        let violations = engine.validate(&decision_id, &policy).unwrap();
+        let result = engine.replay_with_policy(&id, &policy, None).unwrap();
+        assert_eq!(result.status, ReplayStatus::Failed);
+        assert_eq!(result.policy_violations[0].actual, "not replayed");
+    }
 
-        // Should pass validation since function name is not empty
-        assert!(violations.is_empty());
+    #[test]
+    fn test_sync_policy_resolves_snapshot_level_fields() {
+        let engine = engine_with(json!("result"));
+        let decision = create_test_decision().with_execution_time(1_000.0);
+        let id = engine.storage.save_decision(&decision).unwrap();
+
+        // function_name and a generous execution-time bound both resolve on
+        // the replayed side and pass, alongside an output rule.
+        let policy = ReplayPolicy::new("p")
+            .with_exact_match("function_name")
+            .with_exact_match("test_output")
+            .add_rule(ValidationRule {
+                field: "execution_time_ms".to_string(),
+                comparator: Comparator::MaxIncreasePercent,
+                threshold: 10.0,
+            });
+        let result = engine.replay_with_policy(&id, &policy, None).unwrap();
+        assert!(
+            result.policy_violations.is_empty(),
+            "{:?}",
+            result.policy_violations
+        );
+        assert_eq!(result.status, ReplayStatus::Success);
+
+        // The replay took ~5 ms against a recorded 1000 ms: a rule that
+        // forbids any decrease is a real, numeric violation, not "absent".
+        let policy = ReplayPolicy::new("p").add_rule(ValidationRule {
+            field: "execution_time_ms".to_string(),
+            comparator: Comparator::MaxDecreasePercent,
+            threshold: 1.0,
+        });
+        let result = engine.replay_with_policy(&id, &policy, None).unwrap();
+        assert_eq!(result.policy_violations.len(), 1);
+        assert_ne!(result.policy_violations[0].actual, "absent");
+        assert!(result.policy_violations[0].message.contains("moved from"));
     }
 }

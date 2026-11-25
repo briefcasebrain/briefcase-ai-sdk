@@ -2,6 +2,12 @@ export interface LakefsClientOptions {
   endpoint: string;
   accessKeyId: string;
   secretAccessKey: string;
+  /**
+   * Credentials travel as HTTP Basic auth, so the endpoint must be `https:`.
+   * Plain `http:` is accepted only for a loopback host (`localhost`,
+   * `127.0.0.0/8`, `[::1]`) or when this is set to `true`.
+   */
+  allowInsecure?: boolean;
   timeoutMs?: number;
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
   sleep?: (milliseconds: number) => Promise<void>;
@@ -37,6 +43,42 @@ export interface LakefsClient {
   listObjects(args: { repo: string; ref: string; prefix: string; after?: string; limit?: number }): Promise<{ objects: Array<{ path: string; checksum: string; sizeBytes: number; mtime: Date }>; nextAfter: string | null; hasMore: boolean }>;
 }
 
+/** A non-2xx response from lakeFS. `body` is the (possibly truncated) response text. */
+export class LakefsError extends Error {
+  constructor(
+    readonly status: number,
+    readonly statusText: string,
+    readonly operation: string,
+    readonly body: string,
+  ) {
+    super(`lakefs ${status} ${statusText} on ${operation}: ${body.slice(0, 200)}`);
+    this.name = "LakefsError";
+  }
+}
+
+/** Alias matching the lakeFS product spelling. */
+export { LakefsError as LakeFSError };
+
+const MAX_ERROR_BODY_CHARS = 4_096;
+
+function assertSecureEndpoint(endpoint: string, allowInsecure: boolean): void {
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch (error) {
+    throw new Error("lakefs endpoint must be an absolute http(s) URL", { cause: error });
+  }
+  if (url.protocol === "https:") return;
+  if (url.protocol !== "http:") throw new Error(`lakefs endpoint must use https (got ${url.protocol})`);
+  const host = url.hostname.toLowerCase();
+  const loopback = host === "localhost" || host.endsWith(".localhost") || host === "[::1]" || /^127(\.\d{1,3}){3}$/.test(host);
+  if (loopback || allowInsecure) return;
+  throw new Error(
+    "lakefs endpoint must use https: credentials are sent with Basic auth. " +
+      "Pass allowInsecure: true to send them over plain http anyway.",
+  );
+}
+
 const RETRYABLE_READ_STATUSES = new Set([429, 502, 503, 504]);
 const defaultSleep = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 
@@ -44,6 +86,7 @@ export function createLakefsClient(options: LakefsClientOptions): LakefsClient {
   if (!options.endpoint || !options.accessKeyId || !options.secretAccessKey) {
     throw new Error("lakefs endpoint and credentials are required");
   }
+  assertSecureEndpoint(options.endpoint, options.allowInsecure === true);
   const base = `${options.endpoint.replace(/\/+$/, "")}${/\/api\/v1\/?$/.test(options.endpoint) ? "" : "/api/v1"}`;
   const auth = `Basic ${Buffer.from(`${options.accessKeyId}:${options.secretAccessKey}`).toString("base64")}`;
   const fetchFn = options.fetch ?? ((input, init) => fetch(input, init));
@@ -88,10 +131,11 @@ export function createLakefsClient(options: LakefsClientOptions): LakefsClient {
     return { ...init, headers };
   };
 
-  const errorFor = async (response: Response, operation: string): Promise<Error> => {
+  const errorFor = async (response: Response, operation: string): Promise<LakefsError> => {
     const detail = await response.text().catch(() => "");
-    return new Error(`lakefs ${response.status} ${response.statusText} on ${operation}: ${detail.slice(0, 200)}`);
+    return new LakefsError(response.status, response.statusText, operation, detail.slice(0, MAX_ERROR_BODY_CHARS));
   };
+  const isConflict = (error: unknown): boolean => error instanceof LakefsError && error.status === 409;
 
   const send = async (path: string, init: RequestInit = {}): Promise<unknown> => {
     const response = await request(`${base}${path}`, authorized(init));
@@ -196,7 +240,7 @@ export function createLakefsClient(options: LakefsClientOptions): LakefsClient {
       try {
         await send(`/repositories/${encodeURIComponent(repo)}/tags`, { method: "POST", body: JSON.stringify({ id, ref }) });
       } catch (error) {
-        if (!(error instanceof Error && /409|already exists/i.test(error.message))) throw error;
+        if (!isConflict(error)) throw error;
       }
     },
     async branch({ repo, sourceRef, name, metadata }) {
@@ -206,7 +250,7 @@ export function createLakefsClient(options: LakefsClientOptions): LakefsClient {
           body: JSON.stringify({ name, source: sourceRef, metadata }),
         });
       } catch (error) {
-        if (!(error instanceof Error && /409|already exists/i.test(error.message))) throw error;
+        if (!isConflict(error)) throw error;
         const resolveRef = async (ref: string): Promise<string | null> => {
           try {
             const result = (await send(`/repositories/${encodeURIComponent(repo)}/refs/${encodeURIComponent(ref)}/commits?amount=1`)) as { results?: Array<{ id?: string }> };

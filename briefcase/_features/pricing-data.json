@@ -1,0 +1,11 @@
+{
+  "id": "pricing-data",
+  "title": "Model pricing data",
+  "verb": "review",
+  "one_line": "See which of your models have no price, and add verified ones.",
+  "command": "briefcase-ai pricing check --records runs.jsonl",
+  "docs_slug": "review/pricing-data",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Packaged prices copied from cost.rs and NOT checked against provider pages; CLI exercised in a temp HOME; the native load_pricing_json path was exercised only through a fake calculator (extension not built here)"
+}

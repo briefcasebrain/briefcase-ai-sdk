@@ -1,0 +1,12 @@
+{
+  "id": "managed-rollout",
+  "title": "Managed rollout for a team",
+  "verb": "connect",
+  "one_line": "Generate the files an admin deploys to set up briefcase on every machine.",
+  "command": "briefcase-ai connect --managed --out ./briefcase-rollout",
+  "docs_slug": "connect/managed-rollout",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Formats from the Claude Code managed-settings, Cursor hooks and Codex hooks docs (2026-11-21/22) and Apple's managed-preferences payload, pinned by golden-file tests. No generated file was installed on a managed macOS, Windows or Linux machine; the Windows .reg file and the Codex requirements.toml and Cowork steps are labelled templates.",
+  "docs_path": "docs/features/managed-rollout.md"
+}

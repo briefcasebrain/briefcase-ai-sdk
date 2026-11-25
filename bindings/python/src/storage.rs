@@ -1,7 +1,9 @@
 //! Python bindings for storage backends
 
+use crate::integrity::{json_to_py, load_signing_key, py_to_json_text};
 use crate::models::{PyDecisionSnapshot, PySnapshot, PySnapshotQuery};
-use crate::runtime::{get_runtime, PythonAsyncExt};
+use crate::runtime::{get_runtime, IntoPyErr, PythonAsyncExt};
+use briefcase_core::storage::chain::{ChainConfig, Checkpoint, VerifyOptions};
 use briefcase_core::storage::{buffered::BufferedBackend, SqliteBackend, StorageBackend};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
@@ -16,8 +18,8 @@ pub struct PyBufferedBackend {
 #[pymethods]
 impl PyBufferedBackend {
     #[new]
-    fn new(backend: PyObject, buffer_size: usize) -> PyResult<Self> {
-        Python::with_gil(|py| {
+    fn new(backend: Py<PyAny>, buffer_size: usize) -> PyResult<Self> {
+        Python::attach(|py| {
             let inner: Arc<dyn StorageBackend> =
                 if let Ok(sqlite) = backend.bind(py).extract::<PyRef<PySqliteBackend>>() {
                     Arc::new(sqlite.inner.clone())
@@ -75,9 +77,9 @@ impl PyBufferedBackend {
 
     /// Query the wrapped backend. Buffered decisions are not visible until
     /// they are flushed.
-    fn query(&self, query: PyRef<PySnapshotQuery>) -> PyResult<PyObject> {
+    fn query(&self, query: PyRef<PySnapshotQuery>) -> PyResult<Py<PyAny>> {
         let snapshots = self.inner.query(query.inner.clone()).block_on_python()?;
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for s in snapshots {
                 list.append(Py::new(py, PySnapshot { inner: s })?)?;
@@ -102,9 +104,9 @@ impl PyBufferedBackend {
     /// partial batch.
     fn __exit__(
         &self,
-        _exc_type: PyObject,
-        _exc_value: PyObject,
-        _traceback: PyObject,
+        _exc_type: Py<PyAny>,
+        _exc_value: Py<PyAny>,
+        _traceback: Py<PyAny>,
     ) -> PyResult<bool> {
         self.flush()?;
         Ok(false)
@@ -123,28 +125,164 @@ pub struct PySqliteBackend {
 
 #[pymethods]
 impl PySqliteBackend {
+    /// Open (or create) the database at `path`, or an in-memory one when
+    /// `path` is None.
+    ///
+    /// `append_only` is off by default: saving an id that is already stored
+    /// replaces the row. With `append_only=True` such a save raises
+    /// `FileExistsError` and leaves the stored row untouched, and `delete`
+    /// raises `PermissionError`.
+    ///
+    /// `chained=True` turns on the tamper-evident mode (implies append-only):
+    /// every save also appends a hash-chained entry, and every
+    /// `checkpoint_every` entries (0 = only on `checkpoint()`) a checkpoint
+    /// with a Merkle root is written, signed when `signing_key` is given (a
+    /// key file path, or the file's bytes: private JWK, hex seed or 32-byte
+    /// seed; the same keys `briefcase.integrity` uses).
     #[new]
-    fn new(path: Option<String>) -> PyResult<Self> {
+    #[pyo3(signature = (path=None, append_only=false, chained=false, signing_key=None, checkpoint_every=100))]
+    fn new(
+        path: Option<String>,
+        append_only: bool,
+        chained: bool,
+        signing_key: Option<&Bound<'_, PyAny>>,
+        checkpoint_every: u64,
+    ) -> PyResult<Self> {
         let backend = if let Some(path) = path {
             SqliteBackend::new(path)
         } else {
             SqliteBackend::in_memory()
         };
 
-        match backend {
-            Ok(backend) => Ok(Self { inner: backend }),
-            Err(e) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to create SQLite backend: {}",
-                e
-            ))),
+        let backend = match backend {
+            Ok(backend) => backend.with_append_only(append_only),
+            Err(e) => {
+                return Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                    "Failed to create SQLite backend: {}",
+                    e
+                )))
+            }
+        };
+        if !chained {
+            if signing_key.is_some() {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "signing_key needs chained=True",
+                ));
+            }
+            return Ok(Self { inner: backend });
         }
+        let mut config = ChainConfig::new().with_checkpoint_every(checkpoint_every);
+        if let Some(key) = signing_key {
+            config = config.with_signing_key(load_signing_key(key)?);
+        }
+        let inner = backend.with_chain(config).map_err(|e| e.into_py_err())?;
+        Ok(Self { inner })
+    }
+
+    /// Whether saves go through the hash chain.
+    #[getter]
+    fn chained(&self) -> bool {
+        self.inner.is_chained()
+    }
+
+    /// Append one JSON record (a dict, or JSON text) under `record_id`.
+    /// Returns the chain entry as a dict. Raises `FileExistsError` when the
+    /// id is already in the chain and `ValueError` for values RFC 8785
+    /// cannot represent exactly (NaN, integers beyond 2**53 a double cannot
+    /// hold).
+    fn append_record(
+        &self,
+        py: Python<'_>,
+        record_id: String,
+        record: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let value: serde_json::Value = serde_json::from_str(&py_to_json_text(record)?)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        let inner = self.inner.clone();
+        let entry = py
+            .detach(move || inner.append_record(&record_id, &value))
+            .map_err(|e| e.into_py_err())?;
+        json_to_py(py, &entry)
+    }
+
+    /// Write a checkpoint over every entry since the previous one; returns
+    /// the latest checkpoint as a dict (None for an empty chain).
+    fn checkpoint(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let inner = self.inner.clone();
+        let cp = py
+            .detach(move || inner.checkpoint())
+            .map_err(|e| e.into_py_err())?;
+        json_to_py(py, &cp)
+    }
+
+    /// The newest chain entry as a dict, or None.
+    fn chain_head(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let head = self.inner.chain_head().map_err(|e| e.into_py_err())?;
+        json_to_py(py, &head)
+    }
+
+    /// Every checkpoint, oldest first, as dicts.
+    fn checkpoints(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let cps = self.inner.checkpoints().map_err(|e| e.into_py_err())?;
+        json_to_py(py, &cps)
+    }
+
+    /// Merkle inclusion proof of entry `seq` (None until a checkpoint covers it).
+    fn inclusion_proof(&self, py: Python<'_>, seq: u64) -> PyResult<Py<PyAny>> {
+        let proof = self
+            .inner
+            .inclusion_proof(seq)
+            .map_err(|e| e.into_py_err())?;
+        json_to_py(py, &proof)
+    }
+
+    /// Walk the chain and checkpoints; returns the report as a dict with
+    /// `intact`, counts, and `problems`. `against_checkpoint` (a checkpoint
+    /// dict or JSON kept outside the database) is the only way to detect
+    /// removal of the newest entries; `expected_key_id` pins the signer.
+    #[pyo3(signature = (against_checkpoint=None, expected_key_id=None))]
+    fn verify(
+        &self,
+        py: Python<'_>,
+        against_checkpoint: Option<&Bound<'_, PyAny>>,
+        expected_key_id: Option<String>,
+    ) -> PyResult<Py<PyAny>> {
+        let anchor = match against_checkpoint {
+            None => None,
+            Some(obj) => Some(
+                serde_json::from_str::<Checkpoint>(&py_to_json_text(obj)?).map_err(|e| {
+                    pyo3::exceptions::PyValueError::new_err(format!(
+                        "against_checkpoint is not a checkpoint: {}",
+                        e
+                    ))
+                })?,
+            ),
+        };
+        let options = VerifyOptions {
+            against_checkpoint: anchor,
+            expected_key_id,
+        };
+        let inner = self.inner.clone();
+        let report = py
+            .detach(move || inner.verify_chain(&options))
+            .map_err(|e| e.into_py_err())?;
+        json_to_py(py, &report)
     }
 
     #[classmethod]
-    fn in_memory(_cls: &Bound<'_, pyo3::types::PyType>) -> PyResult<Self> {
+    #[pyo3(signature = (append_only=false))]
+    fn in_memory(_cls: &Bound<'_, pyo3::types::PyType>, append_only: bool) -> PyResult<Self> {
         SqliteBackend::in_memory()
-            .map(|inner| Self { inner })
+            .map(|inner| Self {
+                inner: inner.with_append_only(append_only),
+            })
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+    }
+
+    /// Whether this backend refuses to overwrite or delete stored snapshots.
+    #[getter]
+    fn append_only(&self) -> bool {
+        self.inner.is_append_only()
     }
 
     fn save(&self, snapshot: PyRef<PySnapshot>) -> PyResult<String> {
@@ -169,9 +307,9 @@ impl PySqliteBackend {
             .map(|d| PyDecisionSnapshot { inner: d })
     }
 
-    fn query(&self, query: PyRef<PySnapshotQuery>) -> PyResult<PyObject> {
+    fn query(&self, query: PyRef<PySnapshotQuery>) -> PyResult<Py<PyAny>> {
         let snapshots = self.inner.query(query.inner.clone()).block_on_python()?;
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for s in snapshots {
                 list.append(Py::new(py, PySnapshot { inner: s })?)?;
@@ -187,6 +325,12 @@ impl PySqliteBackend {
         self.inner.health_check().block_on_python()
     }
     fn __repr__(&self) -> String {
-        "SqliteBackend()".into()
+        if self.inner.is_chained() {
+            "SqliteBackend(chained=True)".into()
+        } else if self.inner.is_append_only() {
+            "SqliteBackend(append_only=True)".into()
+        } else {
+            "SqliteBackend()".into()
+        }
     }
 }

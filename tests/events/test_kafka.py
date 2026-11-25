@@ -129,3 +129,66 @@ def test_kafka_producer_lazy_init(monkeypatch):
     assert producer.conf == {"bootstrap.servers": "kafka:9092,kafka2:9092"}
     # Second call returns the cached producer.
     assert publisher._get_producer() is producer
+
+
+# ---------------------------------------------------------------------------
+# Extra config, delivery callback, flush/close
+# ---------------------------------------------------------------------------
+
+def test_kafka_extra_config_is_merged(monkeypatch):
+    stub = ModuleType("confluent_kafka")
+    stub.Producer = _FakeProducer
+    monkeypatch.setitem(sys.modules, "confluent_kafka", stub)
+
+    publisher = KafkaPublisher(
+        brokers=["kafka:9093"], topic="t",
+        config={"security.protocol": "SASL_SSL", "sasl.mechanisms": "PLAIN",
+                "sasl.username": "u", "sasl.password": "p"},
+    )
+    assert publisher._get_producer().conf == {
+        "bootstrap.servers": "kafka:9093",
+        "security.protocol": "SASL_SSL",
+        "sasl.mechanisms": "PLAIN",
+        "sasl.username": "u",
+        "sasl.password": "p",
+    }
+
+
+def test_kafka_delivery_callback_logs_failures(caplog):
+    import logging
+
+    publisher, mock_producer = _make_publisher_with_mock_producer()
+    publisher.publish(_make_event())
+    callback = mock_producer.produce.call_args[1]["on_delivery"]
+
+    with caplog.at_level(logging.WARNING, logger="briefcase.events.kafka"):
+        callback(None, MagicMock())  # success: silent
+        assert publisher.delivery_failures == 0
+        callback("Broker: Message timed out", MagicMock())
+    assert publisher.delivery_failures == 1
+    assert any("Message timed out" in r.getMessage() for r in caplog.records)
+
+
+def test_kafka_produce_error_is_logged(caplog):
+    import logging
+
+    publisher, mock_producer = _make_publisher_with_mock_producer()
+    mock_producer.produce.side_effect = RuntimeError("broker unavailable")
+    with caplog.at_level(logging.WARNING, logger="briefcase.events.kafka"):
+        assert publisher.publish(_make_event()) is False
+    assert any("broker unavailable" in r.getMessage() for r in caplog.records)
+
+
+def test_kafka_flush_and_close():
+    publisher, mock_producer = _make_publisher_with_mock_producer()
+    mock_producer.flush = MagicMock(return_value=0)
+    assert publisher.flush(timeout=2.5) == 0
+    mock_producer.flush.assert_called_once_with(2.5)
+
+    mock_producer.flush = MagicMock(return_value=3)
+    assert publisher.close(timeout=1.0) == 3
+    assert publisher._producer is None
+
+    # No producer was ever created: nothing to do, nothing raised.
+    idle = KafkaPublisher(brokers=["kafka:9092"], topic="t")
+    assert idle.flush() == 0 and idle.close() == 0

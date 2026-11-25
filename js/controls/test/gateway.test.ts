@@ -215,18 +215,12 @@ describe("gateway records and events", () => {
     await gateway.invoke({ tenantId: "org1", bucket: "chat", fn: () => "v" });
     expect(mem.records).toHaveLength(1);
     const rec = mem.records[0] as Record<string, unknown>;
-    for (const field of [
-      "decision_id",
-      "decision_type",
-      "function_name",
-      "inputs",
-      "outputs",
-      "started_at",
-      "ended_at",
-      "execution_time_ms",
-    ]) {
-      expect(rec).toHaveProperty(field);
-    }
+    // The same required list the record builder and the Python SDK satisfy.
+    const schema = JSON.parse(
+      readFileSync(new URL("../../../tests/fixtures/decision_record.json", import.meta.url), "utf8"),
+    ) as { schema_version: string; required_fields: string[] };
+    expect(Object.keys(rec).sort()).toEqual([...schema.required_fields].sort());
+    expect(rec["schema_version"]).toBe(schema.schema_version);
     expect(rec["decision_type"]).toBe("controls.gateway.chat");
     expect((rec["inputs"] as Record<string, unknown>)[CONTROLS_GATEWAY_TENANT_ID]).toBe("org1");
     expect((rec["inputs"] as Record<string, unknown>)[CONTROLS_GATEWAY_BUCKET]).toBe("chat");

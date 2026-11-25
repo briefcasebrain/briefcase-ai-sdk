@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any, Optional
 
+from briefcase.exporters.base import get_field
 from briefcase.routing.base import BaseRouter, RoutingDecision
 
 
@@ -24,18 +25,19 @@ class InternalRouter(BaseRouter):
 
     @staticmethod
     def _get_confidence(decision_context: Any) -> Optional[float]:
-        """Extract confidence from a decision context object.
+        """Extract confidence from a decision context, which may be a dict
+        (a ``@capture`` record) or an object.
 
-        Reads ``decision_context.confidence`` first, then falls back to a
-        nested ``outputs`` list or dict.
+        Reads the ``confidence`` field first, then falls back to a nested
+        ``outputs`` list or dict.
         """
-        conf = getattr(decision_context, "confidence", None)
+        conf = get_field(decision_context, "confidence")
         if conf is not None:
             return float(conf)
-        outputs = getattr(decision_context, "outputs", None)
+        outputs = get_field(decision_context, "outputs")
         if isinstance(outputs, list):
             for out in outputs:
-                c = getattr(out, "confidence", None)
+                c = get_field(out, "confidence")
                 if c is not None:
                     return float(c)
         elif isinstance(outputs, dict):

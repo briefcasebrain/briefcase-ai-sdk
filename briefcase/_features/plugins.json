@@ -1,0 +1,13 @@
+{
+  "id": "plugins",
+  "title": "Plugins from other packages",
+  "verb": "connect",
+  "one_line": "Add exporters, backends, commands and checks from other packages.",
+  "command": "briefcase-ai plugins list",
+  "docs_slug": "connect/plugins",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Two throwaway distributions built with pip into a temp --target directory and exercised through every entry point group in process and through the real CLI (tests/plugins). No third-party plugin exists yet.",
+  "docs_path": "docs/features/plugins.md",
+  "status_id": "plugins"
+}

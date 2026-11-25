@@ -13,6 +13,13 @@ internally consistent bundle was signed by a known KMS key.
 Binding the bundle to production truth requires pairing this signature
 with an independently witnessed WORM commit.
 
+This class reads and writes the format-1 JSON document (unchanged, byte
+for byte) and signs and verifies through the unified signer layer
+(:class:`briefcase.compliance.signers.KmsSigner`). ``to_bundle(path)``
+writes the format-2 evidence bundle, carrying this KMS signature along so
+it still verifies; :func:`briefcase.compliance.verify_bundle` checks both
+formats.
+
 Install
 -------
 Requires ``boto3``: ``pip install briefcase-ai[compliance-kms]`` or
@@ -28,13 +35,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from briefcase.compliance.examiner import ExaminerBundle
-
-
-_BOTO3_INSTALL_HINT = (
-    "boto3 is required. Install with "
-    "'pip install briefcase-ai[compliance-kms]' "
-    "or 'pip install boto3'."
-)
+from briefcase.compliance.signers import KMS_DEFAULT_ALGORITHM, KmsSigner, kms_client_from, kms_verify_raw
 
 
 def _utcnow() -> datetime:
@@ -54,7 +55,7 @@ class SignedExaminerBundle(ExaminerBundle):
 
     kms_key_id: str = ""
     signature: bytes = b""
-    signing_algorithm: str = "RSASSA_PSS_SHA_256"
+    signing_algorithm: str = KMS_DEFAULT_ALGORITHM
     signed_at: datetime = field(default_factory=_utcnow)
 
     # ------------------------------------------------------------------
@@ -70,9 +71,10 @@ class SignedExaminerBundle(ExaminerBundle):
         evidence_store: Any,
         kms_key_id: str,
         boto_session: Optional[Any] = None,
-        signing_algorithm: str = "RSASSA_PSS_SHA_256",
+        signing_algorithm: str = KMS_DEFAULT_ALGORITHM,
         as_of_transaction_time: Optional[datetime] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        kms_client: Optional[Any] = None,
     ) -> "SignedExaminerBundle":
         """Build the parent bundle, then KMS-sign its ``content_hash``."""
         parent = ExaminerBundle.build(
@@ -82,14 +84,10 @@ class SignedExaminerBundle(ExaminerBundle):
             as_of_transaction_time=as_of_transaction_time,
             metadata=metadata,
         )
-        kms = _kms_client(boto_session)
-        resp = kms.sign(
-            KeyId=kms_key_id,
-            Message=parent.content_hash.encode("utf-8"),
-            MessageType="RAW",
-            SigningAlgorithm=signing_algorithm,
+        signer = KmsSigner(
+            kms_key_id, algorithm=signing_algorithm, kms_client=kms_client, boto_session=boto_session,
         )
-        signature = resp["Signature"]
+        signature = signer.sign_raw(parent.content_hash.encode("utf-8"))
         return cls(
             decision=parent.decision,
             policy=parent.policy,
@@ -99,7 +97,7 @@ class SignedExaminerBundle(ExaminerBundle):
             schema_version=parent.schema_version,
             metadata=dict(parent.metadata),
             kms_key_id=kms_key_id,
-            signature=bytes(signature),
+            signature=signature,
             signing_algorithm=signing_algorithm,
             signed_at=_utcnow(),
         )
@@ -112,8 +110,9 @@ class SignedExaminerBundle(ExaminerBundle):
         self,
         *,
         expected_key_id: str,
-        expected_algorithm: str = "RSASSA_PSS_SHA_256",
+        expected_algorithm: str = KMS_DEFAULT_ALGORITHM,
         boto_session: Optional[Any] = None,
+        kms_client: Optional[Any] = None,
     ) -> bool:
         """Verify the KMS signature over ``content_hash`` against a caller-pinned key.
 
@@ -138,18 +137,14 @@ class SignedExaminerBundle(ExaminerBundle):
             return False
         if self.signing_algorithm != expected_algorithm:
             return False
-        kms = _kms_client(boto_session)
-        try:
-            resp = kms.verify(
-                KeyId=expected_key_id,
-                Message=self.content_hash.encode("utf-8"),
-                MessageType="RAW",
-                Signature=self.signature,
-                SigningAlgorithm=expected_algorithm,
-            )
-        except kms.exceptions.KMSInvalidSignatureException:
-            return False
-        return bool(resp.get("SignatureValid", False))
+        kms = kms_client if kms_client is not None else kms_client_from(boto_session)
+        return kms_verify_raw(
+            kms,
+            key_id=expected_key_id,
+            algorithm=expected_algorithm,
+            message=self.content_hash.encode("utf-8"),
+            signature=self.signature,
+        )
 
     # ------------------------------------------------------------------
     # Serialization (parent's to_json/from_json use to_dict/from_dict)
@@ -179,20 +174,14 @@ class SignedExaminerBundle(ExaminerBundle):
             metadata=dict(d.get("metadata") or {}),
             kms_key_id=d.get("kms_key_id", ""),
             signature=signature,
-            signing_algorithm=d.get("signing_algorithm", "RSASSA_PSS_SHA_256"),
+            signing_algorithm=d.get("signing_algorithm") or KMS_DEFAULT_ALGORITHM,
             signed_at=signed_at,
         )
 
 
 def _kms_client(boto_session: Optional[Any]) -> Any:
-    try:
-        import boto3
-    except ImportError as exc:  # pragma: no cover
-        raise ImportError(_BOTO3_INSTALL_HINT) from exc
-
-    if boto_session is None:
-        return boto3.client("kms")
-    return boto_session.client("kms")
+    """Kept for callers of the previous private helper."""
+    return kms_client_from(boto_session)
 
 
 __all__ = ["SignedExaminerBundle"]

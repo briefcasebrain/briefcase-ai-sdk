@@ -7,7 +7,7 @@ import time
 import pytest
 from unittest.mock import MagicMock
 
-from briefcase.decorators import capture
+from briefcase.decorators import HAS_OTEL, capture
 
 
 #  Helper
@@ -102,6 +102,31 @@ class TestCaptureSync:
         assert "started_at" in record
         assert "ended_at" in record
         assert record["execution_time_ms"] >= 0
+
+    def test_duration_matches_the_recorded_timestamps(self):
+        from datetime import datetime
+
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def trivial():
+            return 1
+
+        async def atrivial():
+            return 1
+
+        def gen():
+            yield 1
+
+        trivial()
+        asyncio.run(capture(exporter=exp, async_capture=False)(atrivial)())
+        list(capture(exporter=exp, async_capture=False)(gen)())
+        assert exp.export.call_count == 3
+        for call in exp.export.call_args_list:
+            record = call[0][0]
+            started = datetime.fromisoformat(record["started_at"])
+            ended = datetime.fromisoformat(record["ended_at"])
+            assert (ended - started).total_seconds() * 1000 == record["execution_time_ms"]
 
     def test_inputs_captured_in_record(self):
         exp = _make_exporter()
@@ -551,3 +576,322 @@ class TestCaptureContentModes:
         record = exp.export.call_args[0][0]
         assert "payload" not in repr(record)
         assert record["inputs"] == {"args_count": 1}
+
+
+#  Generators, cancellation, correlation, sampling, typing
+
+class TestCaptureGenerators:
+    def test_sync_generator_record_holds_chunks_and_total_duration(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def stream(n):
+            for i in range(n):
+                time.sleep(0.01)
+                yield f"tok{i}"
+
+        gen = stream(3)
+        exp.export.assert_not_called()  # nothing until the generator runs
+        assert list(gen) == ["tok0", "tok1", "tok2"]
+        exp.export.assert_called_once()
+        record = exp.export.call_args[0][0]
+        assert record["outputs"]["result"] == "['tok0', 'tok1', 'tok2']"
+        assert "generator object" not in record["outputs"]["result"]
+        assert record["outputs"]["chunk_count"] == 3
+        assert record["outputs"]["stream_completed"] is True
+        assert record["execution_time_ms"] >= 25
+        assert "error" not in record
+
+    def test_sync_generator_keeps_send_and_return_semantics(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def echo():
+            received = yield "ready"
+            yield f"got {received}"
+            return "done"
+
+        gen = echo()
+        assert next(gen) == "ready"
+        assert gen.send("x") == "got x"
+        with pytest.raises(StopIteration) as stop:
+            next(gen)
+        assert stop.value.value == "done"
+        assert exp.export.call_args[0][0]["outputs"]["chunk_count"] == 2
+
+    def test_sync_generator_closed_early_emits_one_record(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def stream():
+            yield 1
+            yield 2
+            yield 3
+
+        for value in stream():
+            if value == 2:
+                break
+        exp.export.assert_called_once()
+        outputs = exp.export.call_args[0][0]["outputs"]
+        assert outputs["chunk_count"] == 2
+        assert outputs["stream_completed"] is False
+
+    def test_sync_generator_error_is_recorded_and_reraised(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def stream():
+            yield 1
+            raise RuntimeError("mid-stream")
+
+        with pytest.raises(RuntimeError, match="mid-stream"):
+            list(stream())
+        record = exp.export.call_args[0][0]
+        assert record["error"] == "mid-stream"
+        assert record["outputs"]["chunk_count"] == 1
+
+    def test_collected_chunks_are_capped(self, monkeypatch):
+        monkeypatch.setattr("briefcase.decorators.MAX_COLLECTED_CHUNKS", 5)
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False, capture_content="hash")
+        def stream():
+            yield from range(50)
+
+        assert sum(stream()) == sum(range(50))
+        outputs = exp.export.call_args[0][0]["outputs"]
+        assert outputs["chunk_count"] == 50
+        assert outputs["chunks_truncated"] is True
+        assert outputs["result_type"] == "generator"
+        assert outputs["result_chars"] == len(repr(list(range(5))))
+
+    def test_generator_without_exporter_passes_through(self):
+        @capture
+        def stream():
+            yield 1
+            return "r"
+
+        gen = stream()
+        assert next(gen) == 1
+        with pytest.raises(StopIteration) as stop:
+            next(gen)
+        assert stop.value.value == "r"
+
+    def test_async_generator_is_wrapped_as_an_async_generator(self):
+        import inspect
+
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        async def stream(n):
+            for i in range(n):
+                await asyncio.sleep(0.01)
+                yield i
+
+        assert inspect.isasyncgenfunction(stream)
+
+        async def main():
+            return [v async for v in stream(3)]
+
+        assert asyncio.run(main()) == [0, 1, 2]
+        exp.export.assert_called_once()
+        record = exp.export.call_args[0][0]
+        assert record["outputs"]["result"] == "[0, 1, 2]"
+        assert record["outputs"]["stream_completed"] is True
+        assert record["execution_time_ms"] >= 25
+
+    def test_async_generator_error_and_early_close(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        async def failing():
+            yield 1
+            raise ValueError("bad chunk")
+
+        @capture(exporter=exp, async_capture=False)
+        async def endless():
+            i = 0
+            while True:
+                yield i
+                i += 1
+
+        async def main():
+            with pytest.raises(ValueError):
+                async for _ in failing():
+                    pass
+            first = exp.export.call_args[0][0]
+            agen = endless()
+            async for value in agen:
+                if value == 1:
+                    break
+            await agen.aclose()
+            return first, exp.export.call_args[0][0]
+
+        first, second = asyncio.run(main())
+        assert first["error"] == "bad chunk"
+        assert second["outputs"]["chunk_count"] == 2
+        assert second["outputs"]["stream_completed"] is False
+        assert exp.export.call_count == 2
+
+
+class TestCaptureCancellation:
+    def test_timed_out_async_call_leaves_a_cancelled_record(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        async def slow():
+            await asyncio.sleep(10)
+
+        async def main():
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(slow(), timeout=0.02)
+
+        asyncio.run(main())
+        exp.export.assert_called_once()
+        record = exp.export.call_args[0][0]
+        assert record["status"] == "cancelled"
+        assert record["error"] == "CancelledError"
+        assert "ended_at" in record
+
+    def test_cancelled_task_reraises_cancellation(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        async def slow():
+            await asyncio.sleep(10)
+
+        async def main():
+            task = asyncio.ensure_future(slow())
+            await asyncio.sleep(0.01)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+        asyncio.run(main())
+        assert exp.export.call_args[0][0]["status"] == "cancelled"
+
+    def test_ordinary_error_has_no_status_field(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def boom():
+            raise ValueError()
+
+        with pytest.raises(ValueError):
+            boom()
+        record = exp.export.call_args[0][0]
+        assert "status" not in record
+        assert record["error"] == "ValueError"  # empty message falls back to the class
+
+
+class TestCaptureCorrelation:
+    def test_schema_version_present(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def fn():
+            return 1
+
+        fn()
+        assert exp.export.call_args[0][0]["schema_version"] == "1.2"
+
+    def test_workflow_id_is_picked_up_from_the_correlation_context(self):
+        from briefcase.correlation import briefcase_workflow
+
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def fn():
+            return 1
+
+        with briefcase_workflow("wf", None, workflow_id="wf_test123"):
+            fn()
+        assert exp.export.call_args[0][0]["workflow_id"] == "wf_test123"
+        fn()
+        assert "workflow_id" not in exp.export.call_args[0][0]
+
+    def test_active_otel_span_context_is_recorded(self):
+        trace = pytest.importorskip("opentelemetry.trace")
+        if not HAS_OTEL:  # another test module may have put a stand-in in sys.modules
+            pytest.skip("the real opentelemetry-api is not installed")
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False)
+        def fn():
+            return 1
+
+        parent = trace.NonRecordingSpan(trace.SpanContext(
+            trace_id=0x1234, span_id=0xABCD, is_remote=False,
+            trace_flags=trace.TraceFlags(trace.TraceFlags.SAMPLED),
+        ))
+        with trace.use_span(parent):
+            fn()
+        record = exp.export.call_args[0][0]
+        assert record["trace_id"] == format(0x1234, "032x")
+        assert record["parent_span_id"] == format(0xABCD, "016x")
+        assert record["trace_flags"] == 1
+        fn()
+        assert "trace_id" not in exp.export.call_args[0][0]
+
+
+class TestCaptureSampling:
+    def test_sample_rate_is_deterministic_with_an_injected_rng(self):
+        import random
+
+        def run(seed):
+            exp = _make_exporter()
+
+            @capture(exporter=exp, async_capture=False, sample_rate=0.5,
+                     rng=random.Random(seed))
+            def fn(i):
+                return i
+
+            assert [fn(i) for i in range(200)] == list(range(200))
+            return [c[0][0]["inputs"]["args"] for c in exp.export.call_args_list]
+
+        first, again = run(7), run(7)
+        assert first == again
+        assert 60 < len(first) < 140
+
+    def test_sample_rate_zero_and_one(self):
+        exp = _make_exporter()
+
+        @capture(exporter=exp, async_capture=False, sample_rate=0.0)
+        def never():
+            return 1
+
+        @capture(exporter=exp, async_capture=False, sample_rate=1.0)
+        def always():
+            return 1
+
+        never()
+        exp.export.assert_not_called()
+        always()
+        exp.export.assert_called_once()
+
+    @pytest.mark.parametrize("bad", [-0.1, 1.5, "0.5", True])
+    def test_invalid_sample_rate_rejected(self, bad):
+        with pytest.raises(ValueError, match="sample_rate"):
+            capture(sample_rate=bad)
+
+
+class TestCaptureTyping:
+    def test_decorated_functions_keep_their_signatures_under_mypy(self, tmp_path):
+        api = pytest.importorskip("mypy.api")
+        snippet = tmp_path / "snippet.py"
+        snippet.write_text(
+            "from briefcase.decorators import capture\n"
+            "@capture\n"
+            "def bare(x: int) -> str:\n"
+            "    return str(x)\n"
+            "@capture(decision_type='t', sample_rate=0.5)\n"
+            "async def configured(x: int, *, y: str = '') -> bytes:\n"
+            "    return b''\n"
+            "reveal_type(bare)\n"
+            "reveal_type(configured)\n"
+            "bare('wrong')\n"
+        )
+        out, _err, _status = api.run([str(snippet), "--no-incremental"])
+        assert 'def (x: int) -> str' in out.replace("builtins.", "")
+        assert "Coroutine[Any, Any, bytes]" in out.replace("builtins.", "")
+        assert 'Argument 1 to "bare" has incompatible type "str"' in out

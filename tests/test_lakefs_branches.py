@@ -37,6 +37,7 @@ def make_manager(briefcase_client=None) -> BranchManager:
     return BranchManager(
         repository="test-repo",
         lakefs_client=None,
+        mock=True,
         briefcase_client=briefcase_client,
     )
 
@@ -92,6 +93,7 @@ class TestBranchManagerMockMode:
         bm = BranchManager(
             repository="test-repo",
             lakefs_client=None,
+            mock=True,
             default_source_branch="staging",
         )
         info = bm.create_branch("feature/x")
@@ -146,6 +148,7 @@ class TestBranchManagerMockMode:
         bm = BranchManager(
             repository="test-repo",
             lakefs_client=None,
+            mock=True,
             default_strategy=MergeStrategy.DEST_WINS,
         )
         # No assertion on the actual merge (mock) but should not raise
@@ -252,6 +255,7 @@ class TestBranchManagerOtelEmission:
             bm = BranchManager(
                 repository="test-repo",
                 lakefs_client=None,
+                mock=True,
                 briefcase_client=mock_briefcase_client,
             )
             bm.create_branch("feature/test")
@@ -268,6 +272,7 @@ class TestBranchManagerOtelEmission:
             bm = BranchManager(
                 repository="test-repo",
                 lakefs_client=None,
+                mock=True,
                 briefcase_client=mock_briefcase_client,
             )
             bm.merge("source", "dest")
@@ -284,6 +289,7 @@ class TestBranchManagerOtelEmission:
             bm = BranchManager(
                 repository="test-repo",
                 lakefs_client=None,
+                mock=True,
                 briefcase_client=mock_briefcase_client,
             )
             bm.diff("left", "right")
@@ -300,6 +306,7 @@ class TestBranchManagerOtelEmission:
             bm = BranchManager(
                 repository="test-repo",
                 lakefs_client=None,
+                mock=True,
                 briefcase_client=None,
             )
             bm.create_branch("test")
@@ -311,6 +318,7 @@ class TestBranchManagerOtelEmission:
             bm = BranchManager(
                 repository="test-repo",
                 lakefs_client=None,
+                mock=True,
                 briefcase_client=mock_briefcase_client,
             )
             bm.create_branch("test")
@@ -355,6 +363,7 @@ def _live_manager(briefcase_client=None, default_strategy=MergeStrategy.DEFAULT)
     bm = BranchManager(
         repository="live-repo",
         lakefs_client=None,
+        mock=True,
         briefcase_client=briefcase_client,
         default_strategy=default_strategy,
     )
@@ -634,7 +643,7 @@ class TestBranchManagerLivePaths:
 
 class TestRepoHelper:
     def test_repo_raises_when_lakefs_is_none(self):
-        bm = BranchManager(repository="r", lakefs_client=None)
+        bm = BranchManager(repository="r", lakefs_client=None, mock=True)
         bm._has_lakefs = True
         bm._lakefs = None
 
@@ -642,13 +651,13 @@ class TestRepoHelper:
             bm._repo()
 
     def test_repo_raises_when_has_lakefs_false(self):
-        bm = BranchManager(repository="r", lakefs_client=None)
+        bm = BranchManager(repository="r", lakefs_client=None, mock=True)
         # _has_lakefs is already False in mock mode
         with pytest.raises(RuntimeError, match="lakeFS client not initialized"):
             bm._repo()
 
     def test_repo_success_returns_repository(self):
-        bm = BranchManager(repository="my-repo", lakefs_client=None)
+        bm = BranchManager(repository="my-repo", lakefs_client=None, mock=True)
         bm._has_lakefs = True
         mock_lakefs = MagicMock()
         mock_repo_instance = MagicMock()
@@ -746,7 +755,35 @@ class TestEmitSpanEventExceptionPath:
             bm = BranchManager(
                 repository="r",
                 lakefs_client=None,
+                mock=True,
                 briefcase_client=MagicMock(),
             )
             # Should not raise
             bm._emit_span_event("test.event", {"k": "v"})
+
+
+# ---------------------------------------------------------------------------
+# Mock mode is opt-in
+# ---------------------------------------------------------------------------
+
+
+class TestMockIsExplicit:
+    def test_missing_sdk_raises_import_error(self, monkeypatch):
+        monkeypatch.setitem(sys.modules, "lakefs", None)
+        with pytest.raises(ImportError, match=r"briefcase-ai\[lakefs\]"):
+            BranchManager(repository="r", lakefs_client=MagicMock())
+
+    def test_missing_client_raises_value_error(self):
+        with pytest.raises(ValueError, match="mock=True"):
+            BranchManager(repository="r", lakefs_client=None)
+
+    def test_mock_true_needs_no_sdk(self, monkeypatch):
+        monkeypatch.setitem(sys.modules, "lakefs", None)
+        bm = BranchManager(repository="r", lakefs_client=None, mock=True)
+        assert bm.mock is True
+        assert bm.create_branch("agent/x").commit_id.startswith("mock-")
+
+    def test_live_manager_with_client_and_sdk(self):
+        bm = BranchManager(repository="r", lakefs_client=MagicMock())
+        assert bm.mock is False
+        assert bm._has_lakefs is True

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CAPTURE_CONTENT_MODES,
+  SCHEMA_VERSION,
   buildDecisionRecord,
   finalizeDecisionRecord,
   sha256Hex,
@@ -14,7 +15,7 @@ import {
 
 const fixture = JSON.parse(
   readFileSync(new URL("../../../tests/fixtures/decision_record.json", import.meta.url), "utf8"),
-) as { required_fields: string[]; optional_fields: string[] };
+) as { schema_version: string; required_fields: string[]; optional_fields: string[] };
 
 function sha(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
@@ -73,7 +74,33 @@ describe("decision record wire schema (fixture parity)", () => {
   });
 
   it("optional fields in the fixture stay optional", () => {
-    expect([...fixture.optional_fields].sort()).toEqual(["context_version", "error"]);
+    expect([...fixture.optional_fields].sort()).toEqual(
+      [
+        "context_version", "error", "parent_span_id", "status", "trace_flags", "trace_id", "workflow_id",
+        "prompt_name", "prompt_version", "parent_run_id", "parent_framework",
+        "budget_effect", "budget_scope", "budget_checks", "budget_degraded_from", "budget_error",
+        "cost_usd", "cost_source", "cost_reserved_usd", "guard_effect", "guard_findings", "guard_limits",
+      ].sort(),
+    );
+    for (const field of fixture.optional_fields) expect(fixture.required_fields).not.toContain(field);
+  });
+
+  it("every record carries the fixture's schema_version, as the Python recorder does", () => {
+    expect(SCHEMA_VERSION).toBe(fixture.schema_version);
+    expect(fixture.required_fields).toContain("schema_version");
+    for (const mode of modes) {
+      expect(makeRecord(mode).schema_version).toBe(fixture.schema_version);
+      expect(makeRecord(mode, { error: new Error("boom") }).schema_version).toBe(fixture.schema_version);
+    }
+    // Present from the start, not only once finalized.
+    const started = buildDecisionRecord({ decisionType: "t", functionName: "t" });
+    expect(started.schema_version).toBe(fixture.schema_version);
+  });
+
+  it("the fixture has one required list, with no per-language exceptions", () => {
+    expect(Object.keys(fixture).sort()).toEqual(
+      ["description", "example", "optional_fields", "required_fields", "schema_version"].sort(),
+    );
   });
 });
 

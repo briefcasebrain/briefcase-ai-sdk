@@ -35,8 +35,8 @@ impl PySanitizer {
     }
 
     /// Sanitize JSON object
-    fn sanitize_json(&self, data: PyObject) -> PyResult<PyJsonSanitizationResult> {
-        Python::with_gil(|py| {
+    fn sanitize_json(&self, data: Py<PyAny>) -> PyResult<PyJsonSanitizationResult> {
+        Python::attach(|py| {
             let json_value = crate::models::python_to_json_value(data, py)?;
             let result = self.inner.sanitize_json(&json_value);
             Ok(PyJsonSanitizationResult { inner: result })
@@ -50,10 +50,10 @@ impl PySanitizer {
     }
 
     /// Analyze PII in text
-    fn analyze_pii(&self, text: String) -> PyResult<PyObject> {
+    fn analyze_pii(&self, text: String) -> PyResult<Py<PyAny>> {
         let analysis = self.inner.analyze(&text);
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("has_pii", analysis.has_pii)?;
             dict.set_item("total_matches", analysis.total_matches)?;
@@ -69,6 +69,7 @@ impl PySanitizer {
                     PiiType::Phone => "phone",
                     PiiType::ApiKey => "api_key",
                     PiiType::IpAddress => "ip_address",
+                    PiiType::Iban => "iban",
                     PiiType::Custom(name) => name,
                 };
                 types_list.append(type_str)?;
@@ -104,6 +105,7 @@ impl PySanitizer {
             "phone" => PiiType::Phone,
             "api_key" => PiiType::ApiKey,
             "ip_address" => PiiType::IpAddress,
+            "iban" => PiiType::Iban,
             _ => return false,
         };
         self.inner.remove_pattern(&pii_type)
@@ -112,6 +114,20 @@ impl PySanitizer {
     /// Enable or disable sanitization
     fn set_enabled(&mut self, enabled: bool) {
         self.inner.set_enabled(enabled);
+    }
+
+    /// Choose whether `sanitize_json` redacts PII found in dict keys. On by
+    /// default: a key holding PII becomes its redacted text plus an index
+    /// that keeps every key of the dict distinct, e.g. `"[REDACTED_EMAIL]_1"`.
+    /// Pass False to leave keys untouched.
+    fn set_redact_json_keys(&mut self, redact: bool) {
+        self.inner.set_redact_json_keys(redact);
+    }
+
+    /// Whether `sanitize_json` redacts PII found in dict keys
+    #[getter]
+    fn redact_json_keys(&self) -> bool {
+        self.inner.redacts_json_keys()
     }
 
     /// Check if sanitizer is enabled
@@ -154,8 +170,8 @@ impl PySanitizationResult {
 
     /// Get redactions as list
     #[getter]
-    fn redactions(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn redactions(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for redaction in &self.inner.redactions {
                 let py_redaction = PyRedaction {
@@ -180,8 +196,8 @@ impl PySanitizationResult {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
 
             dict.set_item("sanitized", self.sanitized())?;
@@ -220,8 +236,8 @@ impl PySanitizationResult {
 impl PyJsonSanitizationResult {
     /// Get sanitized JSON value
     #[getter]
-    fn sanitized(&self) -> PyObject {
-        Python::with_gil(|py| {
+    fn sanitized(&self) -> Py<PyAny> {
+        Python::attach(|py| {
             crate::models::json_value_to_python(self.inner.sanitized.clone(), py)
                 .unwrap_or_else(|_| py.None())
         })
@@ -234,8 +250,8 @@ impl PyJsonSanitizationResult {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("sanitized", self.sanitized())?;
             dict.set_item("redaction_count", self.redaction_count())?;
@@ -270,6 +286,7 @@ impl PyRedaction {
             PiiType::Phone => "phone".to_string(),
             PiiType::ApiKey => "api_key".to_string(),
             PiiType::IpAddress => "ip_address".to_string(),
+            PiiType::Iban => "iban".to_string(),
             PiiType::Custom(name) => name.clone(),
         }
     }
@@ -293,8 +310,8 @@ impl PyRedaction {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("pii_type", self.pii_type())?;
             dict.set_item("start_position", self.inner.start_position)?;

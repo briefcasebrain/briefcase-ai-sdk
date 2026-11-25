@@ -1,0 +1,14 @@
+{
+  "id": "exporter-otel",
+  "title": "OpenTelemetry export",
+  "verb": "capture",
+  "one_line": "Send records as spans to any OTLP collector you already run.",
+  "command": "briefcase-ai exec --to otlp -- python app.py",
+  "docs_slug": "capture/exporter-otel",
+  "status": "experimental",
+  "requires_extra": "otel",
+  "verified_against": "Spans checked with the OpenTelemetry SDK's in-memory span exporter. No real OTLP collector received data.",
+  "docs_path": "briefcase/exporters/otel.py",
+  "snippet": "# export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318\nimport briefcase\n\nbriefcase.observe()",
+  "status_id": "records"
+}

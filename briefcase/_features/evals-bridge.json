@@ -1,0 +1,13 @@
+{
+  "id": "evals-bridge",
+  "title": "Eval run logging",
+  "verb": "review",
+  "one_line": "Log eval cases as records, or import inspect-ai and lm-eval results.",
+  "command": "briefcase-ai features evals-bridge",
+  "docs_slug": "review/evals-bridge",
+  "status": "experimental",
+  "requires_extra": "evals",
+  "verified_against": "EvalRun and the inspect-ai / lm-eval parsers tested on log files stored in tests/fixtures. Not run against output from a current inspect-ai or lm-eval release.",
+  "docs_path": "README.md#evaluations-and-rl",
+  "snippet": "from briefcase.integrations.evals import EvalRun\n\nwith EvalRun(\"gsm8k\", model=\"my-model\") as run:\n    run.log_case(\"q1\", inputs=\"2+2\", outputs=\"4\", passed=True)\nprint(run.summary())"
+}

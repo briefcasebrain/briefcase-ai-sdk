@@ -33,7 +33,15 @@ export interface RefreshedTokens {
 export interface ConnectorStrategy<R extends ConnectorResource, C extends ConnectorConnection = ConnectorConnection> {
   provider: string;
   refreshAccessToken?(context: { tenantId: string; connection: C }): Promise<RefreshedTokens | null>;
-  fetchResources(context: { tenantId: string; connection: C; accessToken: string; cursor: string | null }): Promise<R[]>;
+  /**
+   * Fetch everything after `cursor`. Return a promise of one array, or an
+   * async iterable (for example an async generator) that yields one page at
+   * a time: each page is written to the sink before the next is requested,
+   * so a large backlog is never held in memory at once. The cursor advances
+   * only when every page has been written; a failed run re-fetches from the
+   * old cursor, so sinks must be idempotent on `externalId`.
+   */
+  fetchResources(context: { tenantId: string; connection: C; accessToken: string; cursor: string | null }): Promise<readonly R[]> | AsyncIterable<readonly R[]>;
   revoke?(context: { tenantId: string; connection: C }): Promise<void>;
 }
 
@@ -77,21 +85,29 @@ export interface RunConnectorSyncOptions<R extends ConnectorResource, C extends 
   now?: () => Date;
   tokenExpirySkewMs?: number;
   refreshFastPathMs?: number;
+  /**
+   * Called when `store.failRun` itself throws while recording a failed run.
+   * The original sync error is always the one rethrown.
+   */
+  onFailRunError?: (failRunError: unknown, originalError: unknown) => void;
 }
 
-function nextCursor(
-  resources: readonly ConnectorResource[],
-  runStartMs: number,
-  priorCursor: string | null,
-): string {
+/** Tracks the newest `occurredAt` at or before run start, across pages. */
+function createCursorTracker(runStartMs: number, priorCursor: string | null) {
   const parsedPrior = priorCursor === null ? Number.NaN : Date.parse(priorCursor);
   let max = Number.isFinite(parsedPrior) && parsedPrior <= runStartMs ? parsedPrior : 0;
-  for (const resource of resources) {
-    const value = resource.occurredAt.getTime();
-    if (Number.isFinite(value) && value <= runStartMs && value > max) max = value;
-  }
-  if (max > 0) return new Date(max).toISOString();
-  return priorCursor ?? new Date(runStartMs).toISOString();
+  return {
+    observe(resources: readonly ConnectorResource[]): void {
+      for (const resource of resources) {
+        const value = resource.occurredAt.getTime();
+        if (Number.isFinite(value) && value <= runStartMs && value > max) max = value;
+      }
+    },
+    cursor(): string {
+      if (max > 0) return new Date(max).toISOString();
+      return priorCursor ?? new Date(runStartMs).toISOString();
+    },
+  };
 }
 
 export async function runConnectorSync<R extends ConnectorResource, C extends ConnectorConnection = ConnectorConnection>(
@@ -177,33 +193,58 @@ export async function runConnectorSync<R extends ConnectorResource, C extends Co
       }
     }
 
-    const resources = await options.strategy.fetchResources({
+    const sinkContext = {
+      tenantId: options.tenantId,
+      connectionId: options.connectionId,
+      provider: options.provider,
+      runId,
+    };
+    const tracker = createCursorTracker(startedAt.getTime(), cursor);
+    let fetched = 0;
+    let written = 0;
+    const writePage = async (page: readonly R[]): Promise<void> => {
+      const sinkResult = await options.sink.write(page, sinkContext);
+      tracker.observe(page);
+      fetched += page.length;
+      written += sinkResult.written;
+    };
+    const result = options.strategy.fetchResources({
       tenantId: options.tenantId,
       connection,
       accessToken,
       cursor,
     });
-    const sinkResult = await options.sink.write(resources, {
-      tenantId: options.tenantId,
-      connectionId: options.connectionId,
-      provider: options.provider,
-      runId,
-    });
+    if (Symbol.asyncIterator in result) {
+      for await (const page of result) {
+        if (page.length > 0) await writePage(page);
+      }
+    } else {
+      await writePage(await result);
+    }
     const finishedAt = now();
     await options.store.completeRun({
       runId,
       finishedAt,
-      fetched: resources.length,
-      written: sinkResult.written,
-      cursor: nextCursor(resources, startedAt.getTime(), cursor),
+      fetched,
+      written,
+      cursor: tracker.cursor(),
     });
-    return { runId, fetched: resources.length, written: sinkResult.written };
+    return { runId, fetched, written };
   } catch (error) {
-    await options.store.failRun({
-      runId,
-      finishedAt: (options.now ?? (() => new Date()))(),
-      error: error instanceof Error ? error.message : String(error),
-    });
+    try {
+      await options.store.failRun({
+        runId,
+        finishedAt: now(),
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } catch (failRunError) {
+      // Recording the failure is best effort; it must not replace the cause.
+      try {
+        options.onFailRunError?.(failRunError, error);
+      } catch {
+        // An observer cannot be allowed to mask the cause either.
+      }
+    }
     throw error;
   }
 }

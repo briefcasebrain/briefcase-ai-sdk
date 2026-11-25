@@ -1,0 +1,12 @@
+{
+  "id": "connect",
+  "title": "Connect coding tools",
+  "verb": "connect",
+  "one_line": "Point Claude Code, Codex, Cursor and Copilot at briefcase in one command.",
+  "command": "briefcase-ai connect",
+  "docs_slug": "connect/connect",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Claude Code 2.1.330 (MCP commands and plugin manifests run for real). Codex CLI, Cursor, VS Code Copilot and Gemini CLI formats come from each tool's documentation and were not run; tests write to a temp HOME.",
+  "docs_path": "docs/integrations/README.md"
+}

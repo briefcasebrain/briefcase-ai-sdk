@@ -1,0 +1,13 @@
+{
+  "id": "mcp-install",
+  "title": "MCP server install",
+  "verb": "connect",
+  "one_line": "Register the briefcase MCP server with your coding tools, or print a link.",
+  "command": "briefcase-ai mcp install",
+  "docs_slug": "connect/mcp-install",
+  "status": "experimental",
+  "requires_extra": "mcp",
+  "verified_against": "`claude mcp add` run against Claude Code 2.1.330. Cursor deeplink, `codex mcp add` and `code --add-mcp` payloads follow each tool's documentation and were not run.",
+  "docs_path": "docs/integrations/README.md#mcp-server-copy-paste-and-one-click-installs",
+  "status_id": "mcp"
+}

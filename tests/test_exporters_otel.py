@@ -412,3 +412,94 @@ def test_snapshot_type_inferred_decision():
     _run(exp.export(AnonymousRecord()))
     spans = _flush(exp, mem)
     assert spans[0].attributes["briefcase.snapshot.type"] == "decision"
+
+
+# ---------------------------------------------------------------------------
+# Dict records (@capture), span timing, and parent context across threads
+# ---------------------------------------------------------------------------
+
+_CAPTURE_RECORD = {
+    "schema_version": "1.1",
+    "decision_id": "dec-dict-1",
+    "decision_type": "classify",
+    "function_name": "classify",
+    "inputs": {"args": "('x',)"},
+    "outputs": {"result": "'X'"},
+    "started_at": "2026-08-15T12:00:00+00:00",
+    "ended_at": "2026-08-15T12:00:00.250000+00:00",
+    "execution_time_ms": 250.0,
+    "context_version": "v9",
+    "model_parameters": {"model_name": "m1", "provider": "p1"},
+}
+
+
+def test_dict_record_populates_attributes():
+    """A @capture dict record is read like an object record."""
+    exp, mem = _make_exporter()
+    assert _run(exp.export(dict(_CAPTURE_RECORD))) is True
+    attrs = _flush(exp, mem)[0].attributes
+    assert attrs["briefcase.decision.id"] == "dec-dict-1"
+    assert attrs["briefcase.execution.time_ms"] == 250.0
+    assert attrs["briefcase.context.version"] == "v9"
+    assert attrs["briefcase.model.name"] == "m1"
+    assert attrs["briefcase.model.provider"] == "p1"
+
+
+def test_span_uses_the_record_start_and_end_times():
+    exp, mem = _make_exporter()
+    _run(exp.export(dict(_CAPTURE_RECORD)))
+    span = _flush(exp, mem)[0]
+    assert span.start_time == 1786795200 * 10**9
+    assert span.end_time - span.start_time == 250 * 10**6
+
+
+def test_span_times_derive_from_timestamp_and_duration_on_objects():
+    from datetime import datetime, timezone
+
+    @dataclass
+    class Timed(FakeDecision):
+        timestamp: Any = None
+
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    exp, mem = _make_exporter()
+    _run(exp.export(Timed(timestamp=start, execution_time_ms=40.0)))
+    span = _flush(exp, mem)[0]
+    assert span.start_time == int(start.timestamp()) * 10**9
+    assert span.end_time - span.start_time == 40 * 10**6
+
+
+def test_error_record_sets_error_status():
+    from opentelemetry.trace import StatusCode
+
+    exp, mem = _make_exporter()
+    _run(exp.export({**_CAPTURE_RECORD, "error": "boom"}))
+    assert _flush(exp, mem)[0].status.status_code == StatusCode.ERROR
+
+
+def test_parent_context_survives_background_capture():
+    """@capture(async_capture=True) exports on a worker thread; the decision
+    span must still be a child of the span active at call time."""
+    from opentelemetry.sdk.trace import TracerProvider
+
+    from briefcase._export_mixin import wait_for_pending_exports
+    from briefcase.decorators import capture
+
+    exp, mem = _make_exporter()
+    app_tracer = TracerProvider().get_tracer("app")
+
+    @capture(exporter=exp, async_capture=True)
+    def decide(x):
+        return x
+
+    with app_tracer.start_as_current_span("request") as parent:
+        decide(1)
+        parent_ctx = parent.get_span_context()
+    assert wait_for_pending_exports(5.0)
+
+    span = _flush(exp, mem)[0]
+    assert span.attributes["briefcase.decision.id"]
+    assert span.attributes["briefcase.execution.time_ms"] >= 0.0
+    assert span.context.trace_id == parent_ctx.trace_id
+    assert span.parent is not None
+    assert span.parent.span_id == parent_ctx.span_id
+    assert span.end_time >= span.start_time

@@ -1,11 +1,19 @@
 use regex::Regex;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
 pub struct Sanitizer {
-    patterns: HashMap<PiiType, Regex>,
+    /// Patterns in priority order: built-ins first (see [`BUILTIN_PATTERNS`]),
+    /// then custom patterns in the order they were added. When two matches
+    /// cover exactly the same span, the earlier pattern labels it, so results
+    /// are the same on every run.
+    patterns: Vec<(PiiType, Regex)>,
     enabled: bool,
+    /// Whether `sanitize_json` redacts PII found in object keys. On by
+    /// default; see [`Sanitizer::set_redact_json_keys`].
+    redact_json_keys: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -16,64 +24,132 @@ pub enum PiiType {
     Phone,
     ApiKey,
     IpAddress,
+    Iban,
     Custom(String),
 }
 
-impl Sanitizer {
-    pub fn new() -> Self {
-        let mut patterns = HashMap::new();
-
-        patterns.insert(
-            PiiType::Ssn,
-            Regex::new(r"\b\d{3}-\d{2}-\d{4}\b|\b\d{3}\s\d{2}\s\d{4}\b|\d{9}").unwrap(),
-        );
-        patterns.insert(
-            PiiType::CreditCard,
-            // 13-19 digit card numbers, contiguous or grouped by single spaces
-            // or hyphens (covers 4-4-4-4, Amex 4-6-5, Diners 4-6-4). Which
-            // candidates are redacted is decided by `is_card_candidate`.
-            Regex::new(r"\b\d{4}[-\s]?\d{4,6}[-\s]?\d{4,5}(?:[-\s]?\d{1,4})?\b").unwrap(),
-        );
-        patterns.insert(
-            PiiType::Email,
-            // TLD class is [A-Za-z]; the older `[A-Z|a-z]` erroneously included a
-            // literal `|`, matching malformed addresses such as `a@b.c|d`.
-            Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b").unwrap(),
-        );
-        patterns.insert(
-            PiiType::Phone,
-            Regex::new(r"(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}").unwrap(),
-        );
-        patterns.insert(
+/// The built-in patterns, compiled once per process. `Sanitizer::new` clones
+/// them, which shares the compiled program instead of rebuilding it.
+static BUILTIN_PATTERNS: LazyLock<Vec<(PiiType, Regex)>> = LazyLock::new(|| {
+    let compile = |pattern: &str| Regex::new(pattern).expect("built-in pattern compiles");
+    vec![
+        (
             PiiType::ApiKey,
             // Common provider key prefixes. Covers OpenAI (sk-, incl. sk-ant-/sk-proj-
             // via the sk- branch), Stripe (sk_live_/pk_live_/…), AWS (AKIA),
             // Google (AIza, ya29.), GitHub (ghp_/gho_/ghu_/ghs_/ghr_, github_pat_),
             // GitLab (glpat-), HuggingFace (hf_), Slack (xox[bpoa]-), and the
-            // generic api_/key_/bai_ forms.
-            Regex::new(
+            // generic api_/key_/bai_ forms. Then, by shape or context:
+            // - JWTs: three base64url segments, the first two starting `eyJ`
+            //   (base64 of `{"`).
+            // - `Bearer <token>` credentials (`is_redactable` also requires a
+            //   digit in the token, so prose after the word "bearer" is kept).
+            // - AWS secret access keys, which have no prefix of their own, when
+            //   assigned to a name that says what they are.
+            compile(concat!(
                 r"\b(sk-|sk_live_|sk_test_|pk_live_|pk_test_|rk_live_|bai_|api_|key_|AIza|AKIA|ya29\.|gh[opusr]_|github_pat_|glpat-|hf_|xox[bpoa]-)[A-Za-z0-9_-]{15,}\b",
-            )
-            .unwrap(),
-        );
-        patterns.insert(
+                r"|\beyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}",
+                r"|\b[Bb]earer\s+[A-Za-z0-9._~+/-]{20,}=*",
+                r#"|(?i:aws_?secret_?(?:access_?)?key)["']?\s*[:=]\s*["']?[A-Za-z0-9/+]{40}\b"#,
+            )),
+        ),
+        (
+            PiiType::Email,
+            // TLD class is [A-Za-z]; the older `[A-Z|a-z]` erroneously included a
+            // literal `|`, matching malformed addresses such as `a@b.c|d`.
+            compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+        ),
+        (
+            PiiType::CreditCard,
+            // 13-19 digit card numbers, contiguous or grouped by single spaces
+            // or hyphens (covers 4-4-4-4, Amex 4-6-5, Diners 4-6-4). Which
+            // candidates are redacted is decided by `is_card_candidate`.
+            compile(r"\b\d{4}[-\s]?\d{4,6}[-\s]?\d{4,5}(?:[-\s]?\d{1,4})?\b"),
+        ),
+        (
+            PiiType::Ssn,
+            // Separated forms are redacted on shape. A bare nine-digit run is
+            // only a candidate: `is_redactable` requires SSN context for it,
+            // since most nine-digit numbers are ids, counts and timestamps.
+            compile(r"\b[0-9]{3}-[0-9]{2}-[0-9]{4}\b|\b[0-9]{3}\s[0-9]{2}\s[0-9]{4}\b|[0-9]{9}"),
+        ),
+        (
+            PiiType::Iban,
+            // Country code, two check digits, then 11-30 alphanumerics,
+            // optionally in space-separated groups. Redacted only when the
+            // ISO 7064 mod-97 check passes (`iban_valid`).
+            compile(r"\b[A-Z]{2}[0-9]{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b"),
+        ),
+        (
+            PiiType::Phone,
+            // Formatted North American numbers (both separators present, or a
+            // parenthesised area code), and E.164 numbers with an explicit
+            // `+`. A bare 10/11-digit run is only a candidate: `is_redactable`
+            // requires phone context for it, since epoch timestamps and ids
+            // have the same shape.
+            compile(concat!(
+                r"(?:\+?1[-.\s]?)?(?:\([0-9]{3}\)\s?[0-9]{3}[-.\s][0-9]{4}",
+                r"|[0-9]{3}-[0-9]{3}-[0-9]{4}|[0-9]{3}\.[0-9]{3}\.[0-9]{4}|[0-9]{3}\s[0-9]{3}\s[0-9]{4})",
+                r"|\+[1-9][0-9]{9,14}",
+                r"|1?[0-9]{10}",
+            )),
+        ),
+        (
             PiiType::IpAddress,
-            // Intentionally greedy: any dotted-quad in 0-255 range is redacted.
-            // This over-redacts version-like strings (e.g. "1.2.3.4"), which is the
-            // safe direction for a PII tool — never under-redact a real address.
-            Regex::new(r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b").unwrap(),
-        );
+            // IPv4: any dotted quad in the 0-255 range, except where the
+            // context marks it as a version string (see `is_version_string`).
+            // IPv6: the full eight-group form, or a `::`-compressed form
+            // (which `is_redactable` requires to contain a digit, so paths
+            // such as `add::f` are kept).
+            compile(concat!(
+                r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b",
+                r"|\b(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}\b",
+                r"|\b(?:[0-9A-Fa-f]{1,4}:){1,7}(?::[0-9A-Fa-f]{1,4}){1,6}\b",
+            )),
+        ),
+    ]
+});
 
+/// Text that marks a nearby bare nine-digit number as an SSN: the word
+/// `ssn` (also as `user_ssn` or `userSsn`) or "social security".
+static SSN_CONTEXT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?:(?:^|[^A-Za-z])(?i:ssn)|[a-z]S[Ss][Nn])(?:[^A-Za-z]|$)|(?i:social[\s_-]*security)",
+    )
+    .expect("built-in pattern compiles")
+});
+
+/// Text that marks a nearby bare 10/11-digit number as a phone number.
+static PHONE_CONTEXT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i:phone|mobile|fax)|(?:^|[^A-Za-z])(?i:tel|cell|call)(?:[^A-Za-z]|$)")
+        .expect("built-in pattern compiles")
+});
+
+/// Text that, directly before a dotted quad, marks it as a version number.
+static VERSION_CONTEXT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?:(?:^|[^A-Za-z])(?i:v|ver|version|release|build|firmware|sdk)[\s:=]*|(?:[=<>~!]=|\^)\s*)$",
+    )
+    .expect("built-in pattern compiles")
+});
+
+/// How far back from a match the context patterns look.
+const CONTEXT_WINDOW_BYTES: usize = 32;
+
+impl Sanitizer {
+    pub fn new() -> Self {
         Self {
-            patterns,
+            patterns: BUILTIN_PATTERNS.clone(),
             enabled: true,
+            redact_json_keys: true,
         }
     }
 
     pub fn disabled() -> Self {
         Self {
-            patterns: HashMap::new(),
+            patterns: Vec::new(),
             enabled: false,
+            redact_json_keys: true,
         }
     }
 
@@ -81,14 +157,20 @@ impl Sanitizer {
     pub fn add_pattern(&mut self, name: &str, pattern: &str) -> Result<(), SanitizationError> {
         let regex =
             Regex::new(pattern).map_err(|e| SanitizationError::InvalidPattern(e.to_string()))?;
-        self.patterns
-            .insert(PiiType::Custom(name.to_string()), regex);
+        let pii_type = PiiType::Custom(name.to_string());
+        // Re-adding a name replaces its pattern but keeps its priority.
+        match self.patterns.iter_mut().find(|(t, _)| *t == pii_type) {
+            Some(entry) => entry.1 = regex,
+            None => self.patterns.push((pii_type, regex)),
+        }
         Ok(())
     }
 
     /// Remove a pattern
     pub fn remove_pattern(&mut self, pii_type: &PiiType) -> bool {
-        self.patterns.remove(pii_type).is_some()
+        let before = self.patterns.len();
+        self.patterns.retain(|(t, _)| t != pii_type);
+        self.patterns.len() != before
     }
 
     /// Enable or disable sanitization
@@ -96,8 +178,47 @@ impl Sanitizer {
         self.enabled = enabled;
     }
 
+    /// Choose whether `sanitize_json` redacts PII found in object keys
+    /// (on by default). When on, a key such as `"jane@example.com"` becomes
+    /// `"[REDACTED_EMAIL]_1"`: the redacted text plus an index that keeps
+    /// every key of the object distinct, so two redacted keys can never
+    /// collapse into one entry. Turn it off to pass keys through untouched,
+    /// for callers whose consumers look values up by the original key.
+    pub fn set_redact_json_keys(&mut self, redact: bool) {
+        self.redact_json_keys = redact;
+    }
+
+    /// Whether `sanitize_json` redacts PII found in object keys.
+    pub fn redacts_json_keys(&self) -> bool {
+        self.redact_json_keys
+    }
+
+    /// Every redactable match in `text` as `(start, end, pattern index)`,
+    /// ordered by start, then longest first, then pattern priority.
+    /// `context` is text that precedes `text` logically without being part
+    /// of it (the key of a JSON value), for the context-dependent patterns.
+    fn find_matches(&self, text: &str, context: &str) -> Vec<(usize, usize, usize)> {
+        let mut all_matches = Vec::new();
+
+        for (index, (pii_type, regex)) in self.patterns.iter().enumerate() {
+            for mat in regex.find_iter(text) {
+                if is_redactable(pii_type, text, &mat, context) {
+                    all_matches.push((mat.start(), mat.end(), index));
+                }
+            }
+        }
+
+        all_matches
+            .sort_by_key(|(start, end, index)| (*start, std::cmp::Reverse(end - start), *index));
+        all_matches
+    }
+
     /// Sanitize a string, replacing PII with redaction markers
     pub fn sanitize(&self, text: &str) -> SanitizationResult {
+        self.sanitize_in_context(text, "")
+    }
+
+    fn sanitize_in_context(&self, text: &str, context: &str) -> SanitizationResult {
         if !self.enabled {
             return SanitizationResult {
                 sanitized: text.to_string(),
@@ -109,27 +230,15 @@ impl Sanitizer {
         let mut redactions = Vec::new();
 
         // Collect all matches first to avoid overlapping replacements
-        let mut all_matches = Vec::new();
-
-        for (pii_type, regex) in &self.patterns {
-            for mat in regex.find_iter(text) {
-                if !is_redactable(pii_type, text, &mat) {
-                    continue;
-                }
-                all_matches.push((mat.start(), mat.end(), pii_type.clone()));
-            }
-        }
-
-        // Sort by start position, then by length (longest first for overlaps)
-        all_matches.sort_by_key(|(start, end, _)| (*start, std::cmp::Reverse(end - start)));
+        let all_matches = self.find_matches(text, context);
 
         // Remove overlapping matches (keep the longest one)
         let mut non_overlapping_matches = Vec::new();
         let mut last_end = 0;
 
-        for (start, end, pii_type) in all_matches {
+        for (start, end, index) in all_matches {
             if start >= last_end {
-                non_overlapping_matches.push((start, end, pii_type));
+                non_overlapping_matches.push((start, end, index));
                 last_end = end;
             } else if start < last_end {
                 // Check if this match is longer than the previous one that overlaps
@@ -137,7 +246,7 @@ impl Sanitizer {
                     if (end - start) > (last_match.1 - last_match.0) {
                         // Replace the shorter match with this longer one
                         non_overlapping_matches.pop();
-                        non_overlapping_matches.push((start, end, pii_type));
+                        non_overlapping_matches.push((start, end, index));
                         last_end = end;
                     }
                 }
@@ -145,8 +254,9 @@ impl Sanitizer {
         }
 
         // Apply redactions from right to left to maintain indices
-        for (start, end, pii_type) in non_overlapping_matches.into_iter().rev() {
-            let redaction_marker = self.get_redaction_marker(&pii_type);
+        for (start, end, index) in non_overlapping_matches.into_iter().rev() {
+            let pii_type = &self.patterns[index].0;
+            let redaction_marker = self.get_redaction_marker(pii_type);
             let original_length = end - start;
 
             result.replace_range(start..end, &redaction_marker);
@@ -168,7 +278,23 @@ impl Sanitizer {
         }
     }
 
-    /// Sanitize a JSON value recursively
+    /// Sanitize a JSON value recursively.
+    ///
+    /// String values are sanitized as text. Integer values are checked too,
+    /// and one that is PII (a card number, or an SSN or phone number under a
+    /// key that names it, such as `{"ssn": 123456789}`) is replaced by its
+    /// redaction marker, which turns that value into a string. A value's own
+    /// key counts as context for the context-dependent patterns.
+    ///
+    /// Object keys are scanned as well (unless turned off with
+    /// [`set_redact_json_keys`](Self::set_redact_json_keys)). A key holding
+    /// PII is replaced by its redacted text plus `_N`, where the index makes
+    /// the key unique within its object: `{"a@x.io": 1, "b@x.io": 2}` becomes
+    /// `{"[REDACTED_EMAIL]_1": 1, "[REDACTED_EMAIL]_2": 2}`, so no entry is
+    /// lost to a collision. Indices follow the object's iteration order.
+    /// Each key redaction is reported at the path of the renamed key, and
+    /// paths below it use the renamed key, so the PII does not survive in
+    /// `redactions` either.
     pub fn sanitize_json(&self, value: &serde_json::Value) -> SanitizationJsonResult {
         if !self.enabled {
             return SanitizationJsonResult {
@@ -178,7 +304,7 @@ impl Sanitizer {
         }
 
         let mut redactions = Vec::new();
-        let sanitized = self.sanitize_json_recursive(value, &mut redactions, String::new());
+        let sanitized = self.sanitize_json_recursive(value, &mut redactions, String::new(), "");
 
         SanitizationJsonResult {
             sanitized,
@@ -186,38 +312,91 @@ impl Sanitizer {
         }
     }
 
+    /// `context` is the object key the value sits under (the original key,
+    /// before any redaction; array elements inherit their array's key).
     fn sanitize_json_recursive(
         &self,
         value: &serde_json::Value,
         redactions: &mut Vec<JsonRedaction>,
         path: String,
+        context: &str,
     ) -> serde_json::Value {
         match value {
             serde_json::Value::String(s) => {
-                let result = self.sanitize(s);
-                if !result.redactions.is_empty() {
-                    for redaction in result.redactions {
-                        redactions.push(JsonRedaction {
-                            path: path.clone(),
-                            pii_type: redaction.pii_type,
-                            original_length: redaction.original_length,
-                        });
-                    }
+                let result = self.sanitize_in_context(s, context);
+                for redaction in result.redactions {
+                    redactions.push(JsonRedaction {
+                        path: path.clone(),
+                        pii_type: redaction.pii_type,
+                        original_length: redaction.original_length,
+                    });
+                }
+                serde_json::Value::String(result.sanitized)
+            }
+            // Floats are measurements; only whole numbers carry identifiers.
+            serde_json::Value::Number(n) if n.is_i64() || n.is_u64() => {
+                let result = self.sanitize_in_context(&n.to_string(), context);
+                if result.redactions.is_empty() {
+                    return value.clone();
+                }
+                for redaction in result.redactions {
+                    redactions.push(JsonRedaction {
+                        path: path.clone(),
+                        pii_type: redaction.pii_type,
+                        original_length: redaction.original_length,
+                    });
                 }
                 serde_json::Value::String(result.sanitized)
             }
             serde_json::Value::Object(obj) => {
+                // First pass: decide every output key, so a renamed key can
+                // be kept clear of all the keys that pass through unchanged.
+                let scanned: Vec<Option<SanitizationResult>> = obj
+                    .keys()
+                    .map(|key| {
+                        if !self.redact_json_keys {
+                            return None;
+                        }
+                        let result = self.sanitize(key);
+                        (!result.redactions.is_empty()).then_some(result)
+                    })
+                    .collect();
+                let mut taken: std::collections::HashSet<String> = obj
+                    .keys()
+                    .zip(&scanned)
+                    .filter(|(_, redacted)| redacted.is_none())
+                    .map(|(key, _)| key.clone())
+                    .collect();
+
                 let mut new_obj = serde_json::Map::new();
-                for (key, val) in obj {
-                    let new_path = if path.is_empty() {
-                        key.clone()
-                    } else {
-                        format!("{}.{}", path, key)
+                let mut next_index = 1usize;
+                for ((key, val), redacted) in obj.iter().zip(scanned) {
+                    let new_key = match &redacted {
+                        None => key.clone(),
+                        Some(result) => loop {
+                            let candidate = format!("{}_{}", result.sanitized, next_index);
+                            next_index += 1;
+                            if taken.insert(candidate.clone()) {
+                                break candidate;
+                            }
+                        },
                     };
-                    new_obj.insert(
-                        key.clone(),
-                        self.sanitize_json_recursive(val, redactions, new_path),
-                    );
+                    let new_path = if path.is_empty() {
+                        new_key.clone()
+                    } else {
+                        format!("{}.{}", path, new_key)
+                    };
+                    if let Some(result) = redacted {
+                        for redaction in result.redactions {
+                            redactions.push(JsonRedaction {
+                                path: new_path.clone(),
+                                pii_type: redaction.pii_type,
+                                original_length: redaction.original_length,
+                            });
+                        }
+                    }
+                    let new_val = self.sanitize_json_recursive(val, redactions, new_path, key);
+                    new_obj.insert(new_key, new_val);
                 }
                 serde_json::Value::Object(new_obj)
             }
@@ -225,11 +404,11 @@ impl Sanitizer {
                 let mut new_arr = Vec::new();
                 for (i, val) in arr.iter().enumerate() {
                     let new_path = format!("{}[{}]", path, i);
-                    new_arr.push(self.sanitize_json_recursive(val, redactions, new_path));
+                    new_arr.push(self.sanitize_json_recursive(val, redactions, new_path, context));
                 }
                 serde_json::Value::Array(new_arr)
             }
-            _ => value.clone(), // Numbers, booleans, null remain unchanged
+            _ => value.clone(), // Floats, booleans, null remain unchanged
         }
     }
 
@@ -239,23 +418,14 @@ impl Sanitizer {
             return Vec::new();
         }
 
-        let mut matches = Vec::new();
-
-        for (pii_type, regex) in &self.patterns {
-            for mat in regex.find_iter(text) {
-                if !is_redactable(pii_type, text, &mat) {
-                    continue;
-                }
-                matches.push(PiiMatch {
-                    pii_type: pii_type.clone(),
-                    start: mat.start(),
-                    end: mat.end(),
-                });
-            }
-        }
-
-        matches.sort_by_key(|m| m.start);
-        matches
+        self.find_matches(text, "")
+            .into_iter()
+            .map(|(start, end, index)| PiiMatch {
+                pii_type: self.patterns[index].0.clone(),
+                start,
+                end,
+            })
+            .collect()
     }
 
     /// Analyze text and return detailed PII statistics
@@ -288,6 +458,7 @@ impl Sanitizer {
             PiiType::Phone => "[REDACTED_PHONE]".to_string(),
             PiiType::ApiKey => "[REDACTED_API_KEY]".to_string(),
             PiiType::IpAddress => "[REDACTED_IP]".to_string(),
+            PiiType::Iban => "[REDACTED_IBAN]".to_string(),
             PiiType::Custom(name) => format!("[REDACTED_{}]", name.to_uppercase()),
         }
     }
@@ -300,20 +471,122 @@ impl Default for Sanitizer {
 }
 
 /// Whether a pattern match is redacted, for the types whose regex alone is
-/// too loose to decide.
-fn is_redactable(pii_type: &PiiType, text: &str, mat: &regex::Match<'_>) -> bool {
+/// too loose to decide. `context` is extra preceding text (a JSON key).
+fn is_redactable(pii_type: &PiiType, text: &str, mat: &regex::Match<'_>, context: &str) -> bool {
+    let matched = mat.as_str();
+    let all_digits = matched.bytes().all(|b| b.is_ascii_digit());
     match pii_type {
         // Every digit pattern here can match a prefix of a longer identifier:
         // the card and phone patterns span `-`-grouped digits (so they bite
-        // into a UUID), and the bare SSN branch is `\d{9}`. Redacting part of
-        // an identifier is worse than redacting none of it, so a match that
+        // into a UUID), and the bare SSN branch is nine digits. Redacting part
+        // of an identifier is worse than redacting none of it, so a match that
         // continues into more digits is not PII.
         PiiType::CreditCard => {
-            is_card_candidate(mat.as_str()) && is_standalone_run(text, mat.start(), mat.end())
+            is_card_candidate(matched) && is_standalone_run(text, mat.start(), mat.end())
         }
-        PiiType::Phone | PiiType::Ssn => is_standalone_run(text, mat.start(), mat.end()),
+        PiiType::Ssn => {
+            is_standalone_run(text, mat.start(), mat.end())
+                && ssn_fields_valid(matched)
+                // Separators make the shape; a bare run needs to be called one.
+                && (!all_digits || has_context(&SSN_CONTEXT, text, mat.start(), context))
+        }
+        PiiType::Phone => {
+            is_standalone_run(text, mat.start(), mat.end())
+                && !continues_dotted(text, mat.start(), mat.end())
+                && (!all_digits || has_context(&PHONE_CONTEXT, text, mat.start(), context))
+        }
+        PiiType::IpAddress => {
+            if matched.contains(':') {
+                // IPv6. A compressed form must hold a digit somewhere.
+                !matched.contains("::") || matched.bytes().any(|b| b.is_ascii_digit())
+            } else {
+                !continues_dotted(text, mat.start(), mat.end())
+                    && !is_version_string(text, mat.start(), mat.end())
+            }
+        }
+        PiiType::ApiKey => {
+            // A bearer token is opaque; a long hyphenated word after "bearer"
+            // in prose is not. Real tokens all but always contain a digit.
+            let is_bearer = matched
+                .get(..6)
+                .is_some_and(|p| p.eq_ignore_ascii_case("bearer"));
+            !is_bearer || matched[6..].bytes().any(|b| b.is_ascii_digit())
+        }
+        PiiType::Iban => iban_valid(matched),
         _ => true,
     }
+}
+
+/// Whether `pattern` matches shortly before `start`, or in `context`.
+fn has_context(pattern: &Regex, text: &str, start: usize, context: &str) -> bool {
+    let mut from = start.saturating_sub(CONTEXT_WINDOW_BYTES);
+    while !text.is_char_boundary(from) {
+        from += 1;
+    }
+    pattern.is_match(&text[from..start]) || pattern.is_match(context)
+}
+
+/// SSA never issues area 000 or 666, group 00, or serial 0000. (Area 9xx is
+/// kept: those are ITINs, which are just as sensitive.)
+fn ssn_fields_valid(candidate: &str) -> bool {
+    let digits: Vec<u8> = candidate.bytes().filter(u8::is_ascii_digit).collect();
+    if digits.len() != 9 {
+        return false;
+    }
+    let area = &digits[..3];
+    area != b"000" && area != b"666" && &digits[3..5] != b"00" && &digits[5..] != b"0000"
+}
+
+/// Whether a match is one piece of a longer dotted number: `1.2.3.4.5`, or
+/// the fraction digits of `122.4194155`.
+fn continues_dotted(text: &str, start: usize, end: usize) -> bool {
+    let mut before = text[..start].chars().rev();
+    let mut after = text[end..].chars();
+    let dotted = |adjacent: Option<char>, beyond: Option<char>| {
+        adjacent == Some('.') && beyond.is_some_and(|c| c.is_ascii_digit())
+    };
+    dotted(before.next(), before.next()) || dotted(after.next(), after.next())
+}
+
+/// Whether the dotted quad at `start..end` reads as a version number: named
+/// as one (`v10.2.3.4`, `version 1.2.3.4`), pinned as one (`pkg==1.2.3.4`,
+/// `>= 1.2.3.4`), or carrying a pre-release/build suffix (`1.2.3.4-beta`).
+fn is_version_string(text: &str, start: usize, end: usize) -> bool {
+    let mut from = start.saturating_sub(CONTEXT_WINDOW_BYTES);
+    while !text.is_char_boundary(from) {
+        from += 1;
+    }
+    if VERSION_CONTEXT.is_match(&text[from..start]) {
+        return true;
+    }
+    let mut after = text[end..].chars();
+    matches!(
+        (after.next(), after.next()),
+        (Some('-' | '+'), Some(c)) if c.is_ascii_alphabetic()
+    )
+}
+
+/// ISO 13616 validation: 15-34 characters, and the number formed by moving
+/// the first four to the end (letters as 10-35) is 1 modulo 97.
+fn iban_valid(candidate: &str) -> bool {
+    let chars: Vec<u8> = candidate.bytes().filter(|b| *b != b' ').collect();
+    if !(15..=34).contains(&chars.len()) {
+        return false;
+    }
+    let mut remainder = 0u32;
+    for &c in chars[4..].iter().chain(&chars[..4]) {
+        let value = match c {
+            b'0'..=b'9' => u32::from(c - b'0'),
+            b'A'..=b'Z' => u32::from(c - b'A') + 10,
+            _ => return false,
+        };
+        remainder = if value < 10 {
+            (remainder * 10 + value) % 97
+        } else {
+            (remainder * 100 + value) % 97
+        };
+    }
+    remainder == 1
 }
 
 /// Whether a match stands alone rather than continuing into a longer run of
@@ -383,9 +656,7 @@ fn luhn_valid(candidate: &str) -> bool {
         };
         digits += 1;
     }
-    // `%` rather than `u32::is_multiple_of`, which is stable only from 1.87
-    // and would raise this crate's MSRV two releases above its dependencies'.
-    digits >= 13 && sum % 10 == 0
+    digits >= 13 && sum.is_multiple_of(10)
 }
 
 #[derive(Debug, Clone)]
@@ -879,6 +1150,364 @@ mod tests {
             // Some might still be detected due to regex patterns, but at least test they don't crash
             assert!(!result.sanitized.is_empty());
         }
+    }
+
+    /// Asserts `text` comes back unchanged.
+    fn assert_kept(sanitizer: &Sanitizer, text: &str) {
+        assert_eq!(sanitizer.sanitize(text).sanitized, text);
+    }
+
+    #[test]
+    fn test_bare_nine_digit_numbers_are_not_ssns_without_context() {
+        let sanitizer = Sanitizer::new();
+
+        for text in [
+            "order 123456789 shipped",
+            "build 987654321",
+            "user_id=412345678",
+            "className: 123456789",
+        ] {
+            assert_kept(&sanitizer, text);
+        }
+
+        // Named as an SSN, the same shape is redacted.
+        for (text, expected) in [
+            ("SSN 123456789", "SSN [REDACTED_SSN]"),
+            ("ssn=123456789", "ssn=[REDACTED_SSN]"),
+            ("user_ssn: 123456789", "user_ssn: [REDACTED_SSN]"),
+            (
+                "Social Security number 123456789",
+                "Social Security number [REDACTED_SSN]",
+            ),
+        ] {
+            assert_eq!(sanitizer.sanitize(text).sanitized, expected);
+        }
+    }
+
+    #[test]
+    fn test_never_issued_ssn_fields_are_not_redacted() {
+        let sanitizer = Sanitizer::new();
+        for text in [
+            "ref 000-12-3456",
+            "ref 666-12-3456",
+            "ref 123-00-4567",
+            "ref 123-45-0000",
+        ] {
+            assert_kept(&sanitizer, text);
+        }
+    }
+
+    #[test]
+    fn test_timestamps_and_coordinates_are_not_phone_numbers() {
+        let sanitizer = Sanitizer::new();
+
+        for text in [
+            "created_at 1699999999",      // epoch seconds
+            "ts=1699999999123",           // epoch milliseconds
+            "at 40.7127753, -74.0059728", // coordinates
+            "lon -122.4194155",           // 3 + 7 digit coordinate
+            "ratio 123.456.78901",        // not 3-3-4
+            "id 5551234567",              // bare, no context
+        ] {
+            assert_kept(&sanitizer, text);
+        }
+
+        for (text, expected) in [
+            ("call 555.123.4567 now", "call [REDACTED_PHONE] now"),
+            ("555 123 4567", "[REDACTED_PHONE]"),
+            ("+15551234567", "[REDACTED_PHONE]"),
+            ("1-555-123-4567", "[REDACTED_PHONE]"),
+            ("+1 (555) 123-4567", "[REDACTED_PHONE]"),
+            ("phone: 5551234567", "phone: [REDACTED_PHONE]"),
+            ("tel 15551234567", "tel [REDACTED_PHONE]"),
+            ("+442079460958", "[REDACTED_PHONE]"),
+        ] {
+            assert_eq!(sanitizer.sanitize(text).sanitized, expected, "{text}");
+        }
+    }
+
+    #[test]
+    fn test_version_strings_are_not_ip_addresses() {
+        let sanitizer = Sanitizer::new();
+
+        for text in [
+            "upgraded to v10.2.3.4",
+            "Version 1.2.3.4 released",
+            "version: 10.2.3.4",
+            "requires pkg==10.2.3.4",
+            "needs >= 2.0.0.1",
+            "image 10.2.3.4-beta",
+            "schema 1.2.3.4.5",
+        ] {
+            assert_kept(&sanitizer, text);
+        }
+
+        for (text, expected) in [
+            ("host 10.2.3.4 is down", "host [REDACTED_IP] is down"),
+            ("ip=10.2.3.4", "ip=[REDACTED_IP]"),
+            ("from 192.168.1.100:8080", "from [REDACTED_IP]:8080"),
+            ("dev 10.0.0.1", "dev [REDACTED_IP]"),
+        ] {
+            assert_eq!(sanitizer.sanitize(text).sanitized, expected, "{text}");
+        }
+    }
+
+    #[test]
+    fn test_ipv6_addresses_are_redacted() {
+        let sanitizer = Sanitizer::new();
+
+        for (text, expected) in [
+            (
+                "peer 2001:0db8:85a3:0000:0000:8a2e:0370:7334 up",
+                "peer [REDACTED_IP] up",
+            ),
+            ("peer 2001:db8::8a2e:370:7334", "peer [REDACTED_IP]"),
+            ("link fe80::1", "link [REDACTED_IP]"),
+        ] {
+            assert_eq!(sanitizer.sanitize(text).sanitized, expected, "{text}");
+        }
+
+        for text in [
+            "at 12:34:56",
+            "mac aa:bb:cc:dd:ee:ff",
+            "call add::f and dead::beef",
+            "std::vec::Vec",
+        ] {
+            assert_kept(&sanitizer, text);
+        }
+    }
+
+    #[test]
+    fn test_jwt_and_bearer_tokens_are_redacted() {
+        let sanitizer = Sanitizer::new();
+        // Assembled at runtime so the source holds no token-shaped literal.
+        let jwt = [
+            "eyJhbGciOiJIUzI1NiJ9",
+            "eyJzdWIiOiIxMjM0NTY3ODkwIn0",
+            "c2lnbmF0dXJlMTIz",
+        ]
+        .join(".");
+
+        let result = sanitizer.sanitize(&format!("token={jwt};"));
+        assert_eq!(result.sanitized, "token=[REDACTED_API_KEY];");
+
+        let result = sanitizer.sanitize(&format!("Authorization: Bearer {jwt}"));
+        assert_eq!(result.sanitized, "Authorization: [REDACTED_API_KEY]");
+
+        let opaque = format!("{}{}", "a1B2c3D4e5F6g7H8", "i9J0k1L2m3N4");
+        let result = sanitizer.sanitize(&format!("Authorization: Bearer {opaque}"));
+        assert_eq!(result.sanitized, "Authorization: [REDACTED_API_KEY]");
+
+        assert_kept(&sanitizer, "the bearer of counter-revolutionary-sentiments");
+        assert_kept(&sanitizer, "eyJ is how base64 JSON starts");
+    }
+
+    #[test]
+    fn test_aws_secret_access_key_is_redacted_in_context() {
+        let sanitizer = Sanitizer::new();
+        let secret = format!("{}{}", "wJalrXUtnFEMI/K7MDENG/", "bPxRfiCYEXAMPLEKEY");
+        assert_eq!(secret.len(), 40);
+
+        let result = sanitizer.sanitize(&format!("aws_secret_access_key = {secret}"));
+        assert_eq!(result.sanitized, "[REDACTED_API_KEY]");
+
+        // Forty base64 characters with nothing naming them are left alone.
+        assert_kept(&sanitizer, &format!("digest {secret}"));
+    }
+
+    #[test]
+    fn test_iban_is_redacted_only_when_the_checksum_holds() {
+        let sanitizer = Sanitizer::new();
+
+        for (text, expected) in [
+            ("IBAN GB82 WEST 1234 5698 7654 32.", "IBAN [REDACTED_IBAN]."),
+            (
+                "pay DE89370400440532013000 today",
+                "pay [REDACTED_IBAN] today",
+            ),
+        ] {
+            assert_eq!(sanitizer.sanitize(text).sanitized, expected, "{text}");
+        }
+
+        // Same shape, wrong check digits.
+        assert_kept(&sanitizer, "ref GB00WEST12345698765432");
+        assert_kept(&sanitizer, "part AB12CDEF34567890");
+    }
+
+    #[test]
+    fn test_json_keys_holding_pii_are_redacted_without_collisions() {
+        let sanitizer = Sanitizer::new();
+        assert!(sanitizer.redacts_json_keys());
+
+        let data = json!({
+            "alice@example.com": {"plan": "pro"},
+            "bob@example.com": {"plan": "free", "contact": "bob@example.com"},
+            "note for carol@example.com": 1,
+            "plain": true,
+            "nested": [{"dave@example.com": "x"}]
+        });
+        let result = sanitizer.sanitize_json(&data);
+        let text = result.sanitized.to_string();
+        for leaked in ["alice@", "bob@", "carol@", "dave@"] {
+            assert!(!text.contains(leaked), "{leaked} survived in {text}");
+        }
+
+        let obj = result.sanitized.as_object().unwrap();
+        // Nothing was lost: five entries in, five out, each key distinct.
+        assert_eq!(obj.len(), 5);
+        assert_eq!(obj["[REDACTED_EMAIL]_1"]["plan"], "pro");
+        assert_eq!(obj["[REDACTED_EMAIL]_2"]["plan"], "free");
+        assert_eq!(obj["[REDACTED_EMAIL]_2"]["contact"], "[REDACTED_EMAIL]");
+        assert_eq!(obj["note for [REDACTED_EMAIL]_3"], 1);
+        assert_eq!(obj["plain"], true);
+        // The index restarts in each object.
+        assert_eq!(obj["nested"][0]["[REDACTED_EMAIL]_1"], "x");
+
+        // Key redactions are reported, and no path carries the original key.
+        let paths: Vec<_> = result.redactions.iter().map(|r| r.path.as_str()).collect();
+        assert!(paths.contains(&"[REDACTED_EMAIL]_1"));
+        assert!(paths.contains(&"[REDACTED_EMAIL]_2.contact"));
+        assert!(paths.contains(&"nested[0].[REDACTED_EMAIL]_1"));
+        assert!(paths.iter().all(|p| !p.contains('@')), "{paths:?}");
+        assert_eq!(result.redactions.len(), 5);
+    }
+
+    #[test]
+    fn test_a_redacted_json_key_never_overwrites_an_existing_key() {
+        let sanitizer = Sanitizer::new();
+
+        // The object already holds the exact names the redaction would pick.
+        let data = json!({
+            "[REDACTED_EMAIL]_1": "literal one",
+            "[REDACTED_EMAIL]_3": "literal three",
+            "a@example.com": "first",
+            "b@example.com": "second"
+        });
+        let result = sanitizer.sanitize_json(&data);
+        let obj = result.sanitized.as_object().unwrap();
+
+        assert_eq!(obj.len(), 4);
+        assert_eq!(obj["[REDACTED_EMAIL]_1"], "literal one");
+        assert_eq!(obj["[REDACTED_EMAIL]_3"], "literal three");
+        assert_eq!(obj["[REDACTED_EMAIL]_2"], "first");
+        assert_eq!(obj["[REDACTED_EMAIL]_4"], "second");
+    }
+
+    #[test]
+    fn test_json_key_redaction_can_be_turned_off() {
+        let mut sanitizer = Sanitizer::new();
+        sanitizer.set_redact_json_keys(false);
+        assert!(!sanitizer.redacts_json_keys());
+
+        let data = json!({"alice@example.com": "bob@example.com"});
+        let result = sanitizer.sanitize_json(&data);
+
+        // Keys pass through; values are still sanitized.
+        assert_eq!(
+            result.sanitized,
+            json!({"alice@example.com": "[REDACTED_EMAIL]"})
+        );
+        assert_eq!(result.redactions.len(), 1);
+    }
+
+    #[test]
+    fn test_json_key_context_still_applies_under_arrays_and_dotted_keys() {
+        let sanitizer = Sanitizer::new();
+
+        let data = json!({"ssn": [123456789], "a.ssn": 123456789, "order.id": 123456789});
+        let result = sanitizer.sanitize_json(&data);
+
+        assert_eq!(result.sanitized["ssn"][0], "[REDACTED_SSN]");
+        assert_eq!(result.sanitized["a.ssn"], "[REDACTED_SSN]");
+        assert_eq!(result.sanitized["order.id"], 123456789);
+    }
+
+    #[test]
+    fn test_json_numbers_are_scanned() {
+        let sanitizer = Sanitizer::new();
+
+        let data = json!({
+            "ssn": 123456789,
+            "user": {"phone": 5551234567u64, "socialSecurityNumber": "123456789"},
+            "card": 4111111111111111u64,
+            "created_at": 1699999999,
+            "order_id": 123456789,
+            "amount": 12.5,
+            "count": 3
+        });
+        let result = sanitizer.sanitize_json(&data);
+
+        assert_eq!(result.sanitized["ssn"], "[REDACTED_SSN]");
+        assert_eq!(result.sanitized["user"]["phone"], "[REDACTED_PHONE]");
+        assert_eq!(
+            result.sanitized["user"]["socialSecurityNumber"],
+            "[REDACTED_SSN]"
+        );
+        assert_eq!(result.sanitized["card"], "[REDACTED_CREDIT_CARD]");
+        // Numbers that are not PII keep their value and type.
+        assert_eq!(result.sanitized["created_at"], 1699999999);
+        assert_eq!(result.sanitized["order_id"], 123456789);
+        assert_eq!(result.sanitized["amount"], 12.5);
+        assert_eq!(result.sanitized["count"], 3);
+
+        let mut paths: Vec<_> = result.redactions.iter().map(|r| r.path.as_str()).collect();
+        paths.sort();
+        assert_eq!(
+            paths,
+            ["card", "ssn", "user.phone", "user.socialSecurityNumber"]
+        );
+    }
+
+    #[test]
+    fn test_equal_span_matches_are_labelled_deterministically() {
+        // Two custom patterns matching exactly the same span: the one added
+        // first labels it, on every run and every instance.
+        for _ in 0..50 {
+            let mut sanitizer = Sanitizer::new();
+            sanitizer.add_pattern("first", r"ZX-\d{4}").unwrap();
+            sanitizer.add_pattern("second", r"ZX-[0-9]{4}").unwrap();
+
+            let result = sanitizer.sanitize("code ZX-1234");
+            assert_eq!(result.sanitized, "code [REDACTED_FIRST]");
+
+            let labels: Vec<_> = sanitizer
+                .contains_pii("code ZX-1234")
+                .into_iter()
+                .map(|m| m.pii_type)
+                .collect();
+            assert_eq!(
+                labels,
+                [
+                    PiiType::Custom("first".to_string()),
+                    PiiType::Custom("second".to_string())
+                ]
+            );
+        }
+
+        // A built-in outranks a custom pattern over the same span.
+        let mut sanitizer = Sanitizer::new();
+        sanitizer
+            .add_pattern("mail", r"[a-z]+@[a-z]+\.com")
+            .unwrap();
+        assert_eq!(
+            sanitizer.sanitize("to bob@example.com").sanitized,
+            "to [REDACTED_EMAIL]"
+        );
+    }
+
+    #[test]
+    fn test_new_shares_the_compiled_builtin_patterns() {
+        // Construction must not recompile: building many is near-free.
+        let start = std::time::Instant::now();
+        for _ in 0..2_000 {
+            std::hint::black_box(Sanitizer::new());
+        }
+        assert!(
+            start.elapsed().as_millis() < 500,
+            "2000 constructions took {:?}",
+            start.elapsed()
+        );
+        assert_eq!(Sanitizer::new().patterns.len(), BUILTIN_PATTERNS.len());
     }
 
     #[test]

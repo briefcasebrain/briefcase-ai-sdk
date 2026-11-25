@@ -1,0 +1,13 @@
+{
+  "id": "auto-instrumentation",
+  "title": "Framework auto-instrumentation",
+  "verb": "capture",
+  "one_line": "Record LangChain, LlamaIndex, CrewAI and AutoGen runs with no handler code.",
+  "command": "briefcase-ai exec -- python app.py",
+  "docs_slug": "capture/auto-instrumentation",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Handlers tested against stub framework objects. A smoke test against the real packages (patch points exist, undo restores them) runs only in a CI lane that installs the framework extras. No live model calls.",
+  "docs_path": "briefcase/auto.py",
+  "snippet": "import briefcase\n\nbriefcase.observe()   # destination from the environment\nbriefcase.auto()      # every installed framework and provider SDK"
+}

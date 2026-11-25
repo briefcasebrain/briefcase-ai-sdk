@@ -18,6 +18,7 @@ import {
   type QuotaStore,
   type TraceExporter,
 } from "./ports.js";
+import { SCHEMA_VERSION } from "./record.js";
 import { classifyProviderError } from "./throttle.js";
 import {
   CONTROLS_GATEWAY_BUCKET,
@@ -148,6 +149,7 @@ export function createGateway(config: GatewayConfig): Gateway {
     const key = outcome.ok ? "ok" : outcome.reason;
     const cooldownUntil = outcome.ok ? null : (outcome.cooldownUntil ?? null);
     const record: Record<string, unknown> = {
+      schema_version: SCHEMA_VERSION,
       decision_id: randomUUID(),
       decision_type: `controls.gateway.${bucket}`,
       function_name: fn.name === "" ? "<callable>" : fn.name,

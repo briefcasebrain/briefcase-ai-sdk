@@ -18,9 +18,21 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from briefcase._export_mixin import ExportMixin
+from briefcase._logging import get_logger
+from briefcase.integrations.frameworks._capture_state import (
+    DEFAULT_INFLIGHT_TTL_SECONDS,
+    DEFAULT_MAX_INFLIGHT,
+    DEFAULT_MAX_RECORDS,
+    CaptureOptions,
+    InflightStore,
+    LLMRunScopes,
+    bounded_records,
+)
+
+logger = get_logger(__name__)
 
 _INSTALL_HINT = (
     "crewai is required for CrewAIEventListener. "
@@ -134,6 +146,11 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
         max_input_chars: int = 10000,
         max_output_chars: int = 10000,
         exporter: Any = None,
+        capture_content: Union[bool, str, None] = "none",
+        redact: Optional[Callable[[str], str]] = None,
+        max_records: Optional[int] = DEFAULT_MAX_RECORDS,
+        max_inflight: Optional[int] = DEFAULT_MAX_INFLIGHT,
+        inflight_ttl_seconds: Optional[float] = DEFAULT_INFLIGHT_TTL_SECONDS,
     ):
         if not _CREWAI_AVAILABLE:
             raise ImportError(_INSTALL_HINT)
@@ -153,9 +170,22 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
         self.max_output_chars = max_output_chars
         self._exporter = exporter
 
-        self._records: List[Dict[str, Any]] = []
-        # Inflight pairing: (category, key) to (start_record, start_time)
-        self._inflight: Dict[Tuple[str, str], Tuple[Dict[str, Any], datetime]] = {}
+        self._capture_options = CaptureOptions(capture_content, redact)
+        self.max_records = max_records
+        # Completed records: a ring buffer that applies the capture options
+        # to each record as it is appended.
+        self._records = bounded_records(max_records, self._capture_options)
+        # Inflight pairing: (category, key) to (start_record, start_time).
+        # Capped and expiring, so a start event with no completion cannot leak.
+        # Publishes open LLM calls to provider auto-instrumentation. Only
+        # effective when the event bus runs this listener in the thread or
+        # task that makes the model call.
+        self._llm_scopes = LLMRunScopes("crewai")
+        self._inflight = InflightStore(
+            max_size=max_inflight,
+            ttl_seconds=inflight_ttl_seconds,
+            on_evict=self._on_inflight_evicted,
+        )
 
         # Register with the global event bus
         if _crewai_bus is not None:
@@ -249,8 +279,19 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
                 event_cls = getattr(_ev_module, event_name, None)
                 if event_cls is not None:
                     bus.on(event_cls)(handler)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning(
+                    "crewai: could not subscribe to optional event %s; records for it will not be captured: %s",
+                    event_name, exc,
+                )
+
+    def _on_inflight_evicted(self, key: Any, entry: Any, reason: str) -> None:
+        """Record a start event whose completion never arrived as abandoned."""
+        record, _start_time = entry
+        record["ended_at"] = datetime.now(timezone.utc).isoformat()
+        record["error"] = f"abandoned: no completion event ({reason})"
+        self._records.append(record)
+        self._trigger_export(record)
 
     # Public API
 
@@ -275,22 +316,22 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
             key = _extract_event_key(event, "crew_id", "crew", "name")
             record = self._build_start_record("crew_kickoff", key, event)
             self._inflight[("crew", key)] = (record, datetime.now(timezone.utc))
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("start", "crew_kickoff", exc)
 
     def _on_crew_kickoff_completed(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "crew_id", "crew", "name")
             self._complete("crew", key, event, "crew_kickoff")
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("completion", "crew_kickoff", exc)
 
     def _on_crew_kickoff_failed(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "crew_id", "crew", "name")
             self._fail("crew", key, event, "crew_kickoff")
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("failure", "crew_kickoff", exc)
 
     # Agent event handlers
 
@@ -299,22 +340,22 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
             key = _extract_event_key(event, "agent_id", "agent", "role")
             record = self._build_start_record("agent_execution", key, event)
             self._inflight[("agent", key)] = (record, datetime.now(timezone.utc))
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("start", "agent_execution", exc)
 
     def _on_agent_completed(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "agent_id", "agent", "role")
             self._complete("agent", key, event, "agent_execution")
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("completion", "agent_execution", exc)
 
     def _on_agent_error(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "agent_id", "agent", "role")
             self._fail("agent", key, event, "agent_execution")
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("failure", "agent_execution", exc)
 
     # Task event handlers
 
@@ -323,22 +364,22 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
             key = _extract_event_key(event, "task_id", "task", "description")
             record = self._build_start_record("task", key, event)
             self._inflight[("task", key)] = (record, datetime.now(timezone.utc))
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("start", "task", exc)
 
     def _on_task_completed(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "task_id", "task", "description")
             self._complete("task", key, event, "task")
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("completion", "task", exc)
 
     def _on_task_failed(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "task_id", "task", "description")
             self._fail("task", key, event, "task")
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("failure", "task", exc)
 
     # Tool event handlers
 
@@ -347,22 +388,22 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
             key = _extract_event_key(event, "tool_name", "tool", "name")
             record = self._build_start_record("tool_usage", key, event)
             self._inflight[("tool", key)] = (record, datetime.now(timezone.utc))
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("start", "tool_usage", exc)
 
     def _on_tool_finished(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "tool_name", "tool", "name")
             self._complete("tool", key, event, "tool_usage")
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("completion", "tool_usage", exc)
 
     def _on_tool_error(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "tool_name", "tool", "name")
             self._fail("tool", key, event, "tool_usage")
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("failure", "tool_usage", exc)
 
     # LLM event handlers
 
@@ -371,22 +412,30 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
             key = _extract_event_key(event, "call_id", "model", "model_name")
             record = self._build_start_record("llm_call", key, event)
             self._inflight[("llm", key)] = (record, datetime.now(timezone.utc))
-        except Exception:
-            pass
+            self._llm_scopes.start(key)
+        except Exception as exc:
+            _warn_lost("start", "llm_call", exc)
 
     def _on_llm_completed(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "call_id", "model", "model_name")
+            if self._llm_scopes.finish(key):
+                # auto(dedupe="framework"): a provider record stands for this call.
+                self._inflight.pop(("llm", key), None)
+                return
             self._complete("llm", key, event, "llm_call")
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("completion", "llm_call", exc)
 
     def _on_llm_failed(self, event: Any) -> None:
         try:
             key = _extract_event_key(event, "call_id", "model", "model_name")
+            if self._llm_scopes.finish(key):
+                self._inflight.pop(("llm", key), None)
+                return
             self._fail("llm", key, event, "llm_call")
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("failure", "llm_call", exc)
 
     # Knowledge event handlers
 
@@ -410,8 +459,10 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
             record = self._build_event_record("knowledge_search_failed", event)
             self._records.append(record)
             self._trigger_export(record)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(
+                "crewai: knowledge_search_failed record was not captured: %s", exc,
+            )
 
     # Memory event handlers
 
@@ -453,8 +504,10 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
         try:
             record = self._build_event_record("flow_created", event)
             self._records.append(record)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(
+                "crewai: flow_created record was not captured: %s", exc,
+            )
 
     def _on_flow_started(self, event: Any) -> None:
         self._generic_start("flow", "flow", event, "flow_id", "name")
@@ -466,8 +519,10 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
         try:
             record = self._build_event_record("flow_plot", event)
             self._records.append(record)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(
+                "crewai: flow_plot record was not captured: %s", exc,
+            )
 
     def _on_method_started(self, event: Any) -> None:
         self._generic_start("method", "method_execution", event, "method_id", "method_name")
@@ -487,8 +542,8 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
             key = _extract_event_key(event, *key_attrs)
             record = self._build_start_record(decision_type, key, event)
             self._inflight[(category, key)] = (record, datetime.now(timezone.utc))
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("start", decision_type, exc)
 
     def _generic_complete(
         self, category: str, decision_type: str, event: Any, *key_attrs: str
@@ -501,8 +556,8 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
                 if candidates:
                     key = candidates[0][1]
             self._complete(category, key, event, decision_type)
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("completion", decision_type, exc)
 
     def _generic_fail(
         self, category: str, decision_type: str, event: Any
@@ -514,8 +569,8 @@ class CrewAIEventListener(ExportMixin, _ListenerBase):  # type: ignore[valid-typ
                 if candidates:
                     key = candidates[0][1]
             self._fail(category, key, event, decision_type)
-        except Exception:
-            pass
+        except Exception as exc:
+            _warn_lost("failure", decision_type, exc)
 
     def _complete(
         self, category: str, key: str, event: Any, decision_type: str
@@ -608,6 +663,22 @@ def require_crewai() -> None:
         raise ImportError(_INSTALL_HINT)
 
 
+def _warn_lost(phase: str, kind: str, exc: BaseException) -> None:
+    """Say which record a swallowed handler error cost.
+
+    A lost start means the event never becomes a record; a lost completion
+    or failure leaves the record missing, or in flight until it is reported
+    as abandoned.
+    """
+    if phase == "start":
+        consequence = "no record will be produced for it"
+    else:
+        consequence = "its record is missing or will be reported as abandoned"
+    logger.warning(
+        "crewai: lost the %s of a %s event; %s: %s", phase, kind, consequence, exc,
+    )
+
+
 def _safe_str(obj: Any, max_chars: int = 10000) -> str:
     """Convert an object to a truncated string; never raises."""
     try:
@@ -623,16 +694,26 @@ def _extract_event_key(event: Any, *preferred_attrs: str) -> str:
         if val is not None:
             try:
                 return str(val)
-            except Exception:
-                pass
+            except Exception as exc:
+                # Optional probe: an id-like attribute that cannot be stringified
+                # is skipped and the next candidate is tried.
+                logger.debug(
+                    "crewai: event attribute %r is not usable as a pairing key, trying the next: %s",
+                    attr, exc,
+                )
     # Fall back to event id fields, then a fresh uuid
     for attr in ("id", "event_id", "_id"):
         val = getattr(event, attr, None)
         if val is not None:
             try:
                 return str(val)
-            except Exception:
-                pass
+            except Exception as exc:
+                # Optional probe: an id-like attribute that cannot be stringified
+                # is skipped and the next candidate is tried.
+                logger.debug(
+                    "crewai: event attribute %r is not usable as a pairing key, trying the next: %s",
+                    attr, exc,
+                )
     return str(uuid.uuid4())
 
 

@@ -1,4 +1,4 @@
-"""Command handlers for the ``briefcase`` evaluation-run CLI.
+"""Command handlers for the ``briefcase-ai`` evaluation-run CLI.
 
 Each handler takes an argparse ``Namespace`` plus an injected ``store`` and ``engine`` (no globals),
 so the lifecycle is unit-tested with fakes. Handlers return a process exit code.
@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+from pathlib import Path
 
 
 def _split_kv(item: str):
@@ -40,6 +41,17 @@ def _inject_env(store, secret_items, env_items) -> dict:
     return env
 
 
+def _response_field(result, name):
+    """A field of a gRPC ``ResponseView``; ``None`` for a subprocess result (no ``.get``)."""
+    get = getattr(result, "get", None)
+    if get is None:
+        return None
+    try:
+        return get(name, None)
+    except Exception:
+        return None
+
+
 def _rc_of(result) -> int:
     """A subprocess result carries ``.returncode``; a gRPC ``ResponseView`` (a returned response)
     means success. gRPC failures raise ``RpcError`` rather than returning a code."""
@@ -57,7 +69,7 @@ def _maybe_print_rendered(result) -> None:
     if reason:
         print(reason)
     rendered = get("rendered", "")
-    if rendered:
+    if rendered and rendered != reason:  # oci-jj repeats the reason as the body when unavailable
         print(rendered)
 
 
@@ -110,9 +122,26 @@ def cmd_secret_set(args, store, engine, stack=None) -> int:
     return 0
 
 
+# The only stored key the engine uses: the client's own bearer token. oci-jj has no channel
+# that carries secrets or env vars into a run, so every other key stays on this machine.
+ENGINE_SECRET_KEYS = ("OCI_JJ_AUTH_TOKEN",)
+
+
 def cmd_secret_list(args, store, engine, stack=None) -> int:
-    for key in store.list_secret_keys():
-        print(key)
+    keys = store.list_secret_keys()
+    if getattr(args, "json", False):
+        import json as _json
+
+        print(_json.dumps([{"key": k, "used_by_engine": k in ENGINE_SECRET_KEYS} for k in keys], indent=2))
+        return 0
+    if not keys:
+        from briefcase.cli import _ux
+
+        if _ux.is_tty(sys.stdout):
+            print("no secrets stored")
+        return 0
+    for key in keys:
+        print(key if key in ENGINE_SECRET_KEYS else f"{key}\t(kept locally; the engine has no secret channel for runs)")
     return 0
 
 
@@ -148,6 +177,9 @@ def cmd_run_submit(args, store, engine, stack=None) -> int:
         run["status"] = "dry-run"
         store.record_run(run)
         return 0
+    gated = _engine_gate(args, engine)
+    if gated is not None:
+        return gated
 
     env = _inject_env(store, getattr(args, "secret", None), getattr(args, "env", None))
     result = engine.exec(call, env=env)
@@ -155,9 +187,18 @@ def cmd_run_submit(args, store, engine, stack=None) -> int:
     if rc != 0:
         _maybe_print_rendered(result)  # surface the gRPC/engine error detail (e.g. "unknown ref ...")
     run["status"] = "submitted" if rc == 0 else "error"
+    # The gRPC response carries the server's verdict_queue job id (AttachBench/RunHunt.job_id); keep
+    # it so the run can be correlated with the queue (`oci-bai op log`, dead letters).
+    job_id = _response_field(result, "job_id") if rc == 0 else None
+    if job_id:
+        run["job_id"] = int(job_id)
     store.record_run(run)
-    print(f"submitted run {args.name} (mode={mode}) -> rc={rc}")
-    return 0 if rc == 0 else 1
+    suffix = f", server job {int(job_id)}" if job_id else ""
+    if rc != 0:
+        print(f"run {args.name} was not submitted: the engine refused it (rc={rc})", file=sys.stderr)
+        return 1
+    print(f"submitted run {args.name} (mode={mode}) -> rc={rc}{suffix}")
+    return 0
 
 
 def cmd_run_list(args, store, engine, stack=None) -> int:
@@ -174,9 +215,12 @@ def cmd_run_inspect(args, store, engine, stack=None) -> int:
     if run is None:
         print(f"unknown run {args.id!r}", file=sys.stderr)
         return 2
-    for key in ("name", "mode", "status", "repository", "checkpoint", "dataset", "dataset_uri", "metric"):
+    for key in ("name", "mode", "status", "repository", "checkpoint", "dataset", "dataset_uri", "metric",
+                "job_id"):
         print(f"{key}: {run.get(key, '')}")
     # Deeper provenance comes from the engine (best-effort; needs a live stack).
+    if _engine_gate(args, engine) is not None:
+        return 0  # the local record above is all there is without an engine
     result = engine.exec(engine.call_provenance(run["repository"]))
     _maybe_print_rendered(result)
     return 0
@@ -187,15 +231,30 @@ def cmd_run_logs(args, store, engine, stack=None) -> int:
     if run is None:
         print(f"unknown run {args.id!r}", file=sys.stderr)
         return 2
-    # oci-jj has no per-job log RPC; surface the verdict-worker container logs via the bundled stack
-    # (one compose source of truth; still honors $BRIEFCASE_OCIJJ_COMPOSE inside Stack for checkouts).
-    from briefcase.cli.stack_commands import Stack
+    # oci-jj has no per-job log RPC; surface the verdict-worker container logs of the installed engine.
+    from argparse import Namespace
 
-    stack = stack or Stack()
-    return getattr(
-        stack.logs(service="verdict-worker", follow=getattr(args, "follow", False)),
-        "returncode", 0,
-    )
+    from briefcase import engine as _engine
+    from briefcase.cli import engine_commands
+
+    if os.environ.get("BRIEFCASE_OCIJJ_COMPOSE"):
+        print("note: BRIEFCASE_OCIJJ_COMPOSE is no longer read; `run logs` uses the engine installed with "
+              "`briefcase-ai engine install`", file=sys.stderr)
+    record = _engine.current_install() or {}
+    try:
+        compose_text = Path(record["compose"]).read_text(encoding="utf-8") if record.get("compose") else None
+    except OSError:
+        compose_text = None
+    if compose_text is not None and "\n  verdict-worker:\n" not in compose_text:
+        # The verdict worker is optional in a release; without it runs are scored elsewhere.
+        print(f"error: engine {record.get('version')} has no verdict worker, so there are no verdict logs",
+              file=sys.stderr)
+        print("Fix: briefcase-ai engine logs oci-jj-server   # or score the run yourself and record it with "
+              "`briefcase-ai run attach`", file=sys.stderr)
+        return 1
+    return engine_commands.cmd_logs(
+        Namespace(service="verdict-worker", follow=getattr(args, "follow", False), tail="200"),
+        store, engine, None)
 
 
 def cmd_run_results(args, store, engine, stack=None) -> int:
@@ -203,6 +262,15 @@ def cmd_run_results(args, store, engine, stack=None) -> int:
     if run is None:
         print(f"unknown run {args.id!r}", file=sys.stderr)
         return 2
+    if not run.get("checkpoint"):
+        # The bench diff needs an explicit baseline ref; a None here used to reach the request
+        # builder and crash with a TypeError.
+        print(f"run {args.id!r} has no --checkpoint, so there is no baseline to diff its bench "
+              "results against; resubmit with --checkpoint <baseline-ref>", file=sys.stderr)
+        return 2
+    gated = _engine_gate(args, engine)
+    if gated is not None:
+        return gated
     result = engine.exec(engine.call_diff_bench(run["checkpoint"], run["repository"]))
     _maybe_print_rendered(result)
     return 0
@@ -224,3 +292,140 @@ def cmd_run_delete(args, store, engine, stack=None) -> int:
         return 0
     print(f"unknown run {args.id!r}", file=sys.stderr)
     return 2
+
+
+# ---- engine gate for the run verbs that reach the engine ----
+def _engine_gate(args, engine):
+    """``None`` when the engine is reachable-configured; else the not-installed exit code (3).
+    A ``--dry-run`` only builds the call, so it is never gated."""
+    if getattr(args, "dry_run", False):
+        return None
+    from briefcase import engine as _engine
+
+    return _engine.gate(args, engine)
+
+
+# ---- run attach: record a verdict computed elsewhere ----
+def cmd_run_attach(args, store, engine, stack=None) -> int:
+    import json as _json
+
+    from briefcase.cli import _ux
+
+    run = store.get_run(args.id)
+    repository = getattr(args, "repository", None) or (run or {}).get("repository")
+    baseline = getattr(args, "checkpoint", None) or (run or {}).get("checkpoint")
+    if not repository:
+        return _ux.fail(f"unknown run {args.id!r} and no --repository to attach the verdict to",
+                        fix=f"briefcase-ai run attach {args.id} --result {args.result} --repository <ref>", code=2)
+    for label, path in (("--result", args.result), ("--manifest", getattr(args, "manifest", None))):
+        if not path:
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                _json.load(f)
+        except (OSError, ValueError) as exc:
+            return _ux.fail(f"cannot read {label} {path}: {exc}", fix="pass the verdict.json verdictml wrote",
+                            code=2)
+    call = engine.call_attach_result(repository, baseline, args.result, getattr(args, "manifest", None))
+    if getattr(args, "dry_run", False):
+        print("DRY RUN:", call.describe() if not hasattr(call, "request") else
+              f"AttachBench(repo={call.request.get('repo')!r}, ref={repository!r}, verdict_json=<{args.result}>)")
+        return 0
+    gated = _engine_gate(args, engine)
+    if gated is not None:
+        return gated
+    result = engine.exec(call)
+    rc = _rc_of(result)
+    if rc != 0:
+        _maybe_print_rendered(result)
+        return _ux.fail("the engine did not record the verdict", fix="briefcase-ai engine status")
+    decision = _response_field(result, "decision")
+    summary_id = _response_field(result, "summary_id")
+    fields = {"status": "verdict-attached", "verdict_file": args.result}
+    if decision:
+        fields["decision"] = decision
+    if summary_id:
+        fields["summary_id"] = summary_id
+    if run is not None:
+        store.update_run(args.id, **fields)
+    else:
+        store.record_run({"name": args.id, "id": args.id, "repository": repository, "checkpoint": baseline,
+                          "mode": "attach", "created_at": time.time(), **fields})
+    print(f"verdict recorded on {repository}" + (f": {decision}" if decision else "")
+          + (f" (summary {summary_id})" if summary_id else ""))
+    _ux.print_next(f"briefcase-ai graph provenance {repository}")
+    return 0
+
+
+# ---- dataset publish: into the engine's per-tenant dataset bucket ----
+def cmd_dataset_publish(args, store, engine, stack=None) -> int:
+    import subprocess
+    from pathlib import Path
+
+    from briefcase import engine as _engine
+    from briefcase.cli import _ux
+    from briefcase.engine import datasets
+
+    path = Path(args.path)
+    if not path.is_file():
+        return _ux.fail(f"{path} is not a file", fix="briefcase-ai dataset publish NAME ./data.parquet", code=2)
+    record = _engine.current_install()
+    tenant = (record or {}).get("tenant") or "local"
+    digest = datasets.sha256_hex(path)
+    try:
+        key = datasets.object_key(tenant, digest, path.name)
+    except ValueError as exc:
+        return _ux.fail(str(exc), fix="convert it to Parquet or CSV with a `target` column", code=2)
+    uri = datasets.uri(key)
+    if getattr(args, "dataset_dry_run", False) or getattr(args, "dry_run", False):
+        plan = {"name": args.name, "file": str(path), "sha256": digest, "uri": uri, "dry_run": True}
+        if getattr(args, "json", False):
+            return _ux.print_json(plan)
+        print(f"would upload {path} ({path.stat().st_size} bytes) to the local engine as {uri}")
+        print(f"and register dataset {args.name} -> {uri}")
+        return 0
+    gated = _engine.gate(args, engine)
+    if gated is not None:
+        return gated
+    if record is None:
+        return _ux.fail("dataset publish uploads into a local engine install; this engine runs elsewhere",
+                        fix="upload to s3://<its dataset bucket>/tenants/<tenant>/..., then "
+                            f"briefcase-ai dataset register {args.name} --uri s3://...")
+    with open(path, "rb") as handle:
+        try:
+            result = subprocess.run(datasets.upload_argv(record, key), stdin=handle, capture_output=True, text=False)
+        except FileNotFoundError:
+            return _ux.fail("docker is not installed", fix="briefcase-ai engine doctor")
+    if result.returncode != 0:
+        detail = (result.stderr or b"").decode("utf-8", "replace").strip()[:300]
+        return _ux.fail(f"upload failed ({detail or 'exit ' + str(result.returncode)})",
+                        fix="briefcase-ai engine up   # MinIO must be running")
+    rec = store.register_dataset(args.name, uri)
+    if getattr(args, "json", False):
+        return _ux.print_json({**rec, "sha256": digest, "size": path.stat().st_size})
+    print(f"published {path.name} ({path.stat().st_size} bytes) as {uri}")
+    print(f"registered dataset {rec['name']} -> {rec['uri']}")
+    _ux.print_next(f"briefcase-ai run submit NAME --repository REF --dataset {args.name}")
+    return 0
+
+
+# ---- verify --graph: the engine's fsck ----
+def cmd_verify_graph(args, store=None, engine=None, stack=None) -> int:
+    from briefcase.cli import _ux
+    from briefcase.engine import cli_support as cs
+
+    def body(client):
+        resp = client.call("Fsck", {"repo": client.repo, "ref": args.graph})
+        if getattr(args, "json", False):
+            _ux.print_json({"ref": args.graph, **resp, "verdict": "intact" if resp.get("ok") else "damaged"})
+            return 0 if resp.get("ok") else 1
+        if resp.get("ok"):
+            print(f"{args.graph}: intact ({resp.get('trees_checked', 0)} trees, {resp.get('inodes_checked', 0)} "
+                  f"inodes, {resp.get('segments_checked', 0)} segments re-hashed)")
+            _ux.print_next(f"briefcase-ai graph provenance {args.graph}")
+            return 0
+        print(f"{args.graph}: NOT intact")
+        for problem in resp.get("problems") or []:
+            print(f"  - {problem}")
+        return 1
+    return cs.run(args, engine, body)

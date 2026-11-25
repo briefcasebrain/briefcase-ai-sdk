@@ -11,10 +11,18 @@
 
 import { createHash, randomUUID } from "node:crypto";
 
+/**
+ * Version of the record layout, emitted on every record as `schema_version`.
+ * Must equal SCHEMA_VERSION in briefcase/decorators.py; both suites assert it
+ * against tests/fixtures/decision_record.json.
+ */
+export const SCHEMA_VERSION = "1.2";
+
 export const CAPTURE_CONTENT_MODES = ["full", "hash", "none"] as const;
 export type CaptureContentMode = (typeof CAPTURE_CONTENT_MODES)[number];
 
 export interface DecisionRecord {
+  schema_version: string;
   decision_id: string;
   decision_type: string;
   function_name: string;
@@ -118,6 +126,7 @@ export function buildDecisionRecord(options: BuildDecisionRecordOptions): Decisi
   }
 
   const record: DecisionRecord = {
+    schema_version: SCHEMA_VERSION,
     decision_id: randomUUID(),
     decision_type: options.decisionType,
     function_name: options.functionName,

@@ -1,9 +1,13 @@
 """Iceberg client for Apache Iceberg table versioning.
 
-Requires ``pyiceberg`` for live mode: ``pip install briefcase-ai[vcs-iceberg]``
-or ``pip install pyiceberg``. The import is lazy; without it the client
-runs in mock mode (reads return placeholder bytes, writes and versions
-are recorded in metadata only).
+Requires ``pyiceberg``: ``pip install briefcase-ai[vcs-iceberg]`` or
+``pip install pyiceberg``. Without it the constructor raises ``ImportError``.
+
+The object operations (``read_object``, ``write_object``,
+``create_version``) have no live implementation yet and raise
+``NotImplementedError``; subclass and override the ``_*_impl`` hooks to
+wire them. ``mock=True`` opts into an offline stub that returns placeholder
+bytes and version ids, tagged ``"mock": True`` in every metadata dict.
 """
 
 from typing import Optional, Dict
@@ -50,6 +54,7 @@ class IcebergClient(VcsClientBase):
         briefcase_client=None,
         endpoint: Optional[str] = None,
         warehouse: Optional[str] = None,
+        mock: bool = False,
         **extra
     ):
         """
@@ -61,6 +66,7 @@ class IcebergClient(VcsClientBase):
             briefcase_client: Optional BriefcaseClient for instrumentation
             endpoint: Metastore or catalog endpoint
             warehouse: Warehouse path for Iceberg tables
+            mock: Opt into the offline stub (placeholder reads and version ids).
             **extra: Additional Iceberg configuration
         """
         resolved_endpoint = (
@@ -75,33 +81,33 @@ class IcebergClient(VcsClientBase):
             branch=branch,
             briefcase_client=briefcase_client,
             endpoint=resolved_endpoint,
+            mock=mock,
             **extra
         )
 
         self.warehouse = warehouse or os.getenv("ICEBERG_WAREHOUSE", "/tmp/iceberg-warehouse")
 
+        if self.mock:
+            return
         try:
             from pyiceberg.catalog import load_catalog
-            self._provider_client = load_catalog(
-                self.repository,
-                uri=self.endpoint,
-                warehouse=self.warehouse,
-            )
-            self._has_provider = True
-        except Exception as e:
-            logger.warning(f"Iceberg not available: {e}. Using mock mode. {_PYICEBERG_INSTALL_HINT}")
-            self._has_provider = False
+        except ImportError as e:
+            raise ImportError(
+                f"IcebergClient requires pyiceberg. {_PYICEBERG_INSTALL_HINT} "
+                "Pass mock=True for an offline stub."
+            ) from e
+        self._provider_client = load_catalog(
+            self.repository,
+            uri=self.endpoint,
+            warehouse=self.warehouse,
+        )
+        self._has_provider = True
 
     def _read_object_impl(self, path: str) -> bytes:
-        """Read an Iceberg table snapshot or metadata."""
-        if not self._has_provider:
+        """Read an object. Placeholder bytes only with ``mock=True``."""
+        if self.mock:
             return b"Mock Iceberg table: " + path.encode()
-
-        try:
-            return f"Iceberg table {path} metadata".encode()
-        except Exception as e:
-            logger.error(f"Failed to read Iceberg object: {e}")
-            raise
+        raise self._not_implemented("read_object")
 
     def _write_object_impl(
         self,
@@ -109,28 +115,18 @@ class IcebergClient(VcsClientBase):
         data: bytes,
         content_type: str
     ) -> None:
-        """Write data into an Iceberg table."""
-        if not self._has_provider:
+        """Write an object. A no-op only with ``mock=True``."""
+        if self.mock:
             logger.info(f"Mock Iceberg: Would insert {len(data)} rows into {path}")
             return
-
-        try:
-            logger.info(f"Iceberg: Updated {path} with {len(data)} bytes")
-        except Exception as e:
-            logger.error(f"Failed to write Iceberg object: {e}")
-            raise
+        raise self._not_implemented("write_object")
 
     def _create_version_impl(
         self,
         message: str,
         metadata: Optional[Dict[str, str]]
     ) -> str:
-        """Create an Iceberg version (snapshot)."""
-        if not self._has_provider:
+        """Create a version. A placeholder id only with ``mock=True``."""
+        if self.mock:
             return f"iceberg-snapshot-{self.branch}"
-
-        try:
-            return f"iceberg-snapshot-{len(message)}"
-        except Exception as e:
-            logger.error(f"Failed to create Iceberg version: {e}")
-            raise
+        raise self._not_implemented("create_version")

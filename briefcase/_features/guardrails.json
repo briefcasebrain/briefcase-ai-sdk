@@ -1,0 +1,13 @@
+{
+  "id": "guardrails",
+  "title": "Guardrail checks",
+  "verb": "enforce",
+  "one_line": "Decide allow or deny for an agent action, and fail closed on errors.",
+  "command": "briefcase-ai features guardrails",
+  "docs_slug": "enforce/guardrails",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "RBAC and ABAC environments and the pipeline tested in-process with synthetic requests. Not wired into a live agent in any test.",
+  "docs_path": "briefcase/guardrails/__init__.py",
+  "snippet": "from briefcase.guardrails import EvalRequest\nfrom briefcase.guardrails.envs.rbac import RBACGuardrailEnv\n\nenv = RBACGuardrailEnv(agents=[\"bot\"], allowed_actions=[\"read\"], allowed_resources=[\"docs/*\"])\nresult = env.evaluate(EvalRequest(agent=\"bot\", action=\"read\", resource=\"docs/a.md\"))\nprint(result.effect)"
+}

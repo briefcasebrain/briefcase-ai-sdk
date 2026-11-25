@@ -47,6 +47,7 @@ export type TraceEvent =
   | { type: "orphan_step_start"; invocationId: string; stepId: string }
   | { type: "orphan_step_finish"; stepId: string }
   | { type: "write_dropped"; kind: TraceWriteKind; id: string; error: unknown }
+  | { type: "payload_sanitized"; kind: TraceWriteKind; id: string; paths: string[] }
   | { type: "state_swept"; kind: "invocation" | "step"; id: string };
 
 export interface TraceRecorderOptions {
@@ -58,6 +59,15 @@ export interface TraceRecorderOptions {
   maxAttempts?: number;
   staleAfterMs?: number;
   sweepIntervalMs?: number;
+  /**
+   * Upper bound on writes queued behind the store (default 10 000). The
+   * recorder API is synchronous, so it cannot make callers wait: once the
+   * bound is reached, new invocation and step starts are dropped (counted in
+   * `dropCounts()` and reported as `write_dropped` with a
+   * `TraceBackpressureError`). Finishes of records already admitted are
+   * always queued, so at most twice this many writes are ever pending.
+   */
+  maxPendingWrites?: number;
   onEvent?: (event: TraceEvent) => void;
 }
 
@@ -74,6 +84,123 @@ export interface TraceRecorder {
   flush(): Promise<void>;
   sweep(): Promise<void>;
   close(): Promise<void>;
+}
+
+export class TraceBackpressureError extends Error {
+  constructor(readonly pendingWrites: number, readonly maxPendingWrites: number) {
+    super(`trace write dropped: ${pendingWrites} writes pending (limit ${maxPendingWrites})`);
+    this.name = "TraceBackpressureError";
+  }
+}
+
+const LONE_SURROGATES = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+const MAX_REPORTED_PATHS = 20;
+
+// defineProperty rather than assignment so an own "__proto__" key stays data.
+const setOwn = (object: Record<string, unknown>, key: string, value: unknown): void => {
+  Object.defineProperty(object, key, { value, enumerable: true, writable: true, configurable: true });
+};
+
+/**
+ * Deep-copy a caller-owned payload into plain JSON data, so the record that
+ * is hashed is exactly the record a store can persist and read back.
+ *
+ * Unlike `structuredClone` this never throws. Values JSON cannot carry are
+ * converted, and their paths reported: `Date` becomes its ISO-8601 string,
+ * `bigint` its decimal string, `Map` an object (or an array of entries when a
+ * key is not a string), `Set` an array, `Error` `{ name, message }`,
+ * non-finite numbers their name, and anything else (functions, symbols,
+ * binary buffers, circular references) a `"[unserializable ...]"` marker.
+ * `undefined` follows JSON: dropped from objects, `null` in arrays.
+ */
+export function snapshotTracePayload(value: unknown): { value: unknown; sanitizedPaths: string[] } {
+  const sanitizedPaths: string[] = [];
+  const ancestors = new Set<object>();
+  const note = (path: string) => {
+    if (sanitizedPaths.length < MAX_REPORTED_PATHS) sanitizedPaths.push(path || "$");
+  };
+  const visit = (input: unknown, path: string): unknown => {
+    if (input === null || typeof input === "boolean") return input;
+    if (typeof input === "string") {
+      LONE_SURROGATES.lastIndex = 0;
+      if (!LONE_SURROGATES.test(input)) return input;
+      note(path);
+      return input.replace(LONE_SURROGATES, "\uFFFD");
+    }
+    if (typeof input === "number") {
+      if (Number.isFinite(input)) return input;
+      note(path);
+      return String(input);
+    }
+    if (typeof input === "bigint") {
+      note(path);
+      return input.toString(10);
+    }
+    if (typeof input !== "object") {
+      note(path);
+      return `[unserializable ${typeof input}]`;
+    }
+    if (ancestors.has(input)) {
+      note(path);
+      return "[unserializable circular reference]";
+    }
+    const tag = Object.prototype.toString.call(input).slice(8, -1);
+    if (input instanceof Date) {
+      note(path);
+      return Number.isNaN(input.getTime()) ? "Invalid Date" : input.toISOString();
+    }
+    if (input instanceof Error) {
+      note(path);
+      return { name: input.name, message: input.message };
+    }
+    const isArray = Array.isArray(input);
+    const isMap = input instanceof Map;
+    const isSet = input instanceof Set;
+    if (!isArray && !isMap && !isSet && tag !== "Object") {
+      note(path);
+      return `[unserializable ${tag}]`;
+    }
+    ancestors.add(input);
+    try {
+      if (isArray) {
+        const items: unknown[] = [];
+        for (let index = 0; index < input.length; index += 1) {
+          const item = input[index];
+          items.push(item === undefined ? null : visit(item, `${path}[${index}]`));
+        }
+        return items;
+      }
+      if (isSet) {
+        note(path);
+        return Array.from(input, (item, index) => (item === undefined ? null : visit(item, `${path}[${index}]`)));
+      }
+      if (isMap) {
+        note(path);
+        const entries = Array.from(input.entries());
+        if (entries.every(([key]) => typeof key === "string")) {
+          const object: Record<string, unknown> = {};
+          for (const [key, item] of entries) {
+            if (item !== undefined) setOwn(object, visit(key, path) as string, visit(item, `${path}.${key as string}`));
+          }
+          return object;
+        }
+        return entries.map(([key, item], index) => [
+          visit(key, `${path}[${index}][0]`),
+          item === undefined ? null : visit(item, `${path}[${index}][1]`),
+        ]);
+      }
+      const object: Record<string, unknown> = {};
+      for (const key of Object.keys(input)) {
+        const item = (input as Record<string, unknown>)[key];
+        if (item === undefined) continue;
+        setOwn(object, visit(key, path) as string, visit(item, path ? `${path}.${key}` : key));
+      }
+      return object;
+    } finally {
+      ancestors.delete(input);
+    }
+  };
+  return { value: visit(value, ""), sanitizedPaths };
 }
 
 function invocationStartInput(record: InvocationRecord): Record<string, unknown> {
@@ -120,15 +247,25 @@ function stepFinalizeHash(record: Pick<StepRecord, "integrityHash" | "output" | 
   });
 }
 
+// A record holding a value the canonical encoding rejects cannot match any hash.
+const hashOrNull = (compute: () => string | null): string | null => {
+  try {
+    return compute();
+  } catch (error) {
+    if (error instanceof TypeError) return null;
+    throw error;
+  }
+};
+
 export function verifyInvocationRecord(record: InvocationRecord): boolean {
-  if (computePayloadHash(invocationStartInput(record)) !== record.integrityHash) return false;
+  if (hashOrNull(() => computePayloadHash(invocationStartInput(record))) !== record.integrityHash) return false;
   if (record.outcome === null && record.finishedAt === null && record.finalizeHash === null) return true;
   if (record.outcome === null || record.finishedAt === null || record.finalizeHash === null) return false;
-  return invocationFinalizeHash(record) === record.finalizeHash;
+  return hashOrNull(() => invocationFinalizeHash(record)) === record.finalizeHash;
 }
 
 export function verifyStepRecord(record: StepRecord): boolean {
-  if (computePayloadHash(stepStartInput(record)) !== record.integrityHash) return false;
+  if (hashOrNull(() => computePayloadHash(stepStartInput(record))) !== record.integrityHash) return false;
   if (
     record.output === null &&
     record.error === null &&
@@ -136,7 +273,7 @@ export function verifyStepRecord(record: StepRecord): boolean {
     record.finalizeHash === null
   ) return true;
   if (record.finishedAt === null || record.finalizeHash === null) return false;
-  return stepFinalizeHash(record) === record.finalizeHash;
+  return hashOrNull(() => stepFinalizeHash(record)) === record.finalizeHash;
 }
 
 const defaultTransient = (error: unknown): boolean =>
@@ -167,6 +304,11 @@ export function createTraceRecorder(options: TraceRecorderOptions): TraceRecorde
   const maxAttempts = options.maxAttempts ?? 3;
   const staleAfterMs = options.staleAfterMs ?? 60 * 60_000;
   const onEvent = options.onEvent ?? (() => undefined);
+  const maxPendingWrites = options.maxPendingWrites ?? 10_000;
+  if (!Number.isInteger(maxPendingWrites) || maxPendingWrites < 1) {
+    throw new RangeError("maxPendingWrites must be a positive integer");
+  }
+  let pendingWrites = 0;
   const invocations = new Map<string, InvocationState>();
   const steps = new Map<string, StepState>();
   const drops = { invocationStart: 0, invocationFinish: 0, stepStart: 0, stepFinish: 0 };
@@ -196,6 +338,36 @@ export function createTraceRecorder(options: TraceRecorderOptions): TraceRecorde
     return false;
   };
 
+  /** Queue a write behind `after`, counting it as pending until it settles. */
+  const enqueue = (
+    after: Promise<unknown> | null,
+    kind: TraceWriteKind,
+    id: string,
+    operation: () => Promise<void>,
+  ): Promise<boolean> => {
+    pendingWrites += 1;
+    const started = after ? after.then(() => write(kind, id, operation)) : write(kind, id, operation);
+    return started.finally(() => {
+      pendingWrites -= 1;
+    });
+  };
+
+  /** Admission control for new records; a refused start is dropped, not thrown. */
+  const admit = (kind: TraceWriteKind, id: string): boolean => {
+    if (pendingWrites < maxPendingWrites) return true;
+    drops[dropKey[kind]] += 1;
+    onEvent({ type: "write_dropped", kind, id, error: new TraceBackpressureError(pendingWrites, maxPendingWrites) });
+    return false;
+  };
+
+  const snapshot = (kind: TraceWriteKind, id: string, payload: unknown): Record<string, unknown> => {
+    const { value, sanitizedPaths } = snapshotTracePayload(payload);
+    if (sanitizedPaths.length > 0) onEvent({ type: "payload_sanitized", kind, id, paths: sanitizedPaths });
+    return typeof value === "object" && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : { value };
+  };
+
   const assertOpen = () => {
     if (closed) throw new Error("trace recorder is closed");
   };
@@ -203,8 +375,9 @@ export function createTraceRecorder(options: TraceRecorderOptions): TraceRecorde
   const startInvocation: TraceRecorder["invocation"]["start"] = (args) => {
     assertOpen();
     const id = idGenerator();
+    if (!admit("invocation_start", id)) return id;
     const startedAt = now();
-    const context = structuredClone(args.context);
+    const context = snapshot("invocation_start", id, args.context);
     const record: InvocationRecord = {
       id,
       tenantId: args.tenantId,
@@ -219,7 +392,7 @@ export function createTraceRecorder(options: TraceRecorderOptions): TraceRecorde
       finalizeHash: null,
     };
     record.integrityHash = computePayloadHash(invocationStartInput(record));
-    const tail = write("invocation_start", id, () => options.store.writeInvocationStart(record));
+    const tail = enqueue(null, "invocation_start", id, () => options.store.writeInvocationStart(record));
     invocations.set(id, {
       tenantId: args.tenantId,
       createdAtMs: startedAt.getTime(),
@@ -241,9 +414,8 @@ export function createTraceRecorder(options: TraceRecorderOptions): TraceRecorde
     state.record = { ...state.record, outcome, finishedAt };
     const finalizeHash = invocationFinalizeHash(state.record)!;
     state.record.finalizeHash = finalizeHash;
-    state.tail = state.tail
-      .then(() => write("invocation_finish", invocationId, () =>
-        options.store.writeInvocationFinish({ id: invocationId, outcome, finishedAt, finalizeHash })))
+    state.tail = enqueue(state.tail, "invocation_finish", invocationId, () =>
+      options.store.writeInvocationFinish({ id: invocationId, outcome, finishedAt, finalizeHash }))
       .finally(() => invocations.delete(invocationId));
   };
 
@@ -255,8 +427,9 @@ export function createTraceRecorder(options: TraceRecorderOptions): TraceRecorde
       onEvent({ type: "orphan_step_start", invocationId: args.invocationId, stepId: id });
       return id;
     }
+    if (!admit("step_start", id)) return id;
     const startedAt = now();
-    const input = structuredClone(args.input);
+    const input = snapshot("step_start", id, args.input);
     const record: StepRecord = {
       id,
       invocationId: args.invocationId,
@@ -273,9 +446,7 @@ export function createTraceRecorder(options: TraceRecorderOptions): TraceRecorde
       finalizeHash: null,
     };
     record.integrityHash = computePayloadHash(stepStartInput(record));
-    const tail = invocation.tail.then(() =>
-      write("step_start", id, () => options.store.writeStepStart(record)),
-    );
+    const tail = enqueue(invocation.tail, "step_start", id, () => options.store.writeStepStart(record));
     invocation.tail = tail;
     steps.set(id, { createdAtMs: startedAt.getTime(), record, tail });
     return id;
@@ -289,8 +460,8 @@ export function createTraceRecorder(options: TraceRecorderOptions): TraceRecorde
       return;
     }
     const finishedAt = now();
-    const finalizedOutput = output === undefined ? null : structuredClone(output);
-    const finalizedError = error === undefined ? null : structuredClone(error);
+    const finalizedOutput = output === undefined ? null : snapshot("step_finish", stepId, output);
+    const finalizedError = error === undefined ? null : snapshot("step_finish", stepId, error);
     state.record = {
       ...state.record,
       output: finalizedOutput,
@@ -303,14 +474,13 @@ export function createTraceRecorder(options: TraceRecorderOptions): TraceRecorde
     const prerequisites = invocation
       ? Promise.all([state.tail, invocation.tail])
       : state.tail;
-    state.tail = prerequisites
-      .then(() => write("step_finish", stepId, () => options.store.writeStepFinish({
-        id: stepId,
-        output: finalizedOutput,
-        error: finalizedError,
-        finishedAt,
-        finalizeHash,
-      })))
+    state.tail = enqueue(prerequisites, "step_finish", stepId, () => options.store.writeStepFinish({
+      id: stepId,
+      output: finalizedOutput,
+      error: finalizedError,
+      finishedAt,
+      finalizeHash,
+    }))
       .finally(() => steps.delete(stepId));
     if (invocation) invocation.tail = state.tail;
   };

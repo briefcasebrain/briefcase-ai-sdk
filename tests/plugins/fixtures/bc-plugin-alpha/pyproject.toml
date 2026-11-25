@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bc-plugin-alpha"
+version = "0.1.0"
+description = "Example briefcase plugin: one entry point in every group."
+
+[tool.setuptools]
+packages = ["bc_alpha"]
+
+[project.entry-points."briefcase.exporters"]
+alpha = "bc_alpha.exporter:AlphaExporter"
+
+[project.entry-points."briefcase.bitemporal_backends"]
+alphadb = "bc_alpha.backend:AlphaBackend"
+
+[project.entry-points."briefcase.vcs_providers"]
+alphavcs = "bc_alpha.vcs:AlphaVcsClient"
+
+[project.entry-points."briefcase.receiver_sources"]
+alpha = "bc_alpha.source:normalize"
+
+[project.entry-points."briefcase.connect_adapters"]
+alphatool = "bc_alpha.adapter:AlphaToolAdapter"
+
+[project.entry-points."briefcase.guardrails"]
+alpha-check-v1 = "bc_alpha.guardrail:AlphaCheck"
+
+[project.entry-points."briefcase.cli_commands"]
+alpha = "bc_alpha.commands"
+
+[project.entry-points."briefcase.features"]
+alpha-export = "bc_alpha.feature:MANIFEST"

@@ -10,6 +10,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from briefcase.auto import auto, undo, _PATCHES
+from briefcase.auto import status as auto_status
 
 
 # Fixture: keep _PATCHES empty and patches reverted around every test
@@ -66,12 +67,35 @@ class TestAutoUnknownFramework:
 
 class TestAutoIdempotency:
     def test_langchain_idempotent_returns_same_handler(self):
-        with patch.dict("sys.modules", {"langchain_core": None,
-                                        "langchain_core.runnables": None,
-                                        "langchain_core.runnables.config": None}):
+        modules, _cfg, _orig = _mock_langchain_modules()
+        with patch.dict("sys.modules", modules):
             h1 = auto("langchain")
             h2 = auto("langchain")
             assert h1 is h2
+            undo("langchain")
+
+    def test_langchain_missing_raises_and_registers_nothing(self):
+        """A missing framework is an ImportError, not a silent no-op."""
+        with patch.dict("sys.modules", {"langchain_core": None,
+                                        "langchain_core.runnables": None,
+                                        "langchain_core.runnables.config": None}):
+            with pytest.raises(ImportError, match=r"briefcase-ai\[langchain\]"):
+                auto("langchain")
+        assert "langchain" not in _PATCHES
+
+    @pytest.mark.parametrize("framework,modules", [
+        ("llamaindex", {"llama_index": None, "llama_index.core": None}),
+        ("ag2", {"autogen": None}),
+        ("pageindex", {"pageindex": None}),
+    ])
+    def test_missing_framework_raises_and_registers_nothing(self, mocker, framework, modules):
+        mocker.patch(
+            "briefcase.integrations.frameworks.ag2_handler._AG2_AVAILABLE", True
+        )
+        with patch.dict("sys.modules", modules):
+            with pytest.raises(ImportError, match="nothing was instrumented"):
+                auto(framework)
+        assert framework not in _PATCHES
 
     def test_crewai_missing_dependency_raises(self, mocker):
         mocker.patch(
@@ -182,8 +206,9 @@ class TestAutoAG2:
             "briefcase.integrations.frameworks.ag2_handler.ConversableAgent",
             MagicMock,
         )
-        # Make the autogen import fail: no patch applied, handler still returned
-        mocker.patch.dict("sys.modules", {"autogen": None})
+        mock_ag2 = MagicMock()
+        mock_ag2.ConversableAgent = type("ConversableAgent", (), {"__init__": lambda self: None})
+        mocker.patch.dict("sys.modules", {"autogen": mock_ag2})
         auto("ag2")
         assert "ag2" in _PATCHES
         undo("ag2")
@@ -286,79 +311,146 @@ class TestAutoAutoGen:
 class TestAutoLlamaIndex:
     def test_llamaindex_returns_handler(self):
         from briefcase.integrations.frameworks.llamaindex_handler import BriefcaseLlamaIndexHandler
-        with patch.dict("sys.modules", {
-            "llama_index": None,
-            "llama_index.core": None,
-        }):
-            handler = auto("llamaindex")
+        handler = auto("llamaindex")
         assert isinstance(handler, BriefcaseLlamaIndexHandler)
 
     def test_llamaindex_in_patches(self):
-        with patch.dict("sys.modules", {
-            "llama_index": None,
-            "llama_index.core": None,
-        }):
-            auto("llamaindex")
+        auto("llamaindex")
         assert "llamaindex" in _PATCHES
 
 
 # PageIndex auto()
 
 class TestAutoPageIndex:
-    def test_pageindex_returns_tracer(self):
+    def test_pageindex_returns_tracer(self, mocker):
         from briefcase.integrations.frameworks.pageindex_handler import PageIndexTracer
-        with patch.dict("sys.modules", {"pageindex": None}):
-            handler = auto("pageindex")
-        assert isinstance(handler, PageIndexTracer)
 
-    def test_pageindex_patched_init_body_executed(self, mocker):
-        """Calling the patched PageIndexClient.__init__ executes its body."""
         class FakeClient:
-            def __init__(self, *a, **k):
-                pass
-
             def chat_completions(self, messages, doc_id=None, **kw):
-                return {"response": "ok"}
+                return {}
 
         mock_pi = MagicMock()
         mock_pi.PageIndexClient = FakeClient
         mocker.patch.dict("sys.modules", {"pageindex": mock_pi})
-
-        tracer = auto("pageindex")
-
-        # FakeClient.__init__ is now the patched init
-        instance = object.__new__(FakeClient)
-        FakeClient.__init__(instance)  # covers the patched init body
-        # The patched init points the tracer at the new client instance
-        assert tracer._client is instance
+        handler = auto("pageindex")
+        assert isinstance(handler, PageIndexTracer)
         undo("pageindex")
 
-    def test_pageindex_patched_chat_body_executed(self, mocker):
-        """Calling the patched chat_completions delegates through the tracer."""
+    def test_pageindex_patched_chat_calls_original_once(self, mocker):
+        """The patched method records the call and reaches the original
+        exactly once (no re-entry through the patched method)."""
+        calls = []
+
         class FakeClient:
-            def __init__(self, *a, **k):
-                pass
+            def __init__(self, name="c"):
+                self.name = name
 
             def chat_completions(self, messages, doc_id=None, **kw):
-                return {"response": "original"}
+                calls.append((self.name, doc_id))
+                return {"choices": [{"message": {"content": f"from {self.name}"}}]}
+
+            def get_tree(self, doc_id):
+                return {"tree": {"title": f"tree-{self.name}", "nodes": []}}
+
+        original = FakeClient.chat_completions
+        mock_pi = MagicMock()
+        mock_pi.PageIndexClient = FakeClient
+        mocker.patch.dict("sys.modules", {"pageindex": mock_pi})
+
+        tracer = auto("pageindex", async_capture=False, capture_content="full")
+        assert FakeClient.chat_completions is not original
+
+        client = FakeClient("a")
+        result = client.chat_completions(
+            messages=[{"role": "user", "content": "hello"}], doc_id="d1"
+        )
+        assert result["choices"][0]["message"]["content"] == "from a"
+        assert calls == [("a", "d1")]
+        record = tracer.get_records()[0]
+        assert record["outputs"] == {"content": "from a"}
+        assert record["pageindex.tree.path"] == "tree-a"
+        # No per-call state is parked on the shared tracer.
+        assert tracer._client is None
+
+        undo("pageindex")
+        assert FakeClient.chat_completions is original
+
+    def test_pageindex_records_no_content_by_default(self, mocker, monkeypatch):
+        """Like the providers and ``briefcase-ai exec``, a framework installed by
+        auto() records no prompt or completion content unless asked."""
+        monkeypatch.delenv("BRIEFCASE_CAPTURE_CONTENT", raising=False)
+
+        class FakeClient:
+            def chat_completions(self, messages, doc_id=None, **kw):
+                return {"choices": [{"message": {"content": "secret answer"}}]}
+
+            def get_tree(self, doc_id):
+                return {"tree": {"title": "secret title", "nodes": []}}
 
         mock_pi = MagicMock()
         mock_pi.PageIndexClient = FakeClient
         mocker.patch.dict("sys.modules", {"pageindex": mock_pi})
 
-        tracer = auto("pageindex")
-        # Mock tracer.chat_completions to avoid real API calls
-        mocker.patch.object(tracer, "chat_completions", return_value={"response": "mocked"})
+        tracer = auto("pageindex", async_capture=False)
+        FakeClient().chat_completions(
+            messages=[{"role": "user", "content": "secret question"}], doc_id="d1")
+        record = tracer.get_records()[0]
+        assert record["inputs"] == {} and record["outputs"] == {}
+        assert "secret" not in repr(record)
+        assert auto_status()["integrations"]["pageindex"]["capture_content"] == "none"
+        undo("pageindex")
 
-        # FakeClient.chat_completions is now the patched method
-        instance = object.__new__(FakeClient)
-        result = FakeClient.chat_completions(
-            instance,
-            messages=[{"role": "user", "content": "hello"}],
-        )
-        # The patched method points the tracer at this client and delegates
-        assert tracer._client is instance
-        assert result == {"response": "mocked"}
+        monkeypatch.setenv("BRIEFCASE_CAPTURE_CONTENT", "full")
+        tracer = auto("pageindex", async_capture=False)
+        FakeClient().chat_completions(
+            messages=[{"role": "user", "content": "secret question"}], doc_id="d1")
+        assert tracer.get_records()[0]["outputs"] == {"content": "secret answer"}
+        assert auto_status()["integrations"]["pageindex"]["capture_content"] == "full"
+        undo("pageindex")
+
+    def test_pageindex_concurrent_clients_do_not_cross(self, mocker):
+        """Calls on different clients through one tracer stay attributed to
+        the client that made them."""
+        import threading
+
+        barrier = threading.Barrier(8)
+
+        class FakeClient:
+            def __init__(self, name):
+                self.name = name
+
+            def chat_completions(self, messages, doc_id=None, **kw):
+                barrier.wait(timeout=5)
+                return {"choices": [{"message": {"content": self.name}}]}
+
+            def get_tree(self, doc_id):
+                return {"tree": {"title": self.name, "nodes": []}}
+
+        mock_pi = MagicMock()
+        mock_pi.PageIndexClient = FakeClient
+        mocker.patch.dict("sys.modules", {"pageindex": mock_pi})
+        tracer = auto("pageindex", async_capture=False, capture_content="full")
+
+        results = {}
+
+        def work(i):
+            client = FakeClient(f"client-{i}")
+            out = client.chat_completions(messages=[], doc_id=f"doc-{i}")
+            results[i] = out["choices"][0]["message"]["content"]
+
+        threads = [threading.Thread(target=work, args=(i,)) for i in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert results == {i: f"client-{i}" for i in range(8)}
+        records = tracer.get_records()
+        assert len(records) == 8
+        for record in records:
+            n = record["pageindex.doc_id"].split("-")[1]
+            assert record["outputs"] == {"content": f"client-{n}"}
+            assert record["pageindex.tree.path"] == f"client-{n}"
         undo("pageindex")
 
 
@@ -566,3 +658,60 @@ class TestLlamaIndexCleanup:
             auto("llamaindex")
             # Must not raise even when everything in cleanup fails
             undo("llamaindex")
+
+
+# Red team: LangChain's own modules bind ensure_config at import time
+
+def _langchain_with_an_importer():
+    """The stub config module plus a module that did
+    ``from langchain_core.runnables.config import ensure_config`` already,
+    as langchain_core.runnables.base and chat_models do."""
+    modules, config, original = _mock_langchain_modules()
+    importer = types.ModuleType("langchain_core.language_models.chat_models")
+    importer.ensure_config = original
+    modules = dict(modules, **{"langchain_core.language_models.chat_models": importer})
+    return modules, config, importer, original
+
+
+def test_langchain_modules_imported_before_auto_are_instrumented_too():
+    modules, config, importer, original = _langchain_with_an_importer()
+    with patch.dict("sys.modules", modules):
+        handler = auto("langchain", exporter=_make_exporter(), capture_content="none")
+        # The call LangChain actually makes goes through the importer's own
+        # binding; patching only the config module left it uninstrumented.
+        assert importer.ensure_config is config.ensure_config is not original
+        assert handler in importer.ensure_config({})["callbacks"]
+        assert importer.ensure_config.__wrapped__ is original
+        undo("langchain")
+        assert importer.ensure_config is original and config.ensure_config is original
+
+
+def test_a_binding_taken_while_patched_goes_quiet_after_undo():
+    modules, config, importer, original = _langchain_with_an_importer()
+    with patch.dict("sys.modules", modules):
+        handler = auto("langchain", exporter=_make_exporter(), capture_content="none")
+        late_binding = config.ensure_config  # a module imported after auto()
+        undo("langchain")
+        assert handler not in (late_binding({}).get("callbacks") or [])
+
+
+def test_undo_does_not_remove_a_patch_another_library_applied_after_ours(caplog):
+    import logging
+
+    modules, config, importer, original = _langchain_with_an_importer()
+    with patch.dict("sys.modules", modules):
+        handler = auto("langchain", exporter=_make_exporter(), capture_content="none")
+        ours = config.ensure_config
+
+        def theirs(cfg=None, **kw):
+            result = ours(cfg, **kw)
+            result["theirs"] = True
+            return result
+
+        config.ensure_config = theirs
+        with caplog.at_level(logging.WARNING, logger="briefcase"):
+            undo("langchain")
+        assert config.ensure_config is theirs
+        assert "patched again by another library" in caplog.text
+        result = config.ensure_config({})
+        assert result["theirs"] is True and handler not in (result.get("callbacks") or [])

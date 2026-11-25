@@ -1,0 +1,12 @@
+{
+  "id": "replay",
+  "title": "Decision replay",
+  "verb": "verify",
+  "one_line": "Re-run a recorded decision and see whether the output still matches.",
+  "command": "briefcase-ai features replay",
+  "docs_slug": "verify/replay",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Rust core and native binding tests run the real replay engine; the facade tests in tests/ use a mock core. Needs the compiled core. No replay against a live model in tests.",
+  "docs_path": "briefcase/replay/__init__.py"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "env-artifacts",
+  "title": "Environments in the engine",
+  "verb": "capture",
+  "one_line": "Push, compose and check out environments (needs the engine).",
+  "command": "briefcase-ai env push my-env:latest",
+  "docs_slug": "capture/env-artifacts",
+  "status": "experimental",
+  "requires_extra": "engine",
+  "verified_against": "Real: push via the authenticating gateway, checkout/mount plans, bookmark list/set, undo, dataset publish into MinIO, against oci-jj be043d9 images. Offline: compose via the gRPC fake. Not run live: cohort push, compose."
+}

@@ -9,6 +9,7 @@ import {
   canonicalJson,
   computeEntryHash,
   computePayloadHash,
+  pythonStrFallback,
   verifyChainSegment,
   type HashChainEntry,
   type HashChainStore,
@@ -51,6 +52,93 @@ describe("integrity", () => {
   it("rejects non-finite numbers and unsupported JSON values", () => {
     expect(() => canonicalJson({ value: Number.NaN })).toThrow(/finite/);
     expect(() => canonicalJson({ value: undefined } as never)).toThrow(/unsupported/);
+  });
+
+  it("throws instead of hashing non-plain objects as {}", () => {
+    const rejected: Array<[string, unknown]> = [
+      ["Date", new Date("2026-01-01T00:00:00Z")],
+      ["Map", new Map([["a", 1]])],
+      ["Set", new Set([1])],
+      ["Uint8Array", new Uint8Array([1, 2])],
+      ["ArrayBuffer", new ArrayBuffer(2)],
+      ["RegExp", /x/],
+      ["Error", new Error("boom")],
+      ["function", () => 1],
+      ["symbol", Symbol("s")],
+    ];
+    for (const [name, value] of rejected) {
+      expect(() => canonicalJson({ value }), name).toThrow(TypeError);
+      expect(() => canonicalJson({ value }), name).toThrow(new RegExp(`unsupported canonical JSON value: ${name}`));
+    }
+    for (const [name, value] of rejected.filter(([name]) => name !== "Date")) {
+      expect(() => computePayloadHash({ value }), name).toThrow(TypeError);
+    }
+    expect(() => canonicalJson([, 1])).toThrow(/unsupported/);
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    expect(() => canonicalJson(circular)).toThrow(/circular/);
+    expect(() => canonicalJson({ value: "\ud800" })).toThrow(/well-formed/);
+    expect(() => canonicalJson({ "\udc00": 1 })).toThrow(/well-formed/);
+  });
+
+  it("covers a Date in a payload hash the way Python str() renders a UTC datetime", () => {
+    const text = (value: unknown) => Buffer.from(canonicalJson(value, { fallback: pythonStrFallback })).toString("utf8");
+    expect(text({ at: new Date("2026-01-01T00:00:01.001Z") })).toBe('{"at":"2026-01-01 00:00:01.001000+00:00"}');
+    expect(text({ at: new Date("2026-01-01T00:00:00Z") })).toBe('{"at":"2026-01-01 00:00:00+00:00"}');
+    expect(computePayloadHash({ at: new Date(1) })).not.toBe(computePayloadHash({ at: new Date(2) }));
+    expect(computePayloadHash({ at: new Date(1) })).not.toBe(computePayloadHash({ at: {} }));
+    expect(() => computePayloadHash({ at: new Date(Number.NaN) })).toThrow(/valid/);
+    expect(() => computePayloadHash({ at: new Date("+010000-01-01T00:00:00Z") })).toThrow(/0001-9999/);
+  });
+
+  it("encodes bigint as an integer and keeps plain-number output unchanged", () => {
+    const text = (value: unknown) => Buffer.from(canonicalJson(value)).toString("utf8");
+    expect(text({ n: 9007199254740993n })).toBe('{"n":9007199254740993}');
+    expect(text({ a: 1.0, b: 1e16, c: 1.5, d: -0 })).toBe('{"a":1,"b":10000000000000000,"c":1.5,"d":0}');
+  });
+
+  it("orders keys by code point, not UTF-16 code unit", () => {
+    const text = (value: unknown) => Buffer.from(canonicalJson(value)).toString("utf8");
+    expect(text({ "\u{10000}": 1, "\uffff": 2 })).toBe('{"\uffff":2,"\u{10000}":1}');
+    expect(text({ b: 1, a: 2, "é": 3, B: 4 })).toBe('{"B":4,"a":2,"b":1,"é":3}');
+  });
+
+  it("verifies payload hashes when payloads are supplied", async () => {
+    const entries: HashChainEntry[] = [];
+    const store: HashChainStore = {
+      lastEntryHash: () => entries.at(-1)?.hash ?? GENESIS_PRIOR_HASH,
+      append: (entry) => void entries.push(entry),
+    };
+    const appender = new HashChainAppender(store);
+    const payloads = new Map<string, unknown>([["row-1", { n: 1 }], ["row-2", { n: 2 }]]);
+    for (const [rowId, payload] of payloads) {
+      await appender.appendRow({
+        table: "events",
+        rowId,
+        observedAt: new Date("2026-01-01T00:00:00Z"),
+        recordedAt: new Date("2026-01-01T00:00:00Z"),
+        payload,
+      });
+    }
+    expect(verifyChainSegment(entries)).toEqual({ ok: true });
+    expect(verifyChainSegment(entries, { payloads })).toEqual({ ok: true });
+    expect(verifyChainSegment(entries, { payloads: (entry) => payloads.get(entry.rowId) })).toEqual({ ok: true });
+
+    const tampered = new Map(payloads).set("row-2", { n: 3 });
+    // Linkage alone cannot see an altered row; the payload check can.
+    expect(verifyChainSegment(entries)).toEqual({ ok: true });
+    expect(verifyChainSegment(entries, { payloads: tampered })).toEqual({ ok: false, rowId: "row-2", reason: "payload_hash" });
+    expect(verifyChainSegment(entries, { payloads: new Map([["row-1", { n: 1 }]]) })).toEqual({
+      ok: false,
+      rowId: "row-2",
+      reason: "payload_missing",
+    });
+    expect(verifyChainSegment(entries, { payloads: new Map<string, unknown>([["row-1", new Map()]]) })).toEqual({
+      ok: false,
+      rowId: "row-1",
+      reason: "payload_hash",
+    });
+    expect(verifyChainSegment(entries.slice(1), { expectedPrior: entries[0]!.hash, payloads })).toEqual({ ok: true });
   });
 
   it("reports the first broken prior hash or entry hash", () => {

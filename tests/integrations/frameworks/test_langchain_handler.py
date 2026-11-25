@@ -50,6 +50,8 @@ def _make_llm_response(text: str = "Hello") -> MagicMock:
 
 
 def _make_handler(**kwargs) -> BriefcaseLangChainHandler:
+    # These tests check what the handler extracts, so they opt in to content.
+    kwargs.setdefault("capture_content", "full")
     return BriefcaseLangChainHandler(**kwargs)
 
 
@@ -1131,3 +1133,269 @@ def test_retriever_name_fallback():
         run_id=run_id,
     )
     assert handler._inflight[run_id].function_name == "retriever"
+
+
+# Export coverage: errors, standalone runs, deep nesting
+
+class _CollectingExporter:
+    def __init__(self):
+        self.records = []
+
+    async def export(self, record):
+        self.records.append(record)
+
+
+def _sync_handler(**kwargs):
+    kwargs.setdefault("capture_content", "full")
+    exporter = _CollectingExporter()
+    handler = BriefcaseLangChainHandler(exporter=exporter, async_capture=False, **kwargs)
+    return handler, exporter
+
+
+def test_failed_top_level_chain_is_exported():
+    handler, exporter = _sync_handler()
+    handler.on_chain_start({"id": ["x", "MyChain"]}, {"q": "hi"}, run_id="root")
+    handler.on_llm_start({}, ["p"], run_id="llm", parent_run_id="root")
+    handler.on_llm_error(RuntimeError("rate limited"), run_id="llm", parent_run_id="root")
+    handler.on_chain_error(ValueError("chain broke"), run_id="root")
+
+    assert len(exporter.records) == 1
+    record = exporter.records[0]
+    assert record["decision_type"] == "chain"
+    assert record["error"] == "chain broke"
+    assert [c["error"] for c in record["child_spans"]] == ["rate limited"]
+
+
+@pytest.mark.parametrize("kind", ["llm", "chat", "tool", "retriever"])
+def test_standalone_run_is_exported(kind):
+    handler, exporter = _sync_handler()
+    if kind == "llm":
+        handler.on_llm_start({}, ["p"], run_id="r")
+        handler.on_llm_end(_make_llm_response("out"), run_id="r")
+    elif kind == "chat":
+        handler.on_chat_model_start({}, [[{"role": "user", "content": "hi"}]], run_id="r")
+        handler.on_llm_end(_make_llm_response("out"), run_id="r")
+    elif kind == "tool":
+        handler.on_tool_start({"name": "search"}, "query", run_id="r")
+        handler.on_tool_end("result", run_id="r")
+    else:
+        handler.on_retriever_start({"name": "vs"}, "query", run_id="r")
+        handler.on_retriever_end([], run_id="r")
+
+    assert len(exporter.records) == 1
+    assert exporter.records[0]["decision_id"] == "r"
+    assert exporter.records[0]["child_spans"] == []
+
+
+@pytest.mark.parametrize("kind", ["llm", "tool", "retriever"])
+def test_standalone_run_error_is_exported(kind):
+    handler, exporter = _sync_handler()
+    if kind == "llm":
+        handler.on_llm_start({}, ["p"], run_id="r")
+        handler.on_llm_error(RuntimeError("boom"), run_id="r")
+    elif kind == "tool":
+        handler.on_tool_start({"name": "search"}, "query", run_id="r")
+        handler.on_tool_error(RuntimeError("boom"), run_id="r")
+    else:
+        handler.on_retriever_start({"name": "vs"}, "query", run_id="r")
+        handler.on_retriever_error(RuntimeError("boom"), run_id="r")
+
+    assert [r["error"] for r in exporter.records] == ["boom"]
+
+
+def test_deeply_nested_runs_stay_attached_to_their_root():
+    """Grandchildren and deeper are exported once, under the root."""
+    handler, exporter = _sync_handler()
+    handler.on_chain_start({"id": ["Agent"]}, {"q": "hi"}, run_id="root")
+    handler.on_chain_start({"id": ["Inner"]}, {}, run_id="inner", parent_run_id="root")
+    handler.on_tool_start({"name": "t"}, "in", run_id="tool", parent_run_id="inner")
+    handler.on_llm_start({}, ["p"], run_id="llm", parent_run_id="tool")
+    handler.on_llm_end(_make_llm_response("deep"), run_id="llm", parent_run_id="tool")
+    handler.on_tool_end("out", run_id="tool", parent_run_id="inner")
+    handler.on_chain_end({"a": 1}, run_id="inner", parent_run_id="root")
+    assert exporter.records == []  # nothing leaves before the root ends
+
+    handler.on_chain_end({"answer": "done"}, run_id="root")
+
+    assert len(exporter.records) == 1
+    record = exporter.records[0]
+    assert record["decision_id"] == "root"
+    assert [(c["decision_id"], c["parent_run_id"]) for c in record["child_spans"]] == [
+        ("llm", "tool"), ("tool", "inner"), ("inner", "root"),
+    ]
+    assert handler._root_of == {} and handler._children == {}
+    assert handler._assemble_decision_record(handler.get_decisions()[-1])["child_spans"] == \
+        record["child_spans"]
+
+
+def test_run_under_untracked_parent_is_exported_as_root():
+    """With chains not captured, an LLM call inside a chain still exports."""
+    handler, exporter = _sync_handler(capture_chains=False)
+    handler.on_chain_start({"id": ["C"]}, {}, run_id="chain")
+    handler.on_llm_start({}, ["p"], run_id="llm", parent_run_id="chain")
+    handler.on_llm_end(_make_llm_response("x"), run_id="llm", parent_run_id="chain")
+
+    assert [r["decision_id"] for r in exporter.records] == ["llm"]
+    assert exporter.records[0]["parent_run_id"] == "chain"
+
+
+# Token usage and streaming
+
+class _Message:
+    def __init__(self, content="", usage_metadata=None, response_metadata=None):
+        self.content = content
+        self.usage_metadata = usage_metadata
+        self.response_metadata = response_metadata or {}
+
+
+class _Generation:
+    def __init__(self, message, text=None):
+        self.message = message
+        self.text = message.content if text is None else text
+
+
+class _LLMResult:
+    def __init__(self, generations, llm_output=None):
+        self.generations = generations
+        self.llm_output = llm_output
+
+
+def test_token_usage_from_usage_metadata():
+    message = _Message("hi", usage_metadata={
+        "input_tokens": 11, "output_tokens": 7, "total_tokens": 18,
+    })
+    text, usage = _extract_llm_output(_LLMResult([[_Generation(message)]]))
+    assert text == "hi"
+    assert usage == {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18}
+
+
+def test_token_usage_summed_across_generations_and_total_derived():
+    first = _Message("a", usage_metadata={"input_tokens": 1, "output_tokens": 2})
+    second = _Message("b", response_metadata={
+        "token_usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+    })
+    _, usage = _extract_llm_output(
+        _LLMResult([[_Generation(first)], [_Generation(second)]])
+    )
+    assert usage == {"prompt_tokens": 11, "completion_tokens": 22, "total_tokens": 33}
+
+
+def test_legacy_llm_output_token_usage_still_wins():
+    message = _Message("a", usage_metadata={"input_tokens": 99, "output_tokens": 99})
+    _, usage = _extract_llm_output(_LLMResult(
+        [[_Generation(message)]],
+        llm_output={"token_usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}},
+    ))
+    assert usage == {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
+    assert _extract_llm_output(_LLMResult([[_Generation(_Message("a"))]]))[1] is None
+
+
+def test_usage_metadata_reaches_the_exported_record():
+    handler, exporter = _sync_handler()
+    handler.on_chat_model_start({}, [[{"role": "user", "content": "hi"}]], run_id="r")
+    message = _Message("hello", usage_metadata={
+        "input_tokens": 3, "output_tokens": 4, "total_tokens": 7,
+    })
+    handler.on_llm_end(_LLMResult([[_Generation(message)]]), run_id="r")
+    assert exporter.records[0]["token_usage"]["total_tokens"] == 7
+    assert exporter.records[0]["outputs"] == {"text": "hello"}
+
+
+def test_streamed_tokens_become_output_when_no_final_text():
+    handler, exporter = _sync_handler()
+    handler.on_llm_start({}, ["p"], run_id="r")
+    for token in ["Hel", "lo ", "world"]:
+        handler.on_llm_new_token(token, run_id="r")
+    handler.on_llm_end(_LLMResult([[_Generation(_Message(""))]]), run_id="r")
+
+    assert exporter.records[0]["outputs"] == {"text": "Hello world", "streamed": True}
+    assert handler._stream_buffers == {}
+
+
+def test_final_text_wins_over_streamed_tokens():
+    handler, exporter = _sync_handler()
+    handler.on_llm_start({}, ["p"], run_id="r")
+    handler.on_llm_new_token("partial", run_id="r")
+    handler.on_llm_end(_make_llm_response("final answer"), run_id="r")
+    assert exporter.records[0]["outputs"] == {"text": "final answer"}
+
+
+def test_streamed_tokens_kept_on_error_and_bounded():
+    handler, exporter = _sync_handler(max_output_chars=5)
+    handler.on_llm_start({}, ["p"], run_id="r")
+    for token in ["abc", "defg", "hij"]:
+        handler.on_llm_new_token(token, run_id="r")
+    handler.on_llm_new_token("ignored", run_id="unknown-run")
+    handler.on_llm_new_token("ignored")  # no run id
+    handler.on_llm_error(RuntimeError("stream cut"), run_id="r")
+
+    record = exporter.records[0]
+    assert record["outputs"] == {"text": "abcde", "streamed": True, "partial": True}
+    assert record["error"] == "stream cut"
+    assert handler._stream_buffers == {}
+
+
+# Bounds and content options
+
+def test_decisions_ring_buffer_and_inflight_ttl():
+    handler, exporter = _sync_handler(max_records=3, max_inflight=2)
+    for i in range(10):
+        handler.on_tool_start({"name": "t"}, "in", run_id=f"r{i}")
+        handler.on_tool_end("out", run_id=f"r{i}")
+    assert [d.decision_id for d in handler.get_decisions()] == ["r7", "r8", "r9"]
+    assert len(exporter.records) == 10
+
+    # Starts with no end: the oldest is recorded as abandoned, not leaked.
+    for i in range(3):
+        handler.on_llm_start({}, ["p"], run_id=f"open{i}")
+    assert len(handler._inflight) == 2
+    abandoned = exporter.records[-1]
+    assert abandoned["decision_id"] == "open0"
+    assert abandoned["error"].startswith("abandoned")
+    assert set(handler._root_of) == {"open1", "open2"}
+
+
+def test_child_of_abandoned_root_is_not_leaked():
+    handler, exporter = _sync_handler(max_inflight=2)
+    handler.on_chain_start({"id": ["C"]}, {}, run_id="root")
+    handler.on_llm_start({}, ["p"], run_id="child", parent_run_id="root")
+    handler.on_llm_start({}, ["p"], run_id="other")  # evicts "root"
+    handler.on_llm_end(_make_llm_response("x"), run_id="child", parent_run_id="root")
+
+    assert [r["decision_id"] for r in exporter.records] == ["root", "child"]
+    assert handler._children == {}
+
+
+def test_redact_and_capture_content_apply_to_export_and_storage():
+    handler, exporter = _sync_handler(redact=lambda t: t.replace("SSN 123", "[PII]"))
+    handler.on_chain_start({"id": ["C"]}, {"q": "SSN 123"}, run_id="root")
+    handler.on_tool_start({"name": "t"}, "SSN 123", run_id="tool", parent_run_id="root")
+    handler.on_tool_error(RuntimeError("bad SSN 123"), run_id="tool", parent_run_id="root")
+    handler.on_chain_end({"a": "SSN 123"}, run_id="root")
+
+    assert "SSN 123" not in repr(exporter.records)
+    assert "SSN 123" not in repr(handler.get_decisions_as_dicts())
+    assert exporter.records[0]["inputs"] == {"q": "[PII]"}
+    assert exporter.records[0]["child_spans"][0]["error"] == "bad [PII]"
+
+    hashed, hashed_exporter = _sync_handler(capture_content="hash")
+    hashed.on_llm_start({}, ["secret prompt"], run_id="r")
+    hashed.on_llm_end(_make_llm_response("secret answer"), run_id="r")
+    record = hashed_exporter.records[0]
+    assert set(record["inputs"]) == {"sha256", "chars"}
+    assert "secret" not in repr(record)
+
+    with pytest.raises(ValueError):
+        BriefcaseLangChainHandler(capture_content="everything")
+
+
+def test_clear_resets_all_tracking_state():
+    handler, _ = _sync_handler()
+    handler.on_chain_start({"id": ["C"]}, {}, run_id="root")
+    handler.on_llm_start({}, ["p"], run_id="llm", parent_run_id="root")
+    handler.on_llm_new_token("x", run_id="llm")
+    handler.on_llm_end(_make_llm_response(""), run_id="llm", parent_run_id="root")
+    handler.clear()
+    assert handler.decision_count == 0
+    assert len(handler._inflight) == 0
+    assert handler._root_of == {} and handler._children == {} and handler._stream_buffers == {}

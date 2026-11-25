@@ -1,0 +1,13 @@
+{
+  "id": "content-guardrails",
+  "title": "Content guardrails on LLM calls",
+  "verb": "enforce",
+  "one_line": "Redact PII and secrets, flag prompt injection, block bad completions.",
+  "command": "briefcase-ai guard test --text \"call +44 20 7946 0958, password=hunter22\"",
+  "docs_slug": "enforce/content-guardrails",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Enforced through the openai 3.57.0, anthropic 2.12.0, google-genai 3.6.1 and botocore 1.44.9 clients over fake transports (no real provider call). PII detection tested with the pure-Python detectors only: the native Sanitizer is not built in this environment, its adapter was tested with a stand-in. Injection heuristics are a small pattern set, not evaluated against an attack corpus.",
+  "snippet": "import briefcase\nfrom briefcase.guardrails import content\n\nbriefcase.auto()\ncontent.guard(\n    content.pii(input=\"redact\", output=\"warn\"),\n    content.injection(effect=\"block\"),\n    content.output_regex(r\"(?i)internal use only\", effect=\"block\"),\n)\ndocs = content.retrieved(\"text from your search index\")  # checked as untrusted",
+  "status_id": "content-guardrails"
+}

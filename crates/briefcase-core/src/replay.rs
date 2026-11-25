@@ -1,11 +1,11 @@
-use crate::models::{DecisionSnapshot, Output};
-
+use crate::models::DecisionSnapshot;
 #[cfg(feature = "sqlite-storage")]
+use crate::models::Output;
+
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
 use crate::storage::StorageBackend;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "async")]
-use tokio;
 
 pub mod executor;
 #[cfg(feature = "async")]
@@ -141,7 +141,7 @@ fn replayed_outputs(result: &ReplayResult) -> Option<Vec<Output>> {
 }
 
 /// Resolve a rule's field against a replay's outputs. `output` and an empty
-/// field both mean "the first output", matching `extract_field_value`.
+/// field both mean "the first output", matching `recorded_field_value`.
 #[cfg(feature = "sqlite-storage")]
 fn field_from_outputs(outputs: &[Output], field: &str) -> Option<serde_json::Value> {
     if field == "output" || field.is_empty() {
@@ -172,23 +172,211 @@ fn text_similarity(a: &str, b: &str) -> f64 {
     }
 }
 
+/// What a replay produced, as far as a policy rule can see it.
 #[cfg(feature = "sqlite-storage")]
+pub(crate) struct Replayed<'a> {
+    pub outputs: &'a [Output],
+    /// How long the re-execution took.
+    pub execution_time_ms: f64,
+}
+
+/// Build the replayed view of a result, or `None` when nothing re-executed.
+#[cfg(feature = "sqlite-storage")]
+pub(crate) fn check_result_policy(
+    result: &ReplayResult,
+    policy: &ReplayPolicy,
+) -> Vec<PolicyViolation> {
+    let outputs = replayed_outputs(result);
+    let replayed = outputs.as_deref().map(|outputs| Replayed {
+        outputs,
+        execution_time_ms: result.execution_time_ms,
+    });
+    check_policy(&result.original_snapshot, replayed.as_ref(), policy)
+}
+
+/// Check each rule by comparing the recorded value against the replayed
+/// one. `replayed` is `None` when nothing re-executed, which makes every
+/// rule a violation: an unchecked rule must never read as a pass.
+#[cfg(feature = "sqlite-storage")]
+pub(crate) fn check_policy(
+    original: &DecisionSnapshot,
+    replayed: Option<&Replayed<'_>>,
+    policy: &ReplayPolicy,
+) -> Vec<PolicyViolation> {
+    policy
+        .rules
+        .iter()
+        .filter_map(|rule| check_rule(original, replayed, rule))
+        .collect()
+}
+
+/// The recorded value a rule's field names. A rule can reference the
+/// snapshot-level fields `function_name` and `execution_time_ms`, the first
+/// output (`output` or an empty field), or any output by name.
+#[cfg(feature = "sqlite-storage")]
+fn recorded_field_value(snapshot: &DecisionSnapshot, field: &str) -> Option<serde_json::Value> {
+    match field {
+        "function_name" => Some(serde_json::Value::String(snapshot.function_name.clone())),
+        "execution_time_ms" => snapshot
+            .execution_time_ms
+            .and_then(serde_json::Number::from_f64)
+            .map(serde_json::Value::Number),
+        // Anything else names an output. A policy is written against the
+        // fields a decision produced, so `with_exact_match("category")`
+        // has to resolve to the output called "category".
+        other => field_from_outputs(&snapshot.outputs, other),
+    }
+}
+
+/// The replayed counterpart of `recorded_field_value`, resolving the same
+/// field names so that a snapshot-level rule compares like with like.
+#[cfg(feature = "sqlite-storage")]
+fn replayed_field_value(
+    original: &DecisionSnapshot,
+    replayed: &Replayed<'_>,
+    field: &str,
+) -> Option<serde_json::Value> {
+    match field {
+        // A replay re-executes the recorded decision, so the function it
+        // ran is the recorded one by construction.
+        "function_name" => Some(serde_json::Value::String(original.function_name.clone())),
+        "execution_time_ms" => {
+            serde_json::Number::from_f64(replayed.execution_time_ms).map(serde_json::Value::Number)
+        }
+        other => field_from_outputs(replayed.outputs, other),
+    }
+}
+
+#[cfg(feature = "sqlite-storage")]
+fn check_rule(
+    original: &DecisionSnapshot,
+    replayed: Option<&Replayed<'_>>,
+    rule: &ValidationRule,
+) -> Option<PolicyViolation> {
+    // A rule on a field the decision never recorded cannot be checked,
+    // and an unchecked rule must never read as a pass.
+    let Some(recorded) = recorded_field_value(original, &rule.field) else {
+        return Some(PolicyViolation {
+            rule_name: rule.field.clone(),
+            field: rule.field.clone(),
+            expected: "a recorded value".to_string(),
+            actual: "absent".to_string(),
+            message: format!(
+                "Rule names field '{}', which the recorded decision does not have",
+                rule.field
+            ),
+        });
+    };
+
+    let Some(replayed) = replayed else {
+        return Some(PolicyViolation {
+            rule_name: rule.field.clone(),
+            field: rule.field.clone(),
+            expected: value_text(&recorded),
+            actual: "not replayed".to_string(),
+            message: format!(
+                "Rule on '{}' could not be checked: no executor is set, so nothing \
+                 re-executed. Set one with with_executor.",
+                rule.field
+            ),
+        });
+    };
+
+    let Some(actual) = replayed_field_value(original, replayed, &rule.field) else {
+        return Some(PolicyViolation {
+            rule_name: rule.field.clone(),
+            field: rule.field.clone(),
+            expected: value_text(&recorded),
+            actual: "absent".to_string(),
+            message: format!("Replay produced no '{}' output", rule.field),
+        });
+    };
+
+    let violation = |expected: String, message: String| {
+        Some(PolicyViolation {
+            rule_name: rule.field.clone(),
+            field: rule.field.clone(),
+            expected,
+            actual: value_text(&actual),
+            message,
+        })
+    };
+
+    match rule.comparator {
+        Comparator::ExactMatch => {
+            if recorded == actual {
+                None
+            } else {
+                violation(
+                    value_text(&recorded),
+                    format!("Field '{}' changed on replay", rule.field),
+                )
+            }
+        }
+        Comparator::SemanticSimilarity => {
+            let similarity = text_similarity(&value_text(&recorded), &value_text(&actual));
+            if similarity >= rule.threshold {
+                None
+            } else {
+                violation(
+                    format!("similarity >= {}", rule.threshold),
+                    format!(
+                        "Field '{}' similarity {:.3} is below the {} threshold",
+                        rule.field, similarity, rule.threshold
+                    ),
+                )
+            }
+        }
+        Comparator::MaxIncreasePercent
+        | Comparator::MaxDecreasePercent
+        | Comparator::WithinRange => {
+            let (Some(before), Some(after)) = (recorded.as_f64(), actual.as_f64()) else {
+                return violation(
+                    "a number".to_string(),
+                    format!(
+                        "Field '{}' is not numeric, so {:?} cannot be applied",
+                        rule.field, rule.comparator
+                    ),
+                );
+            };
+            let ok = match rule.comparator {
+                Comparator::MaxIncreasePercent => {
+                    before == 0.0 || (after - before) / before * 100.0 <= rule.threshold
+                }
+                Comparator::MaxDecreasePercent => {
+                    before == 0.0 || (before - after) / before * 100.0 <= rule.threshold
+                }
+                _ => (after - before).abs() <= rule.threshold,
+            };
+            if ok {
+                None
+            } else {
+                violation(
+                    format!("{:?} within {}", rule.comparator, rule.threshold),
+                    format!("Field '{}' moved from {} to {}", rule.field, before, after),
+                )
+            }
+        }
+    }
+}
+
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
 #[derive(Clone)]
 pub struct ReplayEngine<S: StorageBackend> {
     storage: S,
     default_mode: ReplayMode,
-    #[cfg(feature = "async")]
     executor: Option<std::sync::Arc<dyn ModelExecutor>>,
+    execution_config: ExecutionConfig,
 }
 
-#[cfg(feature = "sqlite-storage")]
+#[cfg(all(feature = "sqlite-storage", feature = "async"))]
 impl<S: StorageBackend> ReplayEngine<S> {
     pub fn new(storage: S) -> Self {
         Self {
             storage,
             default_mode: ReplayMode::Tolerant,
-            #[cfg(feature = "async")]
             executor: None,
+            execution_config: ExecutionConfig::default(),
         }
     }
 
@@ -196,27 +384,31 @@ impl<S: StorageBackend> ReplayEngine<S> {
         Self {
             storage,
             default_mode: mode,
-            #[cfg(feature = "async")]
             executor: None,
+            execution_config: ExecutionConfig::default(),
         }
     }
 
     /// Set a model executor for the replay engine
-    #[cfg(feature = "async")]
     pub fn with_executor(mut self, executor: std::sync::Arc<dyn ModelExecutor>) -> Self {
         self.executor = Some(executor);
         self
     }
 
+    /// Set the configuration handed to the executor on every replay. Its
+    /// `timeout_ms` bounds each execution; 0 disables the bound.
+    pub fn with_execution_config(mut self, config: ExecutionConfig) -> Self {
+        self.execution_config = config;
+        self
+    }
+
     /// Set the executor in place, for callers holding the engine behind a
     /// `&mut` (the Python binding, chiefly).
-    #[cfg(feature = "async")]
     pub fn set_executor(&mut self, executor: std::sync::Arc<dyn ModelExecutor>) {
         self.executor = Some(executor);
     }
 
     /// Get a reference to the current executor, if any
-    #[cfg(feature = "async")]
     pub fn executor(&self) -> Option<&dyn ModelExecutor> {
         self.executor.as_ref().map(|arc| arc.as_ref())
     }
@@ -249,14 +441,16 @@ impl<S: StorageBackend> ReplayEngine<S> {
 
         match replay_mode {
             ReplayMode::ValidationOnly => {
-                // Just validate the snapshot structure without re-executing
+                // The snapshot loaded and deserialized; nothing re-executed.
+                // As in `simulate_replay`, that is Pending with no match
+                // claimed: "not compared" must never read as "matched".
                 let execution_time = start_time.elapsed().as_millis() as f64;
 
                 Ok(ReplayResult {
-                    status: ReplayStatus::Success,
+                    status: ReplayStatus::Pending,
                     original_snapshot,
                     replay_output: None,
-                    outputs_match: true, // We're not re-executing, so assume match
+                    outputs_match: false,
                     diff: None,
                     policy_violations: Vec::new(),
                     execution_time_ms: execution_time,
@@ -264,16 +458,8 @@ impl<S: StorageBackend> ReplayEngine<S> {
             }
             ReplayMode::Strict | ReplayMode::Tolerant => {
                 // Use the executor if available, otherwise fall back to simulation
-                #[cfg(feature = "async")]
-                {
-                    self.execute_replay(&original_snapshot, replay_mode, start_time)
-                        .await
-                }
-                #[cfg(not(feature = "async"))]
-                {
-                    self.simulate_replay(&original_snapshot, replay_mode, start_time)
-                        .await
-                }
+                self.execute_replay(&original_snapshot, replay_mode, start_time)
+                    .await
             }
         }
     }
@@ -289,9 +475,7 @@ impl<S: StorageBackend> ReplayEngine<S> {
 
         // Rules are checked against what the replay produced, so a policy can
         // only pass when something actually re-executed.
-        let replayed = replayed_outputs(&result);
-        let violations = self.check_policy(&result.original_snapshot, replayed.as_deref(), policy);
-        result.policy_violations = violations;
+        result.policy_violations = check_result_policy(&result, policy);
 
         if !result.policy_violations.is_empty() {
             result.status = ReplayStatus::Failed;
@@ -329,14 +513,15 @@ impl<S: StorageBackend> ReplayEngine<S> {
         self.validate_against_policy(&snapshot, policy).await
     }
 
-    /// Batch replay multiple snapshots
+    /// Batch replay multiple snapshots, at most `concurrency` at a time. A
+    /// `concurrency` of 0 is treated as 1.
     pub async fn replay_batch(
         &self,
         snapshot_ids: &[String],
         mode: Option<ReplayMode>,
         concurrency: usize,
     ) -> Vec<Result<ReplayResult, ReplayError>> {
-        let semaphore = tokio::sync::Semaphore::new(concurrency);
+        let semaphore = tokio::sync::Semaphore::new(concurrency.max(1));
         let replay_mode = mode.unwrap_or_else(|| self.default_mode.clone());
 
         let tasks: Vec<_> = snapshot_ids
@@ -370,13 +555,22 @@ impl<S: StorageBackend> ReplayEngine<S> {
         for result in results {
             match result {
                 Ok(replay_result) => {
-                    stats.successful_replays += 1;
                     stats.total_execution_time_ms += replay_result.execution_time_ms;
 
-                    if replay_result.outputs_match {
-                        stats.exact_matches += 1;
+                    // Pending/Running mean nothing re-executed, so there was
+                    // no comparison to count as a match or a mismatch.
+                    if matches!(
+                        replay_result.status,
+                        ReplayStatus::Pending | ReplayStatus::Running
+                    ) {
+                        stats.unverified_replays += 1;
                     } else {
-                        stats.mismatches += 1;
+                        stats.successful_replays += 1;
+                        if replay_result.outputs_match {
+                            stats.exact_matches += 1;
+                        } else {
+                            stats.mismatches += 1;
+                        }
                     }
                 }
                 Err(_) => {
@@ -385,8 +579,9 @@ impl<S: StorageBackend> ReplayEngine<S> {
             }
         }
 
-        stats.average_execution_time_ms = if stats.successful_replays > 0 {
-            stats.total_execution_time_ms / stats.successful_replays as f64
+        let completed = stats.successful_replays + stats.unverified_replays;
+        stats.average_execution_time_ms = if completed > 0 {
+            stats.total_execution_time_ms / completed as f64
         } else {
             0.0
         };
@@ -396,7 +591,6 @@ impl<S: StorageBackend> ReplayEngine<S> {
 
     // Private helper methods
 
-    #[cfg(feature = "async")]
     async fn execute_replay(
         &self,
         original: &DecisionSnapshot,
@@ -415,16 +609,28 @@ impl<S: StorageBackend> ReplayEngine<S> {
                 }
             }
 
-            // Execute with the configured default config (could be customized per replay)
-            let config = ExecutionConfig::default();
-            let exec_result = executor
-                .execute(
-                    &original.inputs,
-                    original.model_parameters.as_ref(),
-                    &original.context,
-                    &config,
-                )
-                .await?;
+            let config = &self.execution_config;
+            let execution = executor.execute(
+                &original.inputs,
+                original.model_parameters.as_ref(),
+                &original.context,
+                config,
+            );
+            let exec_result = if config.timeout_ms == 0 {
+                execution.await?
+            } else {
+                let limit = std::time::Duration::from_millis(config.timeout_ms);
+                match tokio::time::timeout(limit, execution).await {
+                    Ok(result) => result?,
+                    Err(_) => {
+                        return Err(ReplayError::ExecutionError(format!(
+                            "Executor '{}' timed out after {} ms",
+                            executor.executor_name(),
+                            config.timeout_ms
+                        )))
+                    }
+                }
+            };
 
             let execution_time = start_time.elapsed().as_millis() as f64;
 
@@ -522,141 +728,7 @@ impl<S: StorageBackend> ReplayEngine<S> {
     ) -> Result<Vec<PolicyViolation>, ReplayError> {
         // No replay ran, so there is nothing to compare the recorded values
         // against. Every rule reports as unverified rather than passing.
-        Ok(self.check_policy(snapshot, None, policy))
-    }
-
-    /// Check each rule by comparing the recorded value against the replayed
-    /// one. `replayed` is `None` when nothing re-executed, which makes every
-    /// rule a violation: an unchecked rule must never read as a pass.
-    fn check_policy(
-        &self,
-        original: &DecisionSnapshot,
-        replayed: Option<&[Output]>,
-        policy: &ReplayPolicy,
-    ) -> Vec<PolicyViolation> {
-        policy
-            .rules
-            .iter()
-            .filter_map(|rule| self.check_rule(original, replayed, rule))
-            .collect()
-    }
-
-    fn check_rule(
-        &self,
-        original: &DecisionSnapshot,
-        replayed: Option<&[Output]>,
-        rule: &ValidationRule,
-    ) -> Option<PolicyViolation> {
-        let recorded = self.extract_field_value(original, &rule.field)?;
-
-        let Some(replayed) = replayed else {
-            return Some(PolicyViolation {
-                rule_name: rule.field.clone(),
-                field: rule.field.clone(),
-                expected: value_text(&recorded),
-                actual: "not replayed".to_string(),
-                message: format!(
-                    "Rule on '{}' could not be checked: no executor is set, so nothing \
-                     re-executed. Set one with ReplayEngine::with_executor.",
-                    rule.field
-                ),
-            });
-        };
-
-        let Some(actual) = field_from_outputs(replayed, &rule.field) else {
-            return Some(PolicyViolation {
-                rule_name: rule.field.clone(),
-                field: rule.field.clone(),
-                expected: value_text(&recorded),
-                actual: "absent".to_string(),
-                message: format!("Replay produced no '{}' output", rule.field),
-            });
-        };
-
-        let violation = |expected: String, message: String| {
-            Some(PolicyViolation {
-                rule_name: rule.field.clone(),
-                field: rule.field.clone(),
-                expected,
-                actual: value_text(&actual),
-                message,
-            })
-        };
-
-        match rule.comparator {
-            Comparator::ExactMatch => {
-                if recorded == actual {
-                    None
-                } else {
-                    violation(
-                        value_text(&recorded),
-                        format!("Field '{}' changed on replay", rule.field),
-                    )
-                }
-            }
-            Comparator::SemanticSimilarity => {
-                let similarity = text_similarity(&value_text(&recorded), &value_text(&actual));
-                if similarity >= rule.threshold {
-                    None
-                } else {
-                    violation(
-                        format!("similarity >= {}", rule.threshold),
-                        format!(
-                            "Field '{}' similarity {:.3} is below the {} threshold",
-                            rule.field, similarity, rule.threshold
-                        ),
-                    )
-                }
-            }
-            Comparator::MaxIncreasePercent
-            | Comparator::MaxDecreasePercent
-            | Comparator::WithinRange => {
-                let (Some(before), Some(after)) = (recorded.as_f64(), actual.as_f64()) else {
-                    return violation(
-                        "a number".to_string(),
-                        format!(
-                            "Field '{}' is not numeric, so {:?} cannot be applied",
-                            rule.field, rule.comparator
-                        ),
-                    );
-                };
-                let ok = match rule.comparator {
-                    Comparator::MaxIncreasePercent => {
-                        before == 0.0 || (after - before) / before * 100.0 <= rule.threshold
-                    }
-                    Comparator::MaxDecreasePercent => {
-                        before == 0.0 || (before - after) / before * 100.0 <= rule.threshold
-                    }
-                    _ => (after - before).abs() <= rule.threshold,
-                };
-                if ok {
-                    None
-                } else {
-                    violation(
-                        format!("{:?} within {}", rule.comparator, rule.threshold),
-                        format!("Field '{}' moved from {} to {}", rule.field, before, after),
-                    )
-                }
-            }
-        }
-    }
-
-    fn extract_field_value(
-        &self,
-        snapshot: &DecisionSnapshot,
-        field_path: &str,
-    ) -> Option<serde_json::Value> {
-        match field_path {
-            "function_name" => Some(serde_json::Value::String(snapshot.function_name.clone())),
-            "execution_time_ms" => snapshot
-                .execution_time_ms
-                .and_then(serde_json::Number::from_f64)
-                .map(serde_json::Value::Number),
-            // Anything else names an output. A policy is written against the
-            // fields a decision produced, so `with_exact_match("category")`
-            // has to resolve to the output called "category".
-            other => field_from_outputs(&snapshot.outputs, other),
-        }
+        Ok(check_policy(snapshot, None, policy))
     }
 
     fn calculate_diff(&self, original: &DecisionSnapshot, new: &DecisionSnapshot) -> SnapshotDiff {
@@ -723,8 +795,13 @@ impl<S: StorageBackend> ReplayEngine<S> {
 #[derive(Debug, Clone, Default)]
 pub struct ReplayStats {
     pub total_replays: usize,
+    /// Replays that re-executed and produced a verdict (match or mismatch).
     pub successful_replays: usize,
+    /// Replays that returned an error.
     pub failed_replays: usize,
+    /// Replays that loaded the snapshot but re-executed nothing (no executor,
+    /// or validation-only mode), so there is no verdict to count.
+    pub unverified_replays: usize,
     pub exact_matches: usize,
     pub mismatches: usize,
     pub total_execution_time_ms: f64,
@@ -750,7 +827,7 @@ impl From<crate::storage::StorageError> for ReplayError {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "sqlite-storage", feature = "async"))]
 mod tests {
     use super::*;
     use crate::models::*;
@@ -791,8 +868,9 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(result.status, ReplayStatus::Success);
-        assert!(result.outputs_match);
+        // Nothing was compared, so no match may be claimed.
+        assert_eq!(result.status, ReplayStatus::Pending);
+        assert!(!result.outputs_match);
         assert!(result.replay_output.is_none());
     }
 
@@ -907,10 +985,52 @@ mod tests {
         // Get stats
         let stats = engine.get_replay_stats(&snapshot_ids).await.unwrap();
 
+        // No executor is set, so nothing was verified: these are neither
+        // successes nor matches.
         assert_eq!(stats.total_replays, 5);
-        assert_eq!(stats.successful_replays, 5);
+        assert_eq!(stats.successful_replays, 0);
+        assert_eq!(stats.unverified_replays, 5);
+        assert_eq!(stats.exact_matches, 0);
+        assert_eq!(stats.mismatches, 0);
         assert_eq!(stats.failed_replays, 0);
         assert!(stats.average_execution_time_ms > 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_replay_batch_zero_concurrency_does_not_hang() {
+        let storage = SqliteBackend::in_memory().unwrap();
+        let engine = ReplayEngine::new(storage);
+        let id = engine
+            .storage
+            .save_decision(&create_test_decision().await)
+            .await
+            .unwrap();
+
+        let results = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            engine.replay_batch(&[id], None, 0),
+        )
+        .await
+        .expect("replay_batch with concurrency 0 must complete");
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_policy_rule_on_missing_field_is_a_violation() {
+        let storage = SqliteBackend::in_memory().unwrap();
+        let engine = ReplayEngine::new(storage);
+        let id = engine
+            .storage
+            .save_decision(&create_test_decision().await)
+            .await
+            .unwrap();
+
+        let policy = ReplayPolicy::new("typo").with_exact_match("no_such_field");
+        let violations = engine.validate(&id, &policy).await.unwrap();
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].field, "no_such_field");
+        assert_eq!(violations[0].actual, "absent");
     }
 
     #[tokio::test]
@@ -939,7 +1059,7 @@ mod tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "sqlite-storage", feature = "async"))]
 mod honest_replay_tests {
     use super::executor::{ExecutionConfig, ExecutionResult, ModelExecutor};
     use super::*;
@@ -990,6 +1110,48 @@ mod honest_replay_tests {
     }
 
     #[tokio::test]
+    async fn a_policy_rule_can_name_snapshot_level_fields() {
+        let storage = SqliteBackend::in_memory().unwrap();
+        let decision = DecisionSnapshot::new("classify_ticket")
+            .add_input(Input::new("text", json!("reset my password"), "string"))
+            .add_output(Output::new("answer", json!("account_access"), "string"))
+            .with_execution_time(60_000.0);
+        let id = storage.save_decision(&decision).await.unwrap();
+        let engine = ReplayEngine::new(storage).with_executor(Arc::new(FixedExecutor {
+            value: json!("account_access"),
+        }));
+
+        // `function_name` and `execution_time_ms` resolve on the replayed
+        // side too, so these rules are checked rather than reported "absent".
+        let policy = ReplayPolicy::new("p")
+            .with_exact_match("function_name")
+            .add_rule(ValidationRule {
+                field: "execution_time_ms".to_string(),
+                comparator: Comparator::MaxIncreasePercent,
+                threshold: 5.0,
+            });
+        let result = engine.replay_with_policy(&id, &policy, None).await.unwrap();
+        assert!(
+            result.policy_violations.is_empty(),
+            "{:?}",
+            result.policy_violations
+        );
+        assert_eq!(result.status, ReplayStatus::Success);
+
+        // A replay that finishes in milliseconds against a recorded minute
+        // violates "no more than 1% faster", with the replayed time reported.
+        let policy = ReplayPolicy::new("p").add_rule(ValidationRule {
+            field: "execution_time_ms".to_string(),
+            comparator: Comparator::MaxDecreasePercent,
+            threshold: 1.0,
+        });
+        let result = engine.replay_with_policy(&id, &policy, None).await.unwrap();
+        assert_eq!(result.policy_violations.len(), 1);
+        assert_ne!(result.policy_violations[0].actual, "absent");
+        assert_eq!(result.status, ReplayStatus::Failed);
+    }
+
+    #[tokio::test]
     async fn a_changed_answer_is_reported_as_a_mismatch() {
         let (storage, id) = stored("account_access").await;
         let engine = ReplayEngine::new(storage).with_executor(Arc::new(FixedExecutor {
@@ -1022,6 +1184,59 @@ mod honest_replay_tests {
 
         assert!(result.outputs_match);
         assert_eq!(result.status, ReplayStatus::Success);
+    }
+
+    /// Never answers within any reasonable timeout.
+    struct StalledExecutor;
+
+    #[async_trait]
+    impl ModelExecutor for StalledExecutor {
+        async fn execute(
+            &self,
+            _inputs: &[Input],
+            _model_params: Option<&ModelParameters>,
+            _context: &ExecutionContext,
+            _config: &ExecutionConfig,
+        ) -> Result<ExecutionResult, ReplayError> {
+            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+            Err(ReplayError::ExecutionError("unreachable".into()))
+        }
+        fn supports_model(&self, _model_name: &str) -> bool {
+            true
+        }
+        fn executor_name(&self) -> &str {
+            "stalled"
+        }
+    }
+
+    #[tokio::test]
+    async fn an_executor_that_exceeds_timeout_ms_is_cut_off() {
+        let (storage, id) = stored("account_access").await;
+        let engine = ReplayEngine::new(storage)
+            .with_executor(Arc::new(StalledExecutor))
+            .with_execution_config(ExecutionConfig::new().with_timeout(20));
+
+        let result = engine.replay(&id, Some(ReplayMode::Strict), None).await;
+
+        match result {
+            Err(ReplayError::ExecutionError(message)) => {
+                assert!(message.contains("timed out"), "{message}")
+            }
+            other => panic!("expected a timeout error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn stats_count_verified_replays_as_successful() {
+        let (storage, id) = stored("account_access").await;
+        let engine = ReplayEngine::new(storage).with_executor(Arc::new(FixedExecutor {
+            value: json!("account_access"),
+        }));
+
+        let stats = engine.get_replay_stats(&[id]).await.unwrap();
+        assert_eq!(stats.successful_replays, 1);
+        assert_eq!(stats.exact_matches, 1);
+        assert_eq!(stats.unverified_replays, 0);
     }
 
     #[tokio::test]

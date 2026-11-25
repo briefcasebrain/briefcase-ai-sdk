@@ -1,0 +1,12 @@
+{
+  "id": "datasets-from-records",
+  "title": "Evaluation datasets from captured records",
+  "verb": "review",
+  "one_line": "Turn real production calls into versioned test sets you can re-run.",
+  "command": "briefcase-ai dataset from-records runs.jsonl --name NAME",
+  "docs_slug": "review/datasets-from-records",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Promotion, versions, diff, jsonl export/import run for real on @capture records (temp HOME). inspect export loaded and scored by inspect-ai 0.3.291 (json_dataset + `inspect eval --model mockllm/model`); lm-eval export loaded and run by lm-eval 0.4.13 (`lm_eval --model dummy --include_path`); both logs re-parsed by briefcase.integrations.evals. Not run: the native sanitizer path (extension not built here; covered by a stub in tests), real provider records, a real model.",
+  "status_id": "datasets-from-records"
+}

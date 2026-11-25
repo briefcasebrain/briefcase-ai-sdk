@@ -1,0 +1,84 @@
+{
+  "name": "@briefcase-ai/auto",
+  "version": "5.0.0",
+  "description": "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/briefcasebrain/briefcase-ai-sdk.git",
+    "directory": "js/auto"
+  },
+  "type": "module",
+  "sideEffects": [
+    "./dist/register.js"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./register": {
+      "types": "./dist/register.d.ts",
+      "default": "./dist/register.js"
+    },
+    "./esbuild": {
+      "types": "./dist/esbuild.d.ts",
+      "default": "./dist/esbuild.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "bench:startup": "npm run build && node scripts/startup-bench.mjs 20"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "*",
+    "@aws-sdk/client-bedrock-runtime": "*",
+    "@google/genai": "*",
+    "@opentelemetry/api": "*",
+    "openai": "*"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@aws-sdk/client-bedrock-runtime": {
+      "optional": true
+    },
+    "@google/genai": {
+      "optional": true
+    },
+    "@opentelemetry/api": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "1.12.0",
+    "@aws-sdk/client-bedrock-runtime": "3.1175.0",
+    "@google/genai": "3.6.1",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/context-async-hooks": "^1.30.1",
+    "@types/node": "^24.3.0",
+    "esbuild": "0.28.2",
+    "openai": "7.62.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

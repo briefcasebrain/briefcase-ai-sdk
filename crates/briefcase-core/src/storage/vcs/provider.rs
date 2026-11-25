@@ -6,7 +6,6 @@
 //! filtering, and batching on top.
 
 use super::super::StorageError;
-#[cfg(feature = "async")]
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -40,7 +39,6 @@ pub struct ObjectMetadata {
 ///   version identifier (e.g., git SHA, Nessie hash, Pachyderm commit ID).
 /// - `list_objects` should return all object paths under a prefix.
 /// - Errors should be mapped to `StorageError` variants.
-#[cfg(feature = "async")]
 #[async_trait]
 pub trait VcsProvider: Send + Sync + std::fmt::Debug {
     /// Upload raw bytes to the given path.
@@ -96,7 +94,12 @@ pub trait VcsProvider: Send + Sync + std::fmt::Debug {
 ///
 /// Supports loading from environment variables with the pattern
 /// `BRIEFCASE_{PROVIDER}_{KEY}` (e.g., `BRIEFCASE_NESSIE_ENDPOINT`).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// `Debug` redacts `access_key`, `secret_key`, `token` and every `extra`
+/// value, so a config can be logged safely. `Serialize` still writes the
+/// credentials verbatim, since it exists to round-trip a config; treat the
+/// serialized form as a secret.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct VcsProviderConfig {
     /// Provider type identifier: `"dvc"`, `"nessie"`, `"pachyderm"`, etc.
     pub provider_type: String,
@@ -121,6 +124,29 @@ pub struct VcsProviderConfig {
 
     /// Provider-specific options not covered by the common fields.
     pub extra: HashMap<String, String>,
+}
+
+impl std::fmt::Debug for VcsProviderConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn redact(value: &Option<String>) -> Option<&'static str> {
+            value.as_ref().map(|_| "[REDACTED]")
+        }
+        // Extras are provider-defined and may carry credentials too, so only
+        // their keys are shown.
+        let mut extra_keys: Vec<&String> = self.extra.keys().collect();
+        extra_keys.sort();
+
+        f.debug_struct("VcsProviderConfig")
+            .field("provider_type", &self.provider_type)
+            .field("endpoint", &self.endpoint)
+            .field("access_key", &redact(&self.access_key))
+            .field("secret_key", &redact(&self.secret_key))
+            .field("token", &redact(&self.token))
+            .field("repository", &self.repository)
+            .field("branch", &self.branch)
+            .field("extra_keys", &extra_keys)
+            .finish()
+    }
 }
 
 impl VcsProviderConfig {
@@ -233,7 +259,6 @@ impl VcsProviderConfig {
     }
 }
 
-#[cfg(feature = "async")]
 #[async_trait]
 impl VcsProvider for Box<dyn VcsProvider> {
     async fn write_object(&self, path: &str, data: &[u8]) -> Result<(), StorageError> {
@@ -283,6 +308,28 @@ mod tests {
         assert_eq!(config.provider_type, "nessie");
         assert!(config.endpoint.is_none());
         assert!(config.extra.is_empty());
+    }
+
+    #[test]
+    fn test_debug_redacts_credentials() {
+        let config = VcsProviderConfig::new("nessie")
+            .with_endpoint("https://nessie.example.com")
+            .with_access_key("AKIA-access")
+            .with_secret_key("s3cr3t-key")
+            .with_token("tok-12345")
+            .with_extra("password", "hunter2");
+
+        let debug = format!("{:?}", config);
+        for secret in ["AKIA-access", "s3cr3t-key", "tok-12345", "hunter2"] {
+            assert!(!debug.contains(secret), "Debug leaked {secret}: {debug}");
+        }
+        assert!(debug.contains("https://nessie.example.com"));
+        assert!(debug.contains("password"));
+
+        // Serialize keeps the values so a config round-trips.
+        let json = serde_json::to_string(&config).unwrap();
+        let back: VcsProviderConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.token.as_deref(), Some("tok-12345"));
     }
 
     #[test]

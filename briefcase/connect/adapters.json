@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "notes": "Data for `briefcase-ai connect`. Formats come from each tool's public documentation on verified_on. min_tested/max_tested are the tool versions the adapter was actually run against (null: never run against the real tool, documentation only). `supported` is a documentation-derived range; a detected version outside it falls back to print-only (override with --force). Entries under `unverified` are never written automatically. An `enforce` block describes the tool's blocking hook, used by `briefcase-ai policy` and `briefcase-ai hook <tool> --enforce`: the event, how a hook denies or asks, and what the tool does when the hook itself fails, each from the page in `docs_url` on `verified_on`.",
+  "default_endpoint": "http://127.0.0.1:4318",
+  "tools": {
+    "claude-code": {
+      "name": "Claude Code",
+      "mode": "automatic",
+      "telemetry": "native-otel",
+      "detect": {"dirs": ["~/.claude"], "bins": ["claude"]},
+      "bin": "claude",
+      "files": {
+        "user_settings": "~/.claude/settings.json",
+        "project_mcp": ".mcp.json"
+      },
+      "managed_settings": [
+        "/Library/Application Support/ClaudeCode/managed-settings.json",
+        "/etc/claude-code/managed-settings.json",
+        "C:\\Program Files\\ClaudeCode\\managed-settings.json"
+      ],
+      "managed_settings_dirs": [
+        "/Library/Application Support/ClaudeCode/managed-settings.d",
+        "/etc/claude-code/managed-settings.d",
+        "C:\\Program Files\\ClaudeCode\\managed-settings.d"
+      ],
+      "otlp_protocol": "http/json",
+      "needs_protobuf": false,
+      "service_names": ["claude-code"],
+      "min_tested": "2.1.330",
+      "max_tested": "2.1.330",
+      "tested": "`claude mcp add/remove --scope user` and `claude plugin validate` on 2.1.330; telemetry export verified by the conformance harness on 2.1.330 (2026-11-21)",
+      "supported": {"min": "2.0.0", "below": "3.0.0"},
+      "docs_url": "https://code.claude.com/docs/en/monitoring-usage",
+      "verified_on": "2026-11-21",
+      "unverified": [],
+      "enforce": {
+        "mode": "automatic",
+        "docs_url": "https://code.claude.com/docs/en/hooks",
+        "verified_on": "2026-11-21",
+        "event": "PreToolUse",
+        "config": "hooks.PreToolUse[] = {matcher, hooks: [{type: \"command\", command, timeout}]} in ~/.claude/settings.json, .claude/settings.json or managed settings",
+        "matcher": "tool name; a value with characters beyond letters, digits, _, -, space, comma and | is an unanchored JavaScript regular expression",
+        "input": "JSON on stdin: session_id, cwd, permission_mode, hook_event_name, tool_name, tool_input, tool_use_id; file tools send an absolute tool_input.file_path",
+        "deny": "exit 0 with {\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"...\"}}; exit code 2 with the reason on stderr also blocks",
+        "ask": "the same object with permissionDecision \"ask\"; the reason is shown in the permission prompt",
+        "allow": "printing nothing leaves the normal permission flow in place; permissionDecision \"allow\" would skip the permission prompt, so it is never sent",
+        "on_hook_failure": "a hook that cannot start, exits with a code other than 0 or 2, prints invalid JSON or times out does not block the tool call; the handler field onFailure: \"block\" (Claude Code 2.1.295+) blocks instead",
+        "fail_closed_field": {
+          "name": "onFailure",
+          "value": "block",
+          "min_version": "2.1.295"
+        },
+        "timeout_seconds": 10,
+        "tested": "Claude Code 2.1.330 run with `claude -p` against a local stub model API on 2026-11-22: the installed hook denied Bash and Read calls with the rule's reason, an ask became a denial in -p (nobody to answer), allowed calls ran, a broken policy failed open, fail_closed blocked, a missing launcher blocked with onFailure \"block\" and was allowed without it (fail-open command form), and `briefcase-ai policy off` removed the entry",
+        "unverified": []
+      }
+    },
+    "cowork": {
+      "name": "Claude Desktop / Cowork",
+      "mode": "print-only",
+      "telemetry": "admin-otel",
+      "detect": {
+        "dirs": ["~/Library/Application Support/Claude", "~/.config/Claude"],
+        "bins": []
+      },
+      "needs_protobuf": true,
+      "service_names": ["cowork"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://support.claude.com/",
+      "verified_on": "2026-11-21",
+      "unverified": ["OTLP encoding sent by the admin-configured exporter", "exact docs_url of the monitoring page"]
+    },
+    "codex": {
+      "name": "Codex CLI",
+      "mode": "automatic",
+      "telemetry": "native-otel",
+      "detect": {"dirs": ["~/.codex"], "bins": ["codex"]},
+      "bin": "codex",
+      "files": {"user_config": "~/.codex/config.toml", "user_hooks": "~/.codex/hooks.json"},
+      "otlp_protocol": "binary",
+      "needs_protobuf": true,
+      "service_names": ["codex", "codex_cli_rs", "codex-cli"],
+      "min_tested": "0.171.0",
+      "max_tested": "0.171.0",
+      "tested": "the [otel] block written by connect was accepted by Codex CLI 0.171.0 in the conformance harness (2026-11-21); no telemetry was captured",
+      "supported": null,
+      "docs_url": "https://developers.openai.com/codex/config-advanced",
+      "verified_on": "2026-11-21",
+      "unverified": [
+        "protocol = \"json\" and trace_exporter (not used)",
+        "event attribute names and the reported service.name (the receiver accepts several aliases)",
+        "`codex mcp remove` (printed as a hint on undo, never run)"
+      ],
+      "enforce": {
+        "mode": "experimental",
+        "docs_url": "https://developers.openai.com/codex/hooks",
+        "verified_on": "2026-11-21",
+        "event": "PreToolUse",
+        "config": "hooks.PreToolUse[] = {matcher, hooks: [{type: \"command\", command, timeout}]} in ~/.codex/hooks.json, .codex/hooks.json or /etc/codex/hooks.json; managed: [hooks] in requirements.toml",
+        "matcher": "regular expression on the tool name: Bash, apply_patch (also matched by Edit or Write), mcp__server__tool",
+        "input": "JSON on stdin: session_id, cwd, hook_event_name, permission_mode, turn_id, tool_name, tool_use_id, tool_input (Bash and apply_patch: tool_input.command)",
+        "deny": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"...\"}}; exit code 2 with the reason on stderr also blocks",
+        "ask": null,
+        "allow": "exit 0 with no output",
+        "on_hook_failure": "a hook run that fails is reported and the tool call continues; the documentation names no setting that blocks instead",
+        "fail_closed_field": null,
+        "trust": "a new or changed non-managed hook is skipped until it is reviewed and trusted in /hooks",
+        "timeout_seconds": 10,
+        "tested": "Codex CLI 0.170.0: a hash-bound project shell hook permitted an allow marker and blocked a deny marker on 2026-11-25",
+        "unverified": [
+          "the apply_patch body grammar (file paths are read from `*** Add File:`, `*** Update File:`, `*** Delete File:` and `*** Move to:` lines)",
+          "permissionDecision \"ask\" is documented as unsupported, so an ask rule becomes the policy's ask_fallback",
+          "hosted tools such as WebSearch do not run PreToolUse, so web rules are not enforced in Codex",
+          "location of requirements.toml for managed hooks"
+        ]
+      }
+    },
+    "cursor": {
+      "name": "Cursor",
+      "mode": "automatic",
+      "telemetry": "hooks",
+      "detect": {"dirs": ["~/.cursor"], "bins": ["cursor"]},
+      "bin": "cursor",
+      "files": {
+        "user_hooks": "~/.cursor/hooks.json",
+        "project_hooks": ".cursor/hooks.json",
+        "user_mcp": "~/.cursor/mcp.json",
+        "project_mcp": ".cursor/mcp.json"
+      },
+      "hook_events": ["sessionStart", "sessionEnd", "beforeSubmitPrompt", "postToolUse", "afterAgentResponse", "stop"],
+      "hook_timeout_seconds": 5,
+      "needs_protobuf": false,
+      "service_names": ["cursor"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://cursor.com/docs/agent/hooks",
+      "verified_on": "2026-11-21",
+      "unverified": [],
+      "enforce": {
+        "mode": "experimental",
+        "docs_url": "https://cursor.com/docs/hooks",
+        "verified_on": "2026-11-21",
+        "events": {
+          "beforeShellExecution": "allow | deny | ask",
+          "beforeMCPExecution": "allow | deny | ask",
+          "beforeReadFile": "allow | deny",
+          "preToolUse": "allow | deny (\"ask\" is accepted by the schema but not enforced)"
+        },
+        "config": "hooks.<event>[] = {command, timeout, matcher?, failClosed?} in ~/.cursor/hooks.json or .cursor/hooks.json; enterprise: /Library/Application Support/Cursor/hooks.json, /etc/cursor/hooks.json, C:\\ProgramData\\Cursor\\hooks.json",
+        "input": "JSON on stdin: conversation_id, hook_event_name, workspace_roots plus command and cwd (beforeShellExecution), tool_name, tool_input and mcp_server_name (beforeMCPExecution), file_path (beforeReadFile), tool_name and tool_input (preToolUse)",
+        "deny": "exit 0 with {\"permission\": \"deny\", \"user_message\": \"...\", \"agent_message\": \"...\"}; exit code 2 also blocks",
+        "ask": "{\"permission\": \"ask\"} on beforeShellExecution and beforeMCPExecution only",
+        "allow": "{\"permission\": \"allow\"}; a permission hook that exits 0 with invalid or empty JSON blocks the action, so the hook always prints this",
+        "on_hook_failure": "crashes, timeouts and exit codes other than 0 and 2 fail open; failClosed: true on the hook entry blocks instead",
+        "fail_closed_field": {
+          "name": "failClosed",
+          "value": true
+        },
+        "pretooluse_matcher": "Write|Delete",
+        "timeout_seconds": 10,
+        "tested": "Cursor CLI 2026.09.18-9a7762b: a hash-bound project shell hook permitted an allow marker and blocked a deny marker on 2026-11-25 with an explicit shell working directory. When the runner omitted cwd, strict mode blocked the allow control",
+        "unverified": [
+          "tool_input field names for the Write and Delete tools in preToolUse (only the Shell example is documented); the hook reads file_path, path or target_file and allows the call when none is present",
+          "whether {\"permission\": \"allow\"} skips Cursor's own approval prompt for a command",
+          "no documented hook for web requests, so web rules are not enforced in Cursor"
+        ]
+      }
+    },
+    "vscode-copilot": {
+      "name": "VS Code Copilot Chat",
+      "mode": "automatic",
+      "telemetry": "native-otel",
+      "detect": {
+        "dirs": ["~/.config/Code/User", "~/Library/Application Support/Code/User", "%APPDATA%/Code/User"],
+        "bins": ["code"]
+      },
+      "bin": "code",
+      "files": {
+        "user_settings": {
+          "linux": "~/.config/Code/User/settings.json",
+          "darwin": "~/Library/Application Support/Code/User/settings.json",
+          "win32": "%APPDATA%/Code/User/settings.json"
+        },
+        "project_mcp": ".vscode/mcp.json"
+      },
+      "needs_protobuf": true,
+      "service_names": ["copilot-chat", "github-copilot"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://code.visualstudio.com/docs/copilot/guides/monitoring-agents",
+      "verified_on": "2026-11-21",
+      "unverified": ["whether the otlp-http exporter can send JSON (assumed protobuf, so the receiver extra is recommended)"]
+    },
+    "copilot-cli": {
+      "name": "GitHub Copilot CLI",
+      "mode": "print-only",
+      "telemetry": "env",
+      "detect": {"dirs": ["~/.copilot"], "bins": ["copilot"]},
+      "bin": "copilot",
+      "files": {"user_mcp": "~/.copilot/mcp-config.json"},
+      "otlp_protocol": "http/json",
+      "needs_protobuf": false,
+      "service_names": ["github-copilot"],
+      "min_tested": null,
+      "max_tested": null,
+      "tested": "`copilot help environment` run on Copilot CLI 1.0.114 installed from npm (@github/copilot, 2026-11-22): OTEL_EXPORTER_OTLP_PROTOCOL defaults to http/json (http/protobuf optional), so the receiver needs no protobuf extra, and OTEL_INSTRUMENTATION_GENAI_CAPTURE_CONTENT=SPAN_ONLY enables content; no telemetry was captured (the tool needs a login)",
+      "supported": null,
+      "docs_url": "https://code.visualstudio.com/docs/copilot/guides/monitoring-agents",
+      "verified_on": "2026-11-21",
+      "unverified": [
+        "shape of an entry under mcpServers in ~/.copilot/mcp-config.json",
+        "a persistent place for the env vars other than the shell profile"
+      ]
+    },
+    "gemini-cli": {
+      "name": "Gemini CLI",
+      "mode": "experimental",
+      "telemetry": "native-otel",
+      "detect": {"dirs": ["~/.gemini"], "bins": ["gemini"]},
+      "bin": "gemini",
+      "files": {
+        "user_settings": "~/.gemini/settings.json",
+        "project_settings": ".gemini/settings.json"
+      },
+      "needs_protobuf": true,
+      "service_names": ["gemini-cli"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/telemetry.md",
+      "verified_on": "2026-11-21",
+      "unverified": [
+        "user-level settings path (written only when ~/.gemini/settings.json already exists)",
+        "event names (records arrive as generic events)",
+        "docs_url; the project's docs say the CLI was superseded in 2026"
+      ]
+    },
+    "cline": {
+      "name": "Cline",
+      "mode": "print-only",
+      "telemetry": "env",
+      "detect": {"dirs": [], "bins": ["cline"], "globs": ["~/.vscode/extensions/saoudrizwan.claude-dev-*"]},
+      "needs_protobuf": true,
+      "service_names": ["cline"],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://docs.cline.bot/",
+      "verified_on": "2026-11-21",
+      "unverified": ["env var details and accepted values", "event names", "docs_url of the telemetry page"]
+    },
+    "windsurf": {
+      "name": "Windsurf",
+      "mode": "print-only",
+      "telemetry": "none",
+      "detect": {"dirs": ["~/.codeium/windsurf"], "bins": ["windsurf"]},
+      "files": {"user_mcp": "~/.codeium/windsurf/mcp_config.json"},
+      "needs_protobuf": false,
+      "service_names": [],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://docs.windsurf.com/",
+      "verified_on": "2026-11-21",
+      "unverified": ["MCP config path and shape", "docs_url of the MCP page"]
+    },
+    "opencode": {
+      "name": "opencode",
+      "mode": "print-only",
+      "telemetry": "none",
+      "detect": {"dirs": ["~/.config/opencode"], "bins": ["opencode"]},
+      "files": {"user_config": "~/.config/opencode/opencode.json"},
+      "needs_protobuf": false,
+      "service_names": [],
+      "min_tested": null,
+      "max_tested": null,
+      "supported": null,
+      "docs_url": "https://opencode.ai/docs/",
+      "verified_on": "2026-11-21",
+      "unverified": ["MCP entry shape in opencode.json", "docs_url of the MCP page"]
+    }
+  }
+}

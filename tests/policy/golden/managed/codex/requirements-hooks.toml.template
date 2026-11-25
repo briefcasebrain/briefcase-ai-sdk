@@ -1,0 +1,16 @@
+# TEMPLATE - merge into your organization's Codex requirements.toml.
+# Confirmed (https://developers.openai.com/codex/hooks, 2026-11-21): managed hooks are declared under
+#   [hooks] in requirements.toml, and [features].hooks = true keeps them on for users who disabled hooks.
+# Not confirmed: where requirements.toml lives on each operating system. The ready-made alternative
+#   in this pack is codex/hooks.json for /etc/codex/hooks.json, a documented system path.
+[features]
+hooks = true
+
+[[hooks.PreToolUse]]
+matcher = "^(Bash|apply_patch)$|^mcp__"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "briefcase-ai hook codex --enforce --fail-closed --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc"
+timeout = 10
+statusMessage = "Checking briefcase policy"

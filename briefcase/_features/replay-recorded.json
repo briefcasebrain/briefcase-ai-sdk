@@ -1,0 +1,11 @@
+{
+  "id": "replay-recorded",
+  "title": "Replay recorded LLM calls",
+  "verb": "verify",
+  "one_line": "Re-run captured LLM calls and see what changed in answers, tokens and cost.",
+  "command": "briefcase-ai replay explain runs.jsonl",
+  "docs_slug": "verify/replay-recorded",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Request shapes read from installed openai 3.57.0, anthropic 2.12.0, google-genai 3.6.1, boto3/botocore 1.44.9 (2026-11-21). Executors exercised only through each SDK's fake transport and botocore Stubber; no live provider call was made. Cassette executor and CLI run end to end on synthetic records."
+}

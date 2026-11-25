@@ -1,3 +1,4 @@
+#[cfg(feature = "async")]
 use crate::models::{DecisionSnapshot, Snapshot};
 #[cfg(feature = "async")]
 use async_trait::async_trait;
@@ -5,13 +6,18 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use thiserror::Error;
 
+#[cfg(feature = "async")]
 pub mod buffered;
+#[cfg(feature = "chain")]
+pub mod chain;
 #[cfg(feature = "sqlite-storage")]
 pub mod sqlite;
 pub mod sync;
 #[cfg(feature = "vcs-storage")]
 pub mod vcs;
 
+#[cfg(feature = "chain")]
+pub use chain::{ChainConfig, ChainEntry, Checkpoint, InclusionProof, Problem, VerifyReport};
 #[cfg(feature = "sqlite-storage")]
 pub use sqlite::SqliteBackend;
 #[cfg(feature = "sqlite-storage")]
@@ -139,6 +145,9 @@ pub enum StorageError {
     SerializationError(String),
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
+    /// An append-only backend was asked to save an id it already holds.
+    #[error("Already exists: {0}")]
+    AlreadyExists(String),
     #[error("Quota exceeded")]
     QuotaExceeded,
     #[error("Invalid query: {0}")]

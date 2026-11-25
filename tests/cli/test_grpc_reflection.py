@@ -57,3 +57,12 @@ def test_build_request_ignores_unknown_fields():
     DiffRequest = _message_class(pool, "oci_jj.v1.DiffRequest")
     msg = _build_request(DiffRequest, {"repo": "R", "unknown_field": "x"})
     assert msg.repo == "R"
+
+
+def test_build_request_skips_none_values():
+    """A None (an optional flag not given, e.g. a run without --checkpoint) leaves the proto3
+    default instead of raising TypeError from protobuf's setattr."""
+    pool = _build_pool(_make_files())
+    req = _build_request(_message_class(pool, "oci_jj.v1.DiffRequest"),
+                         {"repo": "R", "from_ref": None, "to_ref": "cand"})
+    assert req.from_ref == "" and req.to_ref == "cand"

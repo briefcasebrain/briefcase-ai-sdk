@@ -1,4 +1,4 @@
-"""The ``briefcase`` evaluation-run CLI — a thin, Briefcase-native lifecycle over the oci-jj engine.
+"""The ``briefcase-ai`` evaluation-run CLI — a thin, Briefcase-native lifecycle over the oci-jj engine.
 
 Register a dataset, store secrets, submit a verdict run, then monitor and fetch results — a job
 lifecycle mapped onto oci-jj + verdictml.

@@ -1,7 +1,7 @@
 //! Python bindings for cost calculation
 
 use briefcase_core::{
-    BudgetAlert, BudgetStatus, CostCalculator, CostEstimate, RateCard, TokenUsage,
+    BudgetAlert, BudgetStatus, CostCalculator, CostEstimate, ModelPricing, RateCard, TokenUsage,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
@@ -100,12 +100,15 @@ impl PyCostCalculator {
     }
 
     /// Project monthly cost, optionally under a `rate_card`.
+    ///
+    /// The daily token counts are totals across many requests, so they are
+    /// not limited to the model's per-request context window.
     #[pyo3(signature = (model_name, daily_input_tokens, daily_output_tokens, days_per_month, *, rate_card=None))]
     fn project_monthly_cost(
         &self,
         model_name: String,
-        daily_input_tokens: u32,
-        daily_output_tokens: u32,
+        daily_input_tokens: u64,
+        daily_output_tokens: u64,
         days_per_month: f64,
         rate_card: Option<String>,
     ) -> PyResult<f64> {
@@ -131,14 +134,14 @@ impl PyCostCalculator {
         model_b: String,
         input_tokens: u32,
         output_tokens: u32,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         match self.inner.compare_models(
             &model_a,
             &model_b,
             input_tokens as usize,
             output_tokens as usize,
         ) {
-            Ok(comparison) => Python::with_gil(|py| {
+            Ok(comparison) => Python::attach(|py| {
                 let dict = pyo3::types::PyDict::new(py);
                 dict.set_item("cheaper_model", &comparison.cheaper_model)?;
                 dict.set_item("savings", comparison.savings)?;
@@ -159,9 +162,9 @@ impl PyCostCalculator {
     }
 
     /// Get models under cost threshold per 1k tokens
-    fn get_models_under_cost(&self, max_cost_per_1k: f64) -> PyResult<PyObject> {
+    fn get_models_under_cost(&self, max_cost_per_1k: f64) -> PyResult<Py<PyAny>> {
         let models = self.inner.get_models_under_cost(max_cost_per_1k);
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for model in models {
                 list.append(&model.model_name)?;
@@ -171,9 +174,9 @@ impl PyCostCalculator {
     }
 
     /// Get models by provider
-    fn get_models_by_provider(&self, provider: String) -> PyResult<PyObject> {
+    fn get_models_by_provider(&self, provider: String) -> PyResult<Py<PyAny>> {
         let models = self.inner.get_models_by_provider(&provider);
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for model in models {
                 list.append(&model.model_name)?;
@@ -194,15 +197,68 @@ impl PyCostCalculator {
     }
 
     /// Get all available models
-    fn get_available_models(&self) -> PyResult<PyObject> {
+    fn get_available_models(&self) -> PyResult<Py<PyAny>> {
         let models = self.inner.get_all_models();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for model in models {
                 list.append(&model.model_name)?;
             }
             Ok(list.into())
         })
+    }
+
+    /// Add a model, or replace the pricing of an existing one. Costs are USD
+    /// per 1,000 tokens. Replacing a built-in model prices it at exactly
+    /// these flat rates (its cache, long-context and tier data is dropped).
+    #[pyo3(signature = (
+        model_name,
+        provider,
+        input_cost_per_1k_tokens,
+        output_cost_per_1k_tokens,
+        context_window,
+        max_output_tokens=None,
+    ))]
+    fn add_model(
+        &mut self,
+        model_name: String,
+        provider: String,
+        input_cost_per_1k_tokens: f64,
+        output_cost_per_1k_tokens: f64,
+        context_window: usize,
+        max_output_tokens: Option<usize>,
+    ) {
+        self.inner.add_model(ModelPricing {
+            model_name,
+            provider,
+            input_cost_per_1k_tokens,
+            output_cost_per_1k_tokens,
+            context_window,
+            max_output_tokens,
+        });
+    }
+
+    /// Remove a model. Returns whether it was registered.
+    fn remove_model(&mut self, model_name: &str) -> bool {
+        self.inner.remove_model(model_name).is_some()
+    }
+
+    /// Add or override models from a JSON string and return how many were
+    /// loaded. Schema: `{"models": [{"model_name", "provider",
+    /// "input_cost_per_1k_tokens", "output_cost_per_1k_tokens",
+    /// "context_window", "max_output_tokens" (optional)}]}`, costs in USD
+    /// per 1,000 tokens. Raises `ValueError` and loads nothing if invalid.
+    fn load_pricing_json(&mut self, json: &str) -> PyResult<usize> {
+        self.inner
+            .load_pricing_json(json)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    }
+
+    /// `load_pricing_json` from a file path.
+    fn load_pricing_file(&mut self, path: std::path::PathBuf) -> PyResult<usize> {
+        self.inner
+            .load_pricing_file(path)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
     }
 
     /// Get representative rate-card identifiers accepted by `rate_card=`.
@@ -284,8 +340,8 @@ impl PyCostEstimate {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("model_name", &self.inner.model_name)?;
             dict.set_item("currency", &self.inner.currency)?;
@@ -363,8 +419,8 @@ impl PyBudgetStatus {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("status", self.status())?;
             dict.set_item("current_spend", self.inner.spent_usd)?;

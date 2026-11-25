@@ -239,3 +239,141 @@ def test_missing_httpx(monkeypatch):
     monkeypatch.setitem(sys.modules, "httpx", None)
     with pytest.raises(ImportError, match="pip install"):
         OPARouter(endpoint="http://opa:8181/v1/data/briefcase/routing")
+
+
+# ---------------------------------------------------------------------------
+# Dict contexts, client reuse, fallback logging, cache bound, auth headers
+# ---------------------------------------------------------------------------
+
+def _install_counting_httpx_stub(monkeypatch, post):
+    """Like _install_httpx_stub, but counts client constructions and accepts
+    the headers= keyword."""
+    stub = ModuleType("httpx")
+    state = {"clients": 0, "closed": 0, "calls": []}
+
+    class FakeAsyncClient:
+        def __init__(self, timeout=None):
+            state["clients"] += 1
+
+        async def post(self, url, json=None, headers=None):
+            state["calls"].append({"url": url, "json": json, "headers": headers})
+            return await post(url, json)
+
+        async def aclose(self):
+            state["closed"] += 1
+
+    stub.AsyncClient = FakeAsyncClient  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    return state
+
+
+def test_opa_input_built_from_dict_record(monkeypatch):
+    """A @capture-style dict yields the same input document as an object."""
+    async def post(url, json):
+        return FakeResponse("auto")
+
+    calls = _install_httpx_stub(monkeypatch, post)
+    router = _make_router()
+    _run(router.route({
+        "decision_id": "d1",
+        "confidence": 0.42,
+        "context_version": "v7",
+        "model_parameters": {"model_name": "m1"},
+        "tags": {"team": "risk"},
+    }))
+    assert calls[0]["json"]["input"] == {
+        "confidence": pytest.approx(0.42),
+        "context_version": "v7",
+        "model_name": "m1",
+        "tags": {"team": "risk"},
+    }
+
+
+def test_internal_router_reads_dict_confidence():
+    from briefcase.routing.internal import InternalRouter
+
+    router = InternalRouter(confidence_threshold=0.5)
+    assert _run(router.route({"confidence": 0.9})).action == "auto"
+    assert _run(router.route({"outputs": {"confidence": 0.1}})).action == "human_review"
+
+
+def test_opa_reuses_one_client_across_calls(monkeypatch):
+    async def post(url, json):
+        return FakeResponse("auto")
+
+    state = _install_counting_httpx_stub(monkeypatch, post)
+    router = _make_router()
+
+    async def main():
+        for confidence in (0.1, 0.2, 0.3, 0.4):
+            await router.route(FakeDecision(confidence=confidence))
+        await router.aclose()
+
+    _run(main())
+    assert len(state["calls"]) == 4
+    assert state["clients"] == 1
+    assert state["closed"] == 1
+
+
+def test_opa_fallback_is_logged_at_warning(monkeypatch, caplog):
+    import logging
+
+    async def post(url, json):
+        raise ConnectionError("opa down")
+
+    _install_httpx_stub(monkeypatch, post)
+    router = _make_router()
+    with caplog.at_level(logging.WARNING, logger="briefcase.routing.opa"):
+        first = _run(router.route(FakeDecision(confidence=0.9)))
+        _run(router.route(FakeDecision(confidence=0.8)))
+    assert first.source == "internal"
+    warnings = [r for r in caplog.records if "falling back" in r.getMessage()]
+    assert len(warnings) == 1  # rate-limited: an outage does not log per decision
+    assert warnings[0].levelno == logging.WARNING
+    assert "ConnectionError: opa down" in warnings[0].getMessage()
+
+
+def test_opa_cache_is_bounded_lru(monkeypatch):
+    async def post(url, json):
+        return FakeResponse("auto")
+
+    calls = _install_httpx_stub(monkeypatch, post)
+    router = _make_router(cache_max_entries=3)
+
+    async def main():
+        for i in range(10):
+            await router.route(FakeDecision(confidence=i / 100))
+        assert len(router._cache) == 3
+        before = len(calls)
+        await router.route(FakeDecision(confidence=0.09))  # most recent: cached
+        assert len(calls) == before
+        await router.route(FakeDecision(confidence=0.0))   # evicted: refetched
+        assert len(calls) == before + 1
+
+    _run(main())
+
+
+def test_ttl_cache_evicts_least_recently_used():
+    from briefcase.routing.opa import _TTLCache
+
+    cache = _TTLCache(ttl_seconds=60, max_entries=2)
+    a, b, c = (RoutingDecision(action=x, source="opa", eval_time_ms=0.0) for x in "abc")
+    cache.set("a", a)
+    cache.set("b", b)
+    assert cache.get("a") is a   # touch "a" so "b" is the oldest
+    cache.set("c", c)
+    assert cache.get("b") is None
+    assert cache.get("a") is a and cache.get("c") is c
+
+
+def test_opa_sends_token_and_headers(monkeypatch):
+    async def post(url, json):
+        return FakeResponse("auto")
+
+    state = _install_counting_httpx_stub(monkeypatch, post)
+    router = _make_router(token="tok-123", headers={"X-Tenant": "acme"})
+    _run(router.route(FakeDecision()))
+    assert state["calls"][0]["headers"] == {
+        "Authorization": "Bearer tok-123",
+        "X-Tenant": "acme",
+    }

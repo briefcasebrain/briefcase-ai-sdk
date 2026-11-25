@@ -1,0 +1,13 @@
+{
+  "id": "sanitizer",
+  "title": "PII redaction",
+  "verb": "capture",
+  "one_line": "Strip emails, phone numbers, card numbers and keys before anything is stored.",
+  "command": "briefcase-ai features sanitizer",
+  "docs_slug": "capture/sanitizer",
+  "status": "stable",
+  "requires_extra": null,
+  "verified_against": "Rust core unit tests and the native binding tests (bindings/python/tests) run the real sanitizer; the facade tests in tests/ use a mock core. Needs the compiled core.",
+  "docs_path": "llms-full.txt",
+  "snippet": "from briefcase.sanitize import Sanitizer\n\nresult = Sanitizer().sanitize(\"email me at jane@acme.com\")\nprint(result.sanitized)"
+}

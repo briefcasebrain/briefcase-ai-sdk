@@ -1,0 +1,6 @@
+{
+  "schema_version": 2,
+  "key_id": "sha256:52c596413fa529119931a85813279444de9b55d361c0d83d66fd7cac00ab4593",
+  "payload": "{\n  \"schema_version\": 1,\n  \"key_id\": \"sha256:52c596413fa529119931a85813279444de9b55d361c0d83d66fd7cac00ab4593\",\n  \"updated_at\": \"2026-01-02T03:04:05Z\",\n  \"versions\": [\n    {\n      \"version\": \"0.2.0\",\n      \"released_at\": \"2026-01-02T03:04:04Z\",\n      \"summary\": \"Second test release!\",\n      \"prerelease\": false,\n      \"min_sdk_version\": \"4.5.0\",\n      \"manifest\": \"releases/0.2.0/engine-manifest.json\"\n    },\n    {\n      \"version\": \"0.1.0-rc.1\",\n      \"released_at\": \"2026-01-01T00:00:00Z\",\n      \"summary\": \"First release candidate.\",\n      \"prerelease\": true,\n      \"min_sdk_version\": \"4.5.0\",\n      \"manifest\": \"releases/0.1.0-rc.1/engine-manifest.json\"\n    }\n  ]\n}\n",
+  "signature": "MEUCIQD2BWCZ9Ws0ZSnYZEE+/WFg/6BBGjiWsIkh2Ctjgdsr5AIgHBF48i0eaKjoSMLCCngM1b0O2KsQCYg/zFirPY/18Tg="
+}

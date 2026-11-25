@@ -205,6 +205,34 @@ class TestSanitizationIntegration:
         assert result.sanitized["database"]["port"] == 5432
         assert result.sanitized["api"]["rate_limit"] == 1000
 
+    def test_pii_in_json_keys_is_redacted_without_losing_entries(self):
+        sanitizer = Sanitizer()
+        assert sanitizer.redact_json_keys is True
+
+        data = {
+            "alice@example.com": {"plan": "pro"},
+            "bob@example.com": {"plan": "free"},
+            "plain": 1,
+        }
+        result = sanitizer.sanitize_json(data)
+
+        assert result.sanitized == {
+            "[REDACTED_EMAIL]_1": {"plan": "pro"},
+            "[REDACTED_EMAIL]_2": {"plan": "free"},
+            "plain": 1,
+        }
+        assert result.redaction_count == 2
+
+    def test_json_key_redaction_can_be_turned_off(self):
+        sanitizer = Sanitizer()
+        sanitizer.set_redact_json_keys(False)
+        assert sanitizer.redact_json_keys is False
+
+        result = sanitizer.sanitize_json({"alice@example.com": "bob@example.com"})
+
+        assert result.sanitized == {"alice@example.com": "[REDACTED_EMAIL]"}
+        assert result.redaction_count == 1
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

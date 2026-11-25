@@ -170,11 +170,10 @@ class TestVcsClientBaseObjectOperations:
     def test_read_object_error_recorded(self):
         client = VcsClientBase(provider_type="test", repository="test-repo")
         with patch.object(client, "_read_object_impl", side_effect=FileNotFoundError("Not found")):
-            content, metadata = client.read_object("missing.txt", return_metadata=True)
-
-            assert content == b""
-            assert metadata["status"] == "error"
-            assert "error" in metadata
+            with pytest.raises(FileNotFoundError):
+                client.read_object("missing.txt", return_metadata=True)
+            with pytest.raises(FileNotFoundError):
+                client.read_object("missing.txt")
 
     def test_write_object_tracks_metadata(self):
         client = VcsClientBase(provider_type="test", repository="test-repo")
@@ -194,10 +193,8 @@ class TestVcsClientBaseObjectOperations:
     def test_write_object_error_recorded(self):
         client = VcsClientBase(provider_type="test", repository="test-repo")
         with patch.object(client, "_write_object_impl", side_effect=IOError("Write failed")):
-            metadata = client.write_object("data/file.txt", b"content")
-
-            assert metadata["status"] == "error"
-            assert "error" in metadata
+            with pytest.raises(IOError):
+                client.write_object("data/file.txt", b"content")
 
 
 class TestVcsClientBaseVersioning:
@@ -229,10 +226,9 @@ class TestVcsClientBaseVersioning:
     def test_create_version_error_recorded(self):
         client = VcsClientBase(provider_type="test", repository="test-repo")
         with patch.object(client, "_create_version_impl", side_effect=RuntimeError("Commit failed")):
-            result = client.create_version("Message")
-
-            assert result["status"] == "error"
-            assert "error" in result
+            with pytest.raises(RuntimeError):
+                client.create_version("Message")
+            assert client.version is None
 
 
 class TestVcsClientBaseClose:
@@ -269,7 +265,7 @@ class TestDvcClient:
     """DVC provider client in mock mode."""
 
     def test_dvc_client_init(self):
-        client = DvcClient(repository="dvc-repo", branch="develop", repo_path="/path/to/repo")
+        client = DvcClient(mock=True, repository="dvc-repo", branch="develop", repo_path="/path/to/repo")
 
         assert client.provider_type == "dvc"
         assert client.repository == "dvc-repo"
@@ -277,10 +273,10 @@ class TestDvcClient:
         assert client.repo_path == "/path/to/repo"
 
     def test_dvc_provider_type(self):
-        assert DvcClient(repository="test-repo").provider_type == "dvc"
+        assert DvcClient(mock=True, repository="test-repo").provider_type == "dvc"
 
     def test_dvc_capture_metadata(self):
-        client = DvcClient(repository="test-repo", branch="main", remote="s3://bucket/dvc")
+        client = DvcClient(mock=True, repository="test-repo", branch="main", remote="s3://bucket/dvc")
         metadata = client.capture_metadata()
 
         assert metadata["provider_type"] == "dvc"
@@ -288,18 +284,18 @@ class TestDvcClient:
         assert metadata["branch"] == "main"
 
     def test_dvc_mock_mode_read(self):
-        client = DvcClient(repository="test-repo")
+        client = DvcClient(mock=True, repository="test-repo")
         content = client.read_object("data/train.csv")
 
         assert isinstance(content, bytes)
         assert b"data/train.csv" in content
 
     def test_dvc_mock_mode_write(self):
-        client = DvcClient(repository="test-repo")
+        client = DvcClient(mock=True, repository="test-repo")
         assert client.write_object("data/out.csv", b"result")["status"] == "success"
 
     def test_dvc_mock_mode_create_version(self):
-        client = DvcClient(repository="test-repo", branch="main")
+        client = DvcClient(mock=True, repository="test-repo", branch="main")
         result = client.create_version("Updated dataset")
 
         assert result["status"] == "success"
@@ -316,6 +312,7 @@ class TestNessieClient:
 
     def test_nessie_client_init(self):
         client = NessieClient(
+            mock=True,
             repository="iceberg-catalog",
             branch="develop",
             endpoint="https://nessie.example.com/api/v1",
@@ -329,30 +326,30 @@ class TestNessieClient:
         assert client.token == "token123"
 
     def test_nessie_provider_type(self):
-        assert NessieClient(repository="test-repo").provider_type == "nessie"
+        assert NessieClient(mock=True, repository="test-repo").provider_type == "nessie"
 
     def test_nessie_default_endpoint(self):
-        assert "localhost:19120" in NessieClient(repository="test-repo").endpoint
+        assert "localhost:19120" in NessieClient(mock=True, repository="test-repo").endpoint
 
     def test_nessie_capture_metadata(self):
-        client = NessieClient(repository="test-repo", branch="main", endpoint="https://nessie.test.com")
+        client = NessieClient(mock=True, repository="test-repo", branch="main", endpoint="https://nessie.test.com")
         metadata = client.capture_metadata()
 
         assert metadata["provider_type"] == "nessie"
         assert metadata["endpoint"] == "https://nessie.test.com"
 
     def test_nessie_mock_mode_read(self):
-        content = NessieClient(repository="test-repo").read_object("catalog.json")
+        content = NessieClient(mock=True, repository="test-repo").read_object("catalog.json")
 
         assert isinstance(content, bytes)
         assert b"catalog" in content
 
     def test_nessie_mock_mode_write(self):
-        metadata = NessieClient(repository="test-repo").write_object("catalog.json", b"{}")
+        metadata = NessieClient(mock=True, repository="test-repo").write_object("catalog.json", b"{}")
         assert metadata["status"] == "success"
 
     def test_nessie_mock_mode_create_version(self):
-        result = NessieClient(repository="test-repo", branch="main").create_version("Updated catalog")
+        result = NessieClient(mock=True, repository="test-repo", branch="main").create_version("Updated catalog")
 
         assert result["status"] == "success"
         assert "nessie" in result["version_id"]
@@ -368,6 +365,7 @@ class TestPachydermClient:
 
     def test_pachyderm_client_init(self):
         client = PachydermClient(
+            mock=True,
             repository="data-repo",
             branch="main",
             endpoint="grpc://localhost:30650",
@@ -379,23 +377,23 @@ class TestPachydermClient:
         assert client.endpoint == "grpc://localhost:30650"
 
     def test_pachyderm_provider_type(self):
-        assert PachydermClient(repository="test-repo").provider_type == "pachyderm"
+        assert PachydermClient(mock=True, repository="test-repo").provider_type == "pachyderm"
 
     def test_pachyderm_default_endpoint(self):
-        assert "30650" in PachydermClient(repository="test-repo").endpoint
+        assert "30650" in PachydermClient(mock=True, repository="test-repo").endpoint
 
     def test_pachyderm_capture_metadata(self):
-        client = PachydermClient(repository="test-repo", branch="main", endpoint="grpc://example.com:30650")
+        client = PachydermClient(mock=True, repository="test-repo", branch="main", endpoint="grpc://example.com:30650")
         assert client.capture_metadata()["provider_type"] == "pachyderm"
 
     def test_pachyderm_mock_mode_read(self):
-        content = PachydermClient(repository="test-repo").read_object("data/raw.parquet")
+        content = PachydermClient(mock=True, repository="test-repo").read_object("data/raw.parquet")
 
         assert isinstance(content, bytes)
         assert b"Pachyderm" in content
 
     def test_pachyderm_mock_mode_create_version(self):
-        result = PachydermClient(repository="test-repo", branch="main").create_version("Data ingestion")
+        result = PachydermClient(mock=True, repository="test-repo", branch="main").create_version("Data ingestion")
 
         assert result["status"] == "success"
         assert "pachyderm" in result["version_id"]
@@ -410,6 +408,7 @@ class TestArtiVCClient:
 
     def test_artivc_client_init(self):
         client = ArtiVCClient(
+            mock=True,
             repository="ml-models",
             branch="production",
             endpoint="https://artivc.example.com",
@@ -421,23 +420,23 @@ class TestArtiVCClient:
         assert client.branch == "production"
 
     def test_artivc_provider_type(self):
-        assert ArtiVCClient(repository="test-repo").provider_type == "artivc"
+        assert ArtiVCClient(mock=True, repository="test-repo").provider_type == "artivc"
 
     def test_artivc_default_endpoint(self):
-        assert "localhost:8080" in ArtiVCClient(repository="test-repo").endpoint
+        assert "localhost:8080" in ArtiVCClient(mock=True, repository="test-repo").endpoint
 
     def test_artivc_capture_metadata(self):
-        client = ArtiVCClient(repository="test-repo", branch="main", endpoint="https://artivc.test.com")
+        client = ArtiVCClient(mock=True, repository="test-repo", branch="main", endpoint="https://artivc.test.com")
         assert client.capture_metadata()["provider_type"] == "artivc"
 
     def test_artivc_mock_mode_read(self):
-        content = ArtiVCClient(repository="test-repo").read_object("models/v1.pkl")
+        content = ArtiVCClient(mock=True, repository="test-repo").read_object("models/v1.pkl")
 
         assert isinstance(content, bytes)
         assert b"ArtiVC" in content
 
     def test_artivc_mock_mode_create_version(self):
-        result = ArtiVCClient(repository="test-repo", branch="main").create_version("Retrained model")
+        result = ArtiVCClient(mock=True, repository="test-repo", branch="main").create_version("Retrained model")
 
         assert result["status"] == "success"
         assert "artivc" in result["version_id"]
@@ -452,30 +451,30 @@ class TestDuckLakeClient:
     """DuckLake provider client in mock mode."""
 
     def test_ducklake_client_init(self):
-        client = DuckLakeClient(repository="analytics-lake", branch="main", db_path="/tmp/duckdb.db")
+        client = DuckLakeClient(mock=True, repository="analytics-lake", branch="main", db_path="/tmp/duckdb.db")
 
         assert client.provider_type == "ducklake"
         assert client.repository == "analytics-lake"
         assert client.db_path == "/tmp/duckdb.db"
 
     def test_ducklake_provider_type(self):
-        assert DuckLakeClient(repository="test-repo").provider_type == "ducklake"
+        assert DuckLakeClient(mock=True, repository="test-repo").provider_type == "ducklake"
 
     def test_ducklake_default_db_path(self):
-        assert ":memory:" in DuckLakeClient(repository="test-repo").db_path
+        assert ":memory:" in DuckLakeClient(mock=True, repository="test-repo").db_path
 
     def test_ducklake_capture_metadata(self):
-        client = DuckLakeClient(repository="test-repo", branch="main", endpoint="http://lakefs.test.com")
+        client = DuckLakeClient(mock=True, repository="test-repo", branch="main", endpoint="http://lakefs.test.com")
         assert client.capture_metadata()["provider_type"] == "ducklake"
 
     def test_ducklake_mock_mode_read(self):
-        content = DuckLakeClient(repository="test-repo").read_object("queries/report.sql")
+        content = DuckLakeClient(mock=True, repository="test-repo").read_object("queries/report.sql")
 
         assert isinstance(content, bytes)
         assert b"DuckLake" in content
 
     def test_ducklake_mock_mode_create_version(self):
-        result = DuckLakeClient(repository="test-repo", branch="main").create_version("Daily refresh")
+        result = DuckLakeClient(mock=True, repository="test-repo", branch="main").create_version("Daily refresh")
 
         assert result["status"] == "success"
         assert "ducklake" in result["version_id"]
@@ -491,6 +490,7 @@ class TestIcebergClient:
 
     def test_iceberg_client_init(self):
         client = IcebergClient(
+            mock=True,
             repository="data-catalog",
             branch="main",
             endpoint="file:///tmp/warehouse",
@@ -502,23 +502,23 @@ class TestIcebergClient:
         assert client.warehouse == "/tmp/iceberg-warehouse"
 
     def test_iceberg_provider_type(self):
-        assert IcebergClient(repository="test-repo").provider_type == "iceberg"
+        assert IcebergClient(mock=True, repository="test-repo").provider_type == "iceberg"
 
     def test_iceberg_default_endpoint(self):
-        assert "iceberg-warehouse" in IcebergClient(repository="test-repo").endpoint
+        assert "iceberg-warehouse" in IcebergClient(mock=True, repository="test-repo").endpoint
 
     def test_iceberg_capture_metadata(self):
-        client = IcebergClient(repository="test-repo", branch="main", endpoint="file:///warehouse")
+        client = IcebergClient(mock=True, repository="test-repo", branch="main", endpoint="file:///warehouse")
         assert client.capture_metadata()["provider_type"] == "iceberg"
 
     def test_iceberg_mock_mode_read(self):
-        content = IcebergClient(repository="test-repo").read_object("events.events_table")
+        content = IcebergClient(mock=True, repository="test-repo").read_object("events.events_table")
 
         assert isinstance(content, bytes)
         assert b"Iceberg" in content
 
     def test_iceberg_mock_mode_create_version(self):
-        result = IcebergClient(repository="test-repo", branch="main").create_version("Backfilled data")
+        result = IcebergClient(mock=True, repository="test-repo", branch="main").create_version("Backfilled data")
 
         assert result["status"] == "success"
         assert "iceberg" in result["version_id"]
@@ -534,6 +534,7 @@ class TestGitLFSClient:
 
     def test_gitlfs_client_init(self, tmp_path):
         client = GitLFSClient(
+            mock=True,
             repository="https://github.com/user/ml-datasets",
             branch="main",
             repo_path=str(tmp_path),
@@ -544,13 +545,14 @@ class TestGitLFSClient:
         assert client.repo_path == str(tmp_path)
 
     def test_gitlfs_provider_type(self, tmp_path):
-        assert GitLFSClient(repository="test-repo", repo_path=str(tmp_path)).provider_type == "gitlfs"
+        assert GitLFSClient(mock=True, repository="test-repo", repo_path=str(tmp_path)).provider_type == "gitlfs"
 
     def test_gitlfs_default_repo_path(self):
-        assert GitLFSClient(repository="test-repo").repo_path == "."
+        assert GitLFSClient(mock=True, repository="test-repo").repo_path == "."
 
     def test_gitlfs_capture_metadata(self, tmp_path):
         client = GitLFSClient(
+            mock=True,
             repository="test-repo",
             branch="main",
             endpoint="https://github.com/repo.git",
@@ -559,17 +561,20 @@ class TestGitLFSClient:
         assert client.capture_metadata()["provider_type"] == "gitlfs"
 
     def test_gitlfs_mock_mode_read(self, tmp_path):
-        content = GitLFSClient(repository="test-repo", repo_path=str(tmp_path)).read_object("models/model.pkl")
+        client = GitLFSClient(mock=True, repository="test-repo", repo_path=str(tmp_path))
+        content = client.read_object("models/model.pkl")
 
         assert isinstance(content, bytes)
         assert b"Git LFS" in content
 
     def test_gitlfs_mock_mode_write(self, tmp_path):
-        client = GitLFSClient(repository="test-repo", repo_path=str(tmp_path))
+        client = GitLFSClient(mock=True, repository="test-repo", repo_path=str(tmp_path))
         assert client.write_object("models/out.pkl", b"model_data")["status"] == "success"
 
     def test_gitlfs_mock_mode_create_version(self, tmp_path):
-        result = GitLFSClient(repository="test-repo", branch="main", repo_path=str(tmp_path)).create_version(
+        result = GitLFSClient(
+            mock=True,
+            repository="test-repo", branch="main", repo_path=str(tmp_path)).create_version(
             "Updated model"
         )
 
@@ -647,17 +652,17 @@ class TestMockMode:
     """VCS clients in mock mode."""
 
     def test_mock_mode_read_returns_content(self, no_providers):
-        content = DvcClient(repository="test-repo").read_object("data/file.csv")
+        content = DvcClient(mock=True, repository="test-repo").read_object("data/file.csv")
 
         assert isinstance(content, bytes)
         assert len(content) > 0
 
     def test_mock_mode_write_succeeds(self):
-        metadata = NessieClient(repository="test-repo").write_object("catalog.json", b"data")
+        metadata = NessieClient(mock=True, repository="test-repo").write_object("catalog.json", b"data")
         assert metadata["status"] == "success"
 
     def test_mock_mode_create_version_returns_id(self, no_providers):
-        result = PachydermClient(repository="test-repo").create_version("Commit")
+        result = PachydermClient(mock=True, repository="test-repo").create_version("Commit")
 
         assert result["status"] == "success"
         assert isinstance(result["version_id"], str)
@@ -665,13 +670,13 @@ class TestMockMode:
 
     def test_all_providers_mock_mode_compatible(self, no_providers, tmp_path):
         providers = [
-            DvcClient(repository="test", repo_path=str(tmp_path)),
-            NessieClient(repository="test"),
-            PachydermClient(repository="test"),
-            ArtiVCClient(repository="test"),
-            DuckLakeClient(repository="test"),
-            IcebergClient(repository="test"),
-            GitLFSClient(repository="test", repo_path=str(tmp_path)),
+            DvcClient(mock=True, repository="test", repo_path=str(tmp_path)),
+            NessieClient(mock=True, repository="test"),
+            PachydermClient(mock=True, repository="test"),
+            ArtiVCClient(mock=True, repository="test"),
+            DuckLakeClient(mock=True, repository="test"),
+            IcebergClient(mock=True, repository="test"),
+            GitLFSClient(mock=True, repository="test", repo_path=str(tmp_path)),
         ]
 
         for client in providers:
@@ -693,17 +698,17 @@ class TestVcsIntegrationContextManager:
     """VCS clients as context managers."""
 
     def test_dvc_context_manager(self, no_providers):
-        with DvcClient(repository="test-repo") as client:
+        with DvcClient(mock=True, repository="test-repo") as client:
             assert isinstance(client, DvcClient)
             assert isinstance(client.read_object("data/file.csv"), bytes)
 
     def test_nessie_context_manager(self):
-        with NessieClient(repository="test-repo") as client:
+        with NessieClient(mock=True, repository="test-repo") as client:
             assert isinstance(client, NessieClient)
             assert client.write_object("catalog.json", b"{}")["status"] == "success"
 
     def test_gitlfs_context_manager(self, tmp_path):
-        with GitLFSClient(repository="test-repo", repo_path=str(tmp_path)) as client:
+        with GitLFSClient(mock=True, repository="test-repo", repo_path=str(tmp_path)) as client:
             assert isinstance(client, GitLFSClient)
             assert client.create_version("Updated model")["status"] == "success"
 
@@ -712,22 +717,22 @@ class TestVcsIntegrationMultipleProviders:
     """Multiple VCS providers together."""
 
     def test_multiple_providers_independent(self, no_providers):
-        dvc = DvcClient(repository="dvc-repo", branch="main")
-        nessie = NessieClient(repository="nessie-repo", branch="dev")
+        dvc = DvcClient(mock=True, repository="dvc-repo", branch="main")
+        nessie = NessieClient(mock=True, repository="nessie-repo", branch="dev")
 
         assert b"train.csv" in dvc.read_object("data/train.csv")
         assert b"catalog" in nessie.read_object("catalog.json")
 
     def test_different_branches_per_provider(self, no_providers):
-        client1 = DvcClient(repository="repo1", branch="main")
-        client2 = DvcClient(repository="repo1", branch="develop")
+        client1 = DvcClient(mock=True, repository="repo1", branch="main")
+        client2 = DvcClient(mock=True, repository="repo1", branch="develop")
 
         assert client1.capture_metadata()["branch"] == "main"
         assert client2.capture_metadata()["branch"] == "develop"
 
     def test_sequential_version_creation(self, no_providers):
-        dvc = DvcClient(repository="repo", branch="main")
-        nessie = NessieClient(repository="repo", branch="main")
+        dvc = DvcClient(mock=True, repository="repo", branch="main")
+        nessie = NessieClient(mock=True, repository="repo", branch="main")
 
         v1 = dvc.create_version("Initial")
         v2 = nessie.create_version("Follow-up")
@@ -741,28 +746,28 @@ class TestVcsInstrumentation:
     """VCS metadata recording."""
 
     def test_read_object_metadata_contains_all_fields(self, no_providers):
-        client = DvcClient(repository="test-repo", branch="main")
+        client = DvcClient(mock=True, repository="test-repo", branch="main")
         _, metadata = client.read_object("file.txt", return_metadata=True)
 
         for key in ("path", "provider", "repository", "branch", "size", "status"):
             assert key in metadata
 
     def test_write_object_metadata_contains_all_fields(self):
-        client = NessieClient(repository="test-repo", branch="main")
+        client = NessieClient(mock=True, repository="test-repo", branch="main")
         metadata = client.write_object("file.txt", b"content")
 
         for key in ("path", "provider", "repository", "branch", "size", "status"):
             assert key in metadata
 
     def test_version_metadata_contains_all_fields(self, no_providers):
-        client = PachydermClient(repository="test-repo", branch="main")
+        client = PachydermClient(mock=True, repository="test-repo", branch="main")
         result = client.create_version("Commit message", metadata={"key": "value"})
 
         for key in ("version_id", "provider", "repository", "branch", "message", "timestamp", "metadata", "status"):
             assert key in result
 
     def test_capture_metadata_timestamp(self, no_providers):
-        metadata = DvcClient(repository="test-repo").capture_metadata()
+        metadata = DvcClient(mock=True, repository="test-repo").capture_metadata()
 
         assert "timestamp" in metadata
         datetime.fromisoformat(metadata["timestamp"])

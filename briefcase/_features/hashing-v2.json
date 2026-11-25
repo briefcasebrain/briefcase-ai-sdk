@@ -1,0 +1,11 @@
+{
+  "id": "hashing-v2",
+  "title": "Cross-language hashing (RFC 8785)",
+  "verb": "verify",
+  "one_line": "Hashes Python, TypeScript and Rust compute identically, floats included.",
+  "command": "briefcase-ai verify ./evidence.db",
+  "docs_slug": "verify/hashing-v2",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "RFC 8785 text (rfc-editor.org, read 2026-11-22): Appendix B numbers and section 3.2.3/3.2.4 examples pinned; cyberphone/json-canonicalization testdata (6 files, fetched 2026-11-22) pinned; Python and Rust number formatting compared with V8 String(x) in Node.js 22.23.5 on 599,872 random doubles with 0 mismatches. 78 shared vectors asserted by Python, TypeScript (vitest) and Rust (cargo test). No third-party JCS library was run."
+}

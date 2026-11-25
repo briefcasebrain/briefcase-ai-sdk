@@ -1,0 +1,77 @@
+# Provider spec drift: have OpenAI, Anthropic, Google or AWS changed the API specs
+# tests/contracts pins, and does the code still match the new ones? Early warning only.
+#
+#   - runs weekly and on manual dispatch; NOT triggered by pushes or pull requests, so it
+#     can never block a PR
+#   - writes nothing back: the drift report and the refreshed specs are workflow
+#     artifacts; the pinned copies are updated by a reviewed PR that runs
+#     `python scripts/refresh_provider_specs.py --write`
+#
+# Local run: python scripts/refresh_provider_specs.py   (docs/features/provider-contracts.md)
+name: Provider spec drift
+
+on:
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-contracts-refresh
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: Re-download the specs, report drift, run the contracts against them
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the provider SDKs (latest) and the test tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-mock pytest-asyncio "jsonschema>=4.18" \
+            openai anthropic google-genai boto3
+
+      - name: Report drift against the pinned specs
+        id: report
+        # Exit 1 means drift: recorded in the report, the job carries on to test it.
+        run: |
+          set +e
+          python scripts/refresh_provider_specs.py --json > drift-report.json
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          python - <<'EOF'
+          import json, sys
+          sys.path.insert(0, "scripts")
+          from refresh_provider_specs import render
+          print("\n".join(render(json.load(open("drift-report.json")))))
+          EOF
+
+      - name: Run the contract suite against the refreshed specs
+        if: steps.report.outputs.exit == '1'
+        run: |
+          python scripts/refresh_provider_specs.py --write
+          pytest tests/contracts -q -rs
+
+      - name: Upload the report and refreshed specs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: provider-spec-drift
+          path: |
+            drift-report.json
+            tests/contracts/specs/
+          retention-days: 30
+
+      - name: Fail when a spec could not be fetched
+        if: steps.report.outputs.exit == '2'
+        run: |
+          echo "A spec could not be downloaded; see drift-report.json" >&2
+          exit 1

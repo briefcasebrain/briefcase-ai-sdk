@@ -24,6 +24,7 @@ without the optional ``[run]`` dependencies (the engine selector must be able to
 from __future__ import annotations
 
 import os
+import sys
 
 from briefcase.cli.calls import RpcCall
 
@@ -41,10 +42,14 @@ class EngineSelectionError(RuntimeError):
 
 
 def grpc_available() -> bool:
-    """Whether the optional gRPC dependencies are importable (decides ``auto`` engine selection)."""
+    """Whether the optional gRPC dependencies are importable (decides ``auto`` engine selection).
+
+    ``grpcio`` and ``protobuf`` are enough: the default transport builds its messages from the
+    vendored contract (``briefcase.engine.client.DescriptorTransport``); ``grpcio-reflection``
+    is only needed for the reflection fallback."""
     try:
         import grpc  # noqa: F401
-        from grpc_reflection.v1alpha import reflection_pb2_grpc  # noqa: F401
+        from google.protobuf import descriptor_pool  # noqa: F401
 
         return True
     except ImportError:
@@ -59,6 +64,16 @@ def _rpc_detail(exc) -> str:
         except Exception:
             return str(exc)
     return str(exc)
+
+
+def _is_unauthenticated(exc) -> bool:
+    code = getattr(exc, "code", None)
+    if callable(code):
+        try:
+            return getattr(code(), "name", "") == "UNAUTHENTICATED"
+        except Exception:
+            return False
+    return False
 
 
 class _FailedView:
@@ -155,20 +170,63 @@ def _build_request(req_cls, request: dict):
     msg = req_cls()
     for key, value in request.items():
         field = msg.DESCRIPTOR.fields_by_name.get(key)
-        if field is None:
+        if field is None or value is None:
+            # None means "not given": leave the proto3 default instead of raising TypeError.
             continue
         if field.enum_type is not None and isinstance(value, str):
             value = field.enum_type.values_by_name[value].number
+        if _is_repeated(field):
+            # Repeated scalars (e.g. Compose runtime=[...], CheckoutPlan paths=[...]) cannot be assigned.
+            getattr(msg, key).extend(value if isinstance(value, (list, tuple)) else [value])
+            continue
         setattr(msg, key, value)
     return msg
 
 
+def _is_repeated(field) -> bool:
+    flag = getattr(field, "is_repeated", None)  # protobuf >= 5.28; `label` is deprecated there
+    if isinstance(flag, bool):
+        return flag
+    return getattr(field, "label", 1) == 3
+
+
 def _normalize_endpoint(endpoint: str) -> str:
     """``http://host:port`` → ``host:port`` (grpc channels want a bare authority)."""
-    for prefix in ("http://", "https://", "grpc://", "dns://"):
+    for prefix in ("http://", "https://", "grpcs://", "grpc://", "dns://"):
         if endpoint.startswith(prefix):
             return endpoint[len(prefix):]
     return endpoint
+
+
+# The client settings oci-jj's own Rust and Go clients read (``ojj-proto/src/auth.rs``,
+# ``go/grpcauth``), honored here so one environment configures every client of a secured server.
+TOKEN_ENV = "OCI_JJ_AUTH_TOKEN"
+TLS_CA_ENV = "OCI_JJ_TLS_CA"
+TLS_CLIENT_CERT_ENV = "OCI_JJ_TLS_CLIENT_CERT"
+TLS_CLIENT_KEY_ENV = "OCI_JJ_TLS_CLIENT_KEY"
+
+
+def _tls_settings(endpoint: str, env) -> dict | None:
+    """TLS material for ``endpoint``, or ``None`` for plaintext.
+
+    Same rule as oci-jj's Go clients: TLS when the scheme is ``https://``/``grpcs://`` or
+    ``OCI_JJ_TLS_CA`` is set. The CA file replaces the system roots; ``OCI_JJ_TLS_CLIENT_CERT`` and
+    ``OCI_JJ_TLS_CLIENT_KEY`` together add a client identity (mTLS).
+    """
+    ca = env.get(TLS_CA_ENV) or ""
+    if not (endpoint.startswith(("https://", "grpcs://")) or ca):
+        return None
+    cert = env.get(TLS_CLIENT_CERT_ENV) or ""
+    key = env.get(TLS_CLIENT_KEY_ENV) or ""
+    return {"ca": ca, "cert": cert if (cert and key) else "", "key": key if (cert and key) else ""}
+
+
+def _read_pem(path: str, what: str) -> bytes:
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except OSError as e:
+        raise TransportUnavailable(f"cannot read {what} {path!r}: {e}") from e
 
 
 # --------------------------------------------------------------------------------------
@@ -216,32 +274,48 @@ class ReflectionTransport(Transport):
 
     Construction does no network I/O — the channel and the reflected descriptor pool are built lazily
     on first use (and cached per endpoint for the process), so an offline ``--dry-run`` never reflects.
-    An ``https://`` endpoint dials TLS with the system trust roots; other endpoints dial plaintext.
+
+    Security settings match oci-jj's own clients: an ``https://``/``grpcs://`` endpoint, or
+    ``OCI_JJ_TLS_CA``, dials TLS (system roots unless the CA file is given; mTLS with
+    ``OCI_JJ_TLS_CLIENT_CERT``/``_KEY``); ``OCI_JJ_AUTH_TOKEN`` (or ``token=``) is sent as
+    ``authorization: Bearer <token>`` on every RPC, reflection included.
     """
 
     _CACHE: dict = {}
 
-    def __init__(self, endpoint: str, timeout: float = 5.0, channel_factory=None) -> None:
+    def __init__(self, endpoint: str, timeout: float = 5.0, channel_factory=None,
+                 token: str | None = None, env=None) -> None:
         try:
             import grpc
-            from grpc_reflection.v1alpha import reflection_pb2, reflection_pb2_grpc
-        except ImportError as e:  # optional [run] deps not installed
+        except ImportError as e:  # optional [engine]/[run] deps not installed
             raise TransportUnavailable(
-                "the gRPC engine needs the optional dependencies "
-                "(pip install 'briefcase-ai[run]'): " + str(e)
+                "the gRPC client needs the optional dependencies "
+                "(pip install 'briefcase-ai[engine]'): " + str(e)
             ) from e
+        try:
+            from grpc_reflection.v1alpha import reflection_pb2, reflection_pb2_grpc
+        except ImportError:  # only the reflection fallback needs it ([run] extra)
+            reflection_pb2 = reflection_pb2_grpc = None
+            if type(self) is ReflectionTransport:
+                raise TransportUnavailable(
+                    "server reflection needs grpcio-reflection (pip install 'briefcase-ai[run]')"
+                )
         self._grpc = grpc
         self._reflection_pb2 = reflection_pb2
         self._reflection_pb2_grpc = reflection_pb2_grpc
         self._timeout = timeout
-        use_tls = endpoint.startswith("https://")
+        env = os.environ if env is None else env
+        self._tls = _tls_settings(endpoint, env)
+        self.set_token(token if token is not None else env.get(TOKEN_ENV))
         self.endpoint = _normalize_endpoint(endpoint)
+        transport_kind: object
         if channel_factory is not None:
             self._channel_factory = channel_factory
             transport_kind = None
-        elif use_tls:
+        elif self._tls is not None:
             self._channel_factory = self._secure_channel
-            transport_kind = "tls"
+            # Different CA / client identity means a different channel, so it is part of the key.
+            transport_kind = ("tls", self._tls["ca"], self._tls["cert"])
         else:
             self._channel_factory = grpc.insecure_channel
             transport_kind = "plain"
@@ -256,8 +330,20 @@ class ReflectionTransport(Transport):
         self._refl = None
         self._resolved = None
 
+    def set_token(self, token) -> None:
+        """Bearer token sent as call metadata (per call, so it does not change the cached channel)."""
+        self._metadata = (("authorization", f"Bearer {token}"),) if token else None
+
     def _secure_channel(self, endpoint):
-        return self._grpc.secure_channel(endpoint, self._grpc.ssl_channel_credentials())
+        tls = self._tls or {"ca": "", "cert": "", "key": ""}
+        if not (tls["ca"] or tls["cert"]):
+            return self._grpc.secure_channel(endpoint, self._grpc.ssl_channel_credentials())
+        creds = self._grpc.ssl_channel_credentials(
+            root_certificates=_read_pem(tls["ca"], TLS_CA_ENV) if tls["ca"] else None,
+            private_key=_read_pem(tls["key"], TLS_CLIENT_KEY_ENV) if tls["cert"] else None,
+            certificate_chain=_read_pem(tls["cert"], TLS_CLIENT_CERT_ENV) if tls["cert"] else None,
+        )
+        return self._grpc.secure_channel(endpoint, creds)
 
     # ---- lazy reflection → descriptor pool (cached per endpoint) ----
     def _get_resolved(self):
@@ -279,14 +365,21 @@ class ReflectionTransport(Transport):
         except TransportUnavailable:
             raise
         except Exception as e:  # grpc.RpcError, protobuf TypeError on a bad descriptor, …
+            if _is_unauthenticated(e):
+                raise TransportUnavailable(
+                    f"oci-jj-server at {self.endpoint} requires a bearer token "
+                    f"({_rpc_detail(e)}); set {TOKEN_ENV}."
+                ) from e
             raise TransportUnavailable(
                 f"oci-jj-server reflection unreachable at {self.endpoint} ({e}); "
-                f"is the stack up? try 'briefcase stack up', or set BRIEFCASE_ENGINE=cli."
+                f"is the engine running? try 'briefcase-ai engine up', or set BRIEFCASE_ENGINE=cli."
             ) from e
 
     def _info(self, **kw):
         req = self._reflection_pb2.ServerReflectionRequest(**kw)
-        return next(self._refl.ServerReflectionInfo(iter([req]), timeout=self._timeout))
+        return next(self._refl.ServerReflectionInfo(
+            iter([req]), timeout=self._timeout, metadata=self._metadata
+        ))
 
     def _list_services_raw(self):
         resp = self._info(list_services="")
@@ -333,7 +426,9 @@ class ReflectionTransport(Transport):
                 response_deserializer=resp_cls.FromString,
             )
             resolved._calls[("u", path)] = call
-        return ResponseView(call(_build_request(req_cls, request), timeout=self._timeout))
+        return ResponseView(
+            call(_build_request(req_cls, request), timeout=self._timeout, metadata=self._metadata)
+        )
 
     def server_stream(self, service, method, request):
         resolved = self._get_resolved()
@@ -343,7 +438,7 @@ class ReflectionTransport(Transport):
             request_serializer=req_cls.SerializeToString,
             response_deserializer=resp_cls.FromString,
         )
-        for resp in call(_build_request(req_cls, request), timeout=self._timeout):
+        for resp in call(_build_request(req_cls, request), timeout=self._timeout, metadata=self._metadata):
             yield ResponseView(resp)
 
     def list_services(self):
@@ -365,16 +460,31 @@ class GrpcEngine:
     API_FLOOR = "oci_jj.v1"
 
     def __init__(self, server=None, repo=None, transport=None) -> None:
-        self.server = server or os.environ.get("OCI_JJ_SERVER", "http://127.0.0.1:50051")
+        # --server, then BRIEFCASE_ENGINE_ADDR / OCI_JJ_SERVER, then a local `briefcase-ai engine
+        # install`, then the default; see briefcase.engine.client_settings.
+        from briefcase.engine import client_settings
+
+        settings = client_settings(server=server)
+        self.server = settings["addr"]
         self.repo = repo or os.environ.get("OCI_JJ_REPO", "rl-gym-env")
-        # Constructing the default transport does no I/O; reflection happens on first exec.
-        self._transport = transport if transport is not None else ReflectionTransport(self.server)
+        if transport is None:
+            # The vendored contract (no reflection round-trip); BRIEFCASE_GRPC_REFLECTION=1
+            # selects reflection instead. Construction does no I/O either way.
+            from briefcase.engine.client import make_transport
+
+            transport = make_transport(self.server, settings["token"], settings["ca"], timeout=5.0)
+        self._transport = transport
         self._ready = False
 
     def _ensure_ready(self):
         """Lazily verify the server meets the API floor on first real RPC (not at construction, so
         offline ``--dry-run`` never reflects)."""
         if self._ready:
+            return
+        if type(self._transport).__name__ == "DescriptorTransport":
+            # The vendored contract is the floor; an RPC an older server lacks fails with
+            # UNIMPLEMENTED on the call itself.
+            self._ready = True
             return
         services = self._transport.list_services()
         if not any(s.startswith(self.API_FLOOR + ".") for s in services):
@@ -390,6 +500,20 @@ class GrpcEngine:
         # repo = the oci-jj repository (--repo); ref = the candidate; baseline_ref = the checkpoint.
         req = {"repo": self.repo, "ref": candidate, "run": True,
                "dataset_uri": dataset_uri, "metric": metric}
+        if baseline:
+            req["baseline_ref"] = baseline
+        return RpcCall(self.SERVICE, "AttachBench", req)
+
+    def call_attach_result(self, candidate, baseline, result_path, manifest_path=None) -> RpcCall:
+        """AttachBench mode (a): record a verdict.json computed elsewhere (``run=false``)."""
+        with open(result_path, encoding="utf-8") as f:
+            verdict_json = f.read()
+        manifest_json = ""
+        if manifest_path:
+            with open(manifest_path, encoding="utf-8") as f:
+                manifest_json = f.read()
+        req = {"repo": self.repo, "ref": candidate, "run": False, "verdict_json": verdict_json,
+               "manifest_json": manifest_json}
         if baseline:
             req["baseline_ref"] = baseline
         return RpcCall(self.SERVICE, "AttachBench", req)
@@ -415,8 +539,21 @@ class GrpcEngine:
 
     # ---- the single side effect ----
     def exec(self, call, env=None):
-        # ``env`` is accepted for signature-parity with OciJJEngine.exec but ignored: a gRPC run's
-        # secrets flow into the verdict job server-side, not through the client process env.
+        # ``env`` mirrors OciJJEngine.exec. oci-jj has no RPC field that carries run secrets or env
+        # vars to the verdict worker, so the only key that has an effect over gRPC is the client's
+        # own OCI_JJ_AUTH_TOKEN (e.g. stored with `briefcase-ai secret set`). Say so instead of
+        # dropping the rest silently.
+        env = env or {}
+        token = env.get(TOKEN_ENV)
+        if token and hasattr(self._transport, "set_token"):
+            self._transport.set_token(token)
+        dropped = sorted(k for k in env if k != TOKEN_ENV)
+        if dropped:
+            print(
+                "warning: not sent to oci-jj (no secret/env channel for runs over gRPC): "
+                + ", ".join(dropped),
+                file=sys.stderr,
+            )
         self._ensure_ready()
         try:
             if getattr(call, "streaming", False):

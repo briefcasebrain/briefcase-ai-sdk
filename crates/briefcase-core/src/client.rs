@@ -23,7 +23,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+#[cfg(feature = "sqlite-storage")]
+use std::sync::Arc;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
@@ -125,10 +127,20 @@ fn is_loopback_host(host: &str) -> bool {
 
 //  BriefcaseClient
 
-/// Cached validation entry.
-struct CacheEntry {
+/// The most recent validation the server gave this client.
+struct AuthState {
     client: ValidatedClient,
-    cached_at: Instant,
+    /// When the server says this validation stops being good.
+    expires_at: DateTime<Utc>,
+    /// When it was fetched; `None` once the cache has been invalidated, which
+    /// forces the next `revalidate` to ask the server.
+    validated_at: Option<Instant>,
+}
+
+impl AuthState {
+    fn is_expired(&self) -> bool {
+        Utc::now() >= self.expires_at
+    }
 }
 
 /// Authenticated client for the Briefcase AI platform.
@@ -136,11 +148,11 @@ struct CacheEntry {
 /// Created via [`BriefcaseClient::new`] or [`BriefcaseClient::with_config`],
 /// which validate the API key against the server before returning.
 pub struct BriefcaseClient {
-    validated: ValidatedClient,
+    client_id: String,
     server_url: String,
     api_key: String,
     http: reqwest::Client,
-    cache: Arc<Mutex<Option<CacheEntry>>>,
+    state: Mutex<AuthState>,
     cache_ttl: Duration,
     #[cfg(feature = "sqlite-storage")]
     storage: Option<Arc<dyn StorageBackend>>,
@@ -149,7 +161,7 @@ pub struct BriefcaseClient {
 impl std::fmt::Debug for BriefcaseClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BriefcaseClient")
-            .field("validated", &self.validated)
+            .field("validated", &self.state().client)
             .field("server_url", &self.server_url)
             .field("api_key", &"[REDACTED]")
             .field("cache_ttl", &self.cache_ttl)
@@ -224,73 +236,99 @@ impl BriefcaseClient {
 
         let auth_response = Self::do_validate(&http, &url, api_key, config.max_retries).await?;
 
-        let validated = auth_response.client;
+        let state = AuthState {
+            client: auth_response.client,
+            expires_at: auth_response.expires_at,
+            validated_at: Some(Instant::now()),
+        };
+        if state.is_expired() {
+            return Err(ClientError::Expired);
+        }
         let cache_ttl = Duration::from_secs(config.cache_ttl_secs);
 
-        let cache = Arc::new(Mutex::new(Some(CacheEntry {
-            client: validated.clone(),
-            cached_at: Instant::now(),
-        })));
-
         Ok(Self {
-            validated,
+            client_id: state.client.client_id.clone(),
             server_url: server_url.trim_end_matches('/').to_string(),
             api_key: api_key.to_string(),
             http,
-            cache,
+            state: Mutex::new(state),
             cache_ttl,
             #[cfg(feature = "sqlite-storage")]
             storage: None,
         })
     }
 
+    /// Lock the validation state. Every critical section is a read or a
+    /// whole-value replacement, so the state is consistent even if a holder
+    /// panicked; recover the guard instead of propagating the poison.
+    fn state(&self) -> MutexGuard<'_, AuthState> {
+        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     /// The authenticated client ID.
     pub fn client_id(&self) -> &str {
-        &self.validated.client_id
+        &self.client_id
     }
 
-    /// Granted permissions.
-    pub fn permissions(&self) -> &[String] {
-        &self.validated.permissions
+    /// Permissions granted by the most recent validation (construction, or
+    /// the last [`Self::revalidate`] that reached the server).
+    pub fn permissions(&self) -> Vec<String> {
+        self.state().client.permissions.clone()
     }
 
-    /// Check whether this client has a specific permission.
+    /// When the most recent validation expires, as reported by the server.
+    pub fn expires_at(&self) -> DateTime<Utc> {
+        self.state().expires_at
+    }
+
+    /// Check whether this client currently has a specific permission: it was
+    /// granted by the most recent validation, and that validation has not
+    /// expired. Call [`Self::revalidate`] to refresh an expired validation.
     pub fn has_permission(&self, perm: &str) -> bool {
-        self.validated.permissions.iter().any(|p| p == perm)
+        let state = self.state();
+        !state.is_expired() && state.client.permissions.iter().any(|p| p == perm)
     }
 
-    /// Re-validate the API key, using the cache if still fresh.
+    /// Re-validate the API key, using the cached validation while it is
+    /// within the cache TTL and has not expired. A server round trip
+    /// replaces the permissions and expiry this client acts on.
+    ///
+    /// Returns [`ClientError::Expired`] if the server hands back a
+    /// validation that is already past its `expires_at`.
     pub async fn revalidate(&self) -> Result<ValidatedClient, ClientError> {
         // Check cache
         {
-            let guard = self.cache.lock().unwrap();
-            if let Some(entry) = guard.as_ref() {
-                if entry.cached_at.elapsed() < self.cache_ttl {
-                    return Ok(entry.client.clone());
-                }
+            let state = self.state();
+            let fresh = state
+                .validated_at
+                .is_some_and(|at| at.elapsed() < self.cache_ttl);
+            if fresh && !state.is_expired() {
+                return Ok(state.client.clone());
             }
         }
 
-        // Cache miss or expired  call server
+        // Cache miss or expired: call server
         let url = format!("{}/api/v1/auth/validate", self.server_url);
         let auth = Self::do_validate(&self.http, &url, &self.api_key, 3).await?;
 
-        // Update cache
-        {
-            let mut guard = self.cache.lock().unwrap();
-            *guard = Some(CacheEntry {
-                client: auth.client.clone(),
-                cached_at: Instant::now(),
-            });
+        let mut state = self.state();
+        *state = AuthState {
+            client: auth.client.clone(),
+            expires_at: auth.expires_at,
+            validated_at: Some(Instant::now()),
+        };
+        if state.is_expired() {
+            return Err(ClientError::Expired);
         }
 
         Ok(auth.client)
     }
 
-    /// Explicitly invalidate the validation cache.
+    /// Explicitly invalidate the validation cache, so the next
+    /// [`Self::revalidate`] asks the server. The permissions already granted
+    /// stay in effect until then (or until they expire).
     pub fn invalidate_cache(&self) {
-        let mut guard = self.cache.lock().unwrap();
-        *guard = None;
+        self.state().validated_at = None;
     }
 
     /// Bind a storage backend for delegated operations.
@@ -342,8 +380,12 @@ impl BriefcaseClient {
 
     //  Internal helpers
 
+    #[cfg(feature = "sqlite-storage")]
     fn require_permission(&self, perm: &str) -> Result<(), ClientError> {
-        if self.has_permission(perm) {
+        let state = self.state();
+        if state.is_expired() {
+            Err(ClientError::Expired)
+        } else if state.client.permissions.iter().any(|p| p == perm) {
             Ok(())
         } else {
             Err(ClientError::PermissionDenied(perm.to_string()))
@@ -796,6 +838,115 @@ mod tests {
 
         let info = client.revalidate().await.unwrap();
         assert_eq!(info.client_id, "acme");
+    }
+
+    fn auth_response_expiring(
+        permissions: Vec<&str>,
+        expires_in: chrono::Duration,
+    ) -> serde_json::Value {
+        let mut body = mock_auth_response("acme", permissions);
+        body["expires_at"] = serde_json::json!((Utc::now() + expires_in).to_rfc3339());
+        body
+    }
+
+    #[tokio::test]
+    async fn test_revalidate_refreshes_permissions() {
+        let server = MockServer::start().await;
+        // First validation grants write; every later one has had it revoked.
+        Mock::given(method("POST"))
+            .and(path("/api/v1/auth/validate"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(mock_auth_response("acme", vec!["read", "write"])),
+            )
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/auth/validate"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(mock_auth_response("acme", vec!["read"])),
+            )
+            .mount(&server)
+            .await;
+
+        let client = BriefcaseClient::new("sk-test", &server.uri())
+            .await
+            .unwrap();
+        assert!(client.has_permission("write"));
+
+        // Invalidating alone keeps the last known grant in effect.
+        client.invalidate_cache();
+        assert!(client.has_permission("write"));
+
+        let info = client.revalidate().await.unwrap();
+        assert_eq!(info.permissions, ["read"]);
+        assert!(!client.has_permission("write"), "revoked permission kept");
+        assert!(client.has_permission("read"));
+        assert_eq!(client.permissions(), ["read"]);
+    }
+
+    #[tokio::test]
+    async fn test_expired_validation_grants_nothing_until_revalidated() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/auth/validate"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(auth_response_expiring(
+                    vec!["read", "write"],
+                    chrono::Duration::milliseconds(300),
+                )),
+            )
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/auth/validate"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(auth_response_expiring(
+                    vec!["read", "write"],
+                    chrono::Duration::hours(1),
+                )),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        // The one-hour cache TTL must not outlive the server's expiry.
+        let client = BriefcaseClient::new("sk-test", &server.uri())
+            .await
+            .unwrap();
+        assert!(client.has_permission("write"));
+
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        assert!(!client.has_permission("write"));
+        #[cfg(feature = "sqlite-storage")]
+        assert!(matches!(
+            client.require_permission("write"),
+            Err(ClientError::Expired)
+        ));
+
+        client.revalidate().await.unwrap();
+        assert!(client.has_permission("write"));
+        assert!(client.expires_at() > Utc::now());
+    }
+
+    #[tokio::test]
+    async fn test_already_expired_validation_is_rejected() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/auth/validate"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(auth_response_expiring(
+                    vec!["read"],
+                    chrono::Duration::hours(-1),
+                )),
+            )
+            .mount(&server)
+            .await;
+
+        let result = BriefcaseClient::new("sk-test", &server.uri()).await;
+        assert!(matches!(result, Err(ClientError::Expired)));
     }
 
     //  Permission checks

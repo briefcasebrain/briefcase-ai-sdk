@@ -20,7 +20,7 @@ use std::collections::HashMap;
 /// returns the outputs the current build produces: either a dict of name to
 /// value, or a bare value taken as the single output named `result`.
 struct PyCallableExecutor {
-    callable: PyObject,
+    callable: Py<PyAny>,
 }
 
 #[async_trait]
@@ -33,7 +33,7 @@ impl ModelExecutor for PyCallableExecutor {
         _config: &ExecutionConfig,
     ) -> Result<ExecutionResult, ReplayError> {
         let started = std::time::Instant::now();
-        let outputs = Python::with_gil(|py| -> PyResult<Vec<Output>> {
+        let outputs = Python::attach(|py| -> PyResult<Vec<Output>> {
             let recorded = PyDict::new(py);
             for input in inputs {
                 recorded.set_item(&input.name, json_value_to_python(input.value.clone(), py)?)?;
@@ -41,7 +41,7 @@ impl ModelExecutor for PyCallableExecutor {
             let returned = self.callable.call1(py, (recorded,))?;
 
             // A dict names each output; anything else is one output.
-            if let Ok(mapping) = returned.bind(py).downcast::<PyDict>() {
+            if let Ok(mapping) = returned.bind(py).cast::<PyDict>() {
                 let mut outs = Vec::with_capacity(mapping.len());
                 for (key, value) in mapping.iter() {
                     outs.push(Output::new(
@@ -88,8 +88,8 @@ pub struct PyReplayEngine {
 impl PyReplayEngine {
     /// Create new replay engine with storage backend
     #[new]
-    fn new(storage: PyObject) -> PyResult<Self> {
-        Python::with_gil(|py| {
+    fn new(storage: Py<PyAny>) -> PyResult<Self> {
+        Python::attach(|py| {
             if let Ok(sqlite_backend) = storage.extract::<PyRef<PySqliteBackend>>(py) {
                 Ok(Self {
                     inner: ReplayEngine::new(sqlite_backend.inner.clone()),
@@ -108,8 +108,8 @@ impl PyReplayEngine {
     /// `executor` is called with a dict of the recorded input names and values
     /// and returns the current outputs, either as a dict or as a single value.
     /// Without one, a replay loads the snapshot and reports status "pending".
-    fn with_executor(&mut self, executor: PyObject) -> PyResult<()> {
-        Python::with_gil(|py| {
+    fn with_executor(&mut self, executor: Py<PyAny>) -> PyResult<()> {
+        Python::attach(|py| {
             if !executor.bind(py).is_callable() {
                 return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                     "executor must be callable",
@@ -201,7 +201,7 @@ impl PyReplayEngine {
         snapshot_ids: Vec<String>,
         mode: Option<String>,
         max_concurrent: Option<usize>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let replay_mode = if let Some(mode_str) = mode {
             Some(match mode_str.as_str() {
                 "strict" => ReplayMode::Strict,
@@ -229,7 +229,7 @@ impl PyReplayEngine {
             max_concurrent.unwrap_or(4),
         ))?
         .into_result(|err, successes| {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let list = PyList::empty(py);
                 for replay_result in successes {
                     list.append(Py::new(
@@ -243,7 +243,7 @@ impl PyReplayEngine {
             })
         })?;
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for replay_result in results {
                 let py_result = PyReplayResult {
@@ -256,7 +256,7 @@ impl PyReplayEngine {
     }
 
     /// Validate snapshot against policy
-    fn validate(&self, snapshot_id: String, policy: PyRef<PyReplayPolicy>) -> PyResult<PyObject> {
+    fn validate(&self, snapshot_id: String, policy: PyRef<PyReplayPolicy>) -> PyResult<Py<PyAny>> {
         let engine = self.inner.clone();
         let policy_inner = policy.inner.clone();
 
@@ -265,7 +265,7 @@ impl PyReplayEngine {
             .validate(&snapshot_id, &policy_inner)
             .block_on_python()?;
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for violation in violations {
                 let violation_dict = PyDict::new(py);
@@ -396,8 +396,8 @@ impl PyReplayResult {
 
     /// Get policy violations
     #[getter]
-    fn policy_violations(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn policy_violations(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let list = PyList::empty(py);
             for violation in &self.inner.policy_violations {
                 let violation_dict = PyDict::new(py);
@@ -414,8 +414,8 @@ impl PyReplayResult {
 
     /// Get replay output
     #[getter]
-    fn replay_output(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn replay_output(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             if let Some(ref output) = self.inner.replay_output {
                 crate::models::json_value_to_python(output.clone(), py)
             } else {
@@ -425,8 +425,8 @@ impl PyReplayResult {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("status", self.status())?;
             dict.set_item("outputs_match", self.inner.outputs_match)?;
@@ -480,6 +480,13 @@ impl PyReplayStats {
         self.inner.failed_replays
     }
 
+    /// Replays that re-executed nothing (no executor, or validation-only
+    /// mode), so they are neither successes nor failures
+    #[getter]
+    fn unverified_replays(&self) -> usize {
+        self.inner.unverified_replays
+    }
+
     /// Get exact matches
     #[getter]
     fn exact_matches(&self) -> usize {
@@ -515,12 +522,13 @@ impl PyReplayStats {
     }
 
     /// Convert to dictionary
-    fn to_dict(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn to_dict(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let dict = PyDict::new(py);
             dict.set_item("total_replays", self.inner.total_replays)?;
             dict.set_item("successful_replays", self.inner.successful_replays)?;
             dict.set_item("failed_replays", self.inner.failed_replays)?;
+            dict.set_item("unverified_replays", self.inner.unverified_replays)?;
             dict.set_item("exact_matches", self.inner.exact_matches)?;
             dict.set_item("mismatches", self.inner.mismatches)?;
             dict.set_item(

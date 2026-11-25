@@ -44,14 +44,16 @@
 //! - `async` - Enable async/await runtime support (enabled by default)
 //! - `storage` - Enable persistent storage APIs (enabled by default)
 //! - `sqlite-storage` - SQLite storage backend (implied by `storage`)
-//! - `vcs-storage` - Version-control storage abstractions
+//! - `chain` - Hash-chained, append-only SQLite store with signed Merkle
+//!   checkpoints (implies `sqlite-storage`)
+//! - `vcs-storage` - Version-control storage abstractions (implies `async`)
 //! - `replay` - Deterministic replay engine
 //! - `drift` - Drift monitoring utilities
 //! - `sanitize` - Built-in PII sanitization
 //! - `otel` - OpenTelemetry instrumentation helpers
 //! - `tokens` - Token counting utilities
 //! - `networking` - HTTP client support for remote services
-//! - `compression` - Compression helpers for storage backends
+//! - `compression` - Reserved; currently enables nothing
 
 /// Cost calculation and management functionality
 pub mod cost;
@@ -62,6 +64,9 @@ pub mod drift;
 
 /// Core data models and structures
 pub mod models;
+
+/// RFC 8785 canonical JSON, Merkle proofs and Ed25519 signing (`chain`)
+pub mod integrity;
 
 /// Token counting and estimation
 #[cfg(feature = "tokens")]
@@ -121,7 +126,6 @@ pub enum BriefcaseError {
     #[error("Replay error: {0}")]
     Replay(#[from] replay::ReplayError),
 
-    #[cfg(feature = "drift")]
     #[error("Cost calculation error: {0}")]
     Cost(#[from] cost::CostError),
 
@@ -138,4 +142,17 @@ pub enum BriefcaseError {
     #[cfg(feature = "networking")]
     #[error("Client error: {0}")]
     Client(#[from] client::ClientError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Compiles in every feature set: `cost` is always built, so its error
+    // must always convert.
+    #[test]
+    fn cost_errors_convert_into_briefcase_error() {
+        let err: BriefcaseError = cost::CostError::InvalidTokenCount.into();
+        assert!(matches!(err, BriefcaseError::Cost(_)));
+    }
 }

@@ -1,0 +1,11 @@
+{
+  "id": "engine",
+  "title": "Briefcase engine (oci-jj) install",
+  "verb": "connect",
+  "one_line": "Install the licensed engine from the portal, verified against a pinned key.",
+  "command": "briefcase-ai engine install",
+  "docs_slug": "connect/engine",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Offline: throwaway P-256 key signing in the cosign blob format, fake platform (install codes, presigned downloads), fake docker/skopeo/xattr/cosign, with and without cryptography. Real: docker load of a signed OCI archive on Docker 29.10 (classic vfs and containerd stores). Not run: the real portal and its object storage, cosign, macOS."
+}

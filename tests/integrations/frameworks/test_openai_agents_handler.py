@@ -116,7 +116,7 @@ def reset_state():
 
 def test_tracer_captures_agent_run():
     """AgentSpanData is captured as type='agent_run'."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [("agent", "s1")])
 
     records = tracer.get_records()
@@ -132,7 +132,7 @@ def test_tracer_captures_agent_run():
 
 def test_trace_record_uses_wire_field_names():
     """Trace records carry the decision-record core field names."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [("agent", "s1")])
 
     record = tracer.get_records()[0]
@@ -145,7 +145,7 @@ def test_trace_record_uses_wire_field_names():
 
 def test_tracer_captures_tool_calls():
     """FunctionSpanData is captured as type='tool_call'."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [("function", "s1")])
 
     records = tracer.get_records()
@@ -158,7 +158,7 @@ def test_tracer_captures_tool_calls():
 
 def test_tracer_captures_handoffs():
     """HandoffSpanData is captured as type='handoff'."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [("handoff", "s1")])
 
     span = tracer.get_records()[0]["spans"][0]
@@ -169,7 +169,7 @@ def test_tracer_captures_handoffs():
 
 def test_tracer_captures_guardrails():
     """GuardrailSpanData is captured as type='guardrail'."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [("guardrail", "s1")])
 
     span = tracer.get_records()[0]["spans"][0]
@@ -194,7 +194,7 @@ def test_tracer_async_no_block():
             pass
 
     briefcase_setup(exporter=SlowExporter())
-    tracer = OpenAIAgentsTracer(async_capture=True)
+    tracer = OpenAIAgentsTracer(capture_content="full", async_capture=True)
 
     start = time.monotonic()
     _run_trace(tracer, "t1", [("agent", "s1")])
@@ -209,7 +209,7 @@ def test_tracer_async_no_block():
 
 def test_tracer_capture_failure_silent():
     """Errors in on_span_end / on_trace_end never propagate to the caller."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
 
     bad_span = MagicMock()
     bad_span.span_id = object()
@@ -232,14 +232,14 @@ def test_tracer_missing_dependency():
     try:
         _mod._AGENTS_AVAILABLE = False
         with pytest.raises(ImportError, match="pip install"):
-            OpenAIAgentsTracer()
+            OpenAIAgentsTracer(capture_content="full")
     finally:
         _mod._AGENTS_AVAILABLE = original
 
 
 def test_tracer_links_context_version():
     """context_version appears on every trace record."""
-    tracer = OpenAIAgentsTracer(context_version="v3.1")
+    tracer = OpenAIAgentsTracer(capture_content="full", context_version="v3.1")
     _run_trace(tracer, "t1", [("agent", "s1")])
 
     record = tracer.get_records()[0]
@@ -270,7 +270,7 @@ def test_install_idempotent():
 
 def test_tracer_captures_generation():
     """GenerationSpanData is captured as type='generation'."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [("generation", "s1")])
 
     span = tracer.get_records()[0]["spans"][0]
@@ -281,7 +281,7 @@ def test_tracer_captures_generation():
 
 def test_tracer_execution_time_ms_populated():
     """Span records include execution_time_ms when the start time is known."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [("agent", "s1")])
     span = tracer.get_records()[0]["spans"][0]
     assert "execution_time_ms" in span
@@ -290,7 +290,7 @@ def test_tracer_execution_time_ms_populated():
 
 def test_tracer_span_error_captured():
     """Span errors are recorded in the span record."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     t = _make_trace("t1")
     tracer.on_trace_start(t)
 
@@ -307,7 +307,7 @@ def test_tracer_span_error_captured():
 
 def test_tracer_multiple_spans_in_trace():
     """All spans within a trace appear in the record."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(
         tracer, "t1",
         [("agent", "s1"), ("function", "s2"), ("handoff", "s3")]
@@ -320,7 +320,7 @@ def test_tracer_multiple_spans_in_trace():
 
 def test_tracer_multiple_concurrent_traces():
     """Interleaved traces stay isolated from each other."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
 
     t1 = _make_trace("trace-A", "alpha")
     t2 = _make_trace("trace-B", "beta")
@@ -348,7 +348,7 @@ def test_tracer_multiple_concurrent_traces():
 
 def test_tracer_trace_timestamps():
     """Trace records have started_at and ended_at ISO strings."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [])
     record = tracer.get_records()[0]
     assert "started_at" in record
@@ -360,7 +360,7 @@ def test_tracer_trace_timestamps():
 
 def test_tracer_clear():
     """clear() resets all captured records and in-flight state."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [("agent", "s1")])
     assert len(tracer.get_records()) == 1
 
@@ -377,7 +377,7 @@ def test_tracer_clear():
 
 def test_tracer_shutdown():
     """shutdown() clears in-flight state without raising."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     t = _make_trace("t1")
     tracer.on_trace_start(t)
     s = _make_span("agent", "s1", "t1")
@@ -390,13 +390,13 @@ def test_tracer_shutdown():
 
 def test_tracer_force_flush():
     """force_flush() does not raise."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     tracer.force_flush()  # no-op
 
 
 def test_tracer_get_records_returns_copy():
     """get_records() returns a copy, not the internal list."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [])
     r1 = tracer.get_records()
     r1.clear()
@@ -419,7 +419,7 @@ def test_tracer_sync_export():
             pass
 
     briefcase_setup(exporter=SyncExporter())
-    tracer = OpenAIAgentsTracer(async_capture=False)
+    tracer = OpenAIAgentsTracer(capture_content="full", async_capture=False)
     _run_trace(tracer, "t1", [("agent", "s1")])
 
     # Synchronous path: the call completes immediately
@@ -428,7 +428,7 @@ def test_tracer_sync_export():
 
 def test_tracer_no_exporter_configured():
     """When no exporter is configured, _trigger_export is a no-op."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     record = {"trace_id": "t1", "spans": []}
     tracer._trigger_export(record)  # must not raise
 
@@ -446,14 +446,14 @@ def test_tracer_export_exception_silent():
             pass
 
     briefcase_setup(exporter=BrokenExporter())
-    tracer = OpenAIAgentsTracer(async_capture=False)
+    tracer = OpenAIAgentsTracer(capture_content="full", async_capture=False)
     # Must not raise
     tracer._trigger_export({"trace_id": "t1", "spans": []})
 
 
 def test_tracer_on_trace_end_missing_trace():
     """on_trace_end for an unknown trace_id is a no-op."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     t = _make_trace("non-existent")
     tracer.on_trace_end(t)  # never started; must not raise
     assert tracer.get_records() == []
@@ -461,7 +461,7 @@ def test_tracer_on_trace_end_missing_trace():
 
 def test_tracer_span_no_start_time():
     """Without on_span_start, started_at is None in the span record."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     t = _make_trace("t1")
     tracer.on_trace_start(t)
 
@@ -477,7 +477,7 @@ def test_tracer_span_no_start_time():
 
 def test_tracer_unknown_span_type():
     """An unknown span_data type takes its type from span_data.type."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     t = _make_trace("t1")
     tracer.on_trace_start(t)
 
@@ -517,7 +517,7 @@ def test_install_returns_tracer_with_context_version():
 
 def test_tracer_no_context_version():
     """Trace records do NOT include context_version when not set."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     _run_trace(tracer, "t1", [])
     record = tracer.get_records()[0]
     assert "context_version" not in record
@@ -536,7 +536,7 @@ def test_tracer_async_background_export_exception_silent():
             pass
 
     briefcase_setup(exporter=FailingExporter())
-    tracer = OpenAIAgentsTracer(async_capture=True)
+    tracer = OpenAIAgentsTracer(capture_content="full", async_capture=True)
     _run_trace(tracer, "t1", [("agent", "s1")])
     assert wait_for_pending_exports(5.0)
     # Test passes when no exception propagated
@@ -544,6 +544,6 @@ def test_tracer_async_background_export_exception_silent():
 
 def test_on_trace_start_exception_silent():
     """A malformed trace object in on_trace_start does not raise."""
-    tracer = OpenAIAgentsTracer()
+    tracer = OpenAIAgentsTracer(capture_content="full")
     # An object with no trace_id attribute triggers AttributeError internally
     tracer.on_trace_start(object())  # must not raise

@@ -271,6 +271,54 @@ class TestRateCards:
         assert "batch" in cards
         assert all(isinstance(c, str) for c in cards)
 
+    def test_project_monthly_cost_accepts_volumes_beyond_one_request(self):
+        # Daily totals span many requests, so they are not limited to the
+        # model's per-request context window (8,192 tokens for gpt-4).
+        calculator = CostCalculator()
+        monthly = calculator.project_monthly_cost("gpt-4", 5_000_000_000, 1_000_000, 30.0)
+        assert monthly == pytest.approx((5_000_000 * 0.03 + 1_000 * 0.06) * 30.0)
+
+    def test_add_and_remove_model(self):
+        calculator = CostCalculator()
+        calculator.add_model("acme-large", "acme", 0.002, 0.004, 100_000)
+        assert calculator.estimate_cost("acme-large", 1000, 1000).total_cost == pytest.approx(0.006)
+
+        assert calculator.remove_model("acme-large") is True
+        assert calculator.remove_model("acme-large") is False
+        with pytest.raises(ValueError):
+            calculator.estimate_cost("acme-large", 1000, 1000)
+
+    def test_add_model_override_uses_only_the_new_rates(self):
+        # gemini-2.5-pro bills prompts over 200K tokens at a higher tier; an
+        # override must not inherit that tier.
+        calculator = CostCalculator()
+        calculator.add_model("gemini-2.5-pro", "google", 0.001, 0.002, 1_048_576)
+        assert calculator.estimate_cost("gemini-2.5-pro", 300_000, 0).total_cost == pytest.approx(0.3)
+
+    def test_load_pricing_json_and_file(self, tmp_path):
+        document = (
+            '{"models": [{"model_name": "from-json", "provider": "acme",'
+            ' "input_cost_per_1k_tokens": 0.001, "output_cost_per_1k_tokens": 0.002,'
+            ' "context_window": 50000, "max_output_tokens": 4096}]}'
+        )
+        calculator = CostCalculator()
+        assert calculator.load_pricing_json(document) == 1
+        assert calculator.estimate_cost("from-json", 1000, 1000).total_cost == pytest.approx(0.003)
+
+        path = tmp_path / "pricing.json"
+        path.write_text(document.replace("from-json", "from-file"))
+        assert calculator.load_pricing_file(str(path)) == 1
+        assert "from-file" in calculator.get_available_models()
+
+        with pytest.raises(ValueError):
+            calculator.load_pricing_json('{"models": [{"model_name": "broken"}]}')
+
+    def test_dated_and_gateway_model_ids_resolve(self):
+        calculator = CostCalculator()
+        base = calculator.estimate_cost("gpt-4o", 1000, 500).total_cost
+        for alias in ("gpt-4o-2024-08-06", "openai/gpt-4o"):
+            assert calculator.estimate_cost(alias, 1000, 500).total_cost == base
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

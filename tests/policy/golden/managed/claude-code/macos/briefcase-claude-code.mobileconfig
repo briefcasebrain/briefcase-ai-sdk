@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadContent</key>
+			<dict>
+				<key>com.anthropic.claudecode</key>
+				<dict>
+					<key>Forced</key>
+					<array>
+						<dict>
+							<key>mcx_preference_settings</key>
+							<dict>
+								<key>env</key>
+								<dict>
+									<key>CLAUDE_CODE_ENABLE_TELEMETRY</key>
+									<string>1</string>
+									<key>OTEL_METRICS_EXPORTER</key>
+									<string>otlp</string>
+									<key>OTEL_LOGS_EXPORTER</key>
+									<string>otlp</string>
+									<key>OTEL_EXPORTER_OTLP_PROTOCOL</key>
+									<string>http/json</string>
+									<key>OTEL_EXPORTER_OTLP_ENDPOINT</key>
+									<string>https://otel.example.com</string>
+								</dict>
+								<key>hooks</key>
+								<dict>
+									<key>PreToolUse</key>
+									<array>
+										<dict>
+											<key>matcher</key>
+											<string>^(Bash|PowerShell|Read|Write|Edit|MultiEdit|NotebookEdit|Glob|Grep|WebFetch|WebSearch)$|^mcp__</string>
+											<key>hooks</key>
+											<array>
+												<dict>
+													<key>type</key>
+													<string>command</string>
+													<key>command</key>
+													<string>briefcase-ai hook claude-code --enforce --fail-closed --endpoint https://otel.example.com --require-policy-sha256 bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc</string>
+													<key>timeout</key>
+													<integer>10</integer>
+													<key>onFailure</key>
+													<string>block</string>
+												</dict>
+											</array>
+										</dict>
+									</array>
+								</dict>
+							</dict>
+						</dict>
+					</array>
+				</dict>
+			</dict>
+			<key>PayloadDisplayName</key>
+			<string>Claude Code managed settings (briefcase)</string>
+			<key>PayloadIdentifier</key>
+			<string>ai.briefcase.claudecode.preferences</string>
+			<key>PayloadType</key>
+			<string>com.apple.ManagedClient.preferences</string>
+			<key>PayloadUUID</key>
+			<string>7DA5F66C-190F-5AC8-82E2-50C3B904C641</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+		</dict>
+	</array>
+	<key>PayloadDescription</key>
+	<string>Points Claude Code's telemetry at the briefcase receiver and runs the briefcase-ai policy before each tool call.</string>
+	<key>PayloadDisplayName</key>
+	<string>briefcase for Claude Code</string>
+	<key>PayloadIdentifier</key>
+	<string>ai.briefcase.claudecode</string>
+	<key>PayloadOrganization</key>
+	<string>briefcase</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>8E3D3CCF-FAB6-59F8-BF4F-8ABE39F3D0E4</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>

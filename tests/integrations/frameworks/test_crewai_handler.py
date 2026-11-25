@@ -4,7 +4,7 @@ crewai is stubbed by conftest.py; a mock event bus stores registered
 handlers so tests can fire events directly.
 """
 
-import time
+import threading
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -196,12 +196,16 @@ def test_llm_call_captured(mock_bus):
 
 
 def test_async_non_blocking(mock_bus):
-    """async_capture=True returns without blocking on the exporter."""
+    """async_capture=True hands the record to the background worker: the
+    handler call returns while the export has not run, and it runs once the
+    exporter is released. Deterministic: the exporter blocks on an Event
+    instead of the test measuring wall-clock time."""
     calls = []
+    gate = threading.Event()
 
-    class SlowExporter:
+    class GatedExporter:
         async def export(self, record):
-            time.sleep(0.3)
+            assert gate.wait(10), "gate never released"
             calls.append(record)
 
         async def flush(self):
@@ -210,19 +214,20 @@ def test_async_non_blocking(mock_bus):
         async def close(self):
             pass
 
-    briefcase_setup(exporter=SlowExporter())
+    briefcase_setup(exporter=GatedExporter())
     listener = _make_listener_with_mock_bus(mock_bus, async_capture=True)
     assert listener.async_capture is True
 
     start = _make_crew_event("CrewKickoffStartedEvent", crew_id="cx", name="X")
     complete = _make_crew_event("CrewKickoffCompletedEvent", crew_id="cx")
 
-    t_start = time.monotonic()
-    _fire_on_bus(mock_bus, "CrewKickoffStartedEvent", start)
-    _fire_on_bus(mock_bus, "CrewKickoffCompletedEvent", complete)
-    elapsed = time.monotonic() - t_start
-
-    assert elapsed < 0.25, f"Blocked for {elapsed:.3f}s"
+    try:
+        _fire_on_bus(mock_bus, "CrewKickoffStartedEvent", start)
+        _fire_on_bus(mock_bus, "CrewKickoffCompletedEvent", complete)
+        # The handler returned, and the blocked exporter has exported nothing.
+        assert calls == []
+    finally:
+        gate.set()
     assert wait_for_pending_exports(5.0)
     assert len(calls) == 1
 
@@ -1001,3 +1006,84 @@ def test_register_optional_events_bus_on_exception_swallowed(mock_bus, monkeypat
     listener._register_optional_events(mock_bus, [
         ("KnowledgeRetrievalStartedEvent", MagicMock()),
     ])
+
+
+# ---------------------------------------------------------------------------
+# Swallowed handler errors say what was lost
+# ---------------------------------------------------------------------------
+
+def _warnings(caplog):
+    return [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+
+
+@pytest.mark.parametrize(
+    "event_cls, patched, expected",
+    [
+        ("CrewKickoffStartedEvent", "_build_start_record",
+         "lost the start of a crew_kickoff event; no record will be produced for it"),
+        ("TaskStartedEvent", "_build_start_record",
+         "lost the start of a task event; no record will be produced for it"),
+        ("LLMCallCompletedEvent", "_complete",
+         "lost the completion of a llm_call event; its record is missing or will be reported"),
+        ("ToolUsageErrorEvent", "_fail",
+         "lost the failure of a tool_usage event; its record is missing or will be reported"),
+        ("AgentExecutionErrorEvent", "_fail",
+         "lost the failure of a agent_execution event"),
+    ],
+)
+def test_a_lost_record_is_a_warning_that_names_it(
+    mock_bus, monkeypatch, caplog, event_cls, patched, expected
+):
+    listener = _make_listener_with_mock_bus(mock_bus, async_capture=False)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("serializer exploded")
+
+    monkeypatch.setattr(listener, patched, boom)
+    with caplog.at_level("DEBUG", logger="briefcase"):
+        _fire_on_bus(mock_bus, event_cls, _make_crew_event(event_cls, crew_id="c1"))  # no raise
+
+    messages = _warnings(caplog)
+    assert len(messages) == 1, messages
+    assert expected in messages[0]
+    assert "serializer exploded" in messages[0]
+    assert "ignored error" not in messages[0]
+    assert listener.decision_count == 0
+
+
+def test_a_failed_optional_subscription_is_a_warning(monkeypatch, caplog):
+    import types
+
+    events = types.ModuleType("crewai.events")
+    events.FlowPlotEvent = type("FlowPlotEvent", (), {})
+    monkeypatch.setitem(__import__("sys").modules, "crewai.events", events)
+
+    bus = MagicMock()
+    bus.on.side_effect = TypeError("bus rejects this event class")
+    listener = _make_listener_with_mock_bus(_make_mock_bus(), async_capture=False)
+    with caplog.at_level("DEBUG", logger="briefcase"):
+        listener._register_optional_events(
+            bus, [("FlowPlotEvent", lambda e: None), ("NotInThisRelease", lambda e: None)]
+        )
+    messages = _warnings(caplog)
+    # The event class that exists but could not be subscribed is reported;
+    # the one this crewai release does not have is a silent, optional probe.
+    assert len(messages) == 1, messages
+    assert "could not subscribe to optional event FlowPlotEvent" in messages[0]
+    assert "will not be captured" in messages[0]
+
+
+def test_an_unusable_pairing_key_attribute_is_a_debug_probe(caplog):
+    class Unprintable:
+        def __str__(self):
+            raise ValueError("no str")
+
+    event = MagicMock()
+    event.crew_id = Unprintable()
+    event.name = "fallback-name"
+    with caplog.at_level("DEBUG", logger="briefcase"):
+        key = _mod._extract_event_key(event, "crew_id", "name")
+    assert key == "fallback-name"
+    assert _warnings(caplog) == []
+    debug = [r.getMessage() for r in caplog.records if r.levelname == "DEBUG"]
+    assert any("'crew_id' is not usable as a pairing key" in m for m in debug), debug

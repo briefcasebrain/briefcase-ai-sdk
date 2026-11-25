@@ -158,3 +158,22 @@ def test_a_similarity_rule_tolerates_wording_but_not_meaning(stored):
     far = ReplayEngine(backend)
     far.with_executor(lambda inputs: {"category": "billing"})
     assert far.replay_with_policy(decision_id, policy, "strict").policy_violations != []
+
+
+def test_a_rule_on_function_name_is_checked_not_reported_absent(stored):
+    backend, decision_id = stored
+    policy = ReplayPolicy("identity")
+    policy.with_exact_match("function_name")
+    policy.with_exact_match("category")
+
+    engine = ReplayEngine(backend)
+    engine.with_executor(lambda inputs: {"category": "account_access"})
+    result = engine.replay_with_policy(decision_id, policy, "strict")
+    assert result.policy_violations == []
+    assert result.status == "success"
+
+    # Without an executor the same rule is unverified, never a pass.
+    unverified = ReplayEngine(backend).replay_with_policy(decision_id, policy, "strict")
+    by_field = {v["field"]: v for v in unverified.policy_violations}
+    assert by_field["function_name"]["actual"] == "not replayed"
+    assert by_field["function_name"]["expected"] == "classify_ticket"

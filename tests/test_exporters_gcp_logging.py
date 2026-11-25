@@ -184,3 +184,201 @@ def test_missing_dependency_raises_with_hint(monkeypatch):
     monkeypatch.setitem(sys.modules, "google.cloud.logging", None)
     with pytest.raises(ImportError, match="pip install"):
         GCPCloudLoggingExporter(project="p")
+
+
+# ---------------------------------------------------------------------------
+# Failure handling: nothing is dropped before it was sent
+# ---------------------------------------------------------------------------
+
+def test_failed_flush_keeps_unsent_records_and_warns(gcp_stub, caplog):
+    import logging
+
+    exporter = _make_exporter(batch_size=100)
+    for i in range(5):
+        _run(exporter.export({"id": i}))
+
+    sent = []
+
+    def flaky(record, severity="INFO"):
+        if record["id"] == 2:
+            raise RuntimeError("quota exceeded")
+        sent.append(record["id"])
+
+    gcp_stub["logger"].log_struct.side_effect = flaky
+    with caplog.at_level(logging.WARNING, logger="briefcase.exporters.gcp_logging"):
+        _run(exporter.flush())
+    assert sent == [0, 1]
+    assert [r["id"] for r in exporter._buffer] == [2, 3, 4]
+    assert any(
+        r.levelno == logging.WARNING and "quota exceeded" in r.getMessage()
+        for r in caplog.records
+    )
+
+    # The next flush delivers what was kept, in order, exactly once.
+    gcp_stub["logger"].log_struct.side_effect = lambda record, severity="INFO": sent.append(record["id"])
+    _run(exporter.flush())
+    assert sent == [0, 1, 2, 3, 4]
+    assert exporter._buffer == []
+
+
+def test_requeue_is_capped(gcp_stub):
+    exporter = _make_exporter(batch_size=2, max_buffer=4)
+    gcp_stub["logger"].log_struct.side_effect = RuntimeError("down")
+    for i in range(10):
+        _run(exporter.export({"id": i}))
+    assert len(exporter._buffer) == 4
+    assert [r["id"] for r in exporter._buffer] == [6, 7, 8, 9]
+    assert exporter.dropped_records == 6
+
+
+def test_blocking_client_call_runs_off_the_event_loop(gcp_stub):
+    import threading
+
+    exporter = _make_exporter(batch_size=1)
+    seen = []
+    gcp_stub["logger"].log_struct.side_effect = (
+        lambda record, severity="INFO": seen.append(threading.current_thread())
+    )
+
+    async def main():
+        await exporter.export({"id": 1})
+        return threading.current_thread()
+
+    loop_thread = _run(main())
+    assert seen and seen[0] is not loop_thread
+
+
+def test_concurrent_exports_lose_nothing(gcp_stub):
+    import threading
+
+    exporter = _make_exporter(batch_size=7)
+    sent = []
+    lock = threading.Lock()
+
+    def record_it(record, severity="INFO"):
+        with lock:
+            sent.append(record["id"])
+
+    gcp_stub["logger"].log_struct.side_effect = record_it
+
+    def worker(base):
+        for i in range(50):
+            asyncio.run(exporter.export({"id": base + i}))
+
+    threads = [threading.Thread(target=worker, args=(n * 1000,)) for n in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    _run(exporter.flush())
+    assert sorted(sent) == sorted(n * 1000 + i for n in range(8) for i in range(50))
+
+
+def test_module_logs_through_briefcase_logging():
+    from briefcase.exporters import gcp_logging
+
+    assert gcp_logging.logger.name.startswith("briefcase")
+
+
+# ---------------------------------------------------------------------------
+# Forked workers (gunicorn, Celery prefork, multiprocessing "fork")
+# ---------------------------------------------------------------------------
+
+import os  # noqa: E402
+import threading  # noqa: E402
+
+from .test_export_fork import run_in_fork  # noqa: E402
+
+needs_fork = pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
+
+
+@needs_fork
+def test_gcp_buffer_is_not_sent_twice_after_a_fork(gcp_stub):
+    exporter = _make_exporter(batch_size=100)
+    _run(exporter.export({"id": "parent-buffered"}))
+    from briefcase import _export_mixin as em
+
+    em._remember_exporter(exporter)  # as the export pipeline does for every exporter
+
+    def child():
+        if exporter._buffer:
+            return 4  # the parent's unsent record was copied into the child
+        _run(exporter.export({"id": "child"}))
+        _run(exporter.flush())
+        sent = [call.args[0]["id"] for call in gcp_stub["logger"].log_struct.call_args_list]
+        return 0 if sent == ["child"] else 5
+
+    assert run_in_fork(child) == 0
+    assert [r["id"] for r in exporter._buffer] == ["parent-buffered"]
+
+
+@needs_fork
+def test_gcp_locks_held_by_another_thread_at_the_fork_do_not_hang_the_child(gcp_stub):
+    from briefcase import _export_mixin as em
+
+    exporter = _make_exporter(batch_size=100)
+    em._remember_exporter(exporter)
+    held, release = threading.Event(), threading.Event()
+
+    def hold_locks():
+        with exporter._lock, exporter._send_lock:
+            held.set()
+            release.wait(5)
+
+    holder = threading.Thread(target=hold_locks, daemon=True)
+    holder.start()
+    assert held.wait(5)
+    try:
+        def child():
+            _run(exporter.export({"id": "child"}))
+            _run(exporter.flush())
+            return 0 if gcp_stub["logger"].log_struct.call_count == 1 else 3
+
+        assert run_in_fork(child) == 0
+    finally:
+        release.set()
+        holder.join(5)
+
+
+@needs_fork
+def test_gcp_client_is_rebuilt_in_the_child(gcp_stub):
+    """A gRPC channel opened before the fork is not usable in the child; the
+    child builds its own client on its first send, the parent keeps its own."""
+    from briefcase import _export_mixin as em
+
+    exporter = _make_exporter(batch_size=100)
+    em._remember_exporter(exporter)
+    assert gcp_stub["logging"].Client.call_count == 1
+
+    def child():
+        _run(exporter.export({"id": "child"}))
+        _run(exporter.flush())
+        return 0 if gcp_stub["logging"].Client.call_count == 2 else 3
+
+    assert run_in_fork(child) == 0
+    assert gcp_stub["logging"].Client.call_count == 1
+
+
+@needs_fork
+def test_gcp_exports_made_through_the_pipeline_in_a_child_arrive_once(gcp_stub):
+    import briefcase
+    from briefcase import _export_mixin as em
+
+    exporter = _make_exporter(batch_size=100)
+
+    @briefcase.capture(exporter=exporter)
+    def work(label):
+        return label
+
+    work("parent")
+    assert em.wait_for_pending_exports(5)
+
+    def child():
+        work("child")
+        if not briefcase.flush(5):
+            return 3
+        sent = [call.args[0]["outputs"]["result"] for call in gcp_stub["logger"].log_struct.call_args_list]
+        return 0 if sent == ["'child'"] else 4
+
+    assert run_in_fork(child) == 0
+    assert [r["outputs"]["result"] for r in exporter._buffer] == ["'parent'"]

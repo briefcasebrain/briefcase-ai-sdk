@@ -118,3 +118,44 @@ def test_jsonl_exporter_tightens_existing_file_mode(tmp_path):
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     lines = [json.loads(line) for line in path.read_text().splitlines()]
     assert lines == [{"old": 1}, {"new": 2}]
+
+
+def test_memory_exporter_max_records_keeps_the_newest():
+    mem = MemoryExporter(max_records=3)
+    for i in range(5):
+        asyncio.run(mem.export({"i": i}))
+    assert [r["i"] for r in mem.records] == [2, 3, 4]
+    assert mem.dropped == 2
+    assert mem.records[0] == {"i": 2}
+    mem.clear()
+    assert len(mem.records) == 0
+
+
+def test_memory_exporter_is_unbounded_by_default():
+    mem = MemoryExporter()
+    assert mem.max_records is None
+    assert isinstance(mem.records, list)
+    with pytest.raises(ValueError):
+        MemoryExporter(max_records=0)
+
+
+def test_observe_http_url_builds_an_http_exporter():
+    exporter = briefcase.observe("https://collector.example.com/v1/decisions")
+    assert isinstance(exporter, briefcase.HTTPExporter)
+    assert BriefcaseConfig.get().exporter is exporter
+    with pytest.raises(ValueError, match="cleartext"):
+        briefcase.observe("http://collector.example.com/v1/decisions")
+
+
+def test_exporter_classes_and_auto_are_exported_at_top_level():
+    import briefcase.auto as auto_module
+
+    for name in ("BaseExporter", "ConsoleExporter", "JSONLFileExporter",
+                 "MemoryExporter", "HTTPExporter", "OTelExporter",
+                 "GCPCloudLoggingExporter"):
+        assert getattr(briefcase, name) is getattr(briefcase.exporters, name)
+    # briefcase.auto stays the submodule and is also callable.
+    assert briefcase.auto is auto_module
+    assert callable(briefcase.auto) and callable(briefcase.auto.undo)
+    with pytest.raises(ValueError):
+        briefcase.auto("no-such-framework")

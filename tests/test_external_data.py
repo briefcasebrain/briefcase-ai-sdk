@@ -266,10 +266,28 @@ class TestTrackApiCall:
     def test_lakefs_upload_failure_doesnt_crash(self, tracker_with_lakefs, sample_response):
         tracker_with_lakefs.lakefs.upload_object.side_effect = Exception("connection refused")
         result = tracker_with_lakefs.track_api_call("ofac", "/sdn", "GET", sample_response)
-        # Snapshot is still created in memory, just no lakefs_path
-        assert result["snapshot_stored"] is True
+        # The record is kept in memory, but it is not reported as stored.
+        assert result["snapshot_stored"] is False
+        assert "connection refused" in result["snapshot_error"]
         snap = tracker_with_lakefs.get_latest_snapshot("ofac")
         assert snap.lakefs_path is None
+        assert "connection refused" in snap.storage_error
+
+        # Unchanged data is retried once the store is back (ON_CHANGE would
+        # otherwise skip it forever).
+        tracker_with_lakefs.lakefs.upload_object.side_effect = None
+        retry = tracker_with_lakefs.track_api_call("ofac", "/sdn", "GET", sample_response)
+        assert retry["snapshot_stored"] is True
+        assert "snapshot_error" not in retry
+        assert tracker_with_lakefs.get_latest_snapshot("ofac").lakefs_path
+
+    def test_db_upload_failure_reports_not_stored(self, tracker_with_lakefs):
+        tracker_with_lakefs.lakefs.upload_object.side_effect = OSError("disk")
+        result = tracker_with_lakefs.track_db_query(
+            "postgresql", "db", "SELECT 1", result_data=[{"a": 1}], store_snapshot=True
+        )
+        assert result["snapshot_stored"] is False
+        assert "disk" in result["snapshot_error"]
 
     def test_upload_matches_versioned_client_signature(self, sample_response):
         """The tracker calls upload_object(path, data) as defined by
@@ -859,3 +877,84 @@ class TestOTelHelpers:
 
     def test_end_span_no_op_on_none(self, tracker):
         tracker._end_span(None)  # Should not raise
+
+
+# =========================================================================
+# Concurrency, id uniqueness, automatic retention
+# =========================================================================
+
+class TestTrackerHardening:
+    def test_snapshot_ids_unique_within_one_second(self):
+        tracker = ExternalDataTracker(
+            default_policy=SnapshotPolicy(frequency=SnapshotFrequency.EVERY_CALL)
+        )
+        ids = [
+            tracker.track_api_call("api", "/x", "GET", {"same": "payload"})["snapshot_id"]
+            for _ in range(200)
+        ]
+        assert len(set(ids)) == 200
+
+    def test_same_timestamp_ids_do_not_collide(self):
+        tracker = ExternalDataTracker()
+        ts = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        kwargs = dict(
+            source_name="s", source_type="api", data_hash="a" * 64, size_bytes=1,
+            record_count=None, metadata={}, timestamp=ts,
+        )
+        first = tracker._create_snapshot(**kwargs)
+        second = tracker._create_snapshot(**kwargs)
+        assert first.snapshot_id != second.snapshot_id
+        assert first.snapshot_id.startswith("s_aaaaaaaaaaaa_20260101000000000000_")
+
+    def test_concurrent_tracking_loses_no_snapshots(self):
+        import threading
+
+        tracker = ExternalDataTracker(
+            default_policy=SnapshotPolicy(frequency=SnapshotFrequency.EVERY_CALL)
+        )
+        errors = []
+
+        def work(n):
+            try:
+                for i in range(50):
+                    tracker.track_api_call("shared", "/x", "GET", {"n": n, "i": i})
+                    tracker.track_api_call(f"own_{n}", "/x", "GET", {"i": i})
+                    tracker.get_snapshots("shared")
+                    tracker.enforce_retention()
+            except Exception as exc:  # pragma: no cover - failure path
+                errors.append(exc)
+
+        threads = [threading.Thread(target=work, args=(n,)) for n in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []
+        assert tracker.get_snapshot_count("shared") == 400
+        ids = [s.snapshot_id for s in tracker.get_snapshots("shared")]
+        assert len(set(ids)) == 400
+        for n in range(8):
+            assert tracker.get_snapshot_count(f"own_{n}") == 50
+
+    def test_retention_enforced_automatically_after_each_snapshot(self):
+        tracker = ExternalDataTracker()
+        tracker.set_policy("src", SnapshotPolicy(
+            frequency=SnapshotFrequency.EVERY_CALL, max_snapshots=3, retention_days=0,
+        ))
+        for i in range(10):
+            tracker.track_api_call("src", "/x", "GET", {"i": i})
+        assert tracker.get_snapshot_count("src") == 3
+
+        # Expired records go as soon as the next snapshot lands.
+        tracker.set_policy("old", SnapshotPolicy(
+            frequency=SnapshotFrequency.EVERY_CALL, retention_days=30,
+        ))
+        tracker._snapshots["old"] = [Snapshot(
+            snapshot_id="ancient", source_name="old", source_type="api",
+            data_hash="h", size_bytes=1,
+            timestamp=(datetime.now(timezone.utc) - timedelta(days=60)).isoformat(),
+        )]
+        tracker.track_api_call("old", "/x", "GET", {"fresh": True})
+        assert [s.snapshot_id for s in tracker.get_snapshots("old")] != ["ancient"]
+        assert tracker.get_snapshot_count("old") == 1

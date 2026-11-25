@@ -4,7 +4,17 @@ Semantic conventions for Cowork OpenTelemetry events.
 Defines attribute names for all Cowork event types received via OTLP
 logs/events protocol. These conventions map 1:1 to the attributes
 emitted by the Cowork agent.
+
+Claude Code emits the same events under a ``claude_code.`` prefix and Codex
+under ``codex.``; ``briefcase-ai receive`` strips the prefix (see
+``SOURCE_EVENT_PREFIXES``) and maps both onto these names.
 """
+
+# Event-name prefixes of sources that share this vocabulary, by source id.
+SOURCE_EVENT_PREFIXES = {
+    "claude_code": "claude_code.",
+    "codex": "codex.",
+}
 
 # ---------------------------------------------------------------------------
 # Service resource attributes (on the OTLP Resource)
@@ -40,6 +50,8 @@ EVENT_TOOL_RESULT = "tool_result"
 EVENT_API_REQUEST = "api_request"
 EVENT_API_ERROR = "api_error"
 EVENT_TOOL_DECISION = "tool_decision"
+EVENT_ASSISTANT_RESPONSE = "assistant_response"
+EVENT_API_REFUSAL = "api_refusal"  # Claude Code only
 
 ALL_EVENT_TYPES = frozenset(
     {
@@ -48,6 +60,8 @@ ALL_EVENT_TYPES = frozenset(
         EVENT_API_REQUEST,
         EVENT_API_ERROR,
         EVENT_TOOL_DECISION,
+        EVENT_ASSISTANT_RESPONSE,
+        EVENT_API_REFUSAL,
     }
 )
 
@@ -55,12 +69,27 @@ ALL_EVENT_TYPES = frozenset(
 # user_prompt attributes
 # ---------------------------------------------------------------------------
 PROMPT_TEXT = "prompt"
+PROMPT_TEXT_ALT = "prompt_text"  # same value as "prompt" on newer Claude Code
 PROMPT_LENGTH = "prompt_length"
+
+# ---------------------------------------------------------------------------
+# assistant_response attributes
+# ---------------------------------------------------------------------------
+RESPONSE_TEXT = "response"
+RESPONSE_LENGTH = "response_length"
+
+# ---------------------------------------------------------------------------
+# Attributes present on every event that describe the local machine
+# ---------------------------------------------------------------------------
+WORKSPACE_HOST_PATHS = "workspace.host_paths"
 
 # ---------------------------------------------------------------------------
 # tool_result attributes
 # ---------------------------------------------------------------------------
 TOOL_NAME = "tool_name"
+TOOL_USE_ID = "tool_use_id"  # joins a tool_decision to its tool_result
+TOOL_INPUT = "tool_input"  # raw tool input
+TOOL_ERROR_TYPE = "error_type"
 TOOL_SUCCESS = "success"
 TOOL_DURATION_MS = "duration_ms"
 TOOL_ERROR = "error"
@@ -114,6 +143,10 @@ REQUIRED_ATTRS = {
 SENSITIVE_ATTRIBUTES = frozenset(
     {
         PROMPT_TEXT,
+        PROMPT_TEXT_ALT,
+        RESPONSE_TEXT,
+        TOOL_INPUT,
+        WORKSPACE_HOST_PATHS,
         TOOL_PARAMETERS,
         TOOL_ERROR,
         USER_EMAIL,

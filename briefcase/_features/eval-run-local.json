@@ -1,0 +1,13 @@
+{
+  "id": "eval-run-local",
+  "title": "Local eval runs with a CI gate",
+  "verb": "review",
+  "one_line": "Score a function against a dataset offline and fail CI on regressions.",
+  "command": "briefcase-ai eval run --dataset NAME --target module:function --fail-under 0.9",
+  "docs_slug": "review/eval-run-local",
+  "status": "experimental",
+  "requires_extra": null,
+  "verified_against": "Run for real with local Python targets (sync, async, raising) and exact/contains/json/custom scorers; records written through EvalRun to a JSONL exporter. Not run: HTTP/OTLP exporters as the destination, real model targets.",
+  "docs_path": "docs/features/datasets-from-records.md",
+  "status_id": "datasets-from-records"
+}

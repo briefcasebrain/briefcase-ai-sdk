@@ -1,6 +1,6 @@
 # briefcase-ai — full usage guide for LLMs
 
-Governance infrastructure for AI decisions: enforce controls, record context,
+Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models. Enforce controls, record context,
 replay later. This file is a copy-paste recipe book. Every snippet is runnable
 as written. Package import name is `briefcase`.
 
@@ -12,9 +12,12 @@ KEY RULES
 - `capture` does NOT require `briefcase.init()`. `init()` is only for native
   runtime features (storage backends, snapshots).
 - Never log or persist raw PII. Use `briefcase.sanitize.Sanitizer` first.
-- Native/pure-Python features need no pip extra. Only `otel`, `lakefs`,
-  `bitemporal-iceberg`, `bitemporal-glue`, `kdb`, `compliance-kms`, `gym`,
-  `evals`, and `mcp` install third-party deps.
+- Native/pure-Python features need no pip extra; section 8 lists the extras
+  that install third-party packages.
+- Queued records are drained at a normal interpreter exit (an atexit hook, up
+  to 5 s), including `sys.exit()`. Call `briefcase.shutdown()` yourself only
+  when the process leaves through `os._exit` / a killed worker (Celery
+  prefork), or to drain earlier.
 
 ------------------------------------------------------------------------------
 ## 1. Minimal capture (3 lines)
@@ -30,21 +33,38 @@ def classify(text: str) -> str:
 classify("hello world")               # a decision record is emitted
 ```
 
-A record is a dict: decision_id, decision_type, function_name, inputs, outputs,
-started_at, ended_at, execution_time_ms, and error (if one was raised).
+A record is a dict: schema_version ("1.2"), decision_id, decision_type,
+function_name, inputs, outputs, started_at, ended_at, execution_time_ms, and
+error (if one was raised). Optional: context_version, status ("cancelled" when
+an async call was cancelled or timed out), workflow_id (inside a
+`briefcase.correlation` workflow), trace_id / parent_span_id / trace_flags
+(when an OpenTelemetry span is active at call time), and prompt_name /
+prompt_version (under `briefcase.prompt`). Provider records may also carry
+parent_run_id / parent_framework (the framework LLM run they were made in).
+Readers should accept schema_version "1.1" and "1.2".
 
 ------------------------------------------------------------------------------
 ## 2. Choosing an exporter
 
 ```python
 import briefcase
-from briefcase.exporters import ConsoleExporter, JSONLFileExporter, MemoryExporter
+from briefcase.exporters import (
+    ConsoleExporter, HTTPExporter, JSONLFileExporter, MemoryExporter,
+)
 
 briefcase.observe("console")              # ConsoleExporter() -> stderr
 briefcase.observe("runs.jsonl")           # JSONLFileExporter -> append to file
 mem = briefcase.observe("memory")         # MemoryExporter -> mem.records list
 briefcase.observe(JSONLFileExporter("/var/log/decisions.jsonl"))   # explicit
+briefcase.observe("https://collector.example.com/v1/decisions")    # HTTPExporter
+briefcase.observe(HTTPExporter(url, token="...", batch_size=50))   # with auth
 ```
+
+`HTTPExporter` is stdlib-only: it POSTs `{"records": [...]}` batches (by size
+and flush interval), retries 5xx/429/network errors with backoff, and requires
+https (http only for localhost, or with `allow_insecure=True`).
+`MemoryExporter(max_records=1000)` keeps only the newest records; the default
+is unbounded.
 
 `observe(...)` returns the exporter; a `MemoryExporter` is handy in tests,
 notebooks, and Streamlit apps:
@@ -72,7 +92,21 @@ class HttpExporter(BaseExporter):
     async def close(self) -> None: ...
 
 briefcase.setup(exporter=HttpExporter())   # observe() is sugar over setup()
+briefcase.setup(exporter=None)             # explicit None clears the exporter
 ```
+
+Delivery: export runs on one background thread behind a bounded queue.
+
+```python
+briefcase.configure_export(max_queue_size=50_000, max_retries=2)
+briefcase.flush(timeout=5.0)      # drain the queue, flush exporters
+briefcase.shutdown(timeout=5.0)   # drain the queue, close exporters (also at exit)
+briefcase.export_stats()          # {"exported", "failed", "dropped", "queued", ...}
+```
+
+When the queue is full, new records are dropped, counted, and reported at
+WARNING. A failed export (exception after retries, or `export()` returning
+False) is logged at WARNING too.
 
 ------------------------------------------------------------------------------
 ## 3. Async functions and options
@@ -88,9 +122,36 @@ async def agenerate(prompt: str) -> str:
     max_input_chars=2000,                   # truncate serialized inputs
     max_output_chars=2000,
     async_capture=True,                     # export off the hot path (default)
+    sample_rate=0.25,                       # record ~25% of calls (default 1.0)
 )
 def score(claim): ...
+
+@briefcase.capture                          # generators and async generators:
+async def stream(prompt: str):              # one record when the stream ends,
+    async for token in call_model_stream(prompt):   # outputs = collected chunks,
+        yield token                         # duration = the whole stream
 ```
+
+A cancelled or timed-out async call (`asyncio.wait_for`, task cancellation)
+still emits a record, with `status: "cancelled"`, and the cancellation
+re-raises.
+
+Content rule (one rule for every capture path): briefcase records prompt,
+completion and tool content only where someone chose to record it.
+
+```python
+@briefcase.capture                          # your own function: you chose to record it,
+def triage(ticket): ...                     # so args and return value are recorded
+                                            # (capture_content="hash"|"none" to keep them out)
+
+briefcase.auto()                            # frameworks + provider SDKs: NO content
+briefcase.auto("langchain", capture_content="full")   # opt in ("hash" = digests;
+                                            # True/False also accepted)
+# or BRIEFCASE_CAPTURE_CONTENT=full|hash|none, or `briefcase-ai exec --capture-content full`
+```
+
+`connect` (`--capture-content`), `receive` (`--keep-content`) and eval records
+(`--capture-content`) follow the same rule.
 
 ------------------------------------------------------------------------------
 ## 4. PII sanitization
@@ -173,20 +234,30 @@ Or via environment: `BRIEFCASE_LOG_LEVEL=DEBUG python app.py`.
 No extra needed (native or pure-Python): replay, drift, sanitize, storage, cost,
 routing, bitemporal, compliance, controls, integrity (chains and canonical
 JSON; signing needs the extra), validate, guardrails, correlation, events,
-external, rag.
+webhook, external, rag, vcs. The extras with those names exist but are empty.
 
 Needs an extra (third-party deps):
 - `pip install briefcase-ai[otel]`               # OpenTelemetry tracing
+- `pip install briefcase-ai[kafka]`              # Kafka event transport
+- `pip install briefcase-ai[gcp-logging]`        # Cloud Logging exporter
+- `pip install briefcase-ai[opa]`                # OPA router (httpx)
 - `pip install briefcase-ai[lakefs]`             # lakeFS versioned storage
+- `pip install briefcase-ai[rag-chroma]`         # also `rag-pinecone`, `rag-weaviate`
+- `pip install briefcase-ai[vcs-dvc]`            # also `vcs-pachyderm`, `vcs-ducklake`, `vcs-iceberg`
+- `pip install briefcase-ai[gym]`                # Gymnasium bridge
+- `pip install briefcase-ai[evals]`              # zstd, for inspect-ai .eval logs
 - `pip install briefcase-ai[bitemporal-iceberg]` # pyiceberg + pyarrow backend
 - `pip install briefcase-ai[bitemporal-glue]`    # AWS Glue catalog auth (boto3)
 - `pip install briefcase-ai[kdb]`                # kdb+ backend (KX-licensed pykx)
 - `pip install briefcase-ai[compliance-kms]`     # KMS-signed bundles (boto3)
 - `pip install briefcase-ai[integrity]`          # Ed25519 signing (pynacl)
-- `pip install briefcase-ai[mcp]`                # MCP server (briefcase-mcp)
-- `pip install briefcase-ai[gym]`                # Gymnasium bridge
-- `pip install briefcase-ai[evals]`              # zstd, for inspect-ai .eval logs
-- `pip install briefcase-ai[all]`                # everything except kdb
+- `pip install briefcase-ai[langchain]`          # also `crewai`, `llamaindex`, `autogen`, `ag2`, `pageindex`, `openai-agents`
+- `pip install briefcase-ai[mcp]`                # MCP server (briefcase-ai-mcp)
+- `pip install briefcase-ai[run]`                # gRPC client for the eval-run CLI
+- `pip install briefcase-ai[engine]`             # gRPC client for `briefcase-ai engine`/`graph`/`env` (engine itself: `briefcase-ai engine install`)
+- `pip install briefcase-ai[receiver]`           # OTLP/protobuf for `briefcase-ai receive`
+- `pip install briefcase-ai[budgets-redis]`     # shared budget store; also `budgets-postgres`, `budgets-mysql`
+- `pip install briefcase-ai[all]`                # everything above except kdb
 
 ------------------------------------------------------------------------------
 ## 8b. RL and evaluation bridges
@@ -275,6 +346,44 @@ POSIX flock), so concurrent appenders on one host retry cleanly instead of
 forking; cross-host writers need a shared store enforcing the same CAS.
 
 ------------------------------------------------------------------------------
+## 8e. Plug-and-play integrations (coding tools -> decision records)
+
+Do not hand-write a coding tool's telemetry or MCP config; the CLI does it.
+
+```bash
+briefcase-ai connect                    # detect tools, show plan + diff, ask once, write
+briefcase-ai connect claude-code cursor # only these tools
+briefcase-ai connect --dry-run          # look, write nothing
+briefcase-ai connect --undo             # remove exactly what connect wrote
+briefcase-ai connect list | status
+briefcase-ai receive                    # OTLP receiver on 127.0.0.1:4318, records to the console
+briefcase-ai receive --detach           # background, records to ~/.briefcase/receiver/records.jsonl
+briefcase-ai receive --to runs.jsonl    # or https://..., or otlp
+briefcase-ai mcp install                # register briefcase-ai-mcp with detected tools
+briefcase-ai mcp link cursor            # one-click deeplink + copy-paste payloads
+briefcase-ai doctor --connect           # keys still present, tool version, receiver reachable
+```
+
+- Automatic: Claude Code (`~/.claude/settings.json` env, OTLP http/json), Codex
+  CLI (`[otel]` block in `~/.codex/config.toml`), Cursor (hooks + `mcp.json`),
+  VS Code Copilot Chat (user `settings.json`). Print-only: Claude Desktop/Cowork
+  (admin setting), Copilot CLI, Cline, Windsurf, opencode. Gemini CLI is experimental.
+- Edits are key-level merges with a timestamped backup; malformed JSON and JSON
+  with comments are refused and the snippet is printed instead.
+- Content is off twice over: `connect` enables prompt/tool content in the tool
+  only with `--capture-content`, and `receive` drops prompts, responses, tool
+  input, host paths and hashes `user.email` unless run with `--keep-content`.
+- Claude Code and Cursor work on a bare install. Codex and Copilot send
+  protobuf: `pip install 'briefcase-ai[receiver]'`.
+- Records: `decision_type` is `model_call` (model, tokens, cost, duration),
+  `tool_call` (decision joined with result), `user_prompt`, `assistant_response`
+  or `event`; `workflow_id` is the prompt id; `inputs.source` names the tool.
+- A non-loopback `--host` requires `--token`.
+
+In code, the receiver is `briefcase.receiver.Receiver(exporter)` plus
+`make_server(receiver, host, port)`.
+
+------------------------------------------------------------------------------
 ## 9. Common pitfalls
 - Records "disappear": you didn't call `observe(...)`/`setup(exporter=...)`.
 - Non-deterministic in tests: capture exports in a background thread by default;
@@ -282,5 +391,9 @@ forking; cross-host writers need a shared store enforcing the same CAS.
   `capture_episodes(env, async_capture=False)`; `EvalRun` already defaults to
   synchronous export because batch jobs exit immediately.
 - `import briefcase.otel` fails: install `briefcase-ai[otel]`.
+- Framework/provider records have empty `inputs`/`outputs`: content capture is
+  off by default for `briefcase.auto()`; pass `capture_content="full"` or set
+  `BRIEFCASE_CAPTURE_CONTENT=full` (records written without it cannot be
+  replayed or turned into datasets).
 - Logging shows nothing: it's opt-in — call `enable_logging()` or set
   `BRIEFCASE_LOG_LEVEL`.
