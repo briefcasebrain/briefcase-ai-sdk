@@ -173,6 +173,8 @@ engine's security model (oci-jj e89ddbf, 8a52297, be043d9):
 `briefcase-ai engine uninstall --purge` also deletes the data. On the platform, revoking the
 licence token or the account's entitlement stops new installs at once.
 
+Before running `briefcase-ai engine down`, `engine upgrade` or `engine uninstall`, arrange exclusive administration of the engine project on its Docker daemon. Pause other operators, automation and Compose commands that can change its containers, volumes or image tags until the command exits. The SDK checks ownership before removal. Docker selects the resources again when it executes the removal, so a concurrent replacement could be deleted.
+
 ## Without an install
 
 Every engine command is listed in `briefcase-ai --help`, `briefcase-ai features` and

@@ -18,6 +18,8 @@ Verify signed release material and establish daemon, service, image and volume o
 
 The SDK assumes the endpoint continues to identify the same daemon between the final identity check and Compose's connection. On an empty stack, another Compose client racing startup can cause Compose to scale down a container. The SDK cannot guarantee detection of that removal. It must never create or delete a foreign tracking container or volume.
 
+Down, upgrade and uninstall require exclusive administration of the engine project and its image tags on the selected Docker daemon from the start of the command until it exits. The SDK install lock serializes cooperating SDK commands. Docker clients outside that lock can replace a checked resource before Compose or Docker removes it. The operator must quiesce those clients for these operations.
+
 ## Release evidence
 
 Record the installed versions and observed outcomes for Codex, Claude Code, Cursor and Docker Compose. Host tests use isolated configuration and harmless observable actions. Compose tests use disposable projects and data. Keep deterministic fake-host tests for failure paths. SDK 4.5.0 requires clean independent review and green CI on the exact release commit.
