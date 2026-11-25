@@ -832,3 +832,49 @@ def test_a_refusal_keeps_a_daemon_another_up_recorded_between_install_and_settle
     capsys.readouterr()
     history = json.loads(_engine.installed_path().read_text())["docker_contexts"]
     assert any("id=BBB" in entry for entry in history), history
+
+
+# --- sidecars that the compose file pins by digest but the record does not -----------------------------------------
+
+PINNED = "bitnamilegacy/minio:2025.7.23@sha256:" + "8" * 64
+PINNED_ID = "sha256:" + "m" * 64  # what containers_for() gives the shared minio sidecar
+
+
+def with_a_pinned_sidecar(env, monkeypatch, container_image, resolvable=True):
+    from tests.cli.test_engine_invariants import containers_for
+
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "none")
+    path = _engine.current_install()["compose"]
+    open(path, "a").write(f"  minio:\n    image: {PINNED}\n    pull_policy: never\n")
+    state_path = env["log"].with_suffix(".state.json")
+    docker = json.loads(state_path.read_text())
+    if resolvable:
+        docker["refs"][PINNED] = PINNED_ID
+    state_path.write_text(json.dumps(docker))
+    rows = stopped(containers_for(A))
+    for row in rows:
+        if row[0] == "minio":
+            row[1] = container_image
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(rows))
+
+
+def test_a_stopped_sidecar_made_from_another_image_than_the_pinned_one_is_refused(env, monkeypatch, capsys):
+    with_a_pinned_sidecar(env, monkeypatch, "sha256:" + "x" * 64)
+    assert main(["engine", "up"]) == 1
+    out = capsys.readouterr()
+    assert compose_verbs(env) == [] and "minio" in out.err + out.out
+
+
+def test_a_sidecar_whose_pinned_image_cannot_be_resolved_locally_is_refused(env, monkeypatch, capsys):
+    with_a_pinned_sidecar(env, monkeypatch, PINNED_ID, resolvable=False)
+    assert main(["engine", "up"]) == 1
+    capsys.readouterr()
+    assert compose_verbs(env) == []
+
+
+def test_a_sidecar_made_from_the_pinned_image_is_started(env, monkeypatch, capsys):
+    with_a_pinned_sidecar(env, monkeypatch, PINNED_ID)
+    assert main(["engine", "up"]) == 0
+    capsys.readouterr()
+    assert [c for c in compose_calls(env) if "start" in c["argv"]]

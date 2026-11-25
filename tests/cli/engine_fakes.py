@@ -744,8 +744,9 @@ if args[:1] == ["compose"]:
             started = []
             for service, ref in _re.findall(r"^  (\S+):\n(?:    .*\n)*?    image: (\S+)", text, _re.M):
                 # Compose creates every service; an image the installer did not load (minio, registry) gets an id
-                started.append([service, state["refs"].get(ref) or "sha256:" + hashlib.sha256(ref.encode()).hexdigest(),
-                                path])
+                image_id = state["refs"].get(ref) or "sha256:" + hashlib.sha256(ref.encode()).hexdigest()
+                state["refs"][ref] = image_id  # as if Compose had pulled it
+                started.append([service, image_id, path])
             vanish = os.environ.get("FAKE_DOCKER_VANISH_ON_UP")
             if vanish:  # started by Compose and gone when the inventory is taken
                 started = [row + ["gone"] if row[0] == vanish else row for row in started]  # keeps the others' ids

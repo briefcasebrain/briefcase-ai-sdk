@@ -1225,6 +1225,18 @@ def _container_tls(service: str, env: List[str], want_tls: bool) -> Optional[boo
     return want_tls if target == wanted else not want_tls
 
 
+def _pinned_sidecar_images(record: Dict[str, Any]) -> Dict[str, str]:
+    """``{service: image reference}`` for the services the Compose file pins by digest."""
+    import re
+
+    try:
+        text = Path(record["compose"]).read_text(encoding="utf-8")
+    except (OSError, KeyError):
+        return {}
+    return {service: ref for service, ref in re.findall(r"^  (\S+):\n(?:    .*\n)*?    image: (\S+)", text, re.M)
+            if "@sha256:" in ref}
+
+
 def existing_containers_state(record: Dict[str, Any],
                               surplus_is_a_problem: bool = True) -> Tuple[Optional[str], Set[str]]:
     """``(problem, services that have a container)`` for the containers that already exist, running or stopped.
@@ -1240,12 +1252,22 @@ def existing_containers_state(record: Dict[str, Any],
     want_tls = bool(record.get("tls"))
     counts: Dict[str, int] = {}
     stale: List[str] = []
+    pinned = _pinned_sidecar_images(record)
     for row in rows:
         service = row["service"]
         counts[service] = counts.get(service, 0) + 1
         key = record_key(recorded, service)
         if key is None:
-            continue  # a sidecar this release does not pin
+            ref = pinned.get(service)  # a sidecar the release does not record: its digest-pinned default is the check
+            if ref:
+                from briefcase.engine import install as _inst
+
+                expected = _inst.Docker(_runner()).image_id(ref)
+                if expected is None:
+                    stale.append(f"the pinned image of {service} ({ref}) is not available locally to compare with")
+                elif row["image"] != expected:
+                    stale.append(f"{service} runs a different image than the one the Compose file pins")
+            continue
         if row["image"] != recorded[key]:
             stale.append(f"{service} runs a different image than engine {record['version']} verified")
         if service not in TRANSPORT_SERVICES:
