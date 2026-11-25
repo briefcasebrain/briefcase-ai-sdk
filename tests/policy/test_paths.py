@@ -383,3 +383,26 @@ def test_a_wildcard_that_expands_beyond_the_cap_is_undecidable_not_silently_trun
     call = engine.ToolCall("shell", command="cat f*.txt", cwd=str(project), project_dir=str(project))
     result = engine.evaluate(policy_of(), call)
     assert any("wildcard" in problem for problem in result.problems), result.problems
+
+
+def test_a_literal_bracket_in_the_expanded_home_is_not_a_glob_class(tmp_path, monkeypatch, project):
+    home = tmp_path / "h[1]"
+    (tmp_path / "h1").mkdir()
+    home.mkdir()
+    (home / "secret.txt").write_text("x")
+    monkeypatch.setenv("HOME", str(home))
+    rule = f'\n[[rule]]\nid = "no-secret"\ntool = "file"\neffect = "deny"\npaths = ["{tmp_path}/h?1?/secret.txt"]\n'
+    call = engine.ToolCall("shell", command="cat ~/sec*.txt", cwd=str(project), project_dir=str(project))
+    assert engine.evaluate(policy_of(GUARDED + rule), call).effect == "deny"
+
+
+def test_an_executable_name_wildcard_resolves_in_a_working_directory_with_a_literal_bracket(tmp_path):
+    from briefcase.policy import shell
+
+    work = tmp_path / "proj[1]"
+    (tmp_path / "proj1").mkdir()
+    work.mkdir()
+    (work / "secret.sh").write_text("#!/bin/sh\n")
+    analysis = shell.analyze("./sec*.sh", cwd=str(work), home=str(tmp_path))
+    assert not analysis.problems, analysis.problems
+    assert any(c.argv[0].endswith("/secret.sh") for c in analysis.commands), [c.argv for c in analysis.commands]

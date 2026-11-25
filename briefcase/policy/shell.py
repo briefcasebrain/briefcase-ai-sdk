@@ -68,9 +68,10 @@ _TIMEOUT_VALUE = frozenset(("-s", "--signal", "-k", "--kill-after"))
 
 
 class Word(object):
-    __slots__ = ("text", "dynamic", "glob", "quoted", "subs", "name_literal")
+    __slots__ = ("text", "dynamic", "glob", "quoted", "subs", "name_literal", "literal")
 
     def __init__(self, text="", dynamic=False, glob=False, quoted=False, subs=None, name_literal=False):
+        self.literal = ""  # the leading part of text that was substituted (~ -> $HOME): literal even in a wildcard
         self.text = text
         self.dynamic = dynamic
         self.glob = glob
@@ -86,10 +87,12 @@ class Cmd(object):
     when ``argv[i]`` depends on something only known at run time."""
 
     __slots__ = ("argv", "dyn", "glob", "redirs", "cwd", "subs", "stdin", "prev", "via", "opaque",
-                 "find_delete", "home", "redir_globs", "incomplete_globs")
+                 "find_delete", "home", "redir_globs", "incomplete_globs", "literals", "redir_literals")
 
     def __init__(self, argv, dyn, glob, redirs=None, cwd=None, subs=None, stdin=None, via=None, home=None,
-                 redir_globs=None):
+                 redir_globs=None, literals=None, redir_literals=None):
+        self.literals = literals or [""] * len(argv)  # per argument: the substituted ~ prefix, literal in a wildcard
+        self.redir_literals = redir_literals or [""] * len(redirs or [])
         self.redir_globs = redir_globs or [False] * len(redirs or [])  # per redirection: a wildcard in its target?
         self.incomplete_globs = []  # wildcards whose expansion went beyond GLOB_LIMIT: not every match was judged
         self.argv = argv
@@ -260,11 +263,15 @@ class _Lexer(object):
         glob = any(not q and _GLOB_CHARS.intersection(t) for t, q in parts)
         text = "".join(t for t, _ in parts)
         name_literal = dynamic and text.rfind("/") >= dyn_at and not text.endswith("/")
+        literal = ""
         if parts and not parts[0][1] and parts[0][0].startswith("~"):
             text, unknown_home = self._tilde(text, parts[0][0])
             if unknown_home:
                 dynamic, name_literal = True, "/" in text and not text.endswith("/")
+            else:
+                literal = self._tilde_prefix
         word = Word(text, dynamic, glob, quoted, subs, name_literal)
+        word.literal = literal
         if self.redir is not None:
             op, self.redir = self.redir, None
             if op in ("<<", "<<-"):
@@ -287,11 +294,14 @@ class _Lexer(object):
     def _tilde(self, text, first):
         prefix = first.split("/", 1)[0]
         home = self.state.lookup("HOME")
+        self._tilde_prefix = ""
         if prefix == "~":
             if home is None:
                 return text, True
+            self._tilde_prefix = home
             return home + text[1:], False
         if prefix == "~+" and self.state.cwd:
+            self._tilde_prefix = self.state.cwd
             return self.state.cwd + text[2:], False
         return text, True  # ~user, ~-: not known here
 
@@ -687,7 +697,8 @@ class _Lexer(object):
             dyn[0] = False             # "$VENV/bin/python": the name is known, the directory is not
         cmd = Cmd([w.text for w in words], dyn, [w.glob for w in words],
                   redirs=plain, cwd=state.cwd, subs=subs, stdin=stdin, via=list(self.via), home=state.home,
-                  redir_globs=[target.glob for _, target in redirs])
+                  redir_globs=[target.glob for _, target in redirs], literals=[w.literal for w in words],
+                  redir_literals=[target.literal for _, target in redirs])
         if cmd.name in ("cd", "pushd"):
             _change_directory(cmd, state)
         return cmd
@@ -896,11 +907,10 @@ def _unwrap(cmd, state, depth):
 
 def _single_glob(cmd):
     import glob
-    pattern = cmd.argv[0]
-    if not os.path.isabs(pattern):
-        if cmd.cwd is None:
-            return None
-        pattern = os.path.join(cmd.cwd, pattern)
+
+    pattern = _glob_pattern(cmd.argv[0], cmd.cwd, cmd.home, cmd.literals[0])  # the same resolver as operands
+    if pattern is None:
+        return None
     try:
         matches = glob.glob(pattern)
     except (OSError, ValueError):
@@ -1030,11 +1040,14 @@ def absolute_spelling(text, cwd, home):
 GLOB_LIMIT = 64
 
 
-def _glob_pattern(text, cwd, home):
-    """The pattern to list for a wildcard word: the directory prefix (``~`` or the working directory) is literal text,
-    escaped so that a `[` or `*` in it is not read as part of the pattern; the word itself is the pattern."""
+def _glob_pattern(text, cwd, home, literal=""):
+    """The pattern to list for a wildcard word: the directory prefix (``~``, the working directory, or the part the
+    lexer substituted for a tilde, ``literal``) is literal text, escaped so that a `[` or `*` in it is not read as
+    part of the pattern; the word itself is the pattern."""
     import glob
 
+    if literal and text.startswith(literal):
+        return glob.escape(literal) + text[len(literal):]
     if text == "~" or text.startswith("~/"):
         return glob.escape(home) + text[1:]
     if os.path.isabs(text):
@@ -1068,12 +1081,12 @@ def path_refs(cmd, expand_globs=True):
     if name in ("find", "awk", "gawk") and not cmd.find_delete:
         access = "read"
 
-    def add(text, how, is_glob=False):
+    def add(text, how, is_glob=False, literal=""):
         if not text or text in ("-", "--", "{}") or "\n" in text or "://" in text or len(text) > 4096:
             return
         candidates = [text]
         if is_glob and expand_globs:
-            base = _glob_pattern(text, cmd.cwd, cmd.home)  # as written: the kernel lists it after the symlinks
+            base = _glob_pattern(text, cmd.cwd, cmd.home, literal)  # as written: the kernel lists it after the symlinks
             if base is not None:
                 try:
                     import glob
@@ -1099,18 +1112,18 @@ def path_refs(cmd, expand_globs=True):
             if eq > 0:
                 add(arg[eq + 1:].lstrip("@"), access, is_glob)        # --file=PATH, --data=@PATH
             continue
-        add(arg, access, is_glob)
+        add(arg, access, is_glob, cmd.literals[index])
         eq = arg.find("=")
         if eq > 0:
             add(arg[eq + 1:].lstrip("@"), access, is_glob)   # of=PATH, key=@PATH
         if arg.startswith("@"):
             add(arg[1:], access, is_glob)                    # curl -d @PATH
-    for (op, target, dynamic), has_glob in zip(cmd.redirs, cmd.redir_globs):
+    for (op, target, dynamic), has_glob, literal in zip(cmd.redirs, cmd.redir_globs, cmd.redir_literals):
         if dynamic or op in ("<<", "<<-", "<<<"):
             continue
         if op in (">&", "<&") and (target.isdigit() or target == "-"):
             continue
-        add(target, "read" if op == "<" else "write", has_glob)
+        add(target, "read" if op == "<" else "write", has_glob, literal)
     return refs
 
 
@@ -1298,7 +1311,7 @@ def suffixes(cmd):
             continue
         tail = Cmd(cmd.argv[start:], cmd.dyn[start:], cmd.glob[start:], cwd=cmd.cwd, home=cmd.home)
         tail.prev, tail.subs, tail.stdin, tail.redirs = cmd.prev, cmd.subs, cmd.stdin, cmd.redirs
-        tail.redir_globs = cmd.redir_globs
+        tail.redir_globs, tail.redir_literals, tail.literals = cmd.redir_globs, cmd.redir_literals, cmd.literals
         yield tail
 
 
