@@ -413,14 +413,20 @@ def stack_with(env, monkeypatch, tls=False, extra=("workers", "verdict-worker"))
         text = text.replace('OCI_JJ_ALLOW_PLAINTEXT: "1"', "OCI_JJ_TLS_CERT: /tls/server.crt")
         text = text.replace("OCI_JJ_SERVER_GRPC: oci-jj-server:50051", f"OCI_JJ_SERVER_GRPC: {grpc}")
     rows = [list(r) for r in containers_for(A)[:2]]
+    docker_state = env["log"].with_suffix(".state.json")
+    daemon = json.loads(docker_state.read_text())
     for name in extra:
         image_id = "sha256:" + name[0] * 64
         record["image_ids"][name] = image_id
+        ref = f"localhost/briefcase-engine/{name}:{A}"
+        record["images"][name] = ref
+        daemon["refs"][ref] = image_id
         text += (f"  {name}:\n    image: localhost/briefcase-engine/{name}:{A}\n    pull_policy: never\n"
                  f"    environment:\n      OCI_JJ_SERVER_GRPC: {grpc}\n")
         rows.append([name, image_id, compose_path])
     open(compose_path, "w").write(text)
     _engine.installed_path().write_text(json.dumps(state))
+    docker_state.write_text(json.dumps(daemon))
     return stopped(rows), grpc
 
 
