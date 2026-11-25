@@ -464,7 +464,8 @@ def _daemon_check(state: Dict[str, Any], need_record: bool) -> Tuple[Optional[st
         if here is None:
             return None, ["could not tell which Docker daemon this is, so nothing can be pinned to it"]
         return here, []
-    if here is None or not all(_install_mod.daemon_matches(entry, here) for entry in recorded):
+    if here is None or not _install_mod.has_id(here) or not all(
+            _install_mod.daemon_matches(entry, here) for entry in recorded):
         return None, ["the Docker daemon is not the one this install used (it used "
                       f"{', '.join(recorded)}; now {here or 'unknown'}), so a probe here says nothing about "
                       "its volumes"]
@@ -552,7 +553,7 @@ def plan_deletion(state: Dict[str, Any], purge: bool = False, force_without_dock
     if force_without_docker and used:
         plan.problems.append("--force-without-docker is only allowed for an install that never created volumes, and "
                              "this one's record says it did")
-    touches_docker = used and (plan.stop or plan.volumes or bool(plan.images))
+    touches_docker = plan.stop or plan.volumes or bool(plan.images)
     if touches_docker:
         plan.daemon, found = _daemon_check(state, need_record=True)
         plan.problems += found
@@ -893,7 +894,7 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
                       "running server may disagree: run `briefcase-ai engine install` again", file=sys.stderr)
 
     daemon = _inst.docker_identity(_runner(), opts.env)
-    if daemon is None:  # never an unpinned probe: it could answer for a daemon the restart would not use
+    if daemon is None or (record.get("compose") and not _inst.has_id(daemon)):
         restore()
         return _ux.fail("could not tell which Docker daemon this is, so what runs could not be checked and engine "
                         f"{record['version']} was installed but not made current", fix="briefcase-ai engine doctor")

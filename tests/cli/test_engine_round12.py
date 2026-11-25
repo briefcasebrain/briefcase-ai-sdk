@@ -1051,3 +1051,12 @@ def test_cleanup_after_first_install_inventory_failure(env, monkeypatch, capsys)
     assert "local image tags are kept" in capsys.readouterr().out
     assert not _engine.load_state().get("installs")
     assert not env["log"].exists() or not calls(env["log"])
+
+
+def test_image_install_requires_daemon_id_before_activation(env, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_ID", "")
+    assert _install("--code", "bci_good") == 1
+    state = _engine.load_state()
+    assert state["installs"] and not state.get("current") and not state["compose_used"]
+    assert not state.get("docker_contexts")
+    assert main(["engine", "uninstall", "--yes"]) == 0
