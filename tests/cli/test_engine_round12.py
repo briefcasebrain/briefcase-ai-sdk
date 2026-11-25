@@ -486,9 +486,9 @@ def test_the_fake_lists_every_service_of_the_generated_compose_file(env, key, ca
     text = open(record["compose"]).read().split("\nvolumes:\n")[0]
     declared = set(re.findall(r"^  (\S+):\n", text, re.M))
     assert {"postgres", "minio", "registry", "oci-jj-server", "gateway", "workers"} <= declared
-    argv = _compose.compose_argv(Path(record["compose"]), Path(record["env_file"]), "config", "--services")
+    argv = _compose.compose_argv(Path(record["compose"]), Path(record["env_file"]), "config", "--format", "json")
     out = engine_commands._run(argv, capture_output=True, text=True)
-    assert set(out.stdout.split()) == declared
+    assert set(json.loads(out.stdout)["services"]) == declared
 
 
 def test_up_wait_over_existing_containers_starts_then_waits_without_start_wait_flags(env, monkeypatch, capsys):
@@ -758,8 +758,8 @@ def test_fresh_up_rechecks_the_daemon_immediately_before_compose(env, monkeypatc
     real = engine_commands.existing_containers_state
     taken = []
 
-    def inventory_then_the_tunnel_moves(record, **kwargs):
-        result = real(record, **kwargs)
+    def inventory_then_the_tunnel_moves(record, services, **kwargs):
+        result = real(record, services, **kwargs)
         if not taken:  # the inventory that decides between `up` and `start`
             taken.append(1)
             monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")  # a daemon whose replicas were never inventoried
@@ -904,3 +904,39 @@ def test_after_a_client_only_install_the_next_upgrade_with_images_still_passes_p
     monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")  # back on the daemon that holds the volumes
     env["platform"].release = build_release(key, version="0.6.0")
     assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 0
+
+
+def test_a_sidecar_is_checked_whatever_the_compose_file_looks_like(env, monkeypatch, capsys):
+    """The services and images come from `docker compose config --format json`, not from a pattern over the file's
+    text: a file written in a style no pattern recognises is still compared."""
+    with_a_pinned_sidecar(env, monkeypatch, "sha256:" + "x" * 64)
+    path = _engine.current_install()["compose"]
+    text = open(path).read().replace(f"    image: {PINNED}\n", f'    "image":   "{PINNED}"\n')
+    open(path, "w").write(text)
+    monkeypatch.setenv("FAKE_DOCKER_CONFIG_JSON", json.dumps({"services": {
+        "oci-jj-server": {"image": "x"}, "gateway": {"image": "x"}, "minio": {"image": PINNED}}}))
+    assert main(["engine", "up"]) == 1
+    out = capsys.readouterr()
+    assert compose_verbs(env) == [] and "minio" in out.err + out.out
+
+
+def test_up_refuses_when_the_compose_configuration_cannot_be_read(env, monkeypatch, capsys):
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "none", "none")
+    monkeypatch.setenv("FAKE_DOCKER_FAIL", "compose config")
+    assert main(["engine", "up"]) == 1
+    capsys.readouterr()
+    assert compose_verbs(env) == []
+
+
+def test_an_expected_service_with_no_image_to_compare_is_refused(env, monkeypatch, capsys):
+    from tests.cli.test_engine_invariants import containers_for
+
+    synthetic(env, [A], A)
+    configure(env, monkeypatch, "ok", "ours", "none")
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))))
+    monkeypatch.setenv("FAKE_DOCKER_CONFIG_JSON", json.dumps({"services": {
+        "oci-jj-server": {"image": "x"}, "gateway": {"image": "x"}, "minio": {}}}))  # minio: nothing to compare with
+    assert main(["engine", "up"]) == 1
+    capsys.readouterr()
+    assert compose_verbs(env) == []

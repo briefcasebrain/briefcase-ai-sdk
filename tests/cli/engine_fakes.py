@@ -713,12 +713,18 @@ if args[:1] == ["compose"]:
                 sys.stderr.write("no such service: %s\n" % service); sys.exit(1)
     if "up" in args and os.environ.get("FAKE_DOCKER_COMPOSE_UP_FAIL"):
         sys.stderr.write("service failed to start\n"); sys.exit(1)
-    if "config" in args and "--services" in args:
+    if "config" in args and "--format" in args and args[args.index("--format") + 1] == "json":
+        # What `docker compose config --format json` prints: the services of the file with their images (a test can
+        # override it to supply any structure).
+        if os.environ.get("FAKE_DOCKER_CONFIG_JSON"):
+            print(os.environ["FAKE_DOCKER_CONFIG_JSON"]); sys.exit(0)
         import re as _re
         text = open(args[args.index("-f") + 1]).read().split("\nvolumes:\n")[0]  # the top-level volumes key
+        services = {}
         for name in _re.findall(r"^  (\S+):\n", text, _re.M):
-            print(name)
-        sys.exit(0)
+            image = _re.search(r"^  %s:\n(?:    .*\n)*?    image: (\S+)" % _re.escape(name), text, _re.M)
+            services[name] = {"image": image.group(1)} if image else {}
+        print(json.dumps({"name": "briefcase-engine", "services": services})); sys.exit(0)
     if "-f" in args and "start" in args:
         servers_now()  # `compose start` only starts what exists: nothing is created or removed
         state["containers"] = [r[:3] + [""] + r[4:] if len(r) > 3 else r[:3] for r in containers_now()]  # now running

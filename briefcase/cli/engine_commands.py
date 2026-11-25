@@ -1225,19 +1225,24 @@ def _container_tls(service: str, env: List[str], want_tls: bool) -> Optional[boo
     return want_tls if target == wanted else not want_tls
 
 
-def _pinned_sidecar_images(record: Dict[str, Any]) -> Dict[str, str]:
-    """``{service: image reference}`` for the services the Compose file pins by digest."""
-    import re
-
+def compose_services(record: Dict[str, Any]) -> Optional[Dict[str, Optional[str]]]:
+    """``{service: image reference or None}`` for every service of the engine's Compose file, as Compose itself reads it
+    (``compose config --format json``: structured, interpolated, whatever style the file is written in). ``None`` when
+    Compose could not say: a caller that needs the inventory must not guess."""
+    res = _run(_compose(record, "config", "--format", "json"), capture_output=True, text=True)
+    if res is None or _rc(res) != 0:
+        return None
     try:
-        text = Path(record["compose"]).read_text(encoding="utf-8")
-    except (OSError, KeyError):
-        return {}
-    return {service: ref for service, ref in re.findall(r"^  (\S+):\n(?:    .*\n)*?    image: (\S+)", text, re.M)
-            if "@sha256:" in ref}
+        services = json.loads(getattr(res, "stdout", "") or "")["services"]
+    except (ValueError, KeyError, TypeError):
+        return None
+    if not isinstance(services, dict) or not services:
+        return None
+    return {str(name): (spec.get("image") if isinstance(spec, dict) and isinstance(spec.get("image"), str) else None)
+            for name, spec in services.items()}
 
 
-def existing_containers_state(record: Dict[str, Any],
+def existing_containers_state(record: Dict[str, Any], services: Dict[str, Optional[str]],
                               surplus_is_a_problem: bool = True) -> Tuple[Optional[str], Set[str]]:
     """``(problem, services that have a container)`` for the containers that already exist, running or stopped.
 
@@ -1252,21 +1257,22 @@ def existing_containers_state(record: Dict[str, Any],
     want_tls = bool(record.get("tls"))
     counts: Dict[str, int] = {}
     stale: List[str] = []
-    pinned = _pinned_sidecar_images(record)
     for row in rows:
         service = row["service"]
         counts[service] = counts.get(service, 0) + 1
         key = record_key(recorded, service)
         if key is None:
-            ref = pinned.get(service)  # a sidecar the release does not record: its digest-pinned default is the check
-            if ref:
-                from briefcase.engine import install as _inst
+            if service not in services:
+                continue  # not a service of this file (an orphan): not one this release starts
+            ref = services[service]  # a sidecar the release does not record: the image Compose resolves is the check
+            from briefcase.engine import install as _inst
 
-                expected = _inst.Docker(_runner()).image_id(ref)
-                if expected is None:
-                    stale.append(f"the pinned image of {service} ({ref}) is not available locally to compare with")
-                elif row["image"] != expected:
-                    stale.append(f"{service} runs a different image than the one the Compose file pins")
+            expected = _inst.Docker(_runner()).image_id(ref) if ref else None
+            if expected is None:
+                stale.append(f"there is no local image to compare {service} with"
+                             + (f" ({ref} is not available)" if ref else " (its Compose service names no image)"))
+            elif row["image"] != expected:
+                stale.append(f"{service} runs a different image than the one the Compose file names")
             continue
         if row["image"] != recorded[key]:
             stale.append(f"{service} runs a different image than engine {record['version']} verified")
@@ -1291,7 +1297,7 @@ def existing_containers_state(record: Dict[str, Any],
     return None, present
 
 
-def _start_argv(record: Dict[str, Any], present: Set[str],
+def _start_argv(record: Dict[str, Any], present: Set[str], services: Set[str],
                 wait: bool) -> Tuple[Optional[List[str]], str, Set[str]]:
     """The Compose command that starts the engine without being able to delete anything, or ``(None, why)``.
 
@@ -1300,10 +1306,6 @@ def _start_argv(record: Dict[str, Any], present: Set[str],
     the scale-down of reconcile.go (reconcileService) first, and removes the extra container with its writable
     layer. ``up --no-recreate`` is used only when no service has a container at all, so there is nothing to scale
     down. A partial stack would need both and is refused."""
-    res = _run(_compose(record, "config", "--services"), capture_output=True, text=True)
-    services = {ln.strip() for ln in (getattr(res, "stdout", "") or "").splitlines() if ln.strip()}
-    if res is None or _rc(res) != 0 or not services:
-        return None, "docker compose could not list the engine's services, so nothing was started", set()
     if not present:
         wait_flags = ["--wait", "--wait-timeout", "300"] if wait else []
         return _compose(record, "up", "-d", "--no-recreate", *wait_flags), "", services
@@ -1364,11 +1366,15 @@ def cmd_up(args, store, engine, stack) -> int:
             stop = guard_start(record)
             if stop is not None:
                 return stop
-            problem, present = existing_containers_state(record)
+            services = compose_services(record)
+            if services is None:
+                return _ux.fail("docker compose could not describe the engine's services (`compose config`), so "
+                                "nothing was inspected or started", fix="briefcase-ai engine doctor")
+            problem, present = existing_containers_state(record, services)
             if problem:
                 return _ux.fail(f"{problem}; nothing was started, because `up` would reuse them as they are",
                                 fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
-            command, why, expected = _start_argv(record, present, bool(getattr(args, "wait", False)))
+            command, why, expected = _start_argv(record, present, set(services), bool(getattr(args, "wait", False)))
             if command is None:
                 return _ux.fail(why, fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
             try:
@@ -1390,7 +1396,8 @@ def cmd_up(args, store, engine, stack) -> int:
                 # container, image and transport. A container another Compose client made Compose remove while it
                 # reconciled (v5.5.0 reconcile.go scales a service down to its expected count) is not detected beyond
                 # this: the SDK watches nothing and creates or removes nothing of its own.
-                after, now = existing_containers_state(record, surplus_is_a_problem=False)  # not ours to judge
+                # a surplus container is not ours to judge here
+                after, now = existing_containers_state(record, services, surplus_is_a_problem=False)
                 missing = sorted(expected - now)
                 if after or missing:
                     return _ux.fail(("after the start, " + after if after else
