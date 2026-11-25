@@ -1,2 +1,0 @@
-### Changed
-- `engine up` creates and removes nothing itself: no throwaway volume, no events subscription. After the start it checks that every expected service has its container, image and transport and reports a mismatch as an error. A container that Compose removes because another Compose client created replicas of this project during `up` on an empty stack is not detected; that is a documented limit.

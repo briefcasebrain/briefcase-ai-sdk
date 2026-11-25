@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [4.5.0] - 2026-11-25
+
 ### Added
 - `auto(dedupe="none"|"provider"|"framework")` and `briefcase-ai exec --dedupe`;
   provider records carry `parent_run_id` / `parent_framework` linking them to
@@ -27,7 +29,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `briefcase-ai connect`: one command that configures the coding tools on the
   machine to report to briefcase. It detects Claude Code, Codex CLI, Cursor and
   VS Code Copilot Chat, shows a plan with a unified diff, asks once, and writes
-  key-level edits (JSON keys merged in place, one marker-delimited TOML block)
+  missing JSON keys or a marker-delimited TOML block
   with a timestamped backup. `--undo` removes exactly the keys it set, `--dry-run`
   writes nothing, and re-running is a no-op. Malformed JSON, JSON with comments
   and managed settings are never rewritten; the snippet is printed instead.
@@ -52,8 +54,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `codex mcp add`, `code --add-mcp`, project `.mcp.json` / `.cursor/mcp.json` /
   `.vscode/mcp.json`), and a Claude Code plugin
   (`claude plugin install briefcase@briefcase-ai`).
-- `briefcase-ai hook cursor` (the hook entry point `connect` installs; always
-  exits 0) and `briefcase-ai doctor --connect`.
+- `briefcase-ai hook cursor` (the hook entry point `connect` installs) and
+  `briefcase-ai doctor --connect`.
 - `briefcase.semantic_conventions.cowork` gains `assistant_response`,
   `api_refusal`, `tool_use_id`, and the event-name prefixes of sources that
   share the vocabulary.
@@ -454,6 +456,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A warning (once per provider) and `status().providers[i].unrecordedRequests`
   when a provider request is made by an SDK copy that is not instrumented (e.g.
   bundled).
+- `briefcase-ai --version` prints `Briefcase AI <version>`. On a terminal,
+  `briefcase-ai`, `briefcase-ai setup` and `briefcase-ai --help` open with a
+  `Briefcase AI <version>` banner and a one-line description; nothing is printed
+  to pipes or in `--json` output.
 
 ### Changed
 - **Breaking:** `briefcase-ai exec` refuses `python -I/-E/-S` (override with
@@ -494,6 +500,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and `>= 12.22` for native). Node 26 is the Active LTS; Node 20 reached end of
   life on 2026-04-30. The code uses nothing newer than `AbortSignal.any` (Node
   20.3), so no later 26.x minor is required.
+- **Breaking:** `briefcase-ai stack up|down|status|logs` is removed, with the
+  bundled GHCR compose file and `compat.json`: the engine is installed from a
+  signed bundle with `briefcase-ai engine install` and run with `briefcase-ai
+  engine up|down|status|logs`. `briefcase-ai doctor` no longer lists registry
+  images (`briefcase-ai engine doctor` checks the installed ones), `briefcase-ai
+  run logs` reads the installed engine's verdict-worker logs (and says so when
+  the release has none), and `BRIEFCASE_OCIJJ_COMPOSE` is no longer read. From a
+  running 4.4 stack: stop it with `docker compose -p <project> down` (the
+  project is `oci-jj` unless you named it; `engine up` and `engine doctor` print
+  the project they find), then `briefcase-ai engine install` and `briefcase-ai
+  engine up`. There is no data transfer: the new engine starts empty and the old
+  data volumes are left in place until you remove them with `docker volume rm`.
+  `engine up` refuses to start while a Compose project other than the engine's
+  own runs an `oci-jj-server` service. It also refuses when a volume it would
+  mount (`briefcase-engine_pgdata`, `_miniodata`, `_regdata`) exists without the
+  `ai.briefcase.engine` label it puts on the volumes it creates, which is the
+  case for a 4.4 stack started with `-p briefcase-engine`; it prints the `docker
+  volume inspect` and `docker volume rm` commands, and nothing is mounted until
+  you remove or relabel them.
+- **Breaking:** The command is `briefcase-ai` (was `briefcase`) and the MCP
+  server command is `briefcase-ai-mcp` (was `briefcase-mcp`), so `uvx
+  briefcase-ai` and `pipx run briefcase-ai` work. The Python import name
+  `briefcase` and the `BRIEFCASE_*` variables are unchanged and there is no
+  alias for the old names. If you upgrade from 4.4: (1) use `briefcase-ai` in
+  scripts, CI and shell aliases; (2) if you registered the MCP server with a
+  client by hand (4.4 documented running `briefcase-mcp`, or `python -m
+  briefcase.mcp`, which keeps working), change the registered command to
+  `briefcase-ai-mcp` yourself, keeping the scope and environment you registered
+  it with, for example in Claude Code `claude mcp remove --scope <scope>
+  briefcase` then `claude mcp add --scope <scope> briefcase --
+  briefcase-ai-mcp`; `briefcase-ai connect` never replaces a registration it did
+  not make, and tells you the two commands instead; (3) `briefcase stack` is
+  gone: see the separate `briefcase-ai stack` entry.
 - `briefcase-ai receive` reads `BRIEFCASE_EXPORTER_TOKEN`; `BRIEFCASE_EXPORT_TOKEN`
   still works with a deprecation warning.
 - Decision records carry `schema_version` "1.2" (adds optional `prompt_name`,
@@ -620,9 +659,213 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   exactly that toolchain.
 - The Python binding moves from pyo3 0.24 to 0.29, which also removes the two
   pyo3 advisory ignores from `deny.toml`.
-
-### Deprecated
-- `briefcase-ai stack`: use `briefcase-ai engine` (one release).
+- Config writers (`connect`, `mcp install`, `policy init`/`off`, `--undo`,
+  `--managed`) enforce their guarantees in one place each. A file is changed
+  only by inserting text (a one-line JSON file stays one line; undo removes only
+  what was written, byte for byte), and only while it still holds what the
+  preview saw: a file created in between is refused, never overwritten. Previews
+  show only the lines that would be added; nothing read from an existing file or
+  tool registry is printed. Ownership of a TOML table is by name over its parsed
+  content (a trailing newline, spacing or a table the tool inserted does not
+  make it "modified"), and a registered MCP command is owned only when the
+  tool's own registry reports exactly the command that was registered, in the
+  profile it was recorded for; an unreadable registry is "unknown" and never
+  "ours", and a same-named entry is looked for before every add (Codex and VS
+  Code replace one silently).
+- `connect` refuses, naming the key (never its value), when the tool's settings
+  already enable content capture or hold an OTLP credential that would combine
+  with the new endpoint, unless `--capture-content` or `--headers` is passed.
+  Hooks always carry their endpoint explicitly, so `BRIEFCASE_RECEIVER_ENDPOINT`
+  cannot redirect them. `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are honoured for
+  every write, policy hooks included; a profile variable that cannot be resolved
+  is refused. A plan with a failing target (other settings than a connected
+  target has, an unsafe write) writes nothing, and a dry run exits with the
+  status the real run would.
+- `policy init --force` never replaces a policy file that `policy init` did not
+  write; `policy init` does not say "already installed" unless the hooks are on
+  disk; `policy off` exits 1 and says enforcement is still on when it cannot
+  remove a hook, and keeps its record. `connect --managed --force` replaces only
+  files an earlier pack wrote (by manifest hash) and refuses a directory that
+  holds anything else; pack files that hold supplied credentials are created
+  0600 and the endpoint in the Cursor hook is shell-quoted.
+- `connect --undo` prints a registration's removal command qualified with the
+  profile it was recorded for, only after checking the registry still holds
+  exactly that registration. `connect status` reports a Codex block whose tables
+  changed as drifted.
+- Every connect, policy and undo command holds one advisory lock for its whole
+  run, so two of them never lose each other's ownership records. A write still
+  compares the file just before the atomic rename; an editor saving in that
+  few-millisecond window can still race, because no operating system gives
+  better without the tool's cooperation.
+- Existing keys in a tool's whole telemetry namespace (Claude: every `OTEL_*`
+  and `otel*` setting; VS Code and Gemini: their telemetry settings; Codex: the
+  `[otel]` table) block a first connect, naming the keys, unless this invocation
+  writes them itself. Files keep their line endings (CRLF included), a JSON file
+  with duplicate keys is refused, undo refuses to remove a TOML table when the
+  surrounding text would not parse back identically, and a file that receives a
+  supplied credential ends up 0600. Supplied secrets are redacted from every
+  message, including a refused snippet and a failing subprocess's output.
+- Enforcement hooks fail closed on every failure path under `--fail-closed`,
+  whichever entry point runs them. The ambient `BRIEFCASE_RECEIVER_TOKEN` is
+  sent only to a loopback receiver or to the URL in
+  `BRIEFCASE_RECEIVER_TOKEN_ENDPOINT`.
+- Hooks using `--fail-closed` reject malformed or incomplete input, unknown
+  events and empty path sets. They exit with status 2 if verdict delivery fails.
+  Valid events follow the configured policy mode. Hash-bound hooks require an
+  explicit allow for every evaluated action. Managed packs bind each hook to the
+  exact system policy by hash (`--require-policy-sha256`) and deny when it is
+  missing or different rather than falling back to a weaker policy. `policy init
+  --fail-closed` refuses where the hook could not start (missing launcher,
+  interpreter or `briefcase-ai`, or a Claude Code version without the failure
+  setting). Hook reporters never follow redirects, and the receiver token goes
+  only to the default local receiver or the URL in
+  `BRIEFCASE_RECEIVER_TOKEN_ENDPOINT`.
+- Fail-closed hooks parse strictness first and on its own (an option without a
+  value cannot swallow `--fail-closed`), deny an unknown tool, an empty command
+  and a missing event name, judge a managed hook's required system policy from
+  the exact bytes that were hashed and deny whenever it is missing or changed
+  (also without `--fail-closed`), and leave with the host's blocking status 2
+  even when stdout is a closed pipe (Python would otherwise exit 120). `policy
+  init --fail-closed` refuses where the installed Claude Code version cannot be
+  read, and for Codex (which starts the hook command itself, so a missing
+  executable cannot be blocked) unless `--accept-codex-startup-risk` is passed;
+  `connect --managed` with a `fail_closed` policy does the same.
+- The first-connect check also covers variables already exported in the process,
+  the Windows managed-settings files and registry value and the macOS
+  managed-preferences plist; a layer that exists but cannot be read or
+  understood counts as a risk. A Claude registration whose argument boundaries
+  Claude's own `.claude.json` or `.mcp.json` does not show is unknown in every
+  scope, and undo never suggests removing an unknown registration. The
+  registration is journalled before the add runs. Retry hints print only the
+  leading command words, never an argument, and a Basic credential is masked
+  whole. `policy off` removes only the hooks that were named in its
+  confirmation.
+- Fail-closed hooks also deny a `WebFetch` without a URL, an MCP call that does
+  not name a server and a tool, a relative path with no working directory in the
+  event, and a nonempty shell command that yields nothing to judge; a hook bound
+  to a required policy blocks when its bookkeeping, its verdict write or the
+  hook itself fails, and writes its reason to stderr first. `policy off` binds
+  its confirmation to the files and entries it displayed and says so when hooks
+  that were not part of it remain. First-connect also covers Claude's
+  `ENABLE_BETA_TRACING_*` and `BETA_TRACING_*` settings, the Windows user
+  registry value and an unlistable managed directory, re-checks the layers and
+  environment after confirmation, and keeps the MCP record when a failed add may
+  have committed.
+- Fail-closed hooks also deny a blank URL or MCP identity, a relative working
+  directory, and a shell command with no usable working directory (its relative
+  file references cannot be judged); a hook that carries
+  `--require-policy-sha256` blocks from the portable CLI's and the isolated
+  launcher's outer handlers too, and a required hash that is empty or not a
+  sha256 digest denies instead of skipping authentication. The Codex
+  acknowledgement lists exactly what `--fail-closed` covers and what it does
+  not. First-connect lists managed drop-ins again at write time, and `policy
+  off` with nothing displayed removes nothing.
+- Cursor hook commands preserve endpoint arguments through the CLI configuration
+  reader. Codex receives its host-specific fallback denial. Engine installs on a
+  second daemon preserve the current release and its TLS settings.
+- `briefcase-ai connect`, `briefcase-ai mcp install` and `briefcase-ai policy
+  init` never modify a file entry, TOML block or tool registration that already
+  exists. A target they wrote that is still exactly as written is reported as
+  already connected. Asking for other settings (`--endpoint`, `--headers`,
+  `--capture-content`, a different `--scope`) changes nothing, exits 1 and says
+  to run `briefcase-ai connect --undo <tool>` (or `briefcase-ai policy off`) and
+  connect again. A target that was changed or removed since is no longer treated
+  as briefcase's and is left as it is; one that briefcase did not write is
+  skipped and its contents are never printed. `--undo` removes only what still
+  matches what was written and reports the rest. Content capture is on only for
+  a target that `--capture-content` wrote in that run, and the warning prints
+  when it is written.
+- The connect journal (`~/.briefcase/connect/journal.json`) has a new schema
+  version. A journal from a pre-release build is not read: `connect`, `connect
+  --undo` and `mcp install` change nothing, list what that build recorded and
+  tell you to remove it by hand and delete the journal.
+- The engine release index is read as one signed object (`releases/index.json`
+  with its `payload` and `signature` inside, verified against a pinned release
+  key) instead of an index file plus `index.json.sig`: `engine status`, `engine
+  upgrade` and `engine verify index.json` need no separate signature, and an
+  unknown key, a bad signature or a malformed envelope is refused before
+  anything in it is used.
+- Engine lifecycle: the recorded current release is the one whose server runs.
+  "Is release X running" is decided by the engine project's server container
+  (its image id against X's record), not by a label a shared sidecar carries. An
+  upgrade restarts and switches in one lock interval, treats any docker error as
+  a failure that leaves the old release current, and keeps the installed TLS
+  setting unless `--tls` or `--no-tls` is passed; an install next to a running
+  release leaves that release current.
+- `engine up` and an upgrade's restart start containers only when every volume
+  they would mount is positively known to be this engine's or absent; an
+  inspection that fails blocks. `engine uninstall` stops before deleting
+  anything when docker cannot say what runs or `compose down` fails, and
+  `--purge` deletes the secrets only after every engine volume is confirmed
+  absent (docker missing or failing blocks; `--force-without-docker` is accepted
+  only for an install that never created volumes).
+- The running release is identified by all of its containers' image ids (and the
+  Compose file when releases share every image); an engine that matches no
+  install, a mix of releases, or two installs that fit are "unknown" and block
+  an upgrade or uninstall with a message. A TLS change to the running version
+  restarts it, `engine up` and installs decide under the same lock as an
+  upgrade, and a client-only (`--no-images`) upgrade works without docker. The
+  Docker context an install used is recorded, a purge refuses to probe a
+  different daemon, and an ordinary uninstall that leaves volumes keeps a
+  tombstone in `installed.json` so a later `engine uninstall --purge` can finish
+  the job.
+- Every destructive engine step (`uninstall`, `uninstall --purge`, `down
+  --volumes`) runs in one order: lock, re-read state, verify the Docker daemon
+  is the one the install used, ask for confirmation (`--yes`), and only then
+  delete; `--dry-run` never deletes, and the deleting helpers cannot be called
+  without a confirmation token. An unreadable `installed.json` or `engine.env`
+  stops the command instead of being treated as empty (no replacement passwords,
+  no "never had volumes"), a container that runs an unknown image in a recorded
+  service is not taken for that release, and a client-only install of a version
+  installed with images is refused.
+- What an engine command deletes is decided in one function from
+  `installed.json` read under the install lock: an install that lands while a
+  purge waits is kept whole, `engine down` and `engine up` (whose
+  `--remove-orphans` deletes containers) honour `--dry-run` before any compose
+  call and a dry run takes no lock and creates nothing, a purge preview lists
+  only what execution deletes, and every internal delete path needs the
+  confirmation token. Volumes are removed only when the record says a stack ran
+  and the Docker daemon is the one recorded for it (a client-only record never
+  authorises it, whatever `--force-without-docker` says), and the calls are
+  pinned to that daemon; stopping containers and removing images follow the same
+  rule. The daemon is recorded before `engine up` or an upgrade's restart can
+  create a volume, and they refuse where it cannot be identified. A truncated or
+  partial `engine.env` (or a missing one while volumes may exist) stops an
+  install or upgrade instead of being completed with new passwords, and a failed
+  same-version TLS restart restores the Compose file as well as the record.
+- `engine down` asks for confirmation like the other removals, and `engine up`
+  no longer passes `--remove-orphans` (only an installed upgrade's restart
+  does). A record from before `compose_used` existed counts as having run a
+  stack when an install has one, so a purge verifies its daemon instead of
+  deleting the secrets unchecked. Compose for `up` and an upgrade's restart, and
+  every destructive call, runs against the verified daemon's endpoint
+  (`DOCKER_HOST`), and the daemon is identified with Docker's own precedence
+  (`DOCKER_CONTEXT`, then `DOCKER_HOST`). A TLS change is rolled back, record
+  and Compose file, whenever the restart cannot start, not only when Compose
+  fails. The `engine install --dry-run` hint no longer prints the install code.
+- The Docker daemon is chosen the way the installed CLI chooses it (checked on
+  Docker 29.8.2: `DOCKER_HOST` over `DOCKER_CONTEXT` over the active context),
+  and everything after the check, the start guards included, runs against it: a
+  context-selected daemon is pinned with `--context` (its TLS material stays),
+  an environment-selected one by `DOCKER_HOST`. Plain `engine down` refuses a
+  daemon the record does not name. `engine up` unsets `COMPOSE_REMOVE_ORPHANS`
+  for its Compose calls and passes `--no-recreate`, so it never asks Compose to
+  remove or recreate a container (moving to another release is an upgrade, which
+  asks; a container that Compose removes because another Compose client created
+  replicas during `up` on an empty stack is not detected). An ordinary uninstall
+  writes the stack history before it drops the install, an error raised during
+  an upgrade's restart rolls the transport back, the rollback never rewrites a
+  record it cannot read, and `teardown` needs the confirmation token for
+  container removal too.
+- `engine up` creates and removes nothing itself: no throwaway volume, no events
+  subscription. After the start it checks that every expected service has its
+  container, image and transport and reports a mismatch as an error. A container
+  that Compose removes because another Compose client created replicas of this
+  project during `up` on an empty stack is not detected; that is a documented
+  limit.
+- The package description on PyPI, npm and crates.io, the README lead and the
+  top of `briefcase-ai --help` now read "Compliance monitoring, auditing, and
+  evaluating third-party artificial intelligence systems and models."
 
 ### Fixed
 - `briefcase.observe("https://...")` sends `BRIEFCASE_EXPORTER_TOKEN` as the
@@ -696,6 +939,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   own entry by its marker. Undoing two owners of one file (connect telemetry and
   policy hooks in Cursor's `hooks.json`) no longer leaves an empty `"hooks": {}`
   behind.
+- `Budgets(clock=...)` ages the default in-memory counters by that clock instead
+  of the wall clock, so a budget built with a past or future clock no longer
+  reads back as zero spend once the real time passes the window's expiry.
+- On macOS, paths under `/etc` are refused as system paths after symlink
+  resolution (`/etc` is `/private/etc`), so `connect --managed --out /etc/...`
+  and edits of files there are refused as intended.
+- Budget and content-guard config files are read on Python 3.9 and 3.10 (the
+  `tomli` dependency was never used there).
+- `briefcase-ai secret list` prints "no secrets stored" on a terminal when
+  nothing is stored; piped and `--json` output is unchanged.
 
 ### Security
 - RUSTSEC-2026-0459 (SQLite page-cache disclosure through a crafted `-wal` file)
@@ -705,6 +958,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   2.5.9.
 - RUSTSEC-2026-0176 and RUSTSEC-2026-0177 (pyo3 `nth`/`nth_back` out-of-bounds
   reads) are cleared by pyo3 0.29.
+- Updated `hyper` to 1.12.0 (lockfile only), which drops the unmaintained
+  `pin-utils` crate (RUSTSEC-2026-0441) from the dependency tree.
 
 ## [4.4.0] - 2026-08-16
 
