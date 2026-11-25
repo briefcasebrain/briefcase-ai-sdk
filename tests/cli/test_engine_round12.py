@@ -1037,3 +1037,17 @@ def test_service_inventory_matches_recorded_services_and_stock_sidecars():
     assert engine_commands.check_service_images(record, services) is None
     assert "extra" in engine_commands.check_service_images(record, dict(services, extra="extra:fixture"))
     assert "minio" in engine_commands.check_service_images(record, dict(services, minio="other:fixture"))
+
+
+def test_cleanup_after_first_install_inventory_failure(env, monkeypatch, capsys):
+    monkeypatch.setenv("FAKE_DOCKER_FAIL", "ps")
+    assert _install("--code", "bci_good") == 1
+    failed = _engine.load_state()
+    assert failed["installs"] and not failed.get("current")
+    assert not failed.get("docker_contexts") and not failed["compose_used"]
+    monkeypatch.delenv("FAKE_DOCKER_FAIL")
+    env["log"].unlink()
+    assert main(["engine", "uninstall", "--yes"]) == 0
+    assert "local image tags are kept" in capsys.readouterr().out
+    assert not _engine.load_state().get("installs")
+    assert not env["log"].exists() or not calls(env["log"])

@@ -527,8 +527,10 @@ def plan_deletion(state: Dict[str, Any], purge: bool = False, force_without_dock
         plan.mode, plan.record, plan.version = "install", current, current["version"]
         plan.others = [v for v in installs if v != current["version"]]
         plan.last = purge and not plan.others
-        plan.stop = bool(current.get("compose"))
-        plan.images = sorted(set((current.get("images") or {}).values()))
+        plan.stop = used and bool(current.get("compose"))
+        plan.images = sorted(set((current.get("images") or {}).values())) if used else []
+        if current.get("images") and not used:
+            plan.notes.append("local image tags are kept because no Docker daemon was recorded for this install")
         plan.directory = Path(current.get("manifest") or current.get("compose") or "").parent
         plan.volumes = plan.last and used
         plan.secrets = plan.last
@@ -871,7 +873,8 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
         fresh = _engine.load_state_strict(opts.env)
         known = list(fresh.get("docker_contexts") or [])
         merged = _inst._merge_daemon(known, str(daemon))
-        if merged != known:
+        if merged != known or not _engine.compose_history(fresh):
+            fresh["compose_used"] = True
             fresh["docker_contexts"] = merged
             _inst.save_state(fresh, opts.env)
 

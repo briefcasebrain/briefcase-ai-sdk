@@ -825,7 +825,10 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
     state["schema"] = 2
     if "compose_used" not in state:
         state["compose_used"] = any(r.get("compose") for r in (state.get("installs") or {}).values())
-    state["compose_used"] = bool(state["compose_used"]) or compose_file is not None  # sticky: volumes may exist
+    # The CLI defers activation until settlement verifies the daemon. A failed first
+    # install has loaded images, but has never started Compose or created a volume.
+    if opts.make_current and compose_file is not None:
+        state["compose_used"] = True
     state.setdefault("installs", {})[manifest.version] = record
     if opts.make_current:
         state["current"] = manifest.version
