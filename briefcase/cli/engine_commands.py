@@ -1289,23 +1289,29 @@ def compose_services(record: Dict[str, Any]) -> Optional[Dict[str, Optional[str]
 
 
 def check_service_images(record: Dict[str, Any], services: Dict[str, Optional[str]]) -> Optional[str]:
-    from briefcase.engine import install as _inst
+    from briefcase.engine import compose, install
 
     recorded = record.get("image_ids") or {}
-    mapped = {record_key(recorded, service) for service in services}
-    service_keys = {"server", "gateway", "workers", "postgres", "registry", "minio", "reconstructor",
-                    "verdict-worker", "verdict_worker"}
-    missing = service_keys.intersection(recorded) - mapped
-    if set(_inst.REQUIRED_IMAGES) <= set(recorded):
-        missing.update({"minio", "registry"}.difference(services))
+    sidecars = {"minio": compose.MINIO_IMAGE, "registry": compose.REGISTRY_IMAGE}
+    names = {"server": "oci-jj-server", "verdict_worker": "verdict-worker", "verdict-worker": "verdict-worker",
+             **{name: name for name in ("gateway", "workers", "postgres", "reconstructor", "minio", "registry")}}
+    expected = {names[key] for key in recorded if key in names}
+    if set(install.REQUIRED_IMAGES) <= set(recorded):
+        expected.update(sidecars)
+    missing = expected.difference(services)
     if missing:
         return "Compose configuration omits recorded services: " + ", ".join(sorted(missing))
     for service, reference in services.items():
-        key = record_key(recorded, service)
+        if service not in expected and service not in sidecars:
+            return f"Compose names an unexpected service: {service}"
         if not (reference and reference.strip()):
             return f"there is no local image to compare {service} with (its Compose service names no image)"
-        if key is not None and reference != (record.get("images") or {}).get(key):
-            if _inst.Docker(_runner()).image_id(reference) != recorded[key]:
+        key = record_key(recorded, service)
+        if key is None:
+            if reference != sidecars.get(service):
+                return f"Compose names an unverified image for {service}"
+        elif reference != (record.get("images") or {}).get(key):
+            if install.Docker(_runner()).image_id(reference) != recorded[key]:
                 return f"Compose names an unverified image for {service}"
     return None
 
@@ -1327,6 +1333,8 @@ def existing_containers_state(record: Dict[str, Any], services: Dict[str, Option
     stale: List[str] = []
     for row in rows:
         service = row["service"]
+        if service in services and row.get("config") != record.get("compose"):
+            stale.append(f"{service} was created from a different Compose file")
         counts[service] = counts.get(service, 0) + 1
         key = record_key(recorded, service)
         if key is None:
@@ -1874,7 +1882,11 @@ def cmd_uninstall(args, store, engine, stack) -> int:
 
     purge = bool(getattr(args, "purge", False))
     force_wd = bool(getattr(args, "force_without_docker", False))
-    shown = (_engine.current_install() or {}).get("version")  # the release the person sees; only names the target
+    snapshot = _engine.load_state()
+    installs = snapshot.get("installs") or {}
+    shown = snapshot.get("current")
+    if not shown and len(installs) == 1:
+        shown = next(iter(installs))
     # Order, for every destructive command: lock, re-read state, decide what is deleted (one function, from that
     # state), verify the daemon, authorise, and only then (and never in a dry run) call anything that deletes.
     with _locked(args):

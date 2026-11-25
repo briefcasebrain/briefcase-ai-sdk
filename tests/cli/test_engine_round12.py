@@ -17,6 +17,7 @@ import pytest
 from briefcase import engine as _engine
 from briefcase.cli import engine_commands
 from briefcase.cli.__main__ import main
+from briefcase.engine.compose import MINIO_IMAGE
 
 from tests.cli.engine_fakes import build_release, calls
 from tests.cli.test_engine_install import _install
@@ -842,7 +843,7 @@ def test_a_refusal_keeps_a_daemon_another_up_recorded_between_install_and_settle
 
 # --- sidecars that the compose file pins by digest but the record does not -----------------------------------------
 
-PINNED = "bitnamilegacy/minio:2025.7.23@sha256:" + "8" * 64
+PINNED = MINIO_IMAGE
 PINNED_ID = "sha256:" + "m" * 64  # what containers_for() gives the shared minio sidecar
 
 
@@ -857,6 +858,8 @@ def with_a_pinned_sidecar(env, monkeypatch, container_image, resolvable=True):
     docker = json.loads(state_path.read_text())
     if resolvable:
         docker["refs"][PINNED] = PINNED_ID
+    else:
+        docker["refs"].pop(PINNED, None)
     state_path.write_text(json.dumps(docker))
     rows = stopped(containers_for(A))
     for row in rows:
@@ -1017,3 +1020,20 @@ def test_refused_install_with_daemon_history_keeps_current_unset(env, monkeypatc
     monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")
     assert _install("--token", "bcl_good") == 1
     assert _engine.load_state()["current"] is None
+
+
+def test_uninstall_can_select_the_only_retained_release(env, monkeypatch, capsys):
+    synthetic(env, [A], None)
+    configure(env, monkeypatch, "ok", "none", "none")
+    assert main(["engine", "uninstall", "--dry-run"]) == 0
+    assert f"Uninstall engine {A}" in capsys.readouterr().out
+    assert main(["engine", "uninstall", "--yes"]) == 0
+    assert A not in _engine.load_state().get("installs", {})
+
+
+def test_service_inventory_matches_recorded_services_and_stock_sidecars():
+    record = {"images": {"server": "server:fixture"}, "image_ids": {"server": "image-a"}}
+    services = {"oci-jj-server": "server:fixture", "minio": MINIO_IMAGE}
+    assert engine_commands.check_service_images(record, services) is None
+    assert "extra" in engine_commands.check_service_images(record, dict(services, extra="extra:fixture"))
+    assert "minio" in engine_commands.check_service_images(record, dict(services, minio="other:fixture"))
