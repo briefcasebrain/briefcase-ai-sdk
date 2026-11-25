@@ -1073,14 +1073,19 @@ def test_same_version_client_stays_active_until_its_images_are_verified(env, mon
     assert _engine.current_install()["compose"]
 
 
-@pytest.mark.parametrize("problem", ["inventory-failure", "missing-image-id"])
-def test_client_uninstall_cannot_promote_an_unverified_image_release(env, monkeypatch, problem):
+@pytest.mark.parametrize("running", ["none", "B"])
+@pytest.mark.parametrize("problem", ["inventory-failure", "missing-image-id", "missing-service"])
+def test_client_uninstall_cannot_promote_an_unverified_image_release(env, monkeypatch, problem, running):
     from tests.cli.test_engine_invariants import B
 
     synthetic(env, [A, B], A)
     state = _engine.load_state()
     state["installs"][A].update(compose=None, images={}, image_ids={})
-    if problem == "missing-image-id":
+    configure(env, monkeypatch, "ok", "none", running)
+    if problem == "missing-service":
+        for field in ("images", "image_ids", "image_digests"):
+            del state["installs"][B][field]["gateway"]
+    elif problem == "missing-image-id":
         del state["installs"][B]["image_ids"]["gateway"]
     else:
         monkeypatch.setenv("FAKE_DOCKER_FAIL", "ps")

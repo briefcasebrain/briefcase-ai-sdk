@@ -1247,6 +1247,27 @@ def image_drift(record: Dict[str, Any], docker=None) -> List[str]:
     return out
 
 
+def verified_fallback(record: Dict[str, Any]) -> bool:
+    """Check all images named by this release's signed manifest before making it current."""
+    from briefcase.engine import install, trust
+
+    if not record.get("compose"):
+        return True
+    filename = record.get("manifest")
+    if not filename:
+        return False
+    path = Path(filename)
+    try:
+        manifest = trust.load_manifest(path.read_bytes(), Path(str(path) + ".sig").read_bytes())
+    except (OSError, trust.TrustError):
+        return False
+    if manifest.version != record.get("version") or not set(install.REQUIRED_IMAGES) <= manifest.images.keys():
+        return False
+    tags = {name: install.stable_ref(name, manifest.version) for name in manifest.images}
+    digests = {name: image["digest"] for name, image in manifest.images.items()}
+    return tags == record.get("images") and digests == record.get("image_digests") and not image_drift(record)
+
+
 def _reinstall_fix(record: Dict[str, Any]) -> str:
     if record.get("source") == "bundle":
         return "briefcase-ai engine install --bundle FILE --manifest engine-manifest.json --yes"
@@ -1868,7 +1889,7 @@ def _remove_install(version: Optional[str], purge: bool, force_without_docker: b
                             if status == "ok" and still_the_daemon(owner):
                                 name = active_versions[0] if active_versions else remaining[-1]
                                 candidate = state["installs"].get(name)
-                                if candidate and not image_drift(candidate):
+                                if candidate and verified_fallback(candidate):
                                     state["current"] = name
     if plan.secrets:
         for path in (_engine.secrets_path(), _engine.engine_dir() / "tls"):

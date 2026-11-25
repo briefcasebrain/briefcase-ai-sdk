@@ -51,6 +51,8 @@ def synthetic(env, installs, current, shared_server=False):
         directory = home / version
         directory.mkdir(parents=True, exist_ok=True)
         images = {n: f"localhost/briefcase-engine/{n}:{version}" for n in ("server", "gateway", "client")}
+        if len(installs) > 1 and version != current:
+            images.update({n: f"localhost/briefcase-engine/{n}:{version}" for n in ("workers", "postgres")})
         ids = {n: _id(version, n) for n in images}
         if shared_server:
             ids["server"] = _id(A, "server")
@@ -67,6 +69,11 @@ def synthetic(env, installs, current, shared_server=False):
             "image_digests": {}, "grpc_addr": "http://127.0.0.1:50051", "gateway": "http://127.0.0.1:8080",
             "client": {"mode": "binary"}, "binary": None, "tls": False, "source": "bundle", "key_id": "k",
         }
+        if len(installs) > 1 and version != current:
+            release = build_release(env["key"], version=version, image_names=tuple(images))
+            release.write(directory, only=("engine-manifest.json", "engine-manifest.json.sig"))
+            state["installs"][version]["image_digests"] = {
+                name: entry["digest"] for name, entry in release.manifest["images"].items()}
     _engine.installed_path().write_text(json.dumps(state))
     docker_state_file = env["log"].with_suffix(".state.json")
     docker_state_file.write_text(json.dumps({"refs": refs, "ids": list(refs.values())}))
