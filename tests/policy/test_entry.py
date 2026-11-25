@@ -529,3 +529,63 @@ def test_an_unknown_host_gets_a_stdout_denial_every_host_reads_even_when_nothing
     # an unrelated option value that names another host must not decide the format
     code = entry_module.main(["--repo", "cursor", "--fail-closed", "hook", host, "--enforce"])
     assert code == 0 and denies(host, 0, out.getvalue()), (code, out.getvalue())
+
+
+def _exec_wrapper(monkeypatch, tmp_path, launcher_text, tool, writer):
+    """Run the strict wrapper's program in this process with ``os.write`` replaced by ``writer``."""
+    from briefcase.policy import install
+
+    stub = tmp_path / "hook_main.py"
+    stub.write_text(launcher_text)
+    monkeypatch.setattr(sys, "argv", ["-c", str(stub), tool])
+    monkeypatch.setattr(os, "write", writer)
+    with pytest.raises(SystemExit) as stop:
+        exec(compile(install._strict_code(), "<strict>", "exec"), {"__name__": "__main__"})
+    return stop.value.code
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+def test_the_strict_wrapper_writes_the_stdout_denial_until_every_byte_is_out(monkeypatch, tmp_path, tool):
+    from briefcase.policy import hook_main
+
+    out = bytearray()
+
+    def short_writes(fd, data):
+        if fd == 2:
+            raise OSError("stderr is closed")
+        out.extend(bytes(data[:7]))  # the kernel accepts a few bytes at a time
+        return 7 if len(data) > 7 else len(data)
+
+    code = _exec_wrapper(monkeypatch, tmp_path, "x = 1\n", tool, short_writes)
+    expected = hook_main._DENY_CURSOR if tool == "cursor" else hook_main._DENY
+    assert code == 0 and bytes(out) == expected
+
+
+def test_the_strict_wrapper_fails_to_a_blocking_status_when_stdout_stops_accepting_bytes(monkeypatch, tmp_path):
+    def stuck(fd, data):
+        if fd == 2:
+            raise OSError("stderr is closed")
+        return 0  # accepts nothing, without an error
+
+    assert _exec_wrapper(monkeypatch, tmp_path, "x = 1\n", "codex", stuck) == 2
+
+
+@pytest.mark.parametrize("returned", [1, 3, 255, -1, True])
+def test_the_strict_wrapper_accepts_only_the_statuses_the_hook_contract_defines(monkeypatch, tmp_path, returned):
+    written = []
+    code = _exec_wrapper(monkeypatch, tmp_path, f"def main():\n    return {returned!r}\n", "claude-code",
+                         lambda fd, data: written.append(fd) or len(data))
+    assert code == 2 and written == [2], (code, written)
+
+
+@pytest.mark.parametrize("returned", [0, 2])
+def test_the_strict_wrapper_passes_the_defined_statuses_through(monkeypatch, tmp_path, returned):
+    code = _exec_wrapper(monkeypatch, tmp_path, f"def main():\n    return {returned}\n", "claude-code",
+                         lambda fd, data: len(data))
+    assert code == returned
+
+
+def test_a_system_exit_raised_inside_main_is_a_denial_too(monkeypatch, tmp_path):
+    code = _exec_wrapper(monkeypatch, tmp_path, "import sys\ndef main():\n    sys.exit(0)\n", "claude-code",
+                         lambda fd, data: len(data))
+    assert code == 2
