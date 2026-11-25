@@ -27,7 +27,8 @@ def hook_invocation(argv):
             index += 1  # its value is the next token
         index += 1
     if index + 1 < len(argv) and argv[index] == "hook" and argv[index + 1] in _HOOK_TOOLS:
-        return argv[index + 1], argv[index + 2:]
+        # What stood before `hook` stays with the options: a binding there binds the hook as much as one after it.
+        return argv[index + 1], argv[:index] + argv[index + 2:]
     return None
 
 

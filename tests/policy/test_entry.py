@@ -495,3 +495,37 @@ def test_the_strict_local_command_keeps_the_launchers_own_status_and_a_path_with
     code, out, err = _run_generated_command(tool, "venv-\U0001F642", "def main():\n    return 0\n",
                                             tmp_path, monkeypatch, home, project)
     assert (code, out) == (0, ""), (code, out, err)
+
+
+# --- round 21: bindings before `hook` survive the scanner, and an unknown host gets a denial every host reads --------
+
+@pytest.mark.parametrize("before", [["--require-policy-sha256=" + "0" * 64], ["--fail-closed"],
+                                    ["--debug", "--fail-closed"]])
+@pytest.mark.parametrize("tool", TOOLS)
+def test_the_healthy_scanner_keeps_a_binding_that_stands_before_hook(home, project, tool, before):
+    build_state(home, project, "valid_denying")
+    done = run_console([*before, "hook", tool, "--enforce"], [], home, json.dumps(payload(tool, project)))
+    assert denies(tool, done.returncode, done.stdout), (done.returncode, done.stdout, done.stderr)
+    import briefcase_entry
+
+    assert briefcase_entry.hook_invocation([*before, "hook", tool, "--enforce"]) == (tool, [*before, "--enforce"])
+
+
+@pytest.mark.parametrize("host", TOOLS)
+@pytest.mark.parametrize("imports", ["scanner_only", "scanner_and_policy"])
+def test_an_unknown_host_gets_a_stdout_denial_every_host_reads_even_when_nothing_loads(
+        home, project, monkeypatch, host, imports):
+    import io
+
+    import briefcase.cli.__main__ as entry_module
+
+    monkeypatch.setitem(sys.modules, "briefcase_entry", None)
+    if imports == "scanner_and_policy":
+        monkeypatch.setitem(sys.modules, "briefcase.policy.hook_main", None)
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
+    monkeypatch.setattr(sys, "stdout", out)
+    monkeypatch.setattr(sys, "stderr", None)  # unusable: the denial must reach stdout
+    # an unrelated option value that names another host must not decide the format
+    code = entry_module.main(["--repo", "cursor", "--fail-closed", "hook", host, "--enforce"])
+    assert code == 0 and denies(host, 0, out.getvalue()), (code, out.getvalue())

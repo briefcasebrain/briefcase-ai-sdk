@@ -206,21 +206,31 @@ def _hook_invocation(argv):
             else None
 
 
+# For the one path where nothing of the SDK loads: a denial every host reads (Claude Code and Codex by
+# hookSpecificOutput, Cursor by permission), short enough to keep here.
+_NOTHING_LOADS = ("Blocked by briefcase-ai policy: the hook could not start and it is bound to a policy.")
+_NOTHING_LOADS_JSON = ('{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", '
+                       '"permissionDecisionReason": "' + _NOTHING_LOADS + '"}, "permission": "deny", '
+                       '"user_message": "' + _NOTHING_LOADS + '", "agent_message": "' + _NOTHING_LOADS + '"}\n')
+
+
 def _blocked_directly(argv) -> int:
     """A command line that names ``hook`` and carries a binding flag, and a scanner that cannot say which host it is
-    for: deliver a block without choosing a tool by guesswork (the host format only matters for the stdout fallback,
-    where Cursor's differs and is chosen by the name on the command line)."""
-    tool = "cursor" if "cursor" in argv else "claude-code"
+    for. The host is not guessed from words that occur in argv (an option value can be any word): the denial is the
+    one object every host reads, delivered the usual way (reason on stderr with exit 2, else JSON on stdout)."""
     try:
         from briefcase.policy import hook_main
 
-        return hook_main.block_in_process(tool)
+        return hook_main.block_in_process("")
     except BaseException:  # noqa: B036
+        pass
+    for fd, data, status in ((2, _NOTHING_LOADS + "\n", 2), (1, _NOTHING_LOADS_JSON, 0)):
         try:
-            os.write(2, b"Blocked by briefcase-ai policy: the hook could not start and it is bound to a policy.\n")
+            os.write(fd, data.encode("ascii"))
+            return status
         except BaseException:  # noqa: B036
-            pass
-        return 2
+            continue
+    return 2
 
 
 def _hook_unavailable(tool, rest) -> int:
