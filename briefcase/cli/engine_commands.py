@@ -847,7 +847,8 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
     from briefcase import engine as _engine
     from briefcase.engine import install as _inst
 
-    installs = _engine.load_state_strict(opts.env).get("installs") or {}
+    state = _engine.load_state_strict(opts.env)
+    installs = state.get("installs") or {}
     if not any(isinstance(r, dict) and r.get("compose") for r in installs.values()):
         # Client-only installs: there is no stack to ask docker about, so this works without docker.
         _inst.set_current(record["version"], opts.env, locked=True)
@@ -893,12 +894,15 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
         return _ux.fail(f"the Docker daemon is not the one that was verified before the install ({preflight_daemon}; "
                         f"now {daemon}), so engine {record['version']} was installed but not made current",
                         fix="briefcase-ai engine doctor")
-    if (upgrading or tls_differs) and daemons_before \
-            and not all(_inst.daemon_matches(entry, daemon) for entry in daemons_before):
+    owners = set(daemons_before).union(state.get("docker_contexts") or [])
+    different_daemon = any(not _inst.daemon_matches(owner, daemon) for owner in owners)
+    current_version = state.get("current")
+    secondary_install = not upgrading and not tls_differs and current_version and current_version != record["version"]
+    if different_daemon and not secondary_install:
         restore()
         was = (previous or {}).get("version", "the old release")
         return _ux.fail(f"the Docker daemon is not the one engine {was} ran on (it ran on "
-                        f"{', '.join(daemons_before)}; now {daemon}), so what runs there could not be checked and "
+                        f"{', '.join(sorted(owners))}; now {daemon}), so what runs there could not be checked and "
                         f"engine {record['version']} was installed but not made current",
                         fix="briefcase-ai engine doctor")
     try:
@@ -913,6 +917,13 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
         restore()
         return _ux.fail(f"{why}, so engine {record['version']} was installed but not made current; {keep} is "
                         "still current", fix="briefcase-ai engine doctor")
+    if different_daemon:
+        if any(version != current_version for version in running):
+            return _ux.fail(f"the selected daemon runs another release; {current_version} stays current",
+                            fix="briefcase-ai engine doctor")
+        log(f"engine {record['version']} installed alongside {current_version}; the selected daemon cannot "
+            f"verify the current stack, so {current_version} stays current")
+        return None
     others = [v for v in running if v != record["version"]]
     tls_changed = bool(previous and previous.get("version") == record["version"]
                        and bool(previous.get("tls")) != bool(record.get("tls")) and running)
@@ -1254,6 +1265,9 @@ def existing_containers_state(record: Dict[str, Any], services: Dict[str, Option
         return "docker could not list the engine's containers", set()
     present = {row["service"] for row in rows}
     recorded = record.get("image_ids") or {}
+    for service, reference in services.items():
+        if record_key(recorded, service) is None and not (reference and reference.strip()):
+            return f"there is no local image to compare {service} with (its Compose service names no image)", present
     want_tls = bool(record.get("tls"))
     counts: Dict[str, int] = {}
     stale: List[str] = []

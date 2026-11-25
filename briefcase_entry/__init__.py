@@ -16,19 +16,27 @@ _GLOBAL_VALUE_OPTIONS = ("--server", "--repo")  # the top-level options that tak
 
 def hook_invocation(argv):
     """``(tool, options)`` when ``argv`` is ``[global options] hook <tool> [options]``, else ``None``."""
+    options = []
     index = 0
     while index < len(argv):
         token = argv[index]
         if not token.startswith("-"):
             break
         name, eq, _ = token.partition("=")
-        if not eq and len(name) > 2 and name.startswith("--") and any(
+        if len(name) > 2 and name.startswith("--") and any(
                 option.startswith(name) for option in _GLOBAL_VALUE_OPTIONS):
-            index += 1  # its value is the next token
+            index += 1 if eq else 2
+            continue
+        options.append(token)
+        if name == "--require-policy-sha256" and not eq and index + 1 < len(argv):
+            operand = argv[index + 1]
+            if operand != "hook" and not operand.startswith("-"):
+                options.append(operand)
+                index += 1
         index += 1
     if index + 1 < len(argv) and argv[index] == "hook" and argv[index + 1] in _HOOK_TOOLS:
         # What stood before `hook` stays with the options: a binding there binds the hook as much as one after it.
-        return argv[index + 1], argv[:index] + argv[index + 2:]
+        return argv[index + 1], options + argv[index + 2:]
     return None
 
 
@@ -58,7 +66,10 @@ _DENY_CURSOR = (b'{"permission": "deny", "user_message": "' + _REASON + b'", "ag
 def _write(fd, data):
     try:
         while data:
-            data = data[os.write(fd, data):]
+            count = os.write(fd, data)
+            if count <= 0:
+                return False
+            data = data[count:]
         return True
     except BaseException:  # noqa: B036
         return False
@@ -100,8 +111,8 @@ def _hook(tool, options):
                 raise ImportError("hook_main.py has no main")
             sys.argv = [path, tool, *options]
             code = entry()
-            if not isinstance(code, int):
-                raise TypeError("hook_main.main returned no status")
+            if type(code) is not int or code not in (0, 2):
+                raise TypeError("hook_main.main returned an invalid hook status")
             return code
         try:  # plain Cursor forwarding: silent, never blocks
             from briefcase.cli import hook_commands

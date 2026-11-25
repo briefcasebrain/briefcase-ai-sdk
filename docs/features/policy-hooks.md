@@ -5,9 +5,8 @@ Stop a coding agent before it reads your SSH keys, deletes your home directory, 
 shell command, file access, MCP tool call and web request against `~/.briefcase/policy.toml`
 before it runs, and answers allow, ask or deny with a reason a person can read.
 
-Status: **experimental**. Claude Code 2.1.330 was driven end to end (see [How this was
-verified](#how-this-was-verified)); the Cursor and Codex hooks are built from their documentation
-and were never run against those tools.
+The installed Claude Code, Cursor CLI and Codex CLI runners have passed shell allow and deny checks.
+See [How this was verified](#how-this-was-verified) for the versions and events covered.
 
 ## The one command
 
@@ -386,6 +385,7 @@ tools' settings is 10 s.
 | Claude Code shows `PreToolUse:Bash hook error: ...` with `No such file or directory` or `can't open file` | The launcher moved (briefcase was reinstalled elsewhere or its virtualenv was deleted); `briefcase-ai policy status` says so. Run `briefcase-ai policy off` and then `briefcase-ai policy init`; `init` does not rewrite a hook that is installed. |
 | An `ask` rule blocks in Codex or for Cursor file reads | Those cannot ask from a hook; `ask_fallback` (default `deny`) applies. Set `ask_fallback = "allow"` or make the rule `deny`/`allow`. |
 | Codex never runs the hook | Open `/hooks` in Codex and trust it; Codex skips new or changed hooks until you do. |
+| Cursor CLI ignores a hook installed by an earlier SDK | Run `briefcase-ai policy off cursor` and reinstall with `briefcase-ai policy init cursor` and your original options. For forwarding hooks, use `briefcase-ai connect --undo cursor` and repeat your original connect command. Regenerate managed packs before rollout. |
 | Cursor ignores the hook | Customize > Hooks and the Hooks output channel in Cursor; restart Cursor if `hooks.json` did not reload. |
 | `briefcase-ai policy check` says `no TOML parser on this Python` | Python 3.9 and 3.10 have no `tomllib`: `pip install tomli` in the environment briefcase runs from. Until then the hook fails open and says so. |
 | A project policy's `allow` has no effect | By design: a project policy can only restrict. `briefcase-ai policy check` lists it under "Ignored". |
@@ -406,5 +406,8 @@ tools' settings is 10 s.
   https://code.claude.com/docs/en/hooks, https://cursor.com/docs/hooks (the page
   https://cursor.com/docs/agent/hooks serves), https://developers.openai.com/codex/hooks.
   They are recorded under `enforce` in `briefcase/connect/adapters.json`.
-- Cursor and Codex: never run. Their hook process is tested with payloads built from the
-  documented schemas (`tests/policy/test_hook.py`).
+- On 2026-11-25, Claude Code 2.1.332, Codex CLI 0.170.0 and Cursor CLI 2026.09.18-9a7762b each
+  invoked a hash-bound hook. The allow policy created a marker file and the deny policy prevented it.
+  The Cursor shell request specified its working directory. When the host omitted it, strict mode
+  blocked the allow control. Repeat the checks from the SDK root with
+  `python -m scripts.check_real_hook HOST`, using `claude-code`, `codex` or `cursor`.

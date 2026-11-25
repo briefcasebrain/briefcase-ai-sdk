@@ -277,7 +277,8 @@ def test_launcher_paths_are_found_in_both_command_forms(monkeypatch):
 def test_hook_command_flags():
     command = install.hook_command("cursor", install.HookOptions(
         portable=True, capture_content=True, endpoint="https://otel.example.com/"))
-    assert command == "briefcase-ai hook cursor --enforce --capture-content --endpoint https://otel.example.com"
+    assert shlex.split(command) == ["briefcase-ai", "hook", "cursor", "--enforce", "--capture-content",
+                                    "--endpoint", "https://otel.example.com"]
     assert install.marker("cursor") in command
 
 

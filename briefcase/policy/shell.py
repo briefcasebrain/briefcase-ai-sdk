@@ -70,8 +70,8 @@ _TIMEOUT_VALUE = frozenset(("-s", "--signal", "-k", "--kill-after"))
 class Word(object):
     __slots__ = ("text", "dynamic", "glob", "quoted", "subs", "name_literal", "literal")
 
-    def __init__(self, text="", dynamic=False, glob=False, quoted=False, subs=None, name_literal=False):
-        self.literal = ""  # the leading part of text that was substituted (~ -> $HOME): literal even in a wildcard
+    def __init__(self, text="", dynamic=False, glob=False, quoted=False, subs=None, name_literal=False, literal=""):
+        self.literal = literal  # the leading part of text that was substituted (~ -> $HOME): literal even in a wildcard
         self.text = text
         self.dynamic = dynamic
         self.glob = glob
@@ -124,8 +124,8 @@ class Cmd(object):
             out.append(arg)
         return " ".join(out)
 
-    def derive(self, argv, dyn, glob, via):
-        cmd = Cmd(argv, dyn, glob, cwd=self.cwd, via=self.via + [via], home=self.home)
+    def derive(self, argv, dyn, glob, literals, via):
+        cmd = Cmd(argv, dyn, glob, cwd=self.cwd, via=self.via + [via], home=self.home, literals=literals)
         cmd.prev = self.prev
         cmd.subs = self.subs
         cmd.stdin = self.stdin
@@ -270,8 +270,7 @@ class _Lexer(object):
                 dynamic, name_literal = True, "/" in text and not text.endswith("/")
             else:
                 literal = self._tilde_prefix
-        word = Word(text, dynamic, glob, quoted, subs, name_literal)
-        word.literal = literal
+        word = Word(text, dynamic, glob, quoted, subs, name_literal, literal)
         if self.redir is not None:
             op, self.redir = self.redir, None
             if op in ("<<", "<<-"):
@@ -282,11 +281,11 @@ class _Lexer(object):
                 self.redirs.append((op, word))
             return
         if not quoted and not dynamic and "{" in text and "}" in text:
-            expanded = brace_expand(text)
+            expanded = brace_expand(text[len(literal):])
             if expanded is None:
                 word.dynamic = True
             elif len(expanded) > 1:
-                self.words.extend(Word(item, False, glob, False, subs if not index else [])
+                self.words.extend(Word(literal + item, glob=glob, subs=subs if not index else [], literal=literal)
                                   for index, item in enumerate(expanded))
                 return
         self.words.append(word)
@@ -809,7 +808,7 @@ def _skip_options(cmd, start, with_value=(), stop_at_assignment=False):
 def _rest(cmd, start, via):
     if start >= len(cmd.argv):
         return []
-    return [cmd.derive(cmd.argv[start:], cmd.dyn[start:], cmd.glob[start:], via)]
+    return [cmd.derive(cmd.argv[start:], cmd.dyn[start:], cmd.glob[start:], cmd.literals[start:], via)]
 
 
 def _unwrap(cmd, state, depth):
@@ -820,7 +819,8 @@ def _unwrap(cmd, state, depth):
         if resolved is None:
             out.problem("the command name is computed at run time: " + _clip(argv[0] or "$(...)"))
             return []
-        return [cmd.derive([resolved] + argv[1:], [False] + dyn[1:], [False] + cmd.glob[1:], "glob")]
+        return [cmd.derive([resolved] + argv[1:], [False] + dyn[1:], [False] + cmd.glob[1:],
+                           [""] + cmd.literals[1:], "glob")]
     name = cmd.name
     if name in ("sudo", "doas"):
         return _rest(cmd, _skip_options(cmd, 1, _SUDO_VALUE, stop_at_assignment=True), name)
@@ -1000,7 +1000,7 @@ def _find(cmd):
             sub_argv, sub_dyn, sub_glob = argv[i + 1:j], cmd.dyn[i + 1:j], cmd.glob[i + 1:j]
             if sub_argv:
                 sub_dyn = [d or a == "{}" for a, d in zip(sub_argv, sub_dyn)]
-                derived.append(cmd.derive(sub_argv, sub_dyn, sub_glob, f"find {arg}"))
+                derived.append(cmd.derive(sub_argv, sub_dyn, sub_glob, cmd.literals[i + 1:j], f"find {arg}"))
             i = j
         i += 1
     return derived
@@ -1047,9 +1047,9 @@ def _glob_pattern(text, cwd, home, literal=""):
     import glob
 
     if literal and text.startswith(literal):
-        return glob.escape(literal) + text[len(literal):]
-    if text == "~" or text.startswith("~/"):
-        return glob.escape(home) + text[1:]
+        text = glob.escape(literal) + text[len(literal):]
+    elif text == "~" or text.startswith("~/"):
+        text = glob.escape(home) + text[1:]
     if os.path.isabs(text):
         return text
     if cwd is None:

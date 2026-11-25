@@ -120,7 +120,9 @@ def test_a_localhost_endpoint_is_written_into_the_cursor_hook_whatever_the_envir
     assert w.run(["connect", "cursor", "--no-mcp", "--yes", "--endpoint", "http://127.0.0.1:4318"])[0] == 0
     hooks = json.loads(w.telemetry_file("cursor").read_text())["hooks"]
     commands = [h["command"] for entries in hooks.values() for h in entries]
-    assert commands and all("--endpoint http://127.0.0.1:4318" in c for c in commands)
+    import shlex
+
+    assert commands and all(shlex.split(c)[-2:] == ["--endpoint", "http://127.0.0.1:4318"] for c in commands)
 
 
 def test_start_in_project_b_does_not_pick_project_a_s_recorded_remote_endpoint(w, tmp_path, monkeypatch):

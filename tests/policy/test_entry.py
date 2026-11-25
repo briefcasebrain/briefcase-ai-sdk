@@ -283,11 +283,12 @@ def load_sibling(name): raise ImportError(name)
 
 @pytest.mark.parametrize("flags", BINDING, ids=["flag", "hash_eq", "hash_sep"])
 @pytest.mark.parametrize("tool", TOOLS)
-def test_a_launcher_that_loads_but_never_enters_main_is_a_denial(home, project, tmp_path, tool, flags):
+@pytest.mark.parametrize("entry", ["", "def main(): return 3", "def main(): return True"])
+def test_portable_launcher_requires_a_defined_hook_status(home, project, tmp_path, tool, flags, entry):
     stub = tmp_path / "stub"
     (stub / "briefcase" / "policy").mkdir(parents=True)
     (stub / "briefcase" / "__init__.py").write_text("")
-    (stub / "briefcase" / "policy" / "hook_main.py").write_text(LAUNCHER_WITHOUT_AN_ENTRY)
+    (stub / "briefcase" / "policy" / "hook_main.py").write_text(LAUNCHER_WITHOUT_AN_ENTRY + entry)
     env = {"HOME": str(home), "PATH": os.environ.get("PATH", ""), "PYTHONPATH": f"{stub}{os.pathsep}{ROOT}"}
     script = PRELUDE % ([], ["hook", tool, "--enforce", *flags], False, "briefcase_entry:main")
     done = subprocess.run([sys.executable, "-c", script], input=json.dumps(payload(tool, project)),
@@ -411,10 +412,10 @@ def test_the_wheel_content_check_names_a_wheel_that_omits_the_entry_package(tmp_
     bad = tmp_path / "bad-1-py3-none-any.whl"
     with zipfile.ZipFile(good, "w") as z:
         z.writestr("briefcase_entry/__init__.py", "")
-        z.writestr("x.dist-info/entry_points.txt", "[console_scripts]\nbriefcase-ai=briefcase_entry:main\n")
+        z.writestr("good-1.dist-info/entry_points.txt", "[console_scripts]\nbriefcase-ai=briefcase_entry:main\n")
     with zipfile.ZipFile(bad, "w") as z:
         z.writestr("briefcase/__init__.py", "")
-        z.writestr("x.dist-info/entry_points.txt", "[console_scripts]\nbriefcase-ai=briefcase.cli.__main__:main\n")
+        z.writestr("bad-1.dist-info/entry_points.txt", "[console_scripts]\nbriefcase-ai=briefcase.cli.__main__:main\n")
     problems = script.wheel_contents(str(tmp_path))
     assert any("bad-1" in p and "briefcase_entry/__init__.py" in p for p in problems)
     assert not any("good-1" in p for p in problems)
@@ -500,7 +501,7 @@ def test_the_strict_local_command_keeps_the_launchers_own_status_and_a_path_with
 # --- round 21: bindings before `hook` survive the scanner, and an unknown host gets a denial every host reads --------
 
 @pytest.mark.parametrize("before", [["--require-policy-sha256=" + "0" * 64], ["--fail-closed"],
-                                    ["--debug", "--fail-closed"]])
+                                    ["--debug", "--fail-closed"], ["--require-policy-sha256", "0" * 64]])
 @pytest.mark.parametrize("tool", TOOLS)
 def test_the_healthy_scanner_keeps_a_binding_that_stands_before_hook(home, project, tool, before):
     build_state(home, project, "valid_denying")
@@ -513,22 +514,23 @@ def test_the_healthy_scanner_keeps_a_binding_that_stands_before_hook(home, proje
 
 @pytest.mark.parametrize("host", TOOLS)
 @pytest.mark.parametrize("imports", ["scanner_only", "scanner_and_policy"])
-def test_an_unknown_host_gets_a_stdout_denial_every_host_reads_even_when_nothing_loads(
-        home, project, monkeypatch, host, imports):
-    import io
-
-    import briefcase.cli.__main__ as entry_module
-
-    monkeypatch.setitem(sys.modules, "briefcase_entry", None)
+def test_scanner_failure_writes_only_the_host_denial(home, project, host, imports):
+    blocked = ["briefcase_entry"]
     if imports == "scanner_and_policy":
-        monkeypatch.setitem(sys.modules, "briefcase.policy.hook_main", None)
-    out = io.StringIO()
-    monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
-    monkeypatch.setattr(sys, "stdout", out)
-    monkeypatch.setattr(sys, "stderr", None)  # unusable: the denial must reach stdout
-    # an unrelated option value that names another host must not decide the format
-    code = entry_module.main(["--repo", "cursor", "--fail-closed", "hook", host, "--enforce"])
-    assert code == 0 and denies(host, 0, out.getvalue()), (code, out.getvalue())
+        blocked.append("briefcase.policy.hook_main")
+    argv = ["--repo", "cursor", "--fail-closed", "hook", host, "--enforce"]
+    script = PRELUDE % (blocked, argv, True, "briefcase.cli.__main__:main")
+    done = subprocess.run([sys.executable, "-c", script], input="{}", capture_output=True, text=True,
+                          env=dict(os.environ, HOME=str(home), PYTHONPATH=str(ROOT)), timeout=60)
+    assert done.returncode == 0 and denies(host, 0, done.stdout), done
+    expected = {"permission", "agent_message", "user_message"} if host == "cursor" else {"hookSpecificOutput"}
+    assert set(json.loads(done.stdout)) == expected
+
+
+def test_global_operands_do_not_become_hook_options():
+    import briefcase_entry
+
+    assert briefcase_entry.hook_invocation(["--repo", "--capture-content", "hook", "codex"]) == ("codex", [])
 
 
 def _exec_wrapper(monkeypatch, tmp_path, launcher_text, tool, writer):
@@ -597,13 +599,14 @@ def test_a_system_exit_raised_inside_main_is_a_denial_too(monkeypatch, tmp_path)
     "[console_scripts]\nbriefcase-ai-mcp=briefcase_entry:main\nbriefcase-ai=briefcase.cli.__main__:main\n",
     "[console_scripts]\nbriefcase-ai=briefcase_entry:main_old\n",
     "[console_scripts]\nxbriefcase-ai=briefcase_entry:main\n",
-], ids=["comment", "other_section", "other_script", "other_function", "other_name"])
+    "[DEFAULT]\nbriefcase-ai=briefcase_entry:main\n[console_scripts]\n",
+], ids=["comment", "other_section", "other_script", "other_function", "other_name", "inherited_default"])
 def test_the_wheel_checker_parses_the_exact_console_script_entry(tmp_path, metadata):
     import zipfile
 
     with zipfile.ZipFile(tmp_path / "w-1-py3-none-any.whl", "w") as z:
         z.writestr("briefcase_entry/__init__.py", "")
-        z.writestr("w.dist-info/entry_points.txt", metadata)
+        z.writestr("w-1.dist-info/entry_points.txt", metadata)
     problems = _script().wheel_contents(str(tmp_path))
     assert any("console script" in p for p in problems), problems
 
@@ -613,17 +616,27 @@ def test_the_wheel_checker_accepts_the_exact_entry(tmp_path):
 
     with zipfile.ZipFile(tmp_path / "w-1-py3-none-any.whl", "w") as z:
         z.writestr("briefcase_entry/__init__.py", "")
-        z.writestr("w.dist-info/entry_points.txt",
+        z.writestr("w-1.dist-info/entry_points.txt",
                    "[console_scripts]\nbriefcase-ai-mcp=briefcase.mcp.__main__:main\n"
                    "briefcase-ai = briefcase_entry:main\n")
     assert _script().wheel_contents(str(tmp_path)) == []
+
+
+@pytest.mark.parametrize("directory", ["other-1.dist-info", "vendor/w-1.dist-info", "w-2.dist-info"])
+def test_wheel_checks_only_its_own_distribution_metadata(tmp_path, directory):
+    import zipfile
+
+    with zipfile.ZipFile(tmp_path / "w-1-py3-none-any.whl", "w") as archive:
+        archive.writestr("briefcase_entry/__init__.py", "")
+        archive.writestr(directory + "/entry_points.txt", "[console_scripts]\nbriefcase-ai=briefcase_entry:main\n")
+    assert _script().wheel_contents(str(tmp_path))
 
 
 OLD_STRICT = ("import sys\ntry:\n    import runpy\n    status = runpy.run_path({path})['main']()\n"
               "except BaseException:\n    sys.exit(2)\nsys.exit(status)\n")  # the form 5621b59..cba5559 generated
 
 
-@pytest.mark.parametrize("name", ["plain", "café", "venv-\U0001F642"])
+@pytest.mark.parametrize("name", ["plain", 'a"b', "café", "venv-\U0001F642"])
 def test_status_finds_the_launcher_in_a_previously_installed_embedded_path_command(tmp_path, name):
     import shlex
 
@@ -633,7 +646,11 @@ def test_status_finds_the_launcher_in_a_previously_installed_embedded_path_comma
     command = " ".join(shlex.quote(p) for p in [
         sys.executable, "-I", "-c", "exec(" + repr(OLD_STRICT.format(path=json.dumps(path))) + ")", "codex",
         "--enforce"])
-    assert path in install._launcher_paths(shlex.split(command))
+    import ast
+
+    # The historical Python launcher interpreted this JSON-escaped text as a Python string literal.
+    runtime_path = ast.literal_eval(json.dumps(path))
+    assert install._launcher_paths(shlex.split(command)) == [runtime_path]
 
 
 @pytest.mark.parametrize("name", ["plain", "café", "venv-\U0001F642"])
@@ -653,3 +670,33 @@ def test_the_guides_describe_the_strict_launcher_and_the_endpoint_limit():
     engine = (ROOT / "docs" / "features" / "engine.md").read_text()
     assert "calls its `main()`" in hooks and "passes the file directly" not in hooks
     assert "outside the threat model" in engine
+
+
+@pytest.mark.parametrize("module_name,writer", [
+    ("briefcase_entry", "_write"), ("briefcase.policy.hook_main", "_fd_write"),
+])
+def test_fallback_write_stops_on_zero_progress(monkeypatch, module_name, writer):
+    from importlib import import_module
+
+    attempts = []
+
+    def zero_write(fd, data):
+        attempts.append(fd)
+        if len(attempts) > 1:
+            raise OSError("test stopped repeated writes")
+        return 0
+
+    monkeypatch.setattr(os, "write", zero_write)
+    assert not getattr(import_module(module_name), writer)(1, b"message")
+    assert attempts == [1]
+
+
+def test_cursor_hook_command_survives_host_configuration_loading():
+    import shlex
+
+    from briefcase.policy import install
+
+    endpoint = "https://fixture.example/sample"
+    command = install.hook_command("cursor", install.HookOptions(portable=True, endpoint=endpoint, fail_closed=True))
+    assert "//" not in command
+    assert shlex.split(command)[-2:] == ["--endpoint", endpoint]

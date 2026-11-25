@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from briefcase.connect import edits
-from briefcase.connect.adapters import DEFAULT_ENDPOINT, Adapter, Context, load_data, parse_version
+from briefcase.connect.adapters import DEFAULT_ENDPOINT, Adapter, Context, cursor_command, load_data, parse_version
 from briefcase.connect.edits import FileEdit, Manual
 from briefcase.policy import tools as tool_formats
 
@@ -131,6 +131,8 @@ def hook_command(tool: str, options: HookOptions) -> str:
     flags += ["--endpoint", (options.endpoint or DEFAULT_ENDPOINT).rstrip("/")]  # always explicit
     if options.require_policy_sha:
         flags += ["--require-policy-sha256", options.require_policy_sha]
+    if tool == "cursor":
+        return cursor_command(base + flags)
     return " ".join(shlex.quote(part) for part in base + flags)
 
 
@@ -232,7 +234,8 @@ class PolicyAdapter(Adapter):
             for event, entry in cursor_entries(command, self.enforce, self.options.fail_closed).items():
                 ops.append({"op": "append", "path": ["hooks", event], "value": entry,
                             "owned_by": marker(self.tool)})
-            notes += ["experimental: taken from Cursor's documentation, never run against Cursor",
+            notes += ["Cursor CLI shell hooks were checked with an explicit working directory; "
+                      "strict mode blocks a missing cwd",
                       "Cursor can ask only for shell commands and MCP tools; for file reads and writes an "
                       "`ask` rule becomes the policy's ask_fallback"]
             return [FileEdit(self.id, path, "json",
@@ -245,7 +248,7 @@ class PolicyAdapter(Adapter):
                 path = self.path("user_hooks")
             if self.options.fail_closed:
                 notes.append("fail-closed: " + CODEX_STARTUP_RISK)
-            notes += ["experimental: taken from Codex's documentation, never run against Codex",
+            notes += ["Codex CLI shell hooks were checked with a hash-bound policy",
                       "Codex skips a new hook until you trust it: open /hooks in Codex once after this",
                       "Codex cannot ask from a hook, so an `ask` rule becomes the policy's ask_fallback"]
             return [FileEdit(self.id, path, "json", "Run the briefcase-ai policy before each tool call (PreToolUse)",
@@ -353,26 +356,24 @@ def _launcher_paths(parts: List[str]) -> List[str]:
     written inside the program of an earlier form (``run_path("...")``, a JSON string, possibly inside an
     ``exec('...')`` literal), decoded as the program would read it."""
     import ast
-    import re
 
-    found = []
-    for part in parts[1:]:
-        if os.path.isabs(part) and part.endswith(".py"):
-            found.append(part)
-        code = part
-        if part.startswith("exec(") and part.endswith(")"):
-            try:
-                value = ast.literal_eval(part[5:-1])
-                code = value if isinstance(value, str) else part
-            except (ValueError, SyntaxError):
-                code = part
-        for match in re.finditer(r"run_path\((['\"])(.+?)\1", code):
-            text = match.group(2)
-            try:
-                text = json.loads('"' + text + '"') if "\\" in text else text
-            except ValueError:
-                pass
-            found.append(text)
+    found = [part for part in parts[1:] if os.path.isabs(part) and part.endswith(".py")]
+    if "-c" not in parts or parts.index("-c") + 1 >= len(parts):
+        return found
+    try:
+        tree = ast.parse(parts[parts.index("-c") + 1])
+        if len(tree.body) == 1 and isinstance(tree.body[0], ast.Expr):
+            call = tree.body[0].value
+            if (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "exec"
+                    and len(call.args) == 1 and isinstance(call.args[0], ast.Constant)
+                    and isinstance(call.args[0].value, str)):
+                tree = ast.parse(call.args[0].value)
+    except (ValueError, SyntaxError, RecursionError):
+        return found
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "run_path"
+                and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)):
+            found.append(node.args[0].value)
     return found
 
 

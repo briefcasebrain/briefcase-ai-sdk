@@ -40,24 +40,14 @@ _DENY = (b'{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDec
 _DENY_CURSOR = (b'{"permission": "deny", "user_message": "' + _REASON + b'", "agent_message": "' + _REASON + b'"}\n')
 
 
-# For a host that is not known (the command line could not be read reliably): one object that every host reads as a
-# denial, Claude Code and Codex by hookSpecificOutput, Cursor by permission.
-_DENY_ANY = (b'{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", '
-             b'"permissionDecisionReason": "' + _REASON + b'"}, "permission": "deny", "user_message": "' + _REASON +
-             b'", "agent_message": "' + _REASON + b'"}\n')
-
-
-def _denial_for(tool):
-    if tool == "cursor":
-        return _DENY_CURSOR
-    return _DENY if tool in ("claude-code", "codex") else _DENY_ANY
-
-
 def _fd_write(fd, data):
     """Write all of ``data`` to a file descriptor; whether it was delivered. No stream object, no import."""
     try:
         while data:
-            data = data[os.write(fd, data):]
+            count = os.write(fd, data)
+            if count <= 0:
+                return False
+            data = data[count:]
         return True
     except BaseException:  # noqa: B036
         return False
@@ -72,7 +62,7 @@ def block(tool, write=None):
     write = write or _fd_write
     if write(2, _REASON + b"\n"):
         return 2
-    return 0 if write(1, _denial_for(tool)) else 2
+    return 0 if write(1, _DENY_CURSOR if tool == "cursor" else _DENY) else 2
 
 
 def _leave(code):
@@ -125,7 +115,11 @@ def block_in_process(tool):
 
     def write(fd, data):
         stream = sys.stderr if fd == 2 else sys.stdout
-        delivered[fd] = _say(stream, data.decode("ascii"))
+        original = sys.__stderr__ if fd == 2 else sys.__stdout__
+        if stream is original and stream is not None:
+            delivered[fd] = _fd_write(fd, data)
+        else:
+            delivered[fd] = _say(stream, data.decode("ascii"))
         return delivered[fd]
 
     code = block(tool, write)

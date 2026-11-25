@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shlex
 import sys
 import uuid
 from pathlib import Path
@@ -124,7 +123,7 @@ def reg_template(settings: Dict[str, Any]) -> str:
 def cursor_hooks(ctx: Context, enforce: bool, fail_closed: bool, data: Dict[str, Any],
                  policy_sha: str = "") -> Dict[str, Any]:
     endpoint = ["--endpoint", ctx.endpoint]  # always explicit, and quoted: it is shell text
-    observe = " ".join(shlex.quote(part) for part in ["briefcase-ai", "hook", "cursor"] + endpoint)
+    observe = install.cursor_command(["briefcase-ai", "hook", "cursor"] + endpoint)
     hooks: Dict[str, List[Dict[str, Any]]] = {
         event: [{"command": observe, "timeout": data["hook_timeout_seconds"]}] for event in data["hook_events"]}
     if enforce:
@@ -254,14 +253,15 @@ def build(tools: List[str], ctx: Context, policy_text: Optional[str] = None) -> 
             "Linux and WSL": "/etc/cursor/hooks.json",
             "Windows": r"C:\ProgramData\Cursor\hooks.json",
         }, data["cursor"]["enforce"]["docs_url"],
-            "Enterprise hooks run first and cannot be removed by a user. Never run against Cursor by this project.")
+            "Enterprise hooks run first and cannot be removed by a user. "
+            "The enterprise installation path is unverified.")
     if "codex" in tools:
         if enforce:
             pack.add("codex/hooks.json", _json(codex_hooks(ctx, fail_closed, data["codex"], policy_sha)), "ready", {
                 "macOS": "/etc/codex/hooks.json", "Linux and WSL": "/etc/codex/hooks.json",
                 "Windows": r"%ProgramData%\OpenAI\Codex\hooks.json",
             }, data["codex"]["enforce"]["docs_url"],
-                "System hooks are trusted by policy. Never run against Codex by this project.")
+                "System hooks are trusted by policy. The system installation path is unverified.")
             pack.add("codex/requirements-hooks.toml.template",
                      codex_requirements_template(ctx, fail_closed, data["codex"], policy_sha), "template",
                      "your organization's requirements.toml", data["codex"]["enforce"]["docs_url"],

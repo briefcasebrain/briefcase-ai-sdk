@@ -46,7 +46,8 @@ def console_script(entry_points_text, name):
     another section or another script's line cannot stand in for it); ``None`` when there is none."""
     import configparser
 
-    parser = configparser.ConfigParser(interpolation=None, delimiters=("=",), comment_prefixes=("#", ";"))
+    parser = configparser.ConfigParser(default_section=None, interpolation=None, delimiters=("=",),
+                                       comment_prefixes=("#", ";"))
     parser.optionxform = str  # script names are case-sensitive
     try:
         parser.read_string(entry_points_text)
@@ -68,10 +69,12 @@ def wheel_contents(directory):
     for wheel in wheels:
         with zipfile.ZipFile(wheel) as archive:
             names = archive.namelist()
-            metadata = [archive.read(n).decode() for n in names if n.endswith(".dist-info/entry_points.txt")]
+            distribution, version = os.path.basename(wheel).split("-")[:2]
+            entry = f"{distribution}-{version}.dist-info/entry_points.txt"
+            metadata = archive.read(entry).decode() if names.count(entry) == 1 else ""
         if "briefcase_entry/__init__.py" not in names:
             problems.append(f"{os.path.basename(wheel)} does not contain briefcase_entry/__init__.py")
-        if not any(console_script(text, "briefcase-ai") == "briefcase_entry:main" for text in metadata):
+        if console_script(metadata, "briefcase-ai") != "briefcase_entry:main":
             problems.append(f"{os.path.basename(wheel)}'s console script briefcase-ai is not exactly "
                             "briefcase_entry:main")
     return problems

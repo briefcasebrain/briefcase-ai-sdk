@@ -406,3 +406,18 @@ def test_an_executable_name_wildcard_resolves_in_a_working_directory_with_a_lite
     analysis = shell.analyze("./sec*.sh", cwd=str(work), home=str(tmp_path))
     assert not analysis.problems, analysis.problems
     assert any(c.argv[0].endswith("/secret.sh") for c in analysis.commands), [c.argv for c in analysis.commands]
+
+
+@pytest.mark.parametrize("source", ["cat ~/a{lph,bet}*.txt", "env cat ~/a*.txt"])
+@pytest.mark.parametrize("relative_home", [False, True])
+def test_glob_operands_retain_literal_home_through_shell_expansion(tmp_path, source, relative_home):
+    from briefcase.policy import shell
+
+    directory = tmp_path / "home[1]{x,y}"
+    directory.mkdir()
+    sample = directory / "alpha.txt"
+    sample.touch()
+    home = directory.name if relative_home else str(directory)
+    analysis = shell.analyze(source, cwd=str(tmp_path), home=home)
+    reader = next(command for command in analysis.commands if command.name == "cat")
+    assert str(sample) in [path for path, _, _ in shell.path_refs(reader)]

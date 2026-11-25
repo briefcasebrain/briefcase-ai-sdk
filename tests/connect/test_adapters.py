@@ -160,7 +160,7 @@ def test_cursor_golden_plan(home, fake_bin):
     fake_bin("briefcase-ai")
     hooks, mcp = plan("cursor")
     assert hooks.path == home / ".cursor" / "hooks.json"
-    entry = {"command": "briefcase-ai hook cursor --endpoint http://127.0.0.1:4318", "timeout": 5}
+    entry = {"command": "briefcase-ai hook cursor --endpoint http:/''/127.0.0.1:4318", "timeout": 5}
     assert hooks.ops[0] == {"op": "default", "path": ["version"], "value": 1}
     assert [(op["op"], op["path"], op["value"]) for op in hooks.ops[1:]] == [
         ("append", ["hooks", event], entry)
@@ -175,7 +175,10 @@ def test_cursor_project_scope_and_flags(home, tmp_path):
     assert hooks.path == tmp_path / "project" / ".cursor" / "hooks.json"
     assert mcp.path == tmp_path / "project" / ".cursor" / "mcp.json"
     command = hooks.ops[1]["value"]["command"]
-    assert command.endswith("-m briefcase.cli hook cursor --endpoint http://127.0.0.1:9999 --capture-content")
+    import shlex
+
+    assert shlex.split(command)[1:] == ["-m", "briefcase.cli", "hook", "cursor", "--endpoint",
+                                        "http://127.0.0.1:9999", "--capture-content"]
 
 
 def test_vscode_copilot_golden_plan(home):

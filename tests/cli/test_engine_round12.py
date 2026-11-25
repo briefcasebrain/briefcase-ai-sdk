@@ -929,14 +929,40 @@ def test_up_refuses_when_the_compose_configuration_cannot_be_read(env, monkeypat
     assert compose_verbs(env) == []
 
 
-def test_an_expected_service_with_no_image_to_compare_is_refused(env, monkeypatch, capsys):
+@pytest.mark.parametrize("existing", [False, True])
+def test_an_expected_service_with_no_image_to_compare_is_refused(env, monkeypatch, capsys, existing):
     from tests.cli.test_engine_invariants import containers_for
 
     synthetic(env, [A], A)
     configure(env, monkeypatch, "ok", "ours", "none")
-    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A))))
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", json.dumps(stopped(containers_for(A)) if existing else []))
     monkeypatch.setenv("FAKE_DOCKER_CONFIG_JSON", json.dumps({"services": {
         "oci-jj-server": {"image": "x"}, "gateway": {"image": "x"}, "minio": {}}}))  # minio: nothing to compare with
     assert main(["engine", "up"]) == 1
     capsys.readouterr()
     assert compose_verbs(env) == []
+
+
+@pytest.mark.parametrize("install_options", [[], ["--no-images"]], ids=["images", "client"])
+def test_secondary_install_on_empty_daemon_preserves_current_stack_transport(env, monkeypatch, key, install_options):
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    assert _install("--code", "bci_good", "--tls") == 0
+    first = _engine.current_install()
+    assert first["tls"]
+    inventory_a = json.dumps([["oci-jj-server", first["image_ids"]["server"], first["compose"]]])
+    owners = list(_engine.load_state()["docker_contexts"])
+
+    monkeypatch.setenv("FAKE_DOCKER_ID", "BBB")
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", "[]")
+    env["platform"].release = build_release(key, version="0.5.0")
+    assert _install("--token", "bcl_good", *install_options) == 0
+    assert _engine.current_install() == first
+    assert _engine.load_state()["docker_contexts"] == owners
+    assert "0.5.0" in _engine.load_state()["installs"]
+
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    monkeypatch.setenv("FAKE_DOCKER_CONTAINERS", inventory_a)
+    env["platform"].release = build_release(key, version="0.6.0")
+    assert main(["engine", "upgrade", "--yes", "--token", "bcl_good"]) == 0
+    assert _engine.current_install()["version"] == "0.6.0"
+    assert _engine.current_install()["tls"]

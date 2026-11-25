@@ -206,28 +206,35 @@ def _hook_invocation(argv):
             else None
 
 
-# For the one path where nothing of the SDK loads: a denial every host reads (Claude Code and Codex by
-# hookSpecificOutput, Cursor by permission), short enough to keep here.
-_NOTHING_LOADS = ("Blocked by briefcase-ai policy: the hook could not start and it is bound to a policy.")
-_NOTHING_LOADS_JSON = ('{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", '
-                       '"permissionDecisionReason": "' + _NOTHING_LOADS + '"}, "permission": "deny", '
-                       '"user_message": "' + _NOTHING_LOADS + '", "agent_message": "' + _NOTHING_LOADS + '"}\n')
+_NOTHING_LOADS = "Blocked by briefcase-ai policy: the hook could not start and it is bound to a policy."
 
 
 def _blocked_directly(argv) -> int:
-    """A command line that names ``hook`` and carries a binding flag, and a scanner that cannot say which host it is
-    for. The host is not guessed from words that occur in argv (an option value can be any word): the denial is the
-    one object every host reads, delivered the usual way (reason on stderr with exit 2, else JSON on stdout)."""
+    # A global operand may be named "hook". Only the subcommand is followed by the host name.
+    tool = next((host for command, host in zip(argv, argv[1:])
+                 if command == "hook" and host in ("codex", "claude-code", "cursor")), "")
     try:
         from briefcase.policy import hook_main
 
-        return hook_main.block_in_process("")
+        return hook_main.block_in_process(tool)
     except BaseException:  # noqa: B036
         pass
-    for fd, data, status in ((2, _NOTHING_LOADS + "\n", 2), (1, _NOTHING_LOADS_JSON, 0)):
+    if tool == "cursor":
+        denial = ('{"permission":"deny","user_message":"' + _NOTHING_LOADS +
+                  '","agent_message":"' + _NOTHING_LOADS + '"}')
+    else:
+        denial = ('{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",'
+                  '"permissionDecisionReason":"' + _NOTHING_LOADS + '"}}')
+    for fd, message, status in ((2, _NOTHING_LOADS, 2), (1, denial, 0)):
         try:
-            os.write(fd, data.encode("ascii"))
-            return status
+            data = (message + "\n").encode("ascii")
+            while data:
+                count = os.write(fd, data)
+                if count <= 0:
+                    break
+                data = data[count:]
+            else:
+                return status
         except BaseException:  # noqa: B036
             continue
     return 2

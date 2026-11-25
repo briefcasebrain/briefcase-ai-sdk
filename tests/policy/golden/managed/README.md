@@ -50,8 +50,8 @@ with what is confirmed and what is not.
 - `claude-code/managed-settings.d/10-briefcase.json`: Drop-in merged with managed-settings.json; users cannot remove or disable managed hooks.
 - `claude-code/macos/briefcase-claude-code.mobileconfig`: Use this OR the drop-in file on macOS, not both: an MDM profile outranks the file. Built from the two documented formats; not installed on a Mac by this project.
 - `claude-code/windows/claude-code-policy.reg.template`: The registry location is documented; the .reg file itself is unverified.
-- `cursor/hooks.json`: Enterprise hooks run first and cannot be removed by a user. Never run against Cursor by this project.
-- `codex/hooks.json`: System hooks are trusted by policy. Never run against Codex by this project.
+- `cursor/hooks.json`: Enterprise hooks run first and cannot be removed by a user. The enterprise installation path is unverified.
+- `codex/hooks.json`: System hooks are trusted by policy. The system installation path is unverified.
 - `codex/requirements-hooks.toml.template`: Use instead of hooks.json when you already manage requirements.toml.
 - `codex/config-otel.toml.template`: Telemetry only. No documented system-wide location.
 - `cowork/CHECKLIST.md`: Steps for a person, not a file to deploy.

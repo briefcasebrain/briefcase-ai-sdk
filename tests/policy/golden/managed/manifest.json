@@ -59,7 +59,7 @@
         "Windows": "C:\\ProgramData\\Cursor\\hooks.json"
       },
       "source": "https://cursor.com/docs/hooks",
-      "note": "Enterprise hooks run first and cannot be removed by a user. Never run against Cursor by this project."
+      "note": "Enterprise hooks run first and cannot be removed by a user. The enterprise installation path is unverified."
     },
     {
       "file": "codex/hooks.json",
@@ -70,7 +70,7 @@
         "Windows": "%ProgramData%\\OpenAI\\Codex\\hooks.json"
       },
       "source": "https://developers.openai.com/codex/hooks",
-      "note": "System hooks are trusted by policy. Never run against Codex by this project."
+      "note": "System hooks are trusted by policy. The system installation path is unverified."
     },
     {
       "file": "codex/requirements-hooks.toml.template",
@@ -95,7 +95,7 @@
     }
   ],
   "files_sha256": {
-    "README.md": "1b5704c0d252c849080b9b67b2359c4bd4232e7d9378dac1662de16037de7a43",
+    "README.md": "b596682d9f6ff74bcf880438499fd311ac40efdb9faea56cb802d73d5d33c16a",
     "briefcase/policy.toml": "bf28356c563bc87bf5e0d347f2993c3aa513dc2903e95609c205be67670e61bc",
     "claude-code/macos/briefcase-claude-code.mobileconfig": "57634cdec097474127a7bca47c506773f8d370f54c4742935f7614e9e222fbfe",
     "claude-code/managed-settings.d/10-briefcase.json": "90f95ae5e3b81248c398331ad07af8217fa31f7cb39c22f8ee449b276d6a7841",
@@ -104,6 +104,6 @@
     "codex/hooks.json": "a7c1e1329c7de74182b6652803be58c7de754743b76c8a4e6d3a2fd9943cf55b",
     "codex/requirements-hooks.toml.template": "cb942bdede2e13c98122fcb30d593091e28de7c8ac6e4fe110d3dc27b22b6bee",
     "cowork/CHECKLIST.md": "1db78c9a2e62694651a32b723a0356f4aed77f06fd00d0172e7f5480390c7944",
-    "cursor/hooks.json": "36806574898ca02f9e34735b65b1c437c9e3ad25f4125268d00d6c90e0cbaf5c"
+    "cursor/hooks.json": "19e4ac3d05127948a04aae495b579fa909c834fab6b4584261d1cb00faa33989"
   }
 }

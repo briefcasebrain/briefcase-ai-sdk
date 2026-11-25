@@ -108,7 +108,7 @@
         "fail_closed_field": null,
         "trust": "a new or changed non-managed hook is skipped until it is reviewed and trusted in /hooks",
         "timeout_seconds": 10,
-        "tested": "never run against Codex; the hook process is tested with payloads built from the documentation",
+        "tested": "Codex CLI 0.170.0: a hash-bound project shell hook permitted an allow marker and blocked a deny marker on 2026-11-25",
         "unverified": [
           "the apply_patch body grammar (file paths are read from `*** Add File:`, `*** Update File:`, `*** Delete File:` and `*** Move to:` lines)",
           "permissionDecision \"ask\" is documented as unsupported, so an ask rule becomes the policy's ask_fallback",
@@ -161,7 +161,7 @@
         },
         "pretooluse_matcher": "Write|Delete",
         "timeout_seconds": 10,
-        "tested": "never run against Cursor; the hook process is tested with payloads built from the documentation",
+        "tested": "Cursor CLI 2026.09.18-9a7762b: a hash-bound project shell hook permitted an allow marker and blocked a deny marker on 2026-11-25 with an explicit shell working directory. When the runner omitted cwd, strict mode blocked the allow control",
         "unverified": [
           "tool_input field names for the Write and Delete tools in preToolUse (only the Shell example is documented); the hook reads file_path, path or target_file and allows the call when none is present",
           "whether {\"permission\": \"allow\"} skips Cursor's own approval prompt for a command",

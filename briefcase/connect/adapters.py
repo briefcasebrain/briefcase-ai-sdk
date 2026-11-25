@@ -453,18 +453,25 @@ class Codex(Adapter):
         return items
 
 
+def cursor_command(argv: List[str]) -> str:
+    """Serialize arguments for Cursor's shell after its JSONC reader. Some CLI versions strip
+    comment markers even inside JSON strings. Adjacent shell fragments preserve the argument bytes."""
+    def quote(arg: str) -> str:
+        pieces = re.split(r"(?<=/)(?=[/*])|(?<=\*)(?=/)", arg)
+        return "''".join(shlex.quote(piece) for piece in pieces)
+
+    return " ".join(quote(arg) for arg in argv)
+
+
 class Cursor(Adapter):
     id = "cursor"
 
     def hook_command(self, ctx: Context) -> str:
-        if which("briefcase-ai"):
-            base = "briefcase-ai hook cursor"
-        else:
-            base = f"{shlex.quote(sys.executable)} -m briefcase.cli hook cursor"
-        base += f" --endpoint {shlex.quote(ctx.endpoint)}"  # always explicit: the environment must not redirect it
+        argv = ["briefcase-ai"] if which("briefcase-ai") else [sys.executable, "-m", "briefcase.cli"]
+        argv.extend(["hook", "cursor", "--endpoint", ctx.endpoint])
         if ctx.capture_content:
-            base += " --capture-content"
-        return base
+            argv.append("--capture-content")
+        return cursor_command(argv)
 
     def _plan(self, ctx: Context) -> List[Any]:
         items: List[Any] = []
