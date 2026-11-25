@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [4.5.0] - 2026-11-25
+## [5.0.0] - 2026-11-25
 
 ### Added
 - `auto(dedupe="none"|"provider"|"framework")` and `briefcase-ai exec --dedupe`;

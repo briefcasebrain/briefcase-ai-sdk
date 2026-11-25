@@ -404,7 +404,7 @@ export function decisionSpan(record: Record<string, unknown>): Record<string, un
   return span;
 }
 
-export const SCOPE_VERSION = "4.5.0";
+export const SCOPE_VERSION = "5.0.0";
 
 export function otlpTracesBody(records: DecisionRecord[], serviceName: string): Record<string, unknown> {
   return {

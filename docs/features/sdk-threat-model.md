@@ -22,7 +22,7 @@ Down, upgrade and uninstall require exclusive administration of the engine proje
 
 ## Release evidence
 
-Record the installed versions and observed outcomes for Codex, Claude Code, Cursor and Docker Compose. Host tests use isolated configuration and harmless observable actions. Compose tests use disposable projects and data. Keep deterministic fake-host tests for failure paths. SDK 4.5.0 requires clean independent review and green CI on the exact release commit.
+Record the installed versions and observed outcomes for Codex, Claude Code, Cursor and Docker Compose. Host tests use isolated configuration and harmless observable actions. Compose tests use disposable projects and data. Keep deterministic fake-host tests for failure paths. SDK 5.0.0 requires clean independent review and green CI on the exact release commit.
 
 On 2026-11-25, Docker Compose 5.5.0 resolved all six stock services. The disposable startup fixture created a server, stopped it, and reused the same container ID on the second SDK startup.
 

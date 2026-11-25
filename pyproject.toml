@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "briefcase-ai"
-version = "4.5.0"
+version = "5.0.0"
 description = "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models."
 readme = "README.md"
 license = "Apache-2.0"

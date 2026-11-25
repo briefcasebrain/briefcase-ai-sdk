@@ -7,7 +7,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "4.5.0"
+version = "5.0.0"
 edition = "2021"
 # Set by the dependency graph (rusqlite 0.41 declares 1.89), not by taste.
 # rusqlite 0.41 is the first release bundling a SQLite that fixes
