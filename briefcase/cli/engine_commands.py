@@ -858,7 +858,7 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
 
     state = _engine.load_state_strict(opts.env)
     installs = state.get("installs") or {}
-    if not any(isinstance(r, dict) and r.get("compose") for r in installs.values()):
+    if not record.get("compose") and not any(isinstance(r, dict) and r.get("compose") for r in installs.values()):
         # Client-only installs: there is no stack to ask docker about, so this works without docker.
         _inst.set_current(record["version"], opts.env, locked=True)
         return None
@@ -874,7 +874,11 @@ def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, An
         fresh = _engine.load_state_strict(opts.env)
         known = list(fresh.get("docker_contexts") or [])
         merged = _inst._merge_daemon(known, str(daemon))
-        if merged != known or not _engine.compose_history(fresh):
+        active = fresh.get("installs", {}).get(record["version"])
+        conversion = bool(active and not active.get("compose"))
+        if conversion:
+            fresh["installs"][record["version"]] = record
+        if conversion or merged != known or not _engine.compose_history(fresh):
             fresh["compose_used"] = True
             fresh["docker_contexts"] = merged
             _inst.save_state(fresh, opts.env)
@@ -1849,10 +1853,20 @@ def _remove_install(version: Optional[str], purge: bool, force_without_docker: b
             state["installs"].pop(version, None)
             remaining = sorted(state["installs"])
             if state.get("current") == version or state.get("current") not in state["installs"]:
-                # Current is what is running: the release whose server is up, else the newest left.
-                state["current"] = next((v for v in remaining if state["installs"][v].get("compose")
-                                         and running_install(state["installs"][v])), None) or \
-                    (remaining[-1] if remaining else None)
+                clients = [v for v in remaining if not state["installs"][v].get("compose")]
+                state["current"] = clients[-1] if clients else None
+                if len(clients) != len(remaining):
+                    owner, problems = _daemon_check(state, need_record=True)
+                    if owner is not None and not problems:
+                        with _pinned(owner):
+                            status, running, _ = running_releases()
+                            if status == "ok" and still_the_daemon(owner):
+                                if running and running[0] in remaining:
+                                    state["current"] = running[0]
+                                elif not running:
+                                    candidate = state["installs"][remaining[-1]]
+                                    if not candidate.get("compose") or not image_drift(candidate):
+                                        state["current"] = remaining[-1]
     if plan.secrets:
         for path in (_engine.secrets_path(), _engine.engine_dir() / "tls"):
             if path.is_dir():

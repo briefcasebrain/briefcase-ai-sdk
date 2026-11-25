@@ -829,7 +829,10 @@ def _finish(opts: InstallOptions, manifest: _trust.Manifest, install_dir: Path, 
     # install has loaded images, but has never started Compose or created a volume.
     if opts.make_current and compose_file is not None:
         state["compose_used"] = True
-    state.setdefault("installs", {})[manifest.version] = record
+    defer_conversion = (not opts.make_current and state.get("current") == manifest.version
+                        and isinstance(old, dict) and not old.get("compose") and compose_file is not None)
+    if not defer_conversion:
+        state.setdefault("installs", {})[manifest.version] = record
     if opts.make_current:
         state["current"] = manifest.version
     save_state(state, env)

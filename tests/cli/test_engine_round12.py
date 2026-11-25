@@ -1060,3 +1060,27 @@ def test_image_install_requires_daemon_id_before_activation(env, monkeypatch):
     assert state["installs"] and not state.get("current") and not state["compose_used"]
     assert not state.get("docker_contexts")
     assert main(["engine", "uninstall", "--yes"]) == 0
+
+
+def test_same_version_client_stays_active_until_its_images_are_verified(env, monkeypatch):
+    assert _install("--code", "bci_good", "--no-images") == 0
+    client = _engine.current_install()
+    monkeypatch.setenv("FAKE_DOCKER_ID", "")
+    assert _install("--token", "bcl_good") == 1
+    assert _engine.current_install() == client
+    monkeypatch.setenv("FAKE_DOCKER_ID", "AAA")
+    assert _install("--token", "bcl_good") == 0
+    assert _engine.current_install()["compose"]
+
+
+def test_client_uninstall_cannot_promote_an_unverified_image_release(env, monkeypatch):
+    from tests.cli.test_engine_invariants import B
+
+    synthetic(env, [A, B], A)
+    state = _engine.load_state()
+    state["installs"][A].update(compose=None, images={}, image_ids={})
+    _engine.installed_path().write_text(json.dumps(state))
+    monkeypatch.setenv("FAKE_DOCKER_FAIL", "ps")
+    assert main(["engine", "uninstall", "--yes"]) == 0
+    assert set(_engine.load_state()["installs"]) == {B}
+    assert _engine.current_install() is None
