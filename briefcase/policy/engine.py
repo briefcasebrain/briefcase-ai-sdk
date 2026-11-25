@@ -493,6 +493,9 @@ def _shell_units(policy, call, ctx, matches, units, problems):
             matches.extend(_judge(
                 policy, label, lambda rule, forms=forms, access=access: _match_path(rule, forms, access, ctx),
                 False))
+        for pattern in cmd.incomplete_globs:
+            problems.append(f"the wildcard {_clip(pattern)} matches more files than are judged "
+                            f"({shell.GLOB_LIMIT}), so what it names is undecided")
         if cmd.opaque:
             _scan_text(policy, ctx, cmd.opaque, f"inline {cmd.name} code", matches)
 

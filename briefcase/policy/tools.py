@@ -81,14 +81,14 @@ def _command_text(value):
     return None
 
 
-def _shell_defect(command, cwd):
+def _shell_defect(command, cwd, event_cwd=None):
     """A command is analysed against its working directory; without a usable one a relative file reference cannot be
     resolved, and the analysis would silently leave it out."""
     if not command.strip():
         return "the command is empty"
     if "\x00" in command:
         return "the command has a NUL character"
-    if cwd and "\x00" in cwd:
+    if "\x00" in (cwd or "") + (event_cwd or ""):
         return "the working directory has a NUL character"
     if not (cwd and os.path.isabs(cwd)):
         return "no usable working directory in the hook input, so relative file references cannot be judged"
@@ -127,7 +127,7 @@ def _tool_call(tool, tool_name, tool_input, cwd, common):
         if command is None:
             return ToolCall("invalid", tool, tool_name, note="no command in the hook input", **common)
         return ToolCall("shell", tool, tool_name, command=command, cwd=where,
-                        defect=_shell_defect(command, where), **common)
+                        defect=_shell_defect(command, where, cwd), **common)
     if tool_name == "PowerShell":
         command = _command_text(tool_input.get("command")) or ""
         return ToolCall("shell", tool, tool_name, command=command, cwd=cwd, dialect="powershell",

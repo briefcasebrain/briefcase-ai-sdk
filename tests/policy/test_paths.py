@@ -364,3 +364,22 @@ def test_wildcards_are_listed_after_the_symlink_is_followed(home, project, comma
                            project_dir=str(project))
     result = engine.evaluate(policy_of(text), call)
     assert result.effect == "deny", (command, result.rule_id)
+
+
+def test_a_literal_bracket_in_the_working_directory_is_not_a_glob_class(home, tmp_path):
+    work = tmp_path / "proj[1]"
+    (tmp_path / "proj1").mkdir()  # what an unescaped `[1]` would list instead
+    work.mkdir()
+    (work / "secret.txt").write_text("x")
+    # (a rule's own glob syntax reads `[1]` as a class, so the rule names the directory with `?` for each bracket)
+    rule = f'\n[[rule]]\nid = "no-secret"\ntool = "file"\neffect = "deny"\npaths = ["{tmp_path}/proj?1?/secret.txt"]\n'
+    call = engine.ToolCall("shell", command="cat sec*.txt", cwd=str(work), project_dir=str(work))
+    assert engine.evaluate(policy_of(GUARDED + rule), call).effect == "deny"
+
+
+def test_a_wildcard_that_expands_beyond_the_cap_is_undecidable_not_silently_truncated(home, project):
+    for i in range(100):
+        (project / f"f{i:03d}.txt").write_text("x")
+    call = engine.ToolCall("shell", command="cat f*.txt", cwd=str(project), project_dir=str(project))
+    result = engine.evaluate(policy_of(), call)
+    assert any("wildcard" in problem for problem in result.problems), result.problems

@@ -86,11 +86,12 @@ class Cmd(object):
     when ``argv[i]`` depends on something only known at run time."""
 
     __slots__ = ("argv", "dyn", "glob", "redirs", "cwd", "subs", "stdin", "prev", "via", "opaque",
-                 "find_delete", "home", "redir_globs")
+                 "find_delete", "home", "redir_globs", "incomplete_globs")
 
     def __init__(self, argv, dyn, glob, redirs=None, cwd=None, subs=None, stdin=None, via=None, home=None,
                  redir_globs=None):
         self.redir_globs = redir_globs or [False] * len(redirs or [])  # per redirection: a wildcard in its target?
+        self.incomplete_globs = []  # wildcards whose expansion went beyond GLOB_LIMIT: not every match was judged
         self.argv = argv
         self.dyn = dyn
         self.glob = glob
@@ -1026,6 +1027,23 @@ def absolute_spelling(text, cwd, home):
     return text
 
 
+GLOB_LIMIT = 64
+
+
+def _glob_pattern(text, cwd, home):
+    """The pattern to list for a wildcard word: the directory prefix (``~`` or the working directory) is literal text,
+    escaped so that a `[` or `*` in it is not read as part of the pattern; the word itself is the pattern."""
+    import glob
+
+    if text == "~" or text.startswith("~/"):
+        return glob.escape(home) + text[1:]
+    if os.path.isabs(text):
+        return text
+    if cwd is None:
+        return None
+    return os.path.join(glob.escape(cwd), text)
+
+
 def _normpath(text):
     """``os.path.normpath``, except that POSIX's special case for exactly two leading slashes
     is folded away: ``//etc`` is ``/etc`` everywhere this runs."""
@@ -1055,13 +1073,17 @@ def path_refs(cmd, expand_globs=True):
             return
         candidates = [text]
         if is_glob and expand_globs:
-            import glob
-            base = absolute_spelling(text, cmd.cwd, cmd.home)  # as written: the kernel lists it after the symlinks
+            base = _glob_pattern(text, cmd.cwd, cmd.home)  # as written: the kernel lists it after the symlinks
             if base is not None:
                 try:
-                    candidates.extend(glob.glob(base)[:64])
+                    import glob
+
+                    found = glob.glob(base)
                 except (OSError, ValueError):
-                    pass
+                    found = []
+                if len(found) > GLOB_LIMIT:
+                    cmd.incomplete_globs.append(text)  # never a silent cut: the caller treats it as undecidable
+                candidates.extend(found[:GLOB_LIMIT])
         for candidate in candidates:
             path = absolute_spelling(candidate, cmd.cwd, cmd.home)
             if path is not None:

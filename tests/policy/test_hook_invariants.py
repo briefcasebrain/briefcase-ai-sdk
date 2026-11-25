@@ -1318,3 +1318,26 @@ def test_a_port_delimiter_needs_digits_and_the_original_text_has_no_control_char
     body["tool_input"] = {"url": url}
     code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
     assert denies("claude-code", code, raw), f"{url!r} was allowed: {code} {raw!r}"
+
+
+def test_a_defective_event_cwd_is_not_hidden_by_a_valid_shell_working_directory(home, project):
+    _observe(home)
+    body = _events("claude-code", project)["bash"]
+    body["cwd"] = str(project) + "\x00x"
+    body["tool_input"] = {"command": "echo hi", "working_directory": str(project)}
+    os.environ["CLAUDE_PROJECT_DIR"] = str(project)
+    try:
+        code, raw = run_entry("module", "claude-code", ["--fail-closed"], body, home)
+    finally:
+        os.environ.pop("CLAUDE_PROJECT_DIR", None)
+    assert denies("claude-code", code, raw), (code, raw)
+
+
+def test_a_bound_call_whose_wildcard_expands_beyond_the_cap_is_not_authorized(home, project, tmp_path, monkeypatch):
+    for i in range(100):
+        (project / f"f{i:03d}.txt").write_text("x")
+    body = _shell_body("claude-code", project, "cat f*.txt")
+    code, raw = _bound("claude-code", project, 'version = 1\npreset = "guarded"\ndefault = "allow"\n', tmp_path,
+                       monkeypatch, body)
+    decision = json.loads(raw)["hookSpecificOutput"]["permissionDecision"] if raw.strip() else "allow"
+    assert decision in ("deny", "ask"), (code, raw)  # never an allow: what the wildcard names is undecided
