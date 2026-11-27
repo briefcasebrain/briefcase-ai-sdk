@@ -79,3 +79,41 @@ def test_inspection_tool_does_not_identify_original_runtime(monkeypatch, capsys,
     question = "The original job used the default exporter from this shell with unchanged settings. " + inspection
     assert main(["record-help", question]) == 0
     assert "original launch configuration" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("runtime", [
+    "It was not launched with Node.",
+    "It might have been launched with Node.",
+    "I am unsure whether the original Node process ran.",
+])
+def test_nonaffirmative_runtime_cannot_resolve_default(monkeypatch, capsys, runtime):
+    from io import StringIO
+
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "otlp")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    question = "The original job inherited the default exporter from this shell with unchanged settings. " + runtime
+    assert main(["record-help", question]) == 0
+    assert "original launch configuration" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("inline,expected", [
+    ("BRIEFCASE_EXPORTER=otlp", "Inspect debug.err"),
+    ("BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/json", "Search the collector"),
+    ("BRIEFCASE_EXPORTER=memory", "before exit"),
+])
+def test_confirmed_node_launch_overlays_inline_settings(monkeypatch, capsys, inline, expected):
+    from io import StringIO
+
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "console")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", raising=False)
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    question = ("The Node preload inherited the unchanged settings from this shell. "
+                + inline + " node --import @briefcase-ai/auto/register app.js 2> debug.err")
+    assert main(["record-help", question]) == 0
+    assert expected in capsys.readouterr().out

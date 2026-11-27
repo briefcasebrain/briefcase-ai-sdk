@@ -115,3 +115,35 @@ def test_sensitive_session_never_interpolates_original_input(lines, monkeypatch,
     assert main(["record-help"]) == 0
     captured = capsys.readouterr()
     assert "demo-712" not in captured.out + captured.err
+
+
+@pytest.mark.parametrize("question,answer", [
+    ("Original marker demo-712. My run used OTLP. Another process used console and its job token demo-712 "
+     "was unique to that invocation.", ""),
+    ("Original marker demo-712. My run used OTLP.", "Another process used a job token demo-712 unique to its run. "
+     "Its job token demo-712 was unique to that invocation."),
+    ("Original marker demo-712. My run used OTLP.", "My CI job token is demo-712."),
+])
+def test_piped_private_value_from_either_turn_and_any_owner(monkeypatch, capsys, question, answer):
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(question + "\n" + answer + "\n"))
+    assert main(["record-help"]) == 0
+    captured = capsys.readouterr()
+    assert "collector" in captured.out
+    assert "demo-712" not in captured.out + captured.err
+
+
+@pytest.mark.parametrize("flags", [
+    ["--source", "jsonl", "--result", "demo-712"],
+    ["--source", "demo-712", "--result", "matched"],
+    ["--source", "jsonl", "--source", "storage", "--result", "matched"],
+    ["--source", "jsonl", "--result", "matched", "--result", "no-match"],
+])
+def test_invalid_or_conflicting_confirmation_never_echoes_arguments(flags, capsys):
+    from briefcase.cli.__main__ import main
+
+    assert main(["record-help", "Job token demo-712 was unique to this invocation.", *flags]) == 2
+    captured = capsys.readouterr()
+    assert "exactly one supported source" in captured.err
+    assert "demo-712" not in captured.out + captured.err

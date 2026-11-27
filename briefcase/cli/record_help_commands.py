@@ -25,6 +25,10 @@ def register(sub) -> None:
     parser.add_argument("question", nargs="?", help="Question and known facts about the original run.")
     parser.add_argument("--answer", help="Answer to the guide's one clarification.")
     parser.add_argument("--static", action="store_true", help="Print the complete offline guide.")
+    parser.add_argument("--source", metavar="{jsonl,receiver,storage}", action="append",
+                        help="Source inspected for the original decision ID or run-unique marker. Pair with --result.")
+    parser.add_argument("--result", metavar="{matched,no-match,unverified}", action="append",
+                        help="Observed result at that source. Use matched only for an unambiguous original match.")
     parser.set_defaults(func=cmd_record_help)
 
 
@@ -123,7 +127,8 @@ def _sensitive(table: Dict[str, Any], text: str) -> bool:
 
 
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
-          shell: Optional[str] = None) -> Tuple[str, str]:
+          shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
+          confirmation: Optional[Tuple[str, str]] = None) -> Tuple[str, str]:
     def preprocess(value: str) -> str:
         sensitive = table["sensitiveInput"]
         private = _sensitive(table, value)
@@ -150,6 +155,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     evidence = _scoped(table, evidence)
     marker = table["privateJobMarker"]
     evidence = re.sub(re.escape(marker["replacement"]), "redacted", evidence, flags=re.I)
+    raw_private = {m.group(1) for raw in (question, answer or "")
+                   for m in re.finditer(marker["declaration"], raw, re.I)}
     private_values = {match.group(1) for match in re.finditer(marker["declaration"], evidence, re.I)}
     if private_values:
         # Opaque local matching retains only equality, never the job token as a renderable slot.
@@ -160,19 +167,23 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
 
         evidence = re.sub(marker["token"], hide_token, evidence)
     facts = _collect_facts(table, evidence) | disowned
-    if "privateFileWitness" in facts:
+    if "privateJobMarker" in facts:
         witness = table["fileWitness"]
         previous_read = False
         for clause in re.split(table["split"], evidence, flags=re.I):
             clause = clause.strip()
             if not clause:
                 continue
+            if re.search(witness["foreign"], clause, re.I):
+                previous_read = False
+                continue
             file_read = bool(re.search(witness["read"], clause, re.I)) and _matches(table["facts"]["fileRead"], clause)
             linked = file_read or (previous_read and re.search(witness["continuation"], clause, re.I))
-            if (linked and not re.search(witness["foreign"], clause, re.I)
-                    and _matches(table["facts"]["privateFileWitness"], clause)):
+            if linked and _matches(table["facts"]["privateFileWitness"], clause):
                 facts.add("linkedFileWitness")
-                break
+            negative = file_read or (previous_read and re.search(witness["negativeContinuation"], clause, re.I))
+            if negative and any(_matches(table["facts"][name], clause) for name in ("staleRows", "readMiss")):
+                facts.add("linkedFileMiss")
             previous_read = file_read
     inline_path = None
     inline = table["inlineNode"]
@@ -181,6 +192,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         # Parse literal assignment tokens as data. Last assignment to a key wins.
         settings = {m.group(1): next((v.strip() for v in m.groups()[1:] if v is not None), "")
                     for m in re.finditer(inline["assignment"], commands[0].group(1)) if m.group(1) in inline["keys"]}
+        if inherited is not None:
+            settings = {**inherited, **settings}
         lines = "\n".join(f"{key}={value}" for key, value in settings.items())
         selected = next((rule for rule in inline["rules"] if _matches(rule, lines)), None)
         if selected:
@@ -216,8 +229,12 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         key = "ask_path"
     action = table["actions"][key]
     if action["kind"] == "ask" and answer is not None:
-        unsafe_reply = _sensitive(table, question) or any(value in answer for value in private_values)
-        reply = "" if unsafe_reply else _scoped(table, preprocess(answer))
+        unsafe_reply = _sensitive(table, question) or any(value in answer for value in raw_private)
+        reply_source = answer
+        if _sensitive(table, answer) or re.search(table["privateWebAddress"], answer, re.I):
+            reply_source = "\n".join(c for c in re.split(table["split"], answer, flags=re.I)
+                                     if not (_sensitive(table, c) or re.search(table["privateWebAddress"], c, re.I)))
+        reply = "" if unsafe_reply else _scoped(table, preprocess(reply_source))
         transitions = table["replies"][key]
         valid = next((step for step in transitions if _matches(step, reply) and
                       ("affirmative" not in step or re.fullmatch(table["exporterReplies"][step["affirmative"]],
@@ -245,6 +262,9 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     # Treat both turns as one privacy boundary, independent of which turn supplied a field.
     private_rendering = any(_sensitive(table, raw) or re.search(table["privateWebAddress"], raw, re.I)
                             for raw in (question, answer or ""))
+    if confirmation:
+        source, result = confirmation
+        key = table["confirmation"]["outcomes"].get(source, {}).get(result, key)
     template = table["actions"][key]["text"]
 
     def substitute(placeholder: re.Match) -> str:
@@ -267,7 +287,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         return table["defaults"][name]
 
     rendered = re.sub(r"\{(\w+)\}", substitute, template)
-    for value in sorted(private_values, key=len, reverse=True):
+    for value in sorted(raw_private, key=len, reverse=True):
         rendered = rendered.replace(value, "redacted")
     return key, rendered
 
@@ -334,35 +354,71 @@ def _line(prompt: str, interactive: bool) -> str:
 
 def cmd_record_help(args, store, engine, stack) -> int:
     table = json.loads(_TABLE.read_text(encoding="utf-8"))
+    if bool(args.source) != bool(args.result):
+        print("Confirmation needs both --source and --result.", file=sys.stderr)
+        return 2
+    confirmation = None
+    if args.source and args.result:
+        if (len(args.source) != 1 or len(args.result) != 1
+                or args.result[0] not in table["confirmation"]["outcomes"].get(args.source[0], {})):
+            print("Choose exactly one supported source and one observed result. See --help.", file=sys.stderr)
+            return 2
+        confirmation = (args.source[0], args.result[0])
     if args.static:
         print(table["guide"])
         return 0
     interactive = _ux.is_interactive()
     piped = not sys.stdin.isatty()
     question = args.question
-    if question is None and (interactive or piped):
+    if question is None and not confirmation and (interactive or piped):
         question = _line("What are you trying to find, and what do you know about the original run? ", interactive)
-    if not question:
+    if not question and confirmation:
+        question = ""
+    elif not question:
         print(table["guide"])
         return 0
     launch = _scoped(table, question)
     launch_clauses = [clause for clause in re.split(table["split"], launch, flags=re.I)
-                      if not re.search(table["runtimeInspection"], clause, re.I)]
+                      if not (re.search(table["runtimeInspection"], clause, re.I)
+                              or re.search(table["runtimeDenied"], clause, re.I))]
     runtime = " ".join(name for name, pattern in table["runtimeSource"].items()
                        if any(re.search(pattern, clause, re.I) for clause in launch_clauses))
     shell = _shell_exporter(runtime) if _matches(table["shell"], launch) else None
-    key, text = route(table, question, args.answer, shell)
-    if table["actions"][key]["kind"] == "ask" and args.answer is None:
+    inherited = None
+    if shell is not None:
+        # Node overlays command assignments on the launch environment. Only exporter vocabulary is needed here.
+        inherited = {}
+        for key in ("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"):
+            protocol = os.environ.get(key, "").strip().lower()
+            if protocol:
+                inherited[key] = "grpc" if protocol == "grpc" else "http/json"
+        choice = os.environ.get("BRIEFCASE_EXPORTER", "").strip()
+        if choice in ("memory", "console") or choice.lower() in ("otel", "otlp"):
+            inherited["BRIEFCASE_EXPORTER"] = choice
+    key, text = route(table, question, args.answer, shell, inherited, confirmation)
+    ask = table["actions"][key]["kind"] == "ask"
+    if ask and args.answer is None and not confirmation:
         print(text, flush=True)
+    if not confirmation and args.answer is None and (ask or (piped and args.question is None)):
         if interactive or piped:
-            reply = _line("Answer (or unknown): ", interactive)
-            if interactive or reply:
-                key, text = route(table, question, reply, shell)
-            else:
+            reply = _line("Answer (or unknown): " if ask else "", interactive)
+            fields = reply.split()
+            options = table["confirmation"]["outcomes"]
+            if len(fields) == 2 and fields[1] in options.get(fields[0], {}):
+                confirmation = (fields[0], fields[1])
+                key, text = route(table, question, None, shell, inherited, confirmation)
+            elif ask and (interactive or reply):
+                key, text = route(table, question, reply, shell, inherited)
+            elif ask:
                 return 0
-        else:
+            elif reply:
+                # Even unsolicited pipe input can identify a value from the first turn as confidential.
+                key, text = route(table, question, reply, shell, inherited)
+        elif ask:
             return 0
     print(text)
+    if key in table["confirmation"]["next"]:
+        print(table["confirmation"]["instruction"])
     if key == table["fallback"]:
         print("\n" + table["guide"])
     elif key in ("fresh", "future", "memory_lost"):

@@ -13,7 +13,9 @@ TABLE = json.loads(_TABLE.read_text())
 
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
 def test_shared_record_guidance(case):
-    action, text = route(TABLE, case["question"], case.get("answer"), case.get("shell"))
+    pair = case.get("confirmation")
+    confirmation = (pair["source"], pair["result"]) if pair else None
+    action, text = route(TABLE, case["question"], case.get("answer"), case.get("shell"), confirmation=confirmation)
     assert action == case["expected"]
     for fragment in case["includes"]:
         assert fragment in text
@@ -79,3 +81,38 @@ def _paraphrases():
 @pytest.mark.parametrize("case", list(_paraphrases()), ids=lambda row: row["name"])
 def test_paraphrases_keep_the_same_action_and_artifacts(case):
     test_shared_record_guidance(case)
+
+
+@pytest.mark.parametrize("source", ["jsonl", "receiver", "storage"])
+@pytest.mark.parametrize("result", ["matched", "no-match", "unverified"])
+def test_confirmation_flags_and_pipe_report_only_selected_source(source, result, monkeypatch, capsys):
+    from io import StringIO
+
+    from briefcase.cli.__main__ import main
+
+    question = "I opened alpha.jsonl, then beta.jsonl. A receiver returned a row."
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    assert main(["record-help", question, "--source", source, "--result", result]) == 0
+    by_flag = capsys.readouterr().out
+    monkeypatch.setattr("sys.stdin", StringIO(f"{question}\n{source} {result}\n"))
+    assert main(["record-help"]) == 0
+    by_pipe = capsys.readouterr().out
+    # A generic artifact may trigger an initial question; the explicit conclusion is identical.
+    assert by_pipe.endswith(by_flag)
+    assert "alpha.jsonl" not in by_flag and "beta.jsonl" not in by_flag
+    assert ("Reader-confirmed" in by_flag) == (result != "unverified")
+
+
+def test_outcome_requires_explicit_complete_pair(monkeypatch, capsys):
+    from io import StringIO
+
+    from briefcase.cli.__main__ import main
+
+    question = "Scan of rows.jsonl found no row matching the original marker spot-41."
+    for reply in ("", "jsonl", "I confirm jsonl matched", "jsonl matched; storage matched", "storage unknown"):
+        monkeypatch.setattr("sys.stdin", StringIO(question + "\n" + reply + "\n"))
+        assert main(["record-help"]) == 0
+        assert "Reader-confirmed" not in capsys.readouterr().out
+    assert main(["record-help", question, "--source", "jsonl"]) == 2
+    captured = capsys.readouterr()
+    assert "both --source and --result" in captured.err and "Reader-confirmed" not in captured.out

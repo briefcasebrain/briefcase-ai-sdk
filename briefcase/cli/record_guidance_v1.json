@@ -55,11 +55,11 @@
     },
     "storage": {
       "kind": "action",
-      "text": "A receiver entry matching the original decision ID or trace correlation verifies receipt. Query downstream storage for {correlation} and compare its returned ID. Storage remains unverified until that separate readback matches."
+      "text": "If a receiver entry matches the original decision ID or trace correlation, it verifies receipt. Query downstream storage for {correlation} and compare its returned ID. Storage remains unverified until that separate readback matches."
     },
     "stored": {
       "kind": "action",
-      "text": "Compare the returned downstream record with {correlation}. If its ID matches the original, the query verifies storage at the time of readback. Retain the matching row or span as evidence."
+      "text": "If you have a returned downstream record, compare it with {correlation}. An exact match verifies storage at the time of readback. Retain that matching row or span."
     },
     "ask_path": {
       "kind": "ask",
@@ -126,7 +126,7 @@
     },
     "store_missing": {
       "kind": "action",
-      "text": "The downstream lookup did not return a matching record for {correlation}. Storage at that destination is unverified. Check that the query used the original ID and the intended store."
+      "text": "If the downstream lookup did not return a matching record for {correlation}, storage at that destination remains unverified. Check the original ID and the intended store."
     },
     "memory_printed": {
       "kind": "action",
@@ -142,7 +142,7 @@
     },
     "scanned_missing": {
       "kind": "action",
-      "text": "The completed scan of {path} found no matching record for {correlation}. That scan gives no readback for the original run in this file. Other destinations remain unknown."
+      "text": "If your completed scan of {path} found no matching record for {correlation}, that file gives no readback for the original run. Other destinations remain unknown."
     },
     "invalid_web": {
       "kind": "action",
@@ -154,15 +154,51 @@
     },
     "private_file_read": {
       "kind": "action",
-      "text": "The reported readback found a record containing the job token from your original invocation. Confirm that row came from {path} and matches exactly once, then read its decision_id. That match verifies the original decision was written to that file."
+      "text": "If your reported readback of {path} found exactly one record containing the job token from your original invocation, read its decision_id. That match verifies the write to that file."
     },
     "private_file_miss": {
       "kind": "action",
-      "text": "The scan of {path} found no row containing the job token from your original invocation. The original decision remains unverified in that file. Check a separately retained copy for its decision_id."
+      "text": "If the scan of {path} found no row containing the job token from your original invocation, the decision remains unverified there. Check a separately retained copy for its decision_id."
     },
     "private_file": {
       "kind": "action",
       "text": "Open {path} from the original launch directory and search locally for the job token from your original invocation. Exactly one matching row identifies the decision. Read its decision_id to verify the write."
+    },
+    "confirmed_jsonl_matched": {
+      "kind": "action",
+      "text": "Reader-confirmed match in the original JSONL file you inspected. The matching row establishes a write to that file. Retain its decision_id."
+    },
+    "confirmed_jsonl_no_match": {
+      "kind": "action",
+      "text": "Reader-confirmed absence of a matching row in the original JSONL file you scanned. This check leaves other files and destinations unknown."
+    },
+    "confirmed_jsonl_unverified": {
+      "kind": "action",
+      "text": "The original JSONL record remains unverified. Reopen the intended file after the run and compare its rows with the original decision ID or a run-unique marker."
+    },
+    "confirmed_receiver_matched": {
+      "kind": "action",
+      "text": "Reader-confirmed receipt at the receiver or collector you inspected. Query downstream storage separately for the same decision ID or marker to verify persistence."
+    },
+    "confirmed_receiver_no_match": {
+      "kind": "action",
+      "text": "Reader-confirmed absence of a matching entry in the receiver data you checked. Delivery outside that check and downstream persistence remain unknown."
+    },
+    "confirmed_receiver_unverified": {
+      "kind": "action",
+      "text": "Receipt remains unverified. Inspect the intended receiver for the original decision ID or run-unique marker. Verify storage with a separate readback."
+    },
+    "confirmed_storage_matched": {
+      "kind": "action",
+      "text": "Reader-confirmed persistence at the time of your independent downstream read. Retain the matching record and its original decision ID."
+    },
+    "confirmed_storage_no_match": {
+      "kind": "action",
+      "text": "Reader-confirmed absence of a matching record in the downstream result you inspected. This check leaves persistence in other stores or at other times unknown."
+    },
+    "confirmed_storage_unverified": {
+      "kind": "action",
+      "text": "Downstream persistence remains unverified. Run an independent query at the intended store and compare the returned record with the original decision ID or run-unique marker."
     }
   },
   "extract": {
@@ -194,7 +230,7 @@
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
   "fallback": "fallback",
   "defaultAction": "ask_subject",
-  "guide": "Find the original record\n\nStart with the original decision ID or a value unique to that invocation. If several runs reused a ticket, obtain the original ID from a launch log or retained output. The ticket alone cannot identify the original.\n\nWhich Python script ran? The Python quickstart uses memory and prints its decision to stdout. After exit, check retained stdout. The console exporter writes decision JSON to stderr. For a redirected stream, inspect the file named by the original launch command.\n\nWhich output do you want? The Node demo prints the app reply to stdout. Its console decision on stderr contains decision_type and token_usage.total_tokens. An explicitly selected or inherited JSONL exporter sends that metadata to its file. For a hosted submission, match its run ID in the receiving workspace and agent.\n\nCheck the original exporter and working directory. An explicit in-code exporter takes precedence over an inherited default. For JSONL, reopen the file in a separate process and inspect every row for the original ID or unique marker. Zero matches, multiple matches or unreadable lines leave attribution unresolved.\n\nFor HTTP, find the original ID in a received batch. For OTLP, find its briefcase.decision span using the original trace correlation. A URL or HTTP status leaves receipt unverified. A matching receiver entry proves receipt. Query downstream storage separately for that same ID. If you already retrieved the full row for that ID from the storage system, that readback verifies the decision was stored there. A query with zero matches leaves storage unverified.\n\nVerify a new local run with these two Python commands from the same directory. Enter the same JSONL path at both prompts, or press Enter at both to use record-check.jsonl. The writer appends a new decision and prints the synthetic marker. Paste it when the second asks. A unique match proves only the new run.\n\npython -c 'import uuid, briefcase; from pathlib import Path; marker=str(uuid.uuid4()); briefcase.observe(str(Path(input(\"JSONL path [record-check.jsonl]: \").strip() or \"record-check.jsonl\").resolve())); briefcase.capture(lambda ticket: \"ok\")(marker); print(marker)'\n\npython -c 'import json; path=input(\"JSONL path [record-check.jsonl]: \").strip() or \"record-check.jsonl\"; marker=input(\"New marker: \").strip(); rows=[json.loads(line) for line in open(path, encoding=\"utf-8\")]; hits=[r for r in rows if marker and r.get(\"inputs\", {}).get(\"args\") == repr((marker,))]; print(\"Matches:\", len(hits), [r.get(\"decision_id\") for r in hits])'",
+  "guide": "Find the original record\n\nStart with the original decision ID or a value unique to that invocation. If several runs reused a ticket, obtain the original ID from a launch log or retained output. The ticket alone cannot identify the original.\n\nWhich Python script ran? The Python quickstart uses memory and prints its decision to stdout. After exit, check retained stdout. The console exporter writes decision JSON to stderr. For a redirected stream, inspect the file named by the original launch command.\n\nWhich output do you want? The Node demo prints the app reply to stdout. Its console decision on stderr contains decision_type and token_usage.total_tokens. An explicitly selected or inherited JSONL exporter sends that metadata to its file. For a hosted submission, match its run ID in the receiving workspace and agent.\n\nCheck the original exporter and working directory. An explicit in-code exporter takes precedence over an inherited default. For JSONL, reopen the file in a separate process and inspect every row for the original ID or unique marker. Zero matches, multiple matches or unreadable lines leave attribution unresolved.\n\nFor HTTP, find the original ID in a received batch. For OTLP, find its briefcase.decision span using the original trace correlation. A URL or HTTP status leaves receipt unverified. A matching receiver entry proves receipt. Query downstream storage separately for that same ID. If you already retrieved the full row for that ID from the storage system, that readback verifies the decision was stored there. A query with zero matches leaves storage unverified.\n\nVerify a new local run with these two Python commands from the same directory. Enter the same JSONL path at both prompts, or press Enter at both to use record-check.jsonl. The writer appends a new decision and prints the synthetic marker. Paste it when the second asks. A unique match proves only the new run.\n\npython -c 'import uuid, briefcase; from pathlib import Path; marker=str(uuid.uuid4()); briefcase.observe(str(Path(input(\"JSONL path [record-check.jsonl]: \").strip() or \"record-check.jsonl\").resolve())); briefcase.capture(lambda ticket: \"ok\")(marker); print(marker)'\n\npython -c 'import json; path=input(\"JSONL path [record-check.jsonl]: \").strip() or \"record-check.jsonl\"; marker=input(\"New marker: \").strip(); rows=[json.loads(line) for line in open(path, encoding=\"utf-8\")]; hits=[r for r in rows if marker and r.get(\"inputs\", {}).get(\"args\") == repr((marker,))]; print(\"Matches:\", len(hits), [r.get(\"decision_id\") for r in hits])'\n\nOptional confirmation\nAfter checking the original source for the exact decision ID or a run-unique marker, report the source and observed result together. For example, use --source receiver --result matched to report receiver receipt. An independent storage lookup is still needed to verify persistence. A no-match result applies only to the source and data you inspected. Choose unverified for an incomplete or ambiguous check.",
   "shell": {
     "all": [
       "unchanged|stayed (?:the same|identical)|same (?:shell (?:configuration|settings)|exporter settings|environment|configuration) (?:as|since|through)|(?:no (?:exporter |environment )?changes?|never changed) (?:since|between)",
@@ -207,10 +243,11 @@
       "explicit|observe\\(\\s*[\"\\x27]|(?:not|never|didn.t|unknown|unsure|uncertain|don.t know|can.t confirm|whether|if) [^.\\n]{0,55}(?:inherit|unchanged|same shell)|(?:inheritance|inherit\\w*|shell settings) (?:is |was )?(?:unknown|unclear|unconfirmed)",
       "(?:since|later|now) changed|(?:settings|configuration|environment|shell) (?:has |have |had )?changed|changed (?:after|since) (?:launch|the run)|(?:might|may|could) have (?:differed|changed)",
       "\\b(?:remote (?:host|machine|server|environment|shell|worker)|other (?:host|machine|server|environment|shell)|on (?:a |the )?different (?:host|machine|server)|remote env|environment was unavailable)\\b",
-      "\\b(?:not|never|didn.t|did not|wasn.t|was not|outside|separate from|different from|other than|cannot confirm|can.t verify|unrelated to|possibly|maybe|unsure|no evidence)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,100}\\b(?:this|current|same) (?:local )?(?:shell|session|terminal|environment)\\b|\\b(?:this|current) (?:shell|terminal|session|environment)[^.;\\n]{0,35}(?:did not|didn.t|was not|wasn.t|never)\\b"
+      "\\b(?:not|never|didn.t|did not|wasn.t|was not|outside|separate from|different from|other than|cannot confirm|can.t verify|unrelated to|possibly|maybe|unsure|no evidence)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,100}\\b(?:this|current|same) (?:local )?(?:shell|session|terminal|environment)\\b|\\b(?:this|current) (?:shell|terminal|session|environment)[^.;\\n]{0,35}(?:did not|didn.t|was not|wasn.t|never)\\b",
+      "\\b(?:until|up to|as of|prior to|before)\\s+(?:yesterday|last\\s+\\w+|then|that day|the change|switching|the switch)\\b|\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|reconfigured|replaced|updated|overrode|unset|reset)\\s+(?:(?:my|our|the|its|those|these|that|default|shell|environment)\\s+)*(?:exporters?|variables?|settings?|environment|configuration|defaults?|destination)\\b"
     ]
   },
-  "revision": 10,
+  "revision": 11,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -441,7 +478,7 @@
     "shellClue": {
       "scope": "clause",
       "all": [
-        "current shell|today.s shell|terminal (?:now |currently )?(?:lists|shows)|BRIEFCASE_EXPORTER=|shell (?:now|today)|whether .*inherit|(?:not sure|don.t know|uncertain).*inherit|(?:settings|configuration|environment|shell) (?:has |have |had )?changed|changed (?:after|since) launch|\\b(?:remote (?:host|machine|server|environment|shell)|different (?:host|machine|server|environment)|other (?:host|machine|server|environment))\\b|\\b(?:did not|didn.t|never|was not)\\b[^.;\\n]{0,50}\\b(?:this|current) (?:local )?(?:terminal|shell|session|environment)\\b"
+        "current shell|today.s shell|terminal (?:now |currently )?(?:lists|shows)|BRIEFCASE_EXPORTER=|shell (?:now|today)|whether .*inherit|(?:not sure|don.t know|uncertain).*inherit|(?:settings|configuration|environment|shell) (?:has |have |had )?changed|changed (?:after|since) launch|\\b(?:remote (?:host|machine|server|environment|shell)|different (?:host|machine|server|environment)|other (?:host|machine|server|environment))\\b|\\b(?:did not|didn.t|never|was not)\\b[^.;\\n]{0,50}\\b(?:this|current) (?:local )?(?:terminal|shell|session|environment)\\b|\\b(?:until|up to|as of|prior to|before)\\s+(?:yesterday|last\\s+\\w+|then|that day|the change|switching|the switch)\\b|\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|reconfigured|replaced|updated|overrode|unset|reset)\\s+(?:(?:my|our|the|its|those|these|that|default|shell|environment)\\s+)*(?:exporters?|variables?|settings?|environment|configuration|defaults?|destination)\\b"
       ]
     },
     "explicit": {
@@ -1051,7 +1088,8 @@
       "all": [
         "file",
         "privateJobMarker",
-        "fileRead"
+        "fileRead",
+        "linkedFileMiss"
       ],
       "any": [
         "staleRows",
@@ -2409,11 +2447,11 @@
   },
   "disownedObservations": [
     {
-      "pattern": "\\b(?:receiver|collector|batch|ingress log)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,200}?\\s*(?:[,;.]\\s*)?(?:(?:but|however|although|and)\\s+)?(?:it|that|this|(?:that|this|the)\\s+(?:entry|row|record|match|event|span|observation|result|decision))\\s+(?:(?:actually|really)\\s+)?(?:belongs? to|came from|was for|is for|was from|is from|identifies|describes|corresponds to)\\s+(?:(?:an?|the|my|our)\\s+)?(?:another|other|unrelated|different|previous|separate)\\s+(?:\\w+\\s+){0,2}(?:process|run|application|job|worker|invocation|attempt)\\b",
+      "pattern": "\\b(?:receiver|collector|batch|ingress log)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,200}?\\s*(?:[,;.]\\s*)?(?:(?:but|however|although|and)\\s+)?(?:it|that|this|(?:that|this|the)\\s+(?:entry|row|record|match|event|span|observation|result|decision))\\s+(?:(?:actually|really)\\s+)?(?:belongs? to|(?:was |is |had been |has been )?(?:written|generated|created|produced|emitted|submitted|saved|sent|exported|recorded|logged|published|captured)\\s+by|originated (?:in|from)|came from|was for|is for|was from|is from|identifies|describes|corresponds to)\\s+(?:(?:an?|the|my|our)\\s+)?(?:another|other|unrelated|different|previous|separate)\\s+(?:\\w+\\s+){0,2}(?:process|run|application|job|worker|invocation|attempt)\\b",
       "fact": "DeniedReceiptFollowup"
     },
     {
-      "pattern": "\\b(?:store|storage|database|warehouse|archive|query result)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,200}?\\s*(?:[,;.]\\s*)?(?:(?:but|however|although|and)\\s+)?(?:it|that|this|(?:that|this|the)\\s+(?:entry|row|record|match|event|span|observation|result|decision))\\s+(?:(?:actually|really)\\s+)?(?:belongs? to|came from|was for|is for|was from|is from|identifies|describes|corresponds to)\\s+(?:(?:an?|the|my|our)\\s+)?(?:another|other|unrelated|different|previous|separate)\\s+(?:\\w+\\s+){0,2}(?:process|run|application|job|worker|invocation|attempt)\\b",
+      "pattern": "\\b(?:store|storage|database|warehouse|archive|query result)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,200}?\\s*(?:[,;.]\\s*)?(?:(?:but|however|although|and)\\s+)?(?:it|that|this|(?:that|this|the)\\s+(?:entry|row|record|match|event|span|observation|result|decision))\\s+(?:(?:actually|really)\\s+)?(?:belongs? to|(?:was |is |had been |has been )?(?:written|generated|created|produced|emitted|submitted|saved|sent|exported|recorded|logged|published|captured)\\s+by|originated (?:in|from)|came from|was for|is for|was from|is from|identifies|describes|corresponds to)\\s+(?:(?:an?|the|my|our)\\s+)?(?:another|other|unrelated|different|previous|separate)\\s+(?:\\w+\\s+){0,2}(?:process|run|application|job|worker|invocation|attempt)\\b",
       "fact": "DeniedStoreFollowup"
     }
   ],
@@ -2427,13 +2465,62 @@
     "memory": "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|protocol|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?memory[\"\\x27`]?(?: exporter| protocol)?[.!]?\\s*$"
   },
   "fileWitness": {
-    "read": "\\b(?:parsed|scanned|reopened|read(?: back)?|checked|searched|inspected|opened|examined|reviewed|loaded)\\b[^;!?\\n]{0,75}\\b(?:jsonl|file|rows?|entries|records?)\\b",
+    "read": "\\b(?:scan|search|readback|lookup|parsed|scanned|reopened|read(?: back)?|checked|searched|inspected|opened|examined|reviewed|loaded)\\b[^;!?\\n]{0,75}\\b(?:jsonl|file|rows?|entries|records?)\\b",
     "continuation": "^\\s*(?:(?:the|that|this|its)\\s+(?:file|readback|scan|search|reader|lookup|contents|record|rows?)\\b|it\\s+(?:contained|contains|showed|included|returned|found|had)\\b)",
-    "foreign": "\\b(?:in|from|inside|on|via|at)\\s+(?:(?:an?|the|another|our|my|remote|local|different|other)\\s+)*(?:database|collector|receiver|dashboard|store|warehouse|log stream|queue|service)\\b"
+    "foreign": "\\b(?:in|from|inside|on|via|at)\\s+(?:(?:an?|the|another|our|my|remote|local|different|other)\\s+)*(?:database|collector|receiver|dashboard|store|warehouse|log stream|queue|service)\\b|\\b(?:in|from|inside|on|via|at|using|against)\\s+(?:(?:an?|the|some)\\s+)?(?:other|another|separate|different|unrelated|second|staging|backup|archived)\\s+(?:\\w+\\s+){0,2}(?:file|path|copy|directory|destination|export|artifact|stream|database|store|system)\\b|\\b(?:database|store|collector|receiver|warehouse|dashboard|remote service)\\b",
+    "negativeContinuation": "^\\s*(?:only\\b|all\\b|no\\b|none\\b|nothing\\b|just\\b|there\\b|every\\b|(?:the|that|this|its)\\s+(?:only|file|scan|search|reader|readback|lookup|rows?|contents|records?|result)\\b|it\\b)"
   },
   "runtimeSource": {
     "Node": "(?:^\\s*(?:(?:the|my|our|that|original|actual|target|local)\\s+){0,4}(?:node(?:js)?|javascript|typescript|preload)\\b[^.;!?\\n]{0,50}\\b(?:inherited|used|ran|launched|script|preload|worker|process|job|application|exporter)\\b|\\b(?:original|actual|target|launch(?:ed)?(?: with)?|running under|executed with)\\s+(?:the |my |our )?(?:node(?:js)?|javascript|typescript|preload)\\b|\\b(?:node(?:js)?|javascript|typescript|preload)\\s+(?:--(?:import|require)|[^\\s]+\\.(?:py|[cm]?js))\\b)",
     "Python": "(?:^\\s*(?:(?:the|my|our|that|original|actual|target|local)\\s+){0,4}(?:python[23]?)\\b[^.;!?\\n]{0,50}\\b(?:inherited|used|ran|launched|script|preload|worker|process|job|application|exporter)\\b|\\b(?:original|actual|target|launch(?:ed)?(?: with)?|running under|executed with)\\s+(?:the |my |our )?(?:python[23]?)\\b|\\b(?:python[23]?)\\s+(?:--(?:import|require)|[^\\s]+\\.(?:py|[cm]?js))\\b)",
     "worker thread": "\\bworker[_ ]threads?\\b"
+  },
+  "runtimeDenied": "\\b(?:not|never|unconfirmed|unsure|unknown|possibly|maybe|whether|if|could|might|may|guess|think|suspect|no evidence|no proof|didn.t|wasn.t|isn.t|wasn’t|didn’t)\\b",
+  "confirmation": {
+    "sources": {
+      "jsonl": "Original JSONL file reopened after the run",
+      "receiver": "Receiver or collector that accepted the export",
+      "storage": "Independent read of the intended downstream store"
+    },
+    "results": {
+      "matched": "Found an unambiguous match for the original decision ID or run-unique marker",
+      "no-match": "Completed the check at this source and found no matching record",
+      "unverified": "Unchecked, uncertain, ambiguous, or from another source"
+    },
+    "outcomes": {
+      "jsonl": {
+        "matched": "confirmed_jsonl_matched",
+        "no-match": "confirmed_jsonl_no_match",
+        "unverified": "confirmed_jsonl_unverified"
+      },
+      "receiver": {
+        "matched": "confirmed_receiver_matched",
+        "no-match": "confirmed_receiver_no_match",
+        "unverified": "confirmed_receiver_unverified"
+      },
+      "storage": {
+        "matched": "confirmed_storage_matched",
+        "no-match": "confirmed_storage_no_match",
+        "unverified": "confirmed_storage_unverified"
+      }
+    },
+    "next": {
+      "jsonl": "jsonl",
+      "private_file": "jsonl",
+      "private_file_read": "jsonl",
+      "private_file_miss": "jsonl",
+      "scanned_missing": "jsonl",
+      "jsonl_stale": "jsonl",
+      "node_file": "jsonl",
+      "storage": "receiver",
+      "receipt_unknown": "receiver",
+      "receiver": "receiver",
+      "endpoint": "receiver",
+      "otlp": "receiver",
+      "stored": "storage",
+      "query_storage": "storage",
+      "store_missing": "storage"
+    },
+    "instruction": "Optional confirmation: report only a check you performed for the original decision ID or run-unique marker. Supply both --source and --result, for example --source jsonl --result matched, or pipe the source and result on a second line. See --help for the available choices."
   }
 }
