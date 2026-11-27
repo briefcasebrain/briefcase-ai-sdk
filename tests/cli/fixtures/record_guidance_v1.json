@@ -3950,5 +3950,461 @@
     "includes": [
       "retained stderr"
     ]
+  },
+  {
+    "name": "Opaque source role The CI job token was set to otlp",
+    "question": "The CI job token was set to otlp. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role My original decision ID was otlp",
+    "question": "My original decision ID was otlp. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The trace ID assigned to the original run was otlp",
+    "question": "The trace ID assigned to the original run was otlp. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The CI job token was set to run-otlp-42",
+    "question": "The CI job token was set to run-otlp-42. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role My original decision ID was run-otlp-42",
+    "question": "My original decision ID was run-otlp-42. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The trace ID assigned to the original run was run-otlp-42",
+    "question": "The trace ID assigned to the original run was run-otlp-42. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The CI job token was set to run-https-42",
+    "question": "The CI job token was set to run-https-42. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role My original decision ID was run-https-42",
+    "question": "My original decision ID was run-https-42. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The trace ID assigned to the original run was run-https-42",
+    "question": "The trace ID assigned to the original run was run-https-42. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The CI job token was set to console",
+    "question": "The CI job token was set to console. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role My original decision ID was console",
+    "question": "My original decision ID was console. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The trace ID assigned to the original run was console",
+    "question": "The trace ID assigned to the original run was console. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The CI job token was set to run-memory-91",
+    "question": "The CI job token was set to run-memory-91. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role My original decision ID was run-memory-91",
+    "question": "My original decision ID was run-memory-91. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The trace ID assigned to the original run was run-memory-91",
+    "question": "The trace ID assigned to the original run was run-memory-91. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The CI job token was set to run-collector-19",
+    "question": "The CI job token was set to run-collector-19. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role My original decision ID was run-collector-19",
+    "question": "My original decision ID was run-collector-19. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The trace ID assigned to the original run was run-collector-19",
+    "question": "The trace ID assigned to the original run was run-collector-19. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The CI job token was set to hosted",
+    "question": "The CI job token was set to hosted. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role My original decision ID was hosted",
+    "question": "My original decision ID was hosted. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The trace ID assigned to the original run was hosted",
+    "question": "The trace ID assigned to the original run was hosted. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The CI job token was set to sealed.jsonl",
+    "question": "The CI job token was set to sealed.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role My original decision ID was sealed.jsonl",
+    "question": "My original decision ID was sealed.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The trace ID assigned to the original run was sealed.jsonl",
+    "question": "The trace ID assigned to the original run was sealed.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The CI job token was set to https://receiver.invalid",
+    "question": "The CI job token was set to https://receiver.invalid. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role My original decision ID was https://receiver.invalid",
+    "question": "My original decision ID was https://receiver.invalid. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque source role The trace ID assigned to the original run was https://receiver.invalid",
+    "question": "The trace ID assigned to the original run was https://receiver.invalid. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Unasserted command source For example:",
+    "question": "My original run used the console exporter. For example: BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Unasserted command source The docs show this command:",
+    "question": "My original run used the console exporter. The docs show this command: BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Unasserted command source A colleague suggested",
+    "question": "My original run used the console exporter. A colleague suggested BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Unasserted command source If we launch",
+    "question": "My original run used the console exporter. If we launch BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Unasserted command source Next time we could run",
+    "question": "My original run used the console exporter. Next time we could run BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Unasserted command source I did not launch",
+    "question": "My original run used the console exporter. I did not launch BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Negative alternative scoped locally and did not use",
+    "question": "My original run used the console exporter and did not use OTLP.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Negative alternative scoped locally but never selected",
+    "question": "My original run used the console exporter but never selected OTLP.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Negative alternative scoped locally and was not configured for",
+    "question": "My original run used the console exporter and was not configured for OTLP.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload original decision ID I want the application reply",
+    "question": "The original decision ID was \"I want the application reply\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload original decision ID My original job used HTTP",
+    "question": "The original decision ID was \"My original job used HTTP\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload original decision ID two repeated tickets",
+    "question": "The original decision ID was \"two repeated tickets\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload original decision ID Python quickstart",
+    "question": "The original decision ID was \"Python quickstart\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload CI job token I want the application reply",
+    "question": "The CI job token was \"I want the application reply\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload CI job token My original job used HTTP",
+    "question": "The CI job token was \"My original job used HTTP\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload CI job token two repeated tickets",
+    "question": "The CI job token was \"two repeated tickets\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload CI job token Python quickstart",
+    "question": "The CI job token was \"Python quickstart\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload opaque value I want the application reply",
+    "question": "The opaque value was \"I want the application reply\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload opaque value My original job used HTTP",
+    "question": "The opaque value was \"My original job used HTTP\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload opaque value two repeated tickets",
+    "question": "The opaque value was \"two repeated tickets\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload opaque value Python quickstart",
+    "question": "The opaque value was \"Python quickstart\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload arbitrary field I want the application reply",
+    "question": "The arbitrary field was \"I want the application reply\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload arbitrary field My original job used HTTP",
+    "question": "The arbitrary field was \"My original job used HTTP\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload arbitrary field two repeated tickets",
+    "question": "The arbitrary field was \"two repeated tickets\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Quoted opaque payload arbitrary field Python quickstart",
+    "question": "The arbitrary field was \"Python quickstart\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Original launch phrase My original Node launch was",
+    "question": "My original Node launch was BRIEFCASE_AUTO=0 BRIEFCASE_EXPORTER=audit.jsonl node --import @briefcase-ai/auto/register app.js.",
+    "expected": "inactive_preload",
+    "includes": [
+      "separately enabled capture"
+    ]
+  },
+  {
+    "name": "Original launch phrase My original launch was",
+    "question": "My original launch was BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=invalid node --import @briefcase-ai/auto/register app.js.",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Affirmative destination beside credentials 0",
+    "question": "The original app set BRIEFCASE_EXPORTER_TOKEN=synthetic-712 and sent to https://collector.example/ingest. How do I check receipt?",
+    "expected": "receiver",
+    "includes": [
+      "receiver"
+    ]
+  },
+  {
+    "name": "Affirmative destination beside credentials 1",
+    "question": "The original exporter sent JSON over HTTPS to https://collector.example/ingest. My API token is synthetic-prose-782. How do I check receiver receipt?",
+    "expected": "receiver",
+    "includes": [
+      "receiver"
+    ]
+  },
+  {
+    "name": "Affirmative destination beside credentials 2",
+    "question": "I see the collector URL https://sample-user:demo.example@collector.example/test.jsonl?token=synthetic-token.",
+    "expected": "endpoint",
+    "includes": [
+      "receiver"
+    ]
   }
 ]

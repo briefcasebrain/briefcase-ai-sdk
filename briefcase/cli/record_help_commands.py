@@ -46,6 +46,33 @@ def _matches(rule: Dict[str, Any], evidence: str) -> bool:
             and not any(re.search(pattern, evidence, flags) for pattern in rule.get("none", [])))
 
 
+def _source_text(table, text):
+    """Opaque values can correlate observations. Their spelling cannot select a source."""
+    spans = {(match.start(1), match.end(1)) for pattern in table["opaqueBindings"]
+             for match in re.finditer(pattern, text, re.I)}
+    for quoted in re.finditer(table["quoteSpans"], text):
+        index = quoted.lastindex
+        if not (re.search(table["sourceLiteralContext"], text[:quoted.start()], re.I)
+                and re.fullmatch(table["sourceLiteralValue"], quoted.group(index), re.I)):
+            spans.add(quoted.span(index))
+    for name in table["opaqueRoles"]:
+        for tier in table["entities"][name]["tiers"]:
+            for template in tier["patterns"]:
+                pattern = re.sub(r"\{\{(\w+)\}\}", lambda m: table["entityGrammar"][m.group(1)], template)
+                for found in re.finditer(pattern, text, re.I):
+                    if not any(re.search(reject, found.group(1), re.I) for reject in table["entities"][name]["reject"]):
+                        spans.add(found.span(1))
+    chars = list(text)
+    for start, end in spans:
+        chars[start:end] = "_" * (end - start)
+    return "".join(chars)
+
+
+def _positive_destinations(table, clauses):
+    return {name for name, assertions in table["positiveDestinations"].items()
+            if any(re.search(pattern, clause, re.I) for clause in clauses for pattern in assertions)}
+
+
 def _collect_facts(table: Dict[str, Any], evidence: str) -> Set[str]:
     clauses = re.split(table["split"], evidence, flags=re.I)
     request_scopes = table["requestScopes"]
@@ -55,8 +82,10 @@ def _collect_facts(table: Dict[str, Any], evidence: str) -> Set[str]:
             match = re.search(pattern, clause, re.I)
             if match and not re.search(request_scopes["negatedBefore"], clause[:match.start()], re.I):
                 requested.append(re.split(request_scopes["cut"], match.group(1), flags=re.I, maxsplit=1)[0])
-    destinations = [clause for clause in clauses if not re.search(table["destinationDenied"], clause, re.I)]
-    scopes = {"clause": clauses, "text": [evidence], "request": requested, "destination": destinations}
+    destinations = [clause for clause in clauses if not re.search(table["destinationDenied"], clause, re.I)
+                    and not re.search(table["nonOriginalCommand"], clause, re.I)]
+    scopes = {"clause": clauses, "text": [evidence], "request": requested, "destination": destinations,
+              "affirmative": _positive_destinations(table, destinations)}
     facts = set()
     for name, criterion in table["facts"].items():
         units = scopes[criterion["scope"]]
@@ -132,6 +161,13 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
                              if match.group(1)), None)
             if boundary:
                 parts[index] = clause[:launch.start() + boundary.start()]
+        hypothetical = re.search(table["nonOriginalCommand"], clause, re.I)
+        if hypothetical and launch:
+            parts[index] = clause[:hypothetical.start()]
+        else:
+            command = re.search(table["inlineNode"]["command"], parts[index])
+            if command and not re.fullmatch(table["commandContext"], parts[index][:command.start()], re.I):
+                parts[index] = parts[index][:command.start()]
     return "".join(parts)
 
 
@@ -156,9 +192,10 @@ def _shell_matches(table: Dict[str, Any], launch: str) -> bool:
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
           confirmation: Optional[Tuple[str, str]] = None, privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
-    def preprocess(value: str) -> str:
+    def preprocess(value: str, private: Optional[bool] = None) -> str:
         sensitive = table["sensitiveInput"]
-        private = _sensitive(table, value)
+        if private is None:
+            private = _sensitive(table, value)
 
         value = re.sub(table["destinationAlternative"], " ", value, flags=re.I)
         if private:
@@ -176,8 +213,10 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             clauses = re.split(table["split"], value, flags=re.I)
             relevant = " ".join(c for c in clauses if not _matches(table["excludeClauses"], c)
                                 and not re.search(sensitive["unconfirmed"], c, re.I))
-            return next((item["replacement"] for item in sensitive["destinations"]
-                         if re.search(item["pattern"], relevant, re.I)), "original exporter unknown")
+            fixed = next((item["replacement"] for item in sensitive["destinations"]
+                         if re.search(item["pattern"], relevant, re.I)), None)
+            kinds = _positive_destinations(table, [_source_text(table, relevant)])
+            return fixed or ("original run used " + kinds.pop() if len(kinds) == 1 else "original exporter unknown")
         for change in table["preprocess"]:
             value = re.sub(change["pattern"], change["replacement"], value, flags=re.I)
         return value.strip()
@@ -199,7 +238,14 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             return match.group()
 
         evidence = re.sub(marker["token"], hide_token, evidence)
-    facts = _collect_facts(table, evidence) | disowned
+    facts = _collect_facts(table, evidence)
+    source_question = _source_text(table, question)
+    if source_question != question:
+        # Normalize URLs and filenames only after opaque argument spans have been removed.
+        source = preprocess(source_question, private=_sensitive(table, question))
+        disowned = {rule["fact"] for rule in table["disownedObservations"] if re.search(rule["pattern"], source, re.I)}
+        facts = (facts & set(table["rawFacts"])) | _collect_facts(table, _scoped(table, source))
+    facts.update(disowned)
     if "privateJobMarker" in facts:
         witness = table["fileWitness"]
         previous_read = False
@@ -222,12 +268,14 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     inline = table["inlineNode"]
     commands = [match for clause in re.split(table["split"], _scoped(table, question), flags=re.I)
                 if not re.search(table["sensitiveInput"]["unconfirmed"], clause, re.I)
-                for match in re.finditer(inline["command"], clause)]
+                for match in re.finditer(inline["command"], clause)
+                if re.fullmatch(table["commandContext"], clause[:match.start()], re.I)]
     selected = None
-    if len(commands) == 1:
+    inherited_preload = inherited is not None and bool(re.search(inline["preloadSource"], evidence, re.I))
+    if len(commands) == 1 or (not commands and inherited_preload):
         # Parse literal assignment tokens as data. Last assignment to a key wins.
         settings = {}
-        for match in re.finditer(inline["assignment"], commands[0].group(1)):
+        for match in re.finditer(inline["assignment"], commands[0].group(1) if commands else ""):
             key = match.group(1)
             if key not in inline["keys"]:
                 continue
@@ -239,6 +287,13 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 settings[key] = "grpc" if raw.strip().lower() == "grpc" else ("http/json" if raw else "")
         if inherited is not None:
             settings = {**inherited, **settings}
+        from_options = not commands and (settings.pop("REGISTER_FROM_NODE_OPTIONS", "") == "yes"
+                                         or re.search(inline["nodeOptionsOnly"], evidence, re.I))
+        if from_options and settings.get("BRIEFCASE_AUTO", "").lower() not in ("1", "true"):
+            settings["BRIEFCASE_AUTO"] = "0"
+        choice = settings.get("BRIEFCASE_EXPORTER", "")
+        if choice.lower().startswith(("http://", "https://")) and _http_destination(choice):
+            settings["DIRECT_WEB"] = "valid"
         endpoint = next((settings[k].strip() for k in inline["endpoints"] if settings.get(k, "").strip()), "")
         if endpoint:
             supported = re.fullmatch(inline["endpointSyntax"], endpoint, re.I)
@@ -247,7 +302,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 settings["BRIEFCASE_EXPORTER"] = "otlp"
         elif "BRIEFCASE_EXPORTER" in settings and not settings["BRIEFCASE_EXPORTER"]:
             settings["BRIEFCASE_EXPORTER"] = "console" if inherited is not None else "unresolved"
-        lines = "\n".join(f"{key}={value}" for key, value in settings.items())
+        lines = "\n".join(f"{key}={value}" for key, value in settings.items() if "\n" not in value and "\r" not in value)
         selected = next((rule for rule in inline["rules"] if _matches(rule, lines)), None)
         if selected:
             facts.add(selected["fact"])
@@ -430,6 +485,8 @@ def _session(table, args, turns):
     if reports:
         pair = reports[0][1]
         lines.pop()
+    if len(lines) > (1 if answer is not None else 2):
+        raise _SessionError("Supply one clarification answer, once.")
     return (lines[0] if lines else ""), (answer if answer is not None else next(iter(lines[1:]), None)), pair
 
 
@@ -472,8 +529,11 @@ def _guide_session(args) -> int:
     if shell is not None:
         # Node overlays command assignments on the launch environment. Only exporter vocabulary is needed here.
         inherited = {}
-        if os.environ.get("BRIEFCASE_AUTO", "").strip().lower() in ("0", "false"):
-            inherited["BRIEFCASE_AUTO"] = "0"
+        auto_flag = os.environ.get("BRIEFCASE_AUTO", "").strip().lower()
+        if auto_flag in ("0", "false", "1", "true"):
+            inherited["BRIEFCASE_AUTO"] = auto_flag
+        if re.search(table["inlineNode"]["registerOption"], os.environ.get("NODE_OPTIONS", "")):
+            inherited["REGISTER_FROM_NODE_OPTIONS"] = "yes"
         for key in ("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"):
             protocol = os.environ.get(key, "")
             if protocol:
@@ -493,13 +553,16 @@ def _guide_session(args) -> int:
             turns.append(_line("Answer (or unknown): ", True))
             question, answer, confirmation = _session(table, args, turns)
     key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
-    if not confirmation and interactive and key in table["confirmation"]["next"]:
+    prompted = not confirmation and interactive and key in table["confirmation"]["next"]
+    if prompted:
+        print(text, flush=True)
         print(table["confirmation"]["instruction"])
         turns.append(_line("Optional source and result (Enter to skip): ", True))
         question, answer, confirmation = _session(table, args, turns)
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
-    print(text)
-    if key in table["confirmation"]["next"]:
+    if not prompted or confirmation:
+        print(text)
+    if not prompted and key in table["confirmation"]["next"]:
         print(table["confirmation"]["instruction"])
     if key == table["fallback"]:
         print("\n" + table["guide"])

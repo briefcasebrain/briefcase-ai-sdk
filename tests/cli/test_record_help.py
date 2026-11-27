@@ -297,3 +297,72 @@ def test_empty_inline_assignment_resets_inherited_file(reset, monkeypatch, capsy
     assert main(["record-help", q + reset + " node --import @briefcase-ai/auto/register app.js"]) == 0
     text = capsys.readouterr().out
     assert "retained stderr" in text and "original JSONL file" not in text
+
+
+@pytest.mark.parametrize("first,second", [("console", "OTLP"), ("jsonl", "memory"), ("unknown", "console")])
+def test_flags_and_pipe_cannot_disagree_on_clarification(monkeypatch, capsys, first, second):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(second + "\n"))
+    assert main(["record-help", "Which exporter did my original process use?", "--answer", first]) == 2
+    capture = capsys.readouterr()
+    assert capture.out == "" and capture.err == "Supply one clarification answer, once.\n"
+
+
+@pytest.mark.parametrize("pair", ["receiver matched", "receiver no-match", ""])
+def test_terminal_investigation_precedes_optional_outcome(monkeypatch, capsys, pair):
+    from io import StringIO
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    terminal = StringIO(pair + "\n")
+    monkeypatch.setattr(terminal, "isatty", lambda: True)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: True)
+    monkeypatch.setattr("sys.stdin", terminal)
+    assert main(["record-help", "My original run used OTLP."]) == 0
+    capture = capsys.readouterr().out
+    assert capture.count("Search the collector") == 1
+    assert capture.index("Search the collector") < capture.index("Optional source and result")
+    if pair:
+        assert capture.index("Optional source and result") < capture.index("Reader-confirmed")
+
+
+@pytest.mark.parametrize("command", ["", " node --import @briefcase-ai/auto/register app.js"])
+@pytest.mark.parametrize("env,expected", [
+    ({"BRIEFCASE_AUTO": "0", "BRIEFCASE_EXPORTER": "prior.jsonl"}, "disabled Node preload"),
+    ({"BRIEFCASE_AUTO": "False", "BRIEFCASE_EXPORTER": "otlp"}, "disabled Node preload"),
+    ({"BRIEFCASE_EXPORTER": "otlp", "OTEL_EXPORTER_OTLP_ENDPOINT": "http://999.999.999.999:4318"}, "startup diagnostic"),
+    ({"BRIEFCASE_EXPORTER": "otlp", "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318"}, "Search the collector"),
+])
+def test_node_preload_resolution_is_shared_with_terminal_history(monkeypatch, capsys, command, env, expected):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    for name in (*TABLE["inlineNode"]["keys"], "NODE_OPTIONS"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    question = "The original Node preload inherited the unchanged settings from this shell."
+    assert main(["record-help", question + command]) == 0
+    assert expected in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("flag,command,expected", [
+    ("", "", "disabled Node preload"),
+    ("1", "", "original JSONL file"),
+    ("", " node --import @briefcase-ai/auto/register app.js", "original JSONL file"),
+    ("0", " node --import @briefcase-ai/auto/register app.js", "disabled Node preload"),
+])
+def test_preload_activation_from_node_options(monkeypatch, capsys, flag, command, expected):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setenv("NODE_OPTIONS", "--import @briefcase-ai/auto/register")
+    monkeypatch.setenv("BRIEFCASE_AUTO", flag)
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "example.jsonl")
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    q = "The original Node preload inherited the unchanged settings from this shell."
+    assert main(["record-help", q + command]) == 0
+    assert expected in capsys.readouterr().out
