@@ -1742,7 +1742,7 @@
       },
       {
         "all": [
-          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+(?:the |an? )?|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?[\"\\x27`]?(?:console|stderr)[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
+          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?(?:console|stderr)[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
         ],
         "none": [
           "\\b(?:unsure|unknown|maybe|not sure|might|could be|don.t (?:have|know)|do not (?:have|know)|can.t tell|cannot tell|either|only a guess)\\b",
@@ -1763,7 +1763,7 @@
       },
       {
         "all": [
-          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+(?:the |an? )?|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?[\"\\x27`]?(?:otlp|otel)[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
+          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?(?:otlp|otel)[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
         ],
         "none": [
           "\\b(?:unsure|unknown|maybe|not sure|might|could be|don.t (?:have|know)|do not (?:have|know)|can.t tell|cannot tell|either|only a guess)\\b",
@@ -1780,7 +1780,7 @@
       },
       {
         "all": [
-          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+(?:the |an? )?|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?[\"\\x27`]?http(?: endpoint)?[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
+          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?http(?: endpoint)?[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
         ],
         "none": [
           "\\b(?:unsure|unknown|maybe|not sure|might|could be|don.t (?:have|know)|do not (?:have|know)|can.t tell|cannot tell|either|only a guess)\\b",
@@ -1797,7 +1797,7 @@
       },
       {
         "all": [
-          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+(?:the |an? )?|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?[\"\\x27`]?memory[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
+          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?memory[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
         ],
         "none": [
           "\\b(?:unsure|unknown|maybe|not sure|might|could be|don.t (?:have|know)|do not (?:have|know)|can.t tell|cannot tell|either|only a guess)\\b",

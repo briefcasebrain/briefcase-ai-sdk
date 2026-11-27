@@ -2210,5 +2210,59 @@
       "unidentified"
     ],
     "answer": "An unrelated script used console"
+  },
+  {
+    "name": "Clarified exporter noun phrase console",
+    "question": "I need the decision JSON from that launcher. The launcher called an environment-driven script from this directory; exporter-related settings have stayed identical in this shell since launch. Only stderr was archived in batch.err. The launcher's shell did not redirect stdout.",
+    "answer": "The console exporter.",
+    "expected": "console",
+    "includes": [
+      "batch.err"
+    ]
+  },
+  {
+    "name": "Clarified exporter noun phrase otlp",
+    "question": "The original process used the default exporter. I do not know whether it inherited this shell. stderr was archived in batch.err.",
+    "answer": "An OTLP exporter.",
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ]
+  },
+  {
+    "name": "Clarified exporter noun phrase http",
+    "question": "The original process used the default exporter. I do not know whether it inherited this shell. stderr was archived in batch.err.",
+    "answer": "The HTTP exporter!",
+    "expected": "receiver",
+    "includes": [
+      "receiver"
+    ]
+  },
+  {
+    "name": "Clarified exporter noun phrase memory",
+    "question": "The original process used the default exporter. I do not know whether it inherited this shell. stderr was archived in batch.err.",
+    "answer": "A memory exporter.",
+    "expected": "memory_only",
+    "includes": [
+      "process"
+    ]
+  },
+  {
+    "name": "Clarified exporter noun phrase question",
+    "question": "The original process used the default exporter. I do not know whether it inherited this shell. stderr was archived in batch.err.",
+    "answer": "The console exporter?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ]
+  },
+  {
+    "name": "Clarified exporter noun phrase speculation",
+    "question": "The original process used the default exporter. I do not know whether it inherited this shell. stderr was archived in batch.err.",
+    "answer": "Perhaps the console exporter.",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ]
   }
 ]
