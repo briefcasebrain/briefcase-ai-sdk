@@ -11055,5 +11055,2110 @@
       "source": "receiver",
       "result": "matched"
     }
+  },
+  {
+    "name": "Reported confirmation eligibility review 0",
+    "question": "The original exporter was OTLP. The original decision ID was juniper. I checked only decision ID cobalt at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility review 1",
+    "question": "The original exporter was OTLP. My original decision ID was lapis-467. Downstream storage returned a full row with decision ID cedar-314. That was the only row returned.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility review 2",
+    "question": "The original exporter was OTLP. I only checked the receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility review 3",
+    "question": "The original run used fir-12.jsonl. My original decision ID was lapis-467. I searched oak-23.jsonl for decision ID lapis-467 and found a matching row. I never opened fir-12.jsonl.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility review 4",
+    "question": "The original run used fir-12.jsonl. My original decision ID was lapis-467. I scanned the original file for decision ID lapis-467. It returned two matching rows. I cannot distinguish them.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility review 5",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nThat was an example. The original exporter was console.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ]
+  },
+  {
+    "name": "Reported confirmation eligibility review 6",
+    "question": "briefcase-ai exec --to absentplugin -- python app.py\nThe wrapper exited 2 before Python started. The application source says: before recording the decision, the Python application calls briefcase.observe(\"memory\").",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-a"
+    ]
+  },
+  {
+    "name": "Reported confirmation eligibility review 7",
+    "question": "The original run used fir-12.jsonl. The ticket was reused by two runs. I searched the original file by ticket and found two matching rows. I cannot tell which is the original.",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID or m"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  0 question",
+    "question": "My original decision ID was alpha. I checked only decision ID beta at the jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  0 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID beta at the jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  1 question",
+    "question": "My original decision ID was alpha. I checked only decision ID alpha and decision ID beta at the jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  1 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID alpha and decision ID beta at the jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  2 question",
+    "question": "My original decision ID was alpha. The jsonl returned a full row with decision ID beta.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  2 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The jsonl returned a full row with decision ID beta.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  3 question",
+    "question": "My original decision ID was alpha. The jsonl returned a full row with decision ID alpha.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  3 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "answer": "The jsonl returned a full row with decision ID alpha.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  4 question",
+    "question": "My original decision ID was alpha. I checked the jsonl for original decision ID alpha. I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  4 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the jsonl for original decision ID alpha. I found two matching entries.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  5 question",
+    "question": "My original decision ID was alpha. I only checked the jsonl.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched  5 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the jsonl.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 0 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"beta\" at the jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 0 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"beta\" at the jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 1 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"alpha\" and decision ID \"beta\" at the jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 1 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"alpha\" and decision ID \"beta\" at the jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 2 question",
+    "question": "My original decision ID was \"alpha\". The jsonl returned a full row with decision ID \"beta\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 2 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The jsonl returned a full row with decision ID \"beta\".",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 3 question",
+    "question": "My original decision ID was \"alpha\". The jsonl returned a full row with decision ID \"alpha\".",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 3 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "answer": "The jsonl returned a full row with decision ID \"alpha\".",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 4 question",
+    "question": "My original decision ID was \"alpha\". I checked the jsonl for original decision ID \"alpha\". I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 4 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the jsonl for original decision ID \"alpha\". I found two matching entries.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 5 question",
+    "question": "My original decision ID was \"alpha\". I only checked the jsonl.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl matched \" 5 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the jsonl.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  0 question",
+    "question": "My original decision ID was alpha. I checked only decision ID beta at the jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  0 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID beta at the jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  1 question",
+    "question": "My original decision ID was alpha. I checked only decision ID alpha and decision ID beta at the jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  1 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID alpha and decision ID beta at the jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  2 question",
+    "question": "My original decision ID was alpha. The jsonl returned a full row with decision ID beta.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  2 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "answer": "The jsonl returned a full row with decision ID beta.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  3 question",
+    "question": "My original decision ID was alpha. The jsonl returned a full row with decision ID alpha.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  3 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The jsonl returned a full row with decision ID alpha.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  4 question",
+    "question": "My original decision ID was alpha. I checked the jsonl for original decision ID alpha. I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  4 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the jsonl for original decision ID alpha. I found two matching entries.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  5 question",
+    "question": "My original decision ID was alpha. I only checked the jsonl.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match  5 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the jsonl.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 0 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"beta\" at the jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 0 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"beta\" at the jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 1 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"alpha\" and decision ID \"beta\" at the jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 1 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"alpha\" and decision ID \"beta\" at the jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 2 question",
+    "question": "My original decision ID was \"alpha\". The jsonl returned a full row with decision ID \"beta\".",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 2 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "answer": "The jsonl returned a full row with decision ID \"beta\".",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 3 question",
+    "question": "My original decision ID was \"alpha\". The jsonl returned a full row with decision ID \"alpha\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 3 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The jsonl returned a full row with decision ID \"alpha\".",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 4 question",
+    "question": "My original decision ID was \"alpha\". I checked the jsonl for original decision ID \"alpha\". I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 4 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the jsonl for original decision ID \"alpha\". I found two matching entries.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 5 question",
+    "question": "My original decision ID was \"alpha\". I only checked the jsonl.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl no-match \" 5 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the jsonl.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  0 question",
+    "question": "My original decision ID was alpha. I checked only decision ID beta at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  0 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID beta at the receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  1 question",
+    "question": "My original decision ID was alpha. I checked only decision ID alpha and decision ID beta at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  1 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID alpha and decision ID beta at the receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  2 question",
+    "question": "My original decision ID was alpha. The receiver returned a full row with decision ID beta.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  2 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The receiver returned a full row with decision ID beta.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  3 question",
+    "question": "My original decision ID was alpha. The receiver returned a full row with decision ID alpha.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  3 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "answer": "The receiver returned a full row with decision ID alpha.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  4 question",
+    "question": "My original decision ID was alpha. I checked the receiver for original decision ID alpha. I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  4 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the receiver for original decision ID alpha. I found two matching entries.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  5 question",
+    "question": "My original decision ID was alpha. I only checked the receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched  5 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 0 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"beta\" at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 0 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"beta\" at the receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 1 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"alpha\" and decision ID \"beta\" at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 1 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"alpha\" and decision ID \"beta\" at the receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 2 question",
+    "question": "My original decision ID was \"alpha\". The receiver returned a full row with decision ID \"beta\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 2 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The receiver returned a full row with decision ID \"beta\".",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 3 question",
+    "question": "My original decision ID was \"alpha\". The receiver returned a full row with decision ID \"alpha\".",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 3 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "answer": "The receiver returned a full row with decision ID \"alpha\".",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 4 question",
+    "question": "My original decision ID was \"alpha\". I checked the receiver for original decision ID \"alpha\". I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 4 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the receiver for original decision ID \"alpha\". I found two matching entries.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 5 question",
+    "question": "My original decision ID was \"alpha\". I only checked the receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver matched \" 5 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  0 question",
+    "question": "My original decision ID was alpha. I checked only decision ID beta at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  0 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID beta at the receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  1 question",
+    "question": "My original decision ID was alpha. I checked only decision ID alpha and decision ID beta at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  1 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID alpha and decision ID beta at the receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  2 question",
+    "question": "My original decision ID was alpha. The receiver returned a full row with decision ID beta.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  2 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "answer": "The receiver returned a full row with decision ID beta.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  3 question",
+    "question": "My original decision ID was alpha. The receiver returned a full row with decision ID alpha.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  3 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The receiver returned a full row with decision ID alpha.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  4 question",
+    "question": "My original decision ID was alpha. I checked the receiver for original decision ID alpha. I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  4 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the receiver for original decision ID alpha. I found two matching entries.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  5 question",
+    "question": "My original decision ID was alpha. I only checked the receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match  5 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 0 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"beta\" at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 0 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"beta\" at the receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 1 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"alpha\" and decision ID \"beta\" at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 1 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"alpha\" and decision ID \"beta\" at the receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 2 question",
+    "question": "My original decision ID was \"alpha\". The receiver returned a full row with decision ID \"beta\".",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 2 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "answer": "The receiver returned a full row with decision ID \"beta\".",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 3 question",
+    "question": "My original decision ID was \"alpha\". The receiver returned a full row with decision ID \"alpha\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 3 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The receiver returned a full row with decision ID \"alpha\".",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 4 question",
+    "question": "My original decision ID was \"alpha\". I checked the receiver for original decision ID \"alpha\". I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 4 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the receiver for original decision ID \"alpha\". I found two matching entries.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 5 question",
+    "question": "My original decision ID was \"alpha\". I only checked the receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver no-match \" 5 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  0 question",
+    "question": "My original decision ID was alpha. I checked only decision ID beta at the storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  0 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID beta at the storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  1 question",
+    "question": "My original decision ID was alpha. I checked only decision ID alpha and decision ID beta at the storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  1 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID alpha and decision ID beta at the storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  2 question",
+    "question": "My original decision ID was alpha. The storage returned a full row with decision ID beta.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  2 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The storage returned a full row with decision ID beta.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  3 question",
+    "question": "My original decision ID was alpha. The storage returned a full row with decision ID alpha.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  3 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "answer": "The storage returned a full row with decision ID alpha.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  4 question",
+    "question": "My original decision ID was alpha. I checked the storage for original decision ID alpha. I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  4 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the storage for original decision ID alpha. I found two matching entries.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  5 question",
+    "question": "My original decision ID was alpha. I only checked the storage.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched  5 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the storage.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 0 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"beta\" at the storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 0 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"beta\" at the storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 1 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"alpha\" and decision ID \"beta\" at the storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 1 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"alpha\" and decision ID \"beta\" at the storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 2 question",
+    "question": "My original decision ID was \"alpha\". The storage returned a full row with decision ID \"beta\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 2 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The storage returned a full row with decision ID \"beta\".",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 3 question",
+    "question": "My original decision ID was \"alpha\". The storage returned a full row with decision ID \"alpha\".",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 3 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "answer": "The storage returned a full row with decision ID \"alpha\".",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 4 question",
+    "question": "My original decision ID was \"alpha\". I checked the storage for original decision ID \"alpha\". I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 4 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the storage for original decision ID \"alpha\". I found two matching entries.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 5 question",
+    "question": "My original decision ID was \"alpha\". I only checked the storage.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage matched \" 5 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the storage.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  0 question",
+    "question": "My original decision ID was alpha. I checked only decision ID beta at the storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  0 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID beta at the storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  1 question",
+    "question": "My original decision ID was alpha. I checked only decision ID alpha and decision ID beta at the storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  1 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID alpha and decision ID beta at the storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  2 question",
+    "question": "My original decision ID was alpha. The storage returned a full row with decision ID beta.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  2 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "answer": "The storage returned a full row with decision ID beta.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  3 question",
+    "question": "My original decision ID was alpha. The storage returned a full row with decision ID alpha.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  3 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The storage returned a full row with decision ID alpha.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  4 question",
+    "question": "My original decision ID was alpha. I checked the storage for original decision ID alpha. I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  4 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the storage for original decision ID alpha. I found two matching entries.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  5 question",
+    "question": "My original decision ID was alpha. I only checked the storage.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match  5 answer",
+    "question": "My original decision ID was alpha.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the storage.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 0 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"beta\" at the storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 0 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"beta\" at the storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 1 question",
+    "question": "My original decision ID was \"alpha\". I checked only decision ID \"alpha\" and decision ID \"beta\" at the storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 1 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "answer": "I checked only decision ID \"alpha\" and decision ID \"beta\" at the storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 2 question",
+    "question": "My original decision ID was \"alpha\". The storage returned a full row with decision ID \"beta\".",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 2 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "answer": "The storage returned a full row with decision ID \"beta\".",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 3 question",
+    "question": "My original decision ID was \"alpha\". The storage returned a full row with decision ID \"alpha\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 3 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "The storage returned a full row with decision ID \"alpha\".",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 4 question",
+    "question": "My original decision ID was \"alpha\". I checked the storage for original decision ID \"alpha\". I found two matching entries.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 4 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify o"
+    ],
+    "answer": "I checked the storage for original decision ID \"alpha\". I found two matching entries.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 5 question",
+    "question": "My original decision ID was \"alpha\". I only checked the storage.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage no-match \" 5 answer",
+    "question": "My original decision ID was \"alpha\".",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I only checked the storage.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility bound file  True question",
+    "question": "The original run used green.jsonl. My original decision ID was lapis. I searched green.jsonl for decision ID lapis and found a matching row.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility bound file  True answer",
+    "question": "The original run used green.jsonl. My original decision ID was lapis.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "answer": "I searched green.jsonl for decision ID lapis and found a matching row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility bound file  False question",
+    "question": "The original run used green.jsonl. My original decision ID was lapis. I searched blue.jsonl for decision ID lapis and found a matching row.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility bound file  False answer",
+    "question": "The original run used green.jsonl. My original decision ID was lapis.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "answer": "I searched blue.jsonl for decision ID lapis and found a matching row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility bound file \" True question",
+    "question": "The original run used \"green.jsonl\". My original decision ID was lapis. I searched \"green.jsonl\" for decision ID lapis and found a matching row.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility bound file \" True answer",
+    "question": "The original run used \"green.jsonl\". My original decision ID was lapis.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "answer": "I searched \"green.jsonl\" for decision ID lapis and found a matching row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility bound file \" False question",
+    "question": "The original run used \"green.jsonl\". My original decision ID was lapis. I searched \"blue.jsonl\" for decision ID lapis and found a matching row.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility bound file \" False answer",
+    "question": "The original run used \"green.jsonl\". My original decision ID was lapis.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "answer": "I searched \"blue.jsonl\" for decision ID lapis and found a matching row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl corrected named source",
+    "question": "My original decision ID was juniper. I checked only decision ID cobalt at the jsonl.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "answer": "I rechecked the jsonl for decision ID juniper and found one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility jsonl corrected named conflict",
+    "question": "My original decision ID was juniper. I checked only decision ID cobalt at the jsonl.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "I rechecked the jsonl for decision ID juniper and found one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver corrected named source",
+    "question": "My original decision ID was juniper. I checked only decision ID cobalt at the receiver.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "answer": "I rechecked the receiver for decision ID juniper and found one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility receiver corrected named conflict",
+    "question": "My original decision ID was juniper. I checked only decision ID cobalt at the receiver.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "I rechecked the receiver for decision ID juniper and found one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage corrected named source",
+    "question": "My original decision ID was juniper. I checked only decision ID cobalt at the storage.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "answer": "I rechecked the storage for decision ID juniper and found one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility storage corrected named conflict",
+    "question": "My original decision ID was juniper. I checked only decision ID cobalt at the storage.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "answer": "I rechecked the storage for decision ID juniper and found one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility Original file references 0",
+    "question": "The original run used green.jsonl. My original decision ID was lapis.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "answer": "I searched blue.jsonl for decision ID lapis. I later opened the original file for decision ID lapis and found a matching row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility Original file references 1",
+    "question": "The original run used green.jsonl. My original decision ID was lapis.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "answer": "I searched green.jsonl for decision ID lapis and found a matching row. I never opened blue.jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported confirmation eligibility Original file references 2",
+    "question": "The original run used green.jsonl. My original decision ID was lapis.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "answer": "I searched blue.jsonl for decision ID lapis. I never opened the original file.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
   }
 ]

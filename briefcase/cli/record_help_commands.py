@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -660,21 +661,77 @@ def _execution_evidence(table, source, inherited=None):
             else:
                 continue
             choices.add((kind, path))
+    if wrapper_choices or any(re.search(inline["wrapperCommand"], clause) for clause in clauses):
+        if any(re.search(table["wrapperFailed"], clause, re.I) for clause in clauses):
+            wrapper_facts.add("wrapperRejected")
     if choices:
         wrapper_facts.discard("pythonUninstrumented")
     return commands, choices or wrapper_choices, wrapper_facts
 
 
-def _confirmation_conflict(table, source, result, turns):
+@dataclass
+class _SourceCheck:
+    original_target: bool = False
+    foreign_target: bool = False
+    unchecked: bool = False
+    ambiguous: bool = False
+    correct_file: Optional[bool] = None
+    outcome: Optional[str] = None
+
+    def compare(self, result, action, facts):
+        if self.foreign_target:
+            return "confirmation_other_run"
+        if result == "unverified":
+            return None
+        if self.unchecked:
+            return "confirmation_unchecked"
+        if self.correct_file is False:
+            return "confirmation_other_file"
+        if action == "ask_id" or "unresolvedOriginal" in facts:
+            return "ask_id"
+        if self.ambiguous:
+            return "confirmation_ambiguous"
+        if self.outcome and result != self.outcome:
+            return "confirmation_inconsistent"
+        return None
+
+
+def _report_roles(spec, clause, quoted_values):
+    """Compare complete declared identifiers, retaining the surrounding source and observation language."""
+    scope = list(clause)
+    roles = {}
+    for role in ("declaredIdentifier", "lookupIdentifier", "returnedIdentifier"):
+        values = []
+        for first in re.finditer(spec[role], clause, re.I):
+            match = first
+            offset = 0
+            while match:
+                start, end = match.span(1)
+                value = match.group(1)
+                values.append(quoted_values.get(value, value))
+                scope[offset + start:offset + end] = " " * (end - start)
+                offset += match.end()
+                match = re.match(spec["additionalIdentifier"], clause[offset:], re.I)
+        roles[role] = values
+    return roles, "".join(scope)
+
+
+def _report_files(table, clause, quoted_values):
+    values = (next(v for v in match.groups() if v is not None)
+              for match in re.finditer(table["fileMentions"], clause, re.I))
+    return {quoted_values.get(value, value) for value in values}
+
+
+def _confirmation_conflict(table, source, result, turns, action, facts):
     """Bind an observation to its source and target before interpreting a structured outcome."""
     spec = table["confirmation"]["attribution"]
-    denied = set()
-    unchecked = set()
-    original_checks = set()
-    observed = {}
+    checks = {name: _SourceCheck() for name in spec["sources"]}
+    if "readDifferentPath" in facts:
+        checks["jsonl"].correct_file = False
     active = set()
     original_marker = False
     original_ids = set()
+    original_files = set()
     quoted_ids = {}
     quoted_values = {}
     prefix = "quoted:"
@@ -684,7 +741,7 @@ def _confirmation_conflict(table, source, result, turns):
     def quoted_id(match):
         value = match.group(match.lastindex)
         if value not in quoted_ids:
-            alias = prefix + str(len(quoted_ids))
+            alias = prefix + str(len(quoted_ids)) + (".jsonl" if value.lower().endswith(".jsonl") else "")
             quoted_ids[value] = alias
             quoted_values[alias] = value
         return quoted_ids[value]
@@ -693,105 +750,121 @@ def _confirmation_conflict(table, source, result, turns):
                for turn in turns]
     for clauses in reports:
         for clause in clauses:
-            if re.search(spec["originalMarker"], clause, re.I) and not re.search(spec["uncertain"], clause, re.I):
+            roles, scope = _report_roles(spec, clause, quoted_values)
+            if re.search(spec["fileContext"], scope, re.I) and not re.search(spec["lookupPerformed"], scope, re.I):
+                original_files.update(_report_files(table, scope, quoted_values))
+            if re.search(spec["originalMarker"], scope, re.I) and not re.search(spec["uncertain"], scope, re.I):
+                original_ids.update(roles["declaredIdentifier"])
                 identity = _entities(table, clause).get("correlation", {})
                 if identity.get("independent") and identity.get("value"):
                     original_ids.add(quoted_values.get(identity["value"], identity["value"]))
     for clauses in reports:
         for clause in clauses:
-            checked = re.search(spec["lookupPerformed"], clause, re.I)
-            original = re.search(spec["original"], clause, re.I)
-            qualified = not re.search(spec["uncertain"], clause, re.I)
-            if re.search(spec["originalMarker"], clause, re.I) and qualified:
+            roles, source_scope = _report_roles(spec, clause, quoted_values)
+            checked = re.search(spec["lookupPerformed"], source_scope, re.I)
+            original = re.search(spec["original"], source_scope, re.I)
+            qualified = not re.search(spec["uncertain"], source_scope, re.I)
+            if re.search(spec["originalMarker"], source_scope, re.I) and qualified:
                 original_marker = True
-            source_scope = clause
-            for role in ("lookupIdentifier", "returnedIdentifier"):
-                source_scope = re.sub(spec[role], lambda match: match.group(0)[:match.start(1) - match.start()]
-                                      + " " * len(match.group(1)), source_scope, flags=re.I)
             named = {key for key, pattern in spec["sources"].items() if re.search(pattern, source_scope, re.I)}
+            clause = source_scope
+            inspected = _report_files(table, source_scope, quoted_values) if checked else set()
+            if checked and qualified and "jsonl" in named:
+                if inspected and original_files:
+                    checks["jsonl"].correct_file = inspected == original_files and len(inspected) == 1
+                elif re.search(spec["originalFile"], clause, re.I):
+                    checks["jsonl"].correct_file = True
             if named and re.search(spec["unchecked"], clause, re.I):
+                if inspected and original_files and inspected.isdisjoint(original_files):
+                    named.discard("jsonl")
                 active = named
-                unchecked.update(named)
-                original_checks.difference_update(named)
                 for target in named:
-                    observed.pop(target, None)
+                    checks[target].unchecked = True
+                    checks[target].original_target = False
+                    checks[target].outcome = None
                 continue
             if checked and qualified and named:
                 first = min(re.search(spec["sources"][key], source_scope, re.I).start() for key in named)
                 if re.search(spec["exclusiveSource"], clause[:first], re.I):
-                    unchecked.update(set(spec["sources"]) - named)
-                unchecked.difference_update(named)
+                    for target in checks.keys() - named:
+                        checks[target].unchecked = True
             if named and (checked or re.search(spec["observation"], clause, re.I)):
                 active = named
             targets = named or active or set(spec["sources"])
             if not named and re.search(spec["runlessReport"], clause, re.I):
                 targets = set(spec["sources"])
             if checked and qualified and (named or re.search(spec["reportRef"], clause, re.I)):
-                unchecked.difference_update(targets)
-            attribution = re.sub(spec["readerContext"], "", clause, flags=re.I)
+                for target in targets:
+                    checks[target].unchecked = False
+            attribution = re.sub(spec["readerContext"], "", source_scope, flags=re.I)
             attribution = re.sub(spec["notForeign"], "", attribution, flags=re.I)
             foreign = re.search(spec["foreign"], attribution, re.I)
             explicit = (re.search(spec["reportedForeign"], clause, re.I)
                         or re.search(spec["foreignLookup"], clause, re.I))
-            lookup = re.search(spec["lookupIdentifier"], attribution, re.I)
-            query_id = lookup.group(1) if lookup else ""
-            row = re.search(spec["returnedIdentifier"], clause, re.I)
-            row_id = row.group(1) if row else ""
-            comparable = original_ids and query_id and re.search(r"[0-9.:_-]", query_id)
-            query_id = quoted_values.get(query_id, query_id)
-            row_id = quoted_values.get(row_id, row_id)
-            if comparable and original_ids != {query_id}:
+            query_ids = set(roles["lookupIdentifier"])
+            row_ids = set(roles["returnedIdentifier"])
+            comparable = original_ids and query_ids
+            if comparable and original_ids != query_ids:
                 foreign, explicit = True, True
-            original_target = original or original_marker or (comparable and original_ids == {query_id})
+            original_target = original or original_marker or (comparable and original_ids == query_ids)
             if checked and qualified and original_target and not (foreign and explicit):
-                original_checks.update(targets)
-            if not (checked or re.search(spec["observation"], clause, re.I)
+                for target in targets:
+                    checks[target].original_target = True
+            ambiguous_rows = re.search(spec["ambiguousRows"], clause, re.I)
+            if not (checked or ambiguous_rows or re.search(spec["observation"], clause, re.I)
                     or re.search(spec["exclusiveOther"], clause, re.I)):
                 continue
             for target in targets:
+                check = checks[target]
                 # Foreign rows can be returned by a search for the original identifier.
-                contents = target in original_checks and (re.search(spec["returnedContents"], clause, re.I)
-                                                          or re.search(spec["reportedContents"], clause, re.I))
+                contents = check.original_target and (re.search(spec["returnedContents"], clause, re.I)
+                                                      or re.search(spec["reportedContents"], clause, re.I))
                 if foreign and (explicit or not contents):
-                    denied.add(target)
-                    original_checks.discard(target)
-                    observed.pop(target, None)
+                    check.foreign_target = True
+                    check.original_target = False
+                    check.outcome = None
                     continue
-                correction = (qualified and original and (named or re.search(spec["reportRef"], clause, re.I))
+                same_id = query_ids and original_ids == query_ids
+                identified = original or same_id
+                correction = (qualified and identified and (named or re.search(spec["reportRef"], clause, re.I))
                               and (checked or re.search(spec["identifiesOriginal"], clause, re.I)))
                 if correction:
-                    denied.discard(target)
-                    original_checks.add(target)
-                if target not in denied and target in original_checks:
+                    check.foreign_target = False
+                    check.original_target = True
+                if correction and checked:
+                    check.ambiguous = False
+                if ambiguous_rows or (original_ids and len(original_ids) != 1 and (query_ids or row_ids)):
+                    check.ambiguous = True
+                if not check.foreign_target and (check.original_target or (row_ids and original_ids)):
                     if re.search(spec["miss"], clause, re.I):
-                        observed[target] = "no-match"
-                    elif qualified and len(original_ids) == 1 and row_id:
-                        observed[target] = "matched" if row_id in original_ids else "no-match"
+                        check.outcome = "no-match"
+                    elif qualified and len(original_ids) == 1 and row_ids:
+                        count = sum(value in original_ids for value in roles["returnedIdentifier"])
+                        if count > 1:
+                            check.ambiguous = True
+                        check.outcome = "matched" if count else "no-match"
                     elif qualified and re.search(spec["originalMatch"], clause, re.I):
-                        observed[target] = "matched"
+                        check.outcome = "matched"
                     elif re.search(spec["exclusiveOther"], clause, re.I):
-                        observed[target] = "no-match"
+                        check.outcome = "no-match"
                     elif qualified and not foreign and re.search(spec["match"], clause, re.I):
-                        observed[target] = "matched"
-    if source in denied:
-        return "confirmation_other_run"
-    if source in unchecked and result != "unverified":
-        return "confirmation_unchecked"
-    if observed.get(source) and result != "unverified" and result != observed[source]:
-        return "confirmation_inconsistent"
-    return None
+                        check.outcome = "matched"
+    return checks[source].compare(result, action, facts)
 
 
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
           confirmation: Optional[Tuple[str, str]] = None, privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
+    key, facts = _next_step(table, question, answer, shell, inherited, privacy_notes)
     if confirmation:
         source, result = confirmation
         outcome = table["confirmation"]["outcomes"].get(source, {}).get(result)
         if outcome:
-            outcome = _confirmation_conflict(table, source, result, (question, answer)) or outcome
-            return outcome, table["actions"][outcome]["text"]
+            key = _confirmation_conflict(table, source, result, (question, answer), key, facts) or outcome
+    return key, table["actions"][key]["text"]
 
+
+def _next_step(table, question, answer=None, shell=None, inherited=None, privacy_notes=()):
     def preprocess(value: str, private: Optional[bool] = None) -> str:
         sensitive = table["sensitiveInput"]
         if private is None:
@@ -1011,12 +1084,11 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         if safe_launch and not unsafe_reply:
             # Reuse the first-turn routing path with the accepted original launch as the clarification.
             # The combined session has no pending answer, so this cannot trigger another clarification.
-            choice, text = route(table, question + "\n" + launch_reply, shell=shell, inherited=inherited,
-                                 confirmation=confirmation, privacy_notes=(*privacy_notes, answer))
+            choice, combined_facts = _next_step(table, question + "\n" + launch_reply, shell=shell, inherited=inherited,
+                                                privacy_notes=(*privacy_notes, answer))
             if table["actions"][choice]["kind"] == "ask":
                 choice = table["fallback"]
-                text = table["actions"][choice]["text"]
-            return choice, text
+            return choice, combined_facts
         reply = "" if unsafe_reply else _scoped(table, preprocess(reply_source))
         transitions = table["replies"][key]
         valid = next((step for step in transitions if _matches(step, reply) and
@@ -1029,6 +1101,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         shared_value = (entities.get("businessTicket") or entities.get("correlation") or {}).get("value")
         valid_id = key != "ask_id" or (reply_id.get("fact") == "hasID"
                                        and not (repeated and reply_id.get("value") == shared_value))
+        if key == "ask_id" and not valid_id:
+            facts.add("unresolvedOriginal")
         if not reply or re.fullmatch(table["unknown"], reply, re.I) or valid is None or not valid_id:
             key = table["fallback"]
         else:
@@ -1040,9 +1114,10 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 facts.update(_collect_facts(table, _scoped(table, preprocess(projected))))
                 facts.update(preflight)
                 if len(launches) == 1 or calls or not facts.isdisjoint(("file", "jsonl")):
-                    combined, text = route(table, question + "\n" + launch_reply, shell=shell, inherited=inherited)
+                    combined, combined_facts = _next_step(table, question + "\n" + launch_reply, shell=shell,
+                                                          inherited=inherited)
                     if table["actions"][combined]["kind"] != "ask":
-                        return combined, text
+                        return combined, combined_facts
             facts.difference_update(valid.get("drop", []))
             facts.update(valid.get("add", []))
             key = valid.get("action") or _select(table, facts)
@@ -1054,7 +1129,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                              & {"replyOnStdout", "replyOnStderr"})
     if key == "reply" and "replyOnStderr" in facts:
         key = "reply_streams" if "replyOnStdout" in facts else "reply_stderr"
-    return key, table["actions"][key]["text"]
+    return key, facts
 
 
 def _http_destination(url: str, *, allow_insecure: bool = False) -> bool:
