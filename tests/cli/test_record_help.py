@@ -236,3 +236,64 @@ def test_bare_preload_honors_inherited_activation(inline, expected, monkeypatch,
     assert main(["record-help", q + inline + "node --import @briefcase-ai/auto/register app.js"]) == 0
     result = capsys.readouterr()
     assert expected in result.out and "audit.jsonl" not in result.out + result.err
+
+
+@pytest.mark.parametrize("terminal", [False, True])
+@pytest.mark.parametrize("second", ["jsonl matched", "storage no-match", "receiver unverified"])
+def test_two_reports_before_a_question_are_rejected(terminal, second, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    stream = StringIO(f"jsonl matched\n{second}\n")
+    monkeypatch.setattr(stream, "isatty", lambda: terminal)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: terminal)
+    monkeypatch.setattr("sys.stdin", stream)
+    assert main(["record-help"]) == 2
+    captured = capsys.readouterr()
+    assert "once" in captured.err and "Reader-confirmed" not in captured.out
+
+
+@pytest.mark.parametrize("answer", ["opaque-value", "jsonl matched", "storage no-match"])
+def test_repeated_answer_options_are_rejected(answer, capsys):
+    from briefcase.cli.__main__ import main
+
+    assert main(["record-help", "Which file?", "--answer", answer, "--answer", "local.jsonl"]) == 2
+    captured = capsys.readouterr()
+    assert captured.err == "Supply one clarification answer, once.\n"
+    assert captured.out == ""
+
+
+def test_all_record_help_text_is_ascii():
+    for text in [TABLE["guide"], TABLE["confirmation"]["instruction"], *(item["text"] for item in TABLE["actions"].values())]:
+        assert text.isascii()
+
+
+@pytest.mark.parametrize("debug", [False, True])
+def test_record_help_internal_failure_has_fixed_diagnostic(debug, monkeypatch, capsys):
+    from briefcase.cli import record_help_commands
+    from briefcase.cli.__main__ import main
+
+    def fail(*args):
+        raise RuntimeError("supplied-free-text")
+
+    monkeypatch.setattr(record_help_commands, "_guide_session", fail)
+    assert main((["--debug"] if debug else []) + ["record-help", "violet-892"]) == 1
+    captured = capsys.readouterr()
+    assert "supplied-free-text" not in captured.out + captured.err and "violet-892" not in captured.out + captured.err
+    assert "Retry briefcase-ai record-help --static." in captured.err
+
+
+@pytest.mark.parametrize("reset", ['BRIEFCASE_EXPORTER=""', "BRIEFCASE_EXPORTER=''", "BRIEFCASE_EXPORTER="])
+def test_empty_inline_assignment_resets_inherited_file(reset, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "prior.jsonl")
+    for key in TABLE["inlineNode"]["endpoints"]:
+        monkeypatch.delenv(key, raising=False)
+    q = "The Node preload inherited the unchanged settings from this shell. "
+    assert main(["record-help", q + reset + " node --import @briefcase-ai/auto/register app.js"]) == 0
+    text = capsys.readouterr().out
+    assert "retained stderr" in text and "original JSONL file" not in text

@@ -3695,5 +3695,260 @@
     "omits": [
       "collector"
     ]
+  },
+  {
+    "name": "Repeated business submission to local file",
+    "question": "The same ticket was submitted twice and both runs wrote to results.jsonl. Which entry is from my invocation?",
+    "expected": "ask_id",
+    "includes": [
+      "Identical ticket text"
+    ],
+    "omits": [
+      "731298",
+      "parcel-731",
+      "results.jsonl"
+    ]
+  },
+  {
+    "name": "Repeated business submission with clarification",
+    "question": "The same ticket was submitted twice and both runs wrote to results.jsonl. Which entry is from my invocation?",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ],
+    "omits": [
+      "731298",
+      "parcel-731",
+      "results.jsonl"
+    ],
+    "answer": "The original decision ID is 731298."
+  },
+  {
+    "name": "Reversed role assignment parcel-731 is my original decision ID.",
+    "question": "parcel-731 is my original decision ID. The rows are in parcel-731.jsonl and two calls reused the same ticket. Which row is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ],
+    "omits": [
+      "731298",
+      "parcel-731",
+      "results.jsonl"
+    ]
+  },
+  {
+    "name": "Reversed role assignment “parcel-731” was our original marker.",
+    "question": "“parcel-731” was our original marker. The rows are in parcel-731.jsonl and two calls reused the same ticket. Which row is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ],
+    "omits": [
+      "731298",
+      "parcel-731",
+      "results.jsonl"
+    ]
+  },
+  {
+    "name": "Reversed role assignment Maybe parcel-731 is my original decision ID.",
+    "question": "Maybe parcel-731 is my original decision ID. The rows are in parcel-731.jsonl and two calls reused the same ticket. Which row is mine?",
+    "expected": "ask_id",
+    "includes": [
+      "Identical ticket text"
+    ],
+    "omits": [
+      "731298",
+      "parcel-731",
+      "results.jsonl"
+    ]
+  },
+  {
+    "name": "Reversed role assignment parcel-731 is not my original decision ID.",
+    "question": "parcel-731 is not my original decision ID. The rows are in parcel-731.jsonl and two calls reused the same ticket. Which row is mine?",
+    "expected": "ask_id",
+    "includes": [
+      "Identical ticket text"
+    ],
+    "omits": [
+      "731298",
+      "parcel-731",
+      "results.jsonl"
+    ]
+  },
+  {
+    "name": "Console excludes not OTLP",
+    "question": "My run used the console exporter, not OTLP.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Console excludes not the HTTP exporter",
+    "question": "My run used the console exporter, not the HTTP exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Console excludes rather than memory",
+    "question": "My run used the console exporter, rather than memory.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Console excludes instead of JSONL",
+    "question": "My run used the console exporter, instead of JSONL.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Opaque token OTLP ask_exporter",
+    "question": "The CI job token is OTLP. Which exporter did my original run use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque token OTLP console",
+    "question": "The CI job token is OTLP. My run used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Opaque token https ask_exporter",
+    "question": "The CI job token is https. Which exporter did my original run use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque token https console",
+    "question": "The CI job token is https. My run used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Opaque token console ask_exporter",
+    "question": "The CI job token is console. Which exporter did my original run use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque token console console",
+    "question": "The CI job token is console. My run used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Opaque token memory ask_exporter",
+    "question": "The CI job token is memory. Which exporter did my original run use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque token memory console",
+    "question": "The CI job token is memory. My run used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Opaque token apricot ask_exporter",
+    "question": "The CI job token is apricot. Which exporter did my original run use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque token apricot console",
+    "question": "The CI job token is apricot. My run used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Opaque token https://collector.invalid ask_exporter",
+    "question": "The CI job token is https://collector.invalid. Which exporter did my original run use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque token https://collector.invalid console",
+    "question": "The CI job token is https://collector.invalid. My run used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Effective endpoint OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=invalid",
+    "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=invalid node --import @briefcase-ai/auto/register app.js",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Effective endpoint OTEL_EXPORTER_OTLP_ENDPOINT=ftp://example.org",
+    "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_ENDPOINT=ftp://example.org node --import @briefcase-ai/auto/register app.js",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Effective endpoint OTEL_EXPORTER_OTLP_ENDPOINT=https://999.999.999.999",
+    "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_ENDPOINT=https://999.999.999.999 node --import @briefcase-ai/auto/register app.js",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Effective endpoint OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=bad OTEL_EXPORTER_OTLP_ENDPOINT=https://collector.invalid",
+    "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=bad OTEL_EXPORTER_OTLP_ENDPOINT=https://collector.invalid node --import @briefcase-ai/auto/register app.js",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Effective endpoint OTEL_EXPORTER_OTLP_ENDPOINT=bad OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://collector.invalid",
+    "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_ENDPOINT=bad OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://collector.invalid node --import @briefcase-ai/auto/register app.js",
+    "expected": "otlp",
+    "includes": [
+      "Search the collector"
+    ]
+  },
+  {
+    "name": "Effective endpoint OTEL_EXPORTER_OTLP_ENDPOINT=bad OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
+    "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_ENDPOINT=bad OTEL_EXPORTER_OTLP_PROTOCOL=grpc node --import @briefcase-ai/auto/register app.js",
+    "expected": "node_console",
+    "includes": [
+      "retained stderr"
+    ]
   }
 ]

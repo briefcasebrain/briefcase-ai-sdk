@@ -292,6 +292,9 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
         parser.error("unrecognized arguments: " + " ".join(extra))
     _ux.set_debug(args.debug)
     _ux.set_no_input(args.no_input)
+    if args.command == "record-help":
+        # Free text and pasted launch commands must never enter general exception or debug diagnostics.
+        return _run(lambda: args.func(args, None, None, None), (), private=True)
     if _ux.debug_enabled():
         for line in _discovery.warnings(parser.modules):
             print(line, file=sys.stderr)
@@ -328,7 +331,7 @@ def _scrub_argv(argv):
     return out
 
 
-def _run(call, argv) -> int:
+def _run(call, argv, *, private=False) -> int:
     """Run a handler. An unexpected exception becomes one ``error:`` line and exit 1; the
     traceback is shown only with ``--debug``."""
     try:
@@ -345,6 +348,9 @@ def _run(call, argv) -> int:
             pass
         return 0
     except Exception as exc:  # noqa: BLE001
+        if private:
+            print("Record guidance could not finish. Retry briefcase-ai record-help --static.", file=sys.stderr)
+            return 1
         if _ux.debug_enabled():
             raise
         message = " ".join(str(exc).split())

@@ -29,7 +29,7 @@ def register(sub) -> None:
 
     parser.error = private_syntax_error
     parser.add_argument("question", nargs="?", help="Question and known facts about the original run.")
-    parser.add_argument("--answer", help="Answer to the guide's one clarification.")
+    parser.add_argument("--answer", action="append", help="Answer to the guide's one clarification.")
     parser.add_argument("--static", action="store_true", help="Print the complete offline guide.")
     parser.add_argument("--source", metavar="{jsonl,receiver,storage}", action="append",
                         help="Source inspected for the original decision ID or run-unique marker. Pair with --result.")
@@ -160,6 +160,10 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         sensitive = table["sensitiveInput"]
         private = _sensitive(table, value)
 
+        value = re.sub(table["destinationAlternative"], " ", value, flags=re.I)
+        if private:
+            value = re.sub(sensitive["credentialBinding"], " ", value, flags=re.I)
+
         def web_label(match: re.Match[str]) -> str:
             url = match.group(1)
             if re.search(table["uncertainExplicitUrl"], url, re.I):
@@ -228,13 +232,21 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             if key not in inline["keys"]:
                 continue
             raw = next((v for v in match.groups()[1:] if v is not None), "")
-            if key in ("BRIEFCASE_EXPORTER", "BRIEFCASE_AUTO"):
+            if key in ("BRIEFCASE_EXPORTER", "BRIEFCASE_AUTO") or key in inline["endpoints"]:
                 settings[key] = raw.strip()
             else:
                 # Node selects the first nonempty raw protocol before trimming it.
                 settings[key] = "grpc" if raw.strip().lower() == "grpc" else ("http/json" if raw else "")
         if inherited is not None:
             settings = {**inherited, **settings}
+        endpoint = next((settings[k].strip() for k in inline["endpoints"] if settings.get(k, "").strip()), "")
+        if endpoint:
+            supported = re.fullmatch(inline["endpointSyntax"], endpoint, re.I)
+            settings["EFFECTIVE_ENDPOINT"] = ("valid" if supported and _node_endpoint(endpoint) else "unknown")
+            if not settings.get("BRIEFCASE_EXPORTER"):
+                settings["BRIEFCASE_EXPORTER"] = "otlp"
+        elif "BRIEFCASE_EXPORTER" in settings and not settings["BRIEFCASE_EXPORTER"]:
+            settings["BRIEFCASE_EXPORTER"] = "console" if inherited is not None else "unresolved"
         lines = "\n".join(f"{key}={value}" for key, value in settings.items())
         selected = next((rule for rule in inline["rules"] if _matches(rule, lines)), None)
         if selected:
@@ -324,6 +336,22 @@ def _http_destination(url: str, *, allow_insecure: bool = False) -> bool:
             and (parts.scheme == "https" or allow_insecure or _is_loopback_host(parts.hostname or "")))
 
 
+def _node_endpoint(endpoint: str) -> bool:
+    """Accept canonical HTTP destinations; defer unusual WHATWG URL forms to the startup log."""
+    from ipaddress import IPv4Address
+    from urllib.parse import urlsplit
+
+    if not _http_destination(endpoint, allow_insecure=True):
+        return False
+    host = urlsplit(endpoint).hostname or ""
+    if host.rsplit(".", 1)[-1].isdigit():
+        try:
+            return str(IPv4Address(host)) == host
+        except ValueError:
+            return False
+    return True
+
+
 def _shell_exporter(question: str = "") -> str:
     """Describe only configuration shared by the plausible original runtimes."""
     env = os.environ
@@ -376,53 +404,63 @@ def _confirmation(table: Dict[str, Any], line: str) -> Optional[Tuple[str, str]]
     return None
 
 
-def cmd_record_help(args, store, engine, stack) -> int:
-    table = json.loads(_TABLE.read_text(encoding="utf-8"))
+class _SessionError(ValueError):
+    """All messages are public constant diagnostics."""
+
+
+def _session(table, args, turns):
     if bool(args.source) != bool(args.result):
-        print("Confirmation needs both --source and --result.", file=sys.stderr)
-        return 2
-    confirmation = None
-    if args.source and args.result:
+        raise _SessionError("Confirmation needs both --source and --result.")
+    if args.answer and len(args.answer) != 1:
+        raise _SessionError("Supply one clarification answer, once.")
+    answer = args.answer[0] if args.answer else None
+    pair = None
+    if args.source:
         if (len(args.source) != 1 or len(args.result) != 1
                 or args.result[0] not in table["confirmation"]["outcomes"].get(args.source[0], {})):
-            print("Choose exactly one supported source and one observed result. See --help.", file=sys.stderr)
-            return 2
-        confirmation = (args.source[0], args.result[0])
-    interactive = _ux.is_interactive()
-    piped = not sys.stdin.isatty()
-    lines: List[str] = []
-    if piped:
-        try:
-            lines = sys.stdin.read().splitlines()
-        except OSError:
-            # Some embedded callers supply a disabled stdin rather than an empty pipe.
-            pass
-    notes = tuple(lines)
+            raise _SessionError("Choose exactly one supported source and one observed result. See --help.")
+        pair = (args.source[0], args.result[0])
+    lines = ([args.question] if args.question is not None else []) + list(turns)
     while lines and not lines[-1].strip():
         lines.pop()
-    question = args.question
-    if question is not None and _confirmation(table, question):
-        lines.insert(0, question)
-        question = None
-    reports = [(i, pair) for i, line in enumerate(lines) if (pair := _confirmation(table, line)) is not None]
-    if ((args.answer and _confirmation(table, args.answer)) or
-            (reports and (confirmation or len(reports) != 1 or reports[0][0] != len(lines) - 1))):
-        print("Supply one source and result together, once, at the end of the session.", file=sys.stderr)
-        return 2
-    if args.static:
-        print(table["guide"])
-        return 0
+    reports = [(index, item) for index, line in enumerate(lines) if (item := _confirmation(table, line))]
+    if ((answer and _confirmation(table, answer)) or
+            (reports and (pair or len(reports) != 1 or reports[0][0] != len(lines) - 1))):
+        raise _SessionError("Supply one source and result together, once, at the end of the session.")
     if reports:
-        confirmation = reports[0][1]
+        pair = reports[0][1]
         lines.pop()
-    if question is None and lines:
-        question = lines.pop(0)
-    if question is None and not confirmation and interactive:
-        question = _line("What are you trying to find, and what do you know about the original run? ", True)
-    if not question and not confirmation:
+    return (lines[0] if lines else ""), (answer if answer is not None else next(iter(lines[1:]), None)), pair
+
+
+def cmd_record_help(args, store, engine, stack) -> int:
+    try:
+        return _guide_session(args)
+    except _SessionError as error:
+        print(str(error), file=sys.stderr)
+        return 2
+
+
+def _guide_session(args) -> int:
+    table = json.loads(_TABLE.read_text(encoding="utf-8"))
+    interactive = _ux.is_interactive() and sys.stdin.isatty()
+    turns: List[str] = []
+    if not sys.stdin.isatty():
+        try:
+            turns = sys.stdin.read().splitlines()
+        except OSError:
+            pass
+    question, answer, confirmation = _session(table, args, turns)
+    if not args.static and interactive and not question and not confirmation:
+        turns.append(_line("What are you trying to find, and what do you know about the original run? ", True))
+        question, answer, confirmation = _session(table, args, turns)
+        if confirmation:
+            # The opening response is already a report. Finish the session before rendering an outcome.
+            turns.append(_line("Press Enter to finish this source and result: ", True))
+            question, answer, confirmation = _session(table, args, turns)
+    if args.static or (not question and not confirmation):
         print(table["guide"])
         return 0
-    question = question or ""
     launch = _scoped(table, _original_commands(table, question))
     launch_clauses = [clause for clause in re.split(table["split"], launch, flags=re.I)
                       if not (re.search(table["runtimeInspection"], clause, re.I)
@@ -440,29 +478,26 @@ def cmd_record_help(args, store, engine, stack) -> int:
             protocol = os.environ.get(key, "")
             if protocol:
                 inherited[key] = "grpc" if protocol.strip().lower() == "grpc" else "http/json"
+        for key in table["inlineNode"]["endpoints"]:
+            if os.environ.get(key):
+                inherited[key] = os.environ[key]
         choice = os.environ.get("BRIEFCASE_EXPORTER", "").strip()
-        if choice in ("memory", "console") or choice.lower() in ("otel", "otlp"):
+        if choice:
             inherited["BRIEFCASE_EXPORTER"] = choice
-    answer = args.answer
-    key, text = route(table, question, answer, shell, inherited, confirmation, notes)
-    ask = not confirmation and answer is None and table["actions"][key]["kind"] == "ask"
-    if ask:
+    key, text = route(table, question, None, shell, inherited)
+    if not confirmation and not args.answer and table["actions"][key]["kind"] == "ask":
         print(text, flush=True)
-        if lines:
-            reply = lines.pop(0)
-        elif interactive:
-            reply = _line("Answer (or unknown): ", True)
-        else:
-            return 0
-        confirmation = _confirmation(table, reply)
-        answer = None if confirmation else reply
-        key, text = route(table, question, answer, shell, inherited, confirmation, notes)
+        if answer is None:
+            if not interactive:
+                return 0
+            turns.append(_line("Answer (or unknown): ", True))
+            question, answer, confirmation = _session(table, args, turns)
+    key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
     if not confirmation and interactive and key in table["confirmation"]["next"]:
         print(table["confirmation"]["instruction"])
-        response = _line("Optional source and result (Enter to skip): ", True)
-        notes += (response,)
-        confirmation = _confirmation(table, response)
-    key, text = route(table, question, answer, shell, inherited, confirmation, notes)
+        turns.append(_line("Optional source and result (Enter to skip): ", True))
+        question, answer, confirmation = _session(table, args, turns)
+        key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
     print(text)
     if key in table["confirmation"]["next"]:
         print(table["confirmation"]["instruction"])
