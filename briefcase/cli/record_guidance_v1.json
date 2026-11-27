@@ -280,7 +280,7 @@
       "\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|moved|reconfigured|replaced|overrode|unset|reset)\\b[^.!?;\\n]{0,65}\\b(?:exporter|configuration|settings?|environment|variables?|destination)s?\\b"
     ]
   },
-  "revision": 27,
+  "revision": 28,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -2885,8 +2885,17 @@
       "notForeign": "\\b(?:not|never)\\s+(?:about|for|from|of|match(?:ed|es)?)\\s+(?:(?:the|a|an)\\s+)?(?:another|other|different|unrelated|previous|second)\\b",
       "reportRef": "\\b(?:that|this|the (?:reported|same|new|corrected))\\s+(?:lookup|query|check|observation|result|report|entry|row|record|match)|\\b(?:rechecked|repeated|corrected|correction)\\b",
       "runlessReport": "\\b(?:this|my|our|the)\\s+(?:reported\\s+)?(?:result|report|observation|check)\\s+(?:i am (?:reporting|submitting)\\s+|we are reporting\\s+)?(?:is|was|belongs)\\b",
-      "miss": "\\b(?:no|zero|without any)\\s+(?:matching\\s+)?(?:rows?|records?|entries|matches|results?)\\b|\\b(?:found|returned|yielded) (?:nothing|none)\\b|\\b(?:did not|didn.t) (?:find|return|identify) (?:a |any )?match",
-      "match": "\\b(?:returned|found|retrieved|verified|got|obtained|saw)\\s+(?:(?:the|a|an|exact|single|full|one|only|original)\\s+)*(?:matching\\s+(?:record|row|entry|result|decision)|match)\\b|\\b(?:row|record|entry|result) (?:matched|matches)\\b"
+      "miss": "\\b(?:no|zero|without any)\\s+(?:matching\\s+)?(?:rows?|records?|entries|matches|results?)\\b|\\b(?:found|returned|yielded) (?:nothing|none)\\b|\\b(?:did not|didn.t) (?:find|return|identify) (?:a |any )?match|\\b(?:no|zero)\\s+(?:matching|corresponding)\\s+(?:decision|entry|row|record|item)s?\\b",
+      "match": "\\b(?:returned|found|retrieved|verified|got|obtained|saw)\\s+(?:(?:the|a|an|exact|single|full|one|only|original)\\s+)*(?:matching\\s+(?:record|row|entry|result|decision)|match)\\b|\\b(?:row|record|entry|result) (?:matched|matches)\\b",
+      "readerContext": "\\b(?:from|in|with|using|by)\\s+(?:(?:an?|the|my|our)\\s+)?(?:second|separate|another|different|independent|new)\\s+(?:reader|process|session)\\b",
+      "originalMarker": "\\boriginal\\s+(?:(?:run|invocation|decision)(?:.s)?\\s+)?(?:unique\\s+)?(?:marker|identifier|id)\\b|\\b(?:marker|identifier|id)\\s+(?:unique\\s+to|for)\\s+(?:the\\s+)?original\\s+(?:run|invocation|decision)\\b",
+      "lookupPerformed": "\\b(?:searched|scanned|queried|requeried|rechecked|checked|looked up|reopened|inspected|read|examined)\\b",
+      "reportedForeign": "\\b(?:report|reporting|submitting|confirming|attesting|observation)\\b|\\b(?:the|this|that|my|our)\\s+(?:(?:file|jsonl|receiver|collector|storage|database)\\s+)?(?:query|lookup|check|search|result)\\s+(?:itself\\s+)?(?:was|is|belongs)\\s+(?:actually\\s+)?(?:for|about|to)\\b|\\b(?:want|wish|mean|intend)\\s+to\\s+(?:confirm|report|submit|attest)\\b",
+      "foreignLookup": "\\b(?:searched|scanned|queried|rechecked|checked|looked up|examined|inspected)\\s+(?:(?:only|for|the|an?|a)\\s+)*(?:another|different|other|unrelated|previous|second)\\s+(?:decision|invocation|run|id|marker|identifier|job)\\b|\\b(?:searched|checked|queried|scanned|rechecked|looked)\\b(?:(?!\\b(?:and|returned|found|showed|only contained|contained)\\b)[^.!?;\\n]){0,80}?\\bfor\\s+(?:(?:the|an?|our|my)\\s+)?(?:other|another|different|unrelated|previous|second)\\s+(?:decision|id|invocation|marker|attempt|run|job)\\b",
+      "returnedContents": "\\b(?:returned|yielded|contained|contains|contains? only|had|has|held|found|listed|showed|included|includes|saw|got|entries|rows|records|one older|older entry|older record)\\b|\\b(?:a|an|one|the|another|each)\\s+(?:(?:older|prior|earlier|returned|retrieved|inspected)\\s+)*(?:row|entry|record)\\b",
+      "exclusiveOther": "\\b(?:only|exclusively|solely|all (?:the )?(?:entries|rows|records) (?:were|are))\\b[^.!?;\\n]{0,120}\\b(?:another|previous|older|prior|different|other|unrelated|stale)\\b",
+      "originalMatch": "\\b(?:found|returned|retrieved|verified|got|obtained|saw)\\s+(?:(?:the|a|full|single|one|exact)\\s+)*(?:(?:matching\\s+)?original\\s+(?:decision|record|row|entry|id)|(?:record|decision|entry|row)\\s+(?:matching|with)\\s+(?:(?:my|the|our)\\s+)?original\\s+(?:decision|id|marker))\\b|\\b(?:one|a|the)\\s+(?:row|record|entry)\\s+matched\\s+(?:(?:my|the|our)\\s+)?original\\s+(?:id|marker|decision)\\b",
+      "lookupIdentifier": "\\b(?:looked\\s+up\\s+|(?:searched|scanned|queried|rechecked|checked|inspected)\\b(?:(?!\\b(?:returned|found|got|showed|contained)\\b)[^.!?;\\n]){0,80}?\\bfor\\s+)(?:the\\s+)?(?:(?:decision|run|unique)\\s+)?(?:id|identifier|marker)\\s*(?:[:=]\\s*|\\s+)([A-Za-z0-9][A-Za-z0-9.:_-]*[A-Za-z0-9]|[0-9])\\b"
     }
   },
   "destinationDenied": "\\b(?:i|we|it|they|the (?:job|process|script|application|run|original))\\s+(?:did not|didn.t|does not|doesn.t|was not|wasn.t|never|cannot|could not|couldn.t)\\s+(?:use|choos?e|select|configure|export|launch|run|set|send|inherit|connect)\\w*\\b|\\b(?:did not|didn.t|never|not) (?:use|using|configured for|configured with|selected|choose|send to|export to|set to|the exporter)\\b|\\b(?:uncertain whether|unsure whether|(?:i|we) (?:think|suspect|guess|bet|assume)|maybe|perhaps|might have used|may have used)\\b|\\b(?:exporter|destination|sink|capture|export|protocol)\\s+(?:(?:is|was|had been|has been|remained|stayed)\\s+)?(?:disabled|inactive|switched off|turned off|deactivated|unselected)\\b|\\b(?:disabled|deactivated) (?:the |our |my )?(?:otlp|http|console|memory) exporter\\b",

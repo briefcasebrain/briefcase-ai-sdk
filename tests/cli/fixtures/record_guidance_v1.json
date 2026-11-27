@@ -8702,5 +8702,701 @@
     "includes": [
       "If this process used a mem"
     ]
+  },
+  {
+    "name": "Inspected records and original lookup B09 no-match",
+    "question": "The original invocation's unique marker was cedar-808. I reopened session.jsonl after exit: it has only cedar-707 from a previous run. Is the original persisted there?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup B09 matched",
+    "question": "The original invocation's unique marker was cedar-808. I reopened session.jsonl after exit: it has only cedar-707 from a previous run. Is the original persisted there?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup Q09 no-match",
+    "question": "After exit I reopened job-results.jsonl and checked for the original unique marker hazel-392. No matching record was found, only an older entry from a different run. Can I verify mine in that file?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup Q09 matched",
+    "question": "After exit I reopened job-results.jsonl and checked for the original unique marker hazel-392. No matching record was found, only an older entry from a different run. Can I verify mine in that file?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup R09 no-match",
+    "question": "I reopened nightshift.jsonl in a separate process for the original unique marker cloud-476. No matching record was found, only one older record from another run. Did I verify mine?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup R09 matched",
+    "question": "I reopened nightshift.jsonl in a separate process for the original unique marker cloud-476. No matching record was found, only one older record from another run. Did I verify mine?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup T09 no-match",
+    "question": "After the run exited I scanned oldjob.jsonl for the original unique marker wind-302. No matching record was found. It contained a record from another run. Can I confirm the original was saved there?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup T09 matched",
+    "question": "After the run exited I scanned oldjob.jsonl for the original unique marker wind-302. No matching record was found. It contained a record from another run. Can I confirm the original was saved there?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup U09 no-match",
+    "question": "I checked daily.jsonl from a second process after exit for the original unique marker frost-482. No matching record was found. It only had a prior record. Was mine verified in that file?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup U09 matched",
+    "question": "I checked daily.jsonl from a second process after exit for the original unique marker frost-482. No matching record was found. It only had a prior record. Was mine verified in that file?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 0 matched",
+    "question": "I searched the jsonl source for the original decision ID. The source only contained an older row from another run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 0 no-match",
+    "question": "I searched the jsonl source for the original decision ID. The source only contained an older row from another run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 1 matched",
+    "question": "I searched the jsonl source for the original decision ID. No matching record was found. It contained a record from another run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 1 no-match",
+    "question": "I searched the jsonl source for the original decision ID. No matching record was found. It contained a record from another run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 2 matched",
+    "question": "I searched the jsonl source for the original decision ID. I am reporting the returned row from a different run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 2 no-match",
+    "question": "I searched the jsonl source for the original decision ID. I am reporting the returned row from a different run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 3 matched",
+    "question": "I searched the jsonl source for the original decision ID. I then queried jsonl for another decision ID and it returned a record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 3 no-match",
+    "question": "I searched the jsonl source for the original decision ID. I then queried jsonl for another decision ID and it returned a record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 4 matched",
+    "question": "I searched the jsonl source for the original decision ID. The lookup returned the matching original record and one older entry from a previous run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for "
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 4 no-match",
+    "question": "I searched the jsonl source for the original decision ID. The lookup returned the matching original record and one older entry from a previous run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 5 matched",
+    "question": "I searched the jsonl source for the original decision ID. It had a row from another run. My separate check found the matching original record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for "
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup jsonl 5 no-match",
+    "question": "I searched the jsonl source for the original decision ID. It had a row from another run. My separate check found the matching original record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 0 matched",
+    "question": "I searched the receiver source for the original decision ID. The source only contained an older row from another run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 0 no-match",
+    "question": "I searched the receiver source for the original decision ID. The source only contained an older row from another run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 1 matched",
+    "question": "I searched the receiver source for the original decision ID. No matching record was found. It contained a record from another run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 1 no-match",
+    "question": "I searched the receiver source for the original decision ID. No matching record was found. It contained a record from another run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 2 matched",
+    "question": "I searched the receiver source for the original decision ID. I am reporting the returned row from a different run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 2 no-match",
+    "question": "I searched the receiver source for the original decision ID. I am reporting the returned row from a different run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 3 matched",
+    "question": "I searched the receiver source for the original decision ID. I then queried receiver for another decision ID and it returned a record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 3 no-match",
+    "question": "I searched the receiver source for the original decision ID. I then queried receiver for another decision ID and it returned a record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 4 matched",
+    "question": "I searched the receiver source for the original decision ID. The lookup returned the matching original record and one older entry from a previous run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt fo"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 4 no-match",
+    "question": "I searched the receiver source for the original decision ID. The lookup returned the matching original record and one older entry from a previous run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 5 matched",
+    "question": "I searched the receiver source for the original decision ID. It had a row from another run. My separate check found the matching original record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt fo"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup receiver 5 no-match",
+    "question": "I searched the receiver source for the original decision ID. It had a row from another run. My separate check found the matching original record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 0 matched",
+    "question": "I searched the storage source for the original decision ID. The source only contained an older row from another run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 0 no-match",
+    "question": "I searched the storage source for the original decision ID. The source only contained an older row from another run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 1 matched",
+    "question": "I searched the storage source for the original decision ID. No matching record was found. It contained a record from another run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 1 no-match",
+    "question": "I searched the storage source for the original decision ID. No matching record was found. It contained a record from another run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 2 matched",
+    "question": "I searched the storage source for the original decision ID. I am reporting the returned row from a different run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 2 no-match",
+    "question": "I searched the storage source for the original decision ID. I am reporting the returned row from a different run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 3 matched",
+    "question": "I searched the storage source for the original decision ID. I then queried storage for another decision ID and it returned a record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 3 no-match",
+    "question": "I searched the storage source for the original decision ID. I then queried storage for another decision ID and it returned a record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 4 matched",
+    "question": "I searched the storage source for the original decision ID. The lookup returned the matching original record and one older entry from a previous run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 4 no-match",
+    "question": "I searched the storage source for the original decision ID. The lookup returned the matching original record and one older entry from a previous run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 5 matched",
+    "question": "I searched the storage source for the original decision ID. It had a row from another run. My separate check found the matching original record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ]
+  },
+  {
+    "name": "Inspected records and original lookup storage 5 no-match",
+    "question": "I searched the storage source for the original decision ID. It had a row from another run. My separate check found the matching original record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Query identifier comparison jsonl alt-72 matched",
+    "question": "The original decision ID was orig-42. I searched the jsonl source for decision ID alt-72. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Query identifier comparison jsonl alt-72 no-match",
+    "question": "The original decision ID was orig-42. I searched the jsonl source for decision ID alt-72. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Query identifier comparison jsonl orig-42 matched",
+    "question": "The original decision ID was orig-42. I searched the jsonl source for decision ID orig-42. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Query identifier comparison jsonl orig-42 no-match",
+    "question": "The original decision ID was orig-42. I searched the jsonl source for decision ID orig-42. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Query identifier comparison receiver alt-72 matched",
+    "question": "The original decision ID was orig-42. I searched the receiver source for decision ID alt-72. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Query identifier comparison receiver alt-72 no-match",
+    "question": "The original decision ID was orig-42. I searched the receiver source for decision ID alt-72. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Query identifier comparison receiver orig-42 matched",
+    "question": "The original decision ID was orig-42. I searched the receiver source for decision ID orig-42. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Query identifier comparison receiver orig-42 no-match",
+    "question": "The original decision ID was orig-42. I searched the receiver source for decision ID orig-42. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
+  },
+  {
+    "name": "Query identifier comparison storage alt-72 matched",
+    "question": "The original decision ID was orig-42. I searched the storage source for decision ID alt-72. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Query identifier comparison storage alt-72 no-match",
+    "question": "The original decision ID was orig-42. I searched the storage source for decision ID alt-72. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    },
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ]
+  },
+  {
+    "name": "Query identifier comparison storage orig-42 matched",
+    "question": "The original decision ID was orig-42. I searched the storage source for decision ID orig-42. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ]
+  },
+  {
+    "name": "Query identifier comparison storage orig-42 no-match",
+    "question": "The original decision ID was orig-42. I searched the storage source for decision ID orig-42. Only older records from another run were returned.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ]
   }
 ]
