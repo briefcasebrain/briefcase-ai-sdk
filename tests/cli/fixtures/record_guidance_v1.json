@@ -4978,5 +4978,195 @@
     "includes": [
       "initialization error"
     ]
+  },
+  {
+    "name": "Fence retains heading across non-content 0",
+    "question": "My original run used the console exporter. For example:\n\n```sh\n# test launch\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js\n```",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "Search the collector"
+    ]
+  },
+  {
+    "name": "Fence retains heading across non-content 1",
+    "question": "My original run used the console exporter. For example:\n   \n\n  ~~~~bash title=\"alternative\"\n  # OTLP example\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js\n  ~~~~~  ",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "Search the collector"
+    ]
+  },
+  {
+    "name": "Fence retains heading across non-content 2",
+    "question": "My original run used the console exporter. For example:\n<!-- example configuration -->\n  \n````shell\n```\n# keep the outer fence\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js\n````",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "Search the collector"
+    ]
+  },
+  {
+    "name": "Fence retains heading across non-content 3",
+    "question": "My original run used the console exporter. For example:\n\n~~~sh\n~~~not-a-close\n# same marker with trailing text\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js\n~~~",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "Search the collector"
+    ]
+  },
+  {
+    "name": "Fence retains heading across non-content 4",
+    "question": "My original run used the console exporter. For example:\n# optional sample settings\n~~~bash\n```\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js\n~~~",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "Search the collector"
+    ]
+  },
+  {
+    "name": "Completed example consumes its heading",
+    "question": "For example:\n\n~~~sh\n# hypothetical\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\n~~~\nMy original launch was BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js",
+    "expected": "otlp",
+    "includes": [
+      "Search the collector"
+    ]
+  },
+  {
+    "name": "Ordered Node options --no-warnings --import @briefcase-ai/auto/register",
+    "question": "BRIEFCASE_AUTO=0 BRIEFCASE_EXPORTER=audit.jsonl node --no-warnings --import @briefcase-ai/auto/register app.js",
+    "expected": "inactive_preload",
+    "includes": [
+      "disabled Node preload"
+    ]
+  },
+  {
+    "name": "Ordered Node options --conditions development --require @briefcase-ai/auto/register",
+    "question": "BRIEFCASE_AUTO=0 BRIEFCASE_EXPORTER=audit.jsonl node --conditions development --require @briefcase-ai/auto/register app.js",
+    "expected": "inactive_preload",
+    "includes": [
+      "disabled Node preload"
+    ]
+  },
+  {
+    "name": "Ordered Node options --import=some-other-module --no-warnings --import=\"@briefcase-ai/auto/register.js\"",
+    "question": "BRIEFCASE_AUTO=0 BRIEFCASE_EXPORTER=audit.jsonl node --import=some-other-module --no-warnings --import=\"@briefcase-ai/auto/register.js\" app.js",
+    "expected": "inactive_preload",
+    "includes": [
+      "disabled Node preload"
+    ]
+  },
+  {
+    "name": "Opaque application call Before recording the decision, the application called observe(\"memory\")",
+    "question": "My original decision ID was 'Before recording the decision, the application called observe(\"memory\")'. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque application call My original Node worker thread called observe(\"worker.jsonl\")",
+    "question": "My original decision ID was 'My original Node worker thread called observe(\"worker.jsonl\")'. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Explicit observe options console",
+    "question": "BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js. Before recording the decision, the application called observe(\"console\", {maxQueue: 100}).",
+    "expected": "node_console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Explicit observe options memory",
+    "question": "BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js. Before recording the decision, the application called observe(\"memory\", {maxQueue: 100}).",
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ]
+  },
+  {
+    "name": "Worker explicit exporter precedes forwarding",
+    "question": "My original Node worker thread called observe(\"worker.jsonl\"). The main thread was already observing before it created the worker.",
+    "expected": "node_file",
+    "includes": [
+      "original JSONL file"
+    ]
+  },
+  {
+    "name": "Symmetric direct receiver comparison",
+    "question": "My original decision ID recv-428 matches a receiver log entry. We have not queried downstream storage. What does that verify?",
+    "expected": "storage",
+    "includes": [
+      "separate readback"
+    ],
+    "omits": [
+      "recv-428"
+    ]
+  },
+  {
+    "name": "Node explicit console needs no metadata request",
+    "question": "My original Node process used the console exporter. Where did its decision go?",
+    "expected": "node_console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Exporter reply with comma-separated credential",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "answer": "console, my CI job token was apricot.",
+    "omits": [
+      "apricot"
+    ]
+  },
+  {
+    "name": "Direct Node host removes trailing root dot",
+    "question": "My original Node job called observe(\"https://999.999.999.999./events\").",
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ]
+  },
+  {
+    "name": "Application reply request precedes direct HTTP",
+    "question": "BRIEFCASE_EXPORTER=https://example.invalid/batch node --import @briefcase-ai/auto/register app.js. The application printed its reply to stdout. I want the application reply text.",
+    "expected": "reply",
+    "includes": [
+      "retained stdout"
+    ]
+  },
+  {
+    "name": "Valid direct HTTP preload assignment",
+    "question": "BRIEFCASE_EXPORTER=https://collector.example/decisions node --import @briefcase-ai/auto/register app.js",
+    "expected": "receiver",
+    "includes": [
+      "HTTP receiver"
+    ]
+  },
+  {
+    "name": "Application options cannot activate preload",
+    "question": "BRIEFCASE_AUTO=0 BRIEFCASE_EXPORTER=audit.jsonl node app.js --import @briefcase-ai/auto/register. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
   }
 ]

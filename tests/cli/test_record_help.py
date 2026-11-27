@@ -370,3 +370,18 @@ def test_preload_activation_from_node_options(monkeypatch, capsys, flag, command
     q = "The original Node preload inherited the unchanged settings from this shell."
     assert main(["record-help", q + command]) == 0
     assert expected in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("arguments,expected", [
+    ("--no-warnings --import @briefcase-ai/auto/register script.js", True),
+    ("--conditions development --require @briefcase-ai/auto/register.js script.js", True),
+    ("--title '--import @briefcase-ai/auto/register' script.js", False),
+    ("--no-warnings script.js --import @briefcase-ai/auto/register", False),
+    ("-- --import @briefcase-ai/auto/register", False),
+    ("--import @briefcase-ai/auto/register-sample", False),
+    ("--import '@briefcase-ai/auto/reg\"ister'", False),
+])
+def test_only_runtime_options_activate_the_original_preload(arguments, expected):
+    from briefcase.cli.record_help_commands import _node_preloaded
+
+    assert _node_preloaded(TABLE["inlineNode"], " " + arguments) is expected

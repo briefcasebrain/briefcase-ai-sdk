@@ -156,23 +156,60 @@ def _select(table: Dict[str, Any], facts: Set[str]) -> str:
     return table["defaultAction"]
 
 
+def _node_preloaded(inline, arguments):
+    """Read runtime options only. Tokens following the script belong to the application."""
+    position = 0
+    pending = ""
+    while token := re.match(inline["argument"], arguments[position:]):
+        position += token.end()
+        value = "".join(part.group(part.lastindex or 0)
+                        for part in re.finditer(inline["argumentPart"], token.group(1)))
+        if pending:
+            if pending in inline["preloadFlags"] and value in inline["registerModules"]:
+                return True
+            pending = ""
+        elif not value.startswith("-") or value in ("-", "--", "--eval", "-e", "--print", "-p"):
+            break
+        else:
+            flag, equal, operand = value.partition("=")
+            if flag in inline["preloadFlags"] or flag in inline["valueFlags"]:
+                if equal:
+                    if flag in inline["preloadFlags"] and operand in inline["registerModules"]:
+                        return True
+                else:
+                    pending = flag
+    return False
+
+
 def _original_commands(table: Dict[str, Any], text: str) -> str:
     """Keep an original launch and its arguments, without attributing later shell commands to it."""
     lines = []
     fence = ""
     exclude = False
+    example_heading = None
     for line in text.splitlines():
         marker = re.fullmatch(table["fenceBoundary"], line)
-        if marker:
-            delimiter = marker.group(1)
-            if not fence:
-                fence = delimiter
-                exclude = bool(lines and re.search(table["nonOriginalCommand"], lines[-1], re.I))
-            elif delimiter.startswith(fence):
+        if fence:
+            # A closer must use the opener's character, be at least as long and have no info string.
+            if marker and marker.group(1).startswith(fence) and not marker.group(2).strip():
                 fence, exclude = "", False
+            elif not exclude and not re.match(table["fenceComment"], line):
+                lines.append(line)
             continue
-        if not exclude:
-            lines.append(line)
+        if marker:
+            fence = marker.group(1)
+            exclude = example_heading is not None
+            if example_heading is not None:
+                index, start = example_heading
+                lines[index] = lines[index][:start]
+                example_heading = None
+            continue
+        if example_heading is not None and re.match(table["fenceComment"], line):
+            continue
+        if line.strip():
+            cue = re.search(table["nonOriginalCommand"], line, re.I)
+            example_heading = (len(lines), cue.start()) if cue else None
+        lines.append(line)
     text = "\n".join(lines)
     parts = re.split(f"({table['commandClauseSplit']})", text, flags=re.I)
     example_next = False
@@ -195,7 +232,8 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
             parts[index] = clause[:hypothetical.start()]
         else:
             command = re.search(table["inlineNode"]["command"], parts[index])
-            if command and not re.fullmatch(table["commandContext"], parts[index][:command.start()], re.I):
+            if command and (not re.fullmatch(table["commandContext"], parts[index][:command.start()], re.I)
+                            or not _node_preloaded(table["inlineNode"], parts[index][command.end():])):
                 parts[index] = parts[index][:command.start()]
     return "".join(parts)
 
@@ -298,9 +336,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     inline_path = None
     inline = table["inlineNode"]
     commands = [match for clause in re.split(table["split"], _scoped(table, question), flags=re.I)
-                if not re.search(table["sensitiveInput"]["unconfirmed"], clause, re.I)
                 for match in re.finditer(inline["command"], clause)
-                if re.fullmatch(table["commandContext"], clause[:match.start()], re.I)]
+                if _node_preloaded(inline, clause[match.end():]) and re.fullmatch(table["commandContext"], clause[:match.start()], re.I)]
     selected = None
     inherited_preload = inherited is not None and bool(re.search(inline["preloadSource"], evidence, re.I))
     if len(commands) == 1 or (not commands and inherited_preload):
@@ -351,12 +388,14 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             facts.add("workerUnknown")
     selection = table["applicationSelection"]
     choices = set()
-    for clause in re.split(table["split"], _scoped(table, question), flags=re.I):
-        if (re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
-                and not re.search(selection["none"], clause, re.I)):
+    for clause in re.split(table["split"], _scoped(table, source_question), flags=re.I):
+        worker_call = re.search(selection["workerActor"], clause, re.I)
+        before_capture = re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
+        if (worker_call or before_capture) and not re.search(selection["none"], clause, re.I):
             choices.update(next(value for value in match.groups() if value is not None)
                            for match in re.finditer(selection["value"], clause, re.I))
     if choices:
+        facts.difference_update(("workerUnknown", "workerForward"))
         facts.difference_update(rule["fact"] for rule in inline["rules"])
         inline_path = None
         choice = next(iter(choices)) if len(choices) == 1 else ""
@@ -396,7 +435,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     if action["kind"] == "ask" and answer is not None:
         reply_source = answer
         if _sensitive(table, answer) or re.search(table["privateWebAddress"], answer, re.I):
-            reply_source = "\n".join(c for c in re.split(table["split"], answer, flags=re.I)
+            aside = re.sub(table["sensitiveAsideSplit"], "\n", answer, flags=re.I)
+            reply_source = "\n".join(c for c in re.split(table["split"], aside, flags=re.I)
                                      if not (_sensitive(table, c) or re.search(table["privateWebAddress"], c, re.I)))
         safe_choice = key in ("ask_exporter", "ask_protocol") and any(
             re.fullmatch(pattern, reply_source.strip(), re.I) for pattern in table["exporterReplies"].values())
@@ -456,7 +496,7 @@ def _node_endpoint(endpoint: str) -> bool:
 
     if not _http_destination(endpoint, allow_insecure=True):
         return False
-    host = urlsplit(endpoint).hostname or ""
+    host = (urlsplit(endpoint).hostname or "").removesuffix(".")
     if host.rsplit(".", 1)[-1].isdigit():
         try:
             return str(IPv4Address(host)) == host
@@ -590,7 +630,7 @@ def _guide_session(args) -> int:
         auto_flag = os.environ.get("BRIEFCASE_AUTO", "").strip().lower()
         if auto_flag in ("0", "false", "1", "true"):
             inherited["BRIEFCASE_AUTO"] = auto_flag
-        if re.search(table["inlineNode"]["registerOption"], os.environ.get("NODE_OPTIONS", "")):
+        if _node_preloaded(table["inlineNode"], " " + os.environ.get("NODE_OPTIONS", "")):
             inherited["REGISTER_FROM_NODE_OPTIONS"] = "yes"
         for key in ("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"):
             protocol = os.environ.get(key, "")
