@@ -831,7 +831,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         reply_runtime = _runtime_names(table, pieces[::2]) & {"Python", "Node"}
         for index in range(0, len(pieces), 2):
             clause = pieces[index]
-            if (_sensitive(table, clause) and re.search(selection["before"], clause, re.I)
+            if (re.search(table["sensitiveInput"]["credentialBinding"], clause, re.I)
+                    and re.search(selection["before"], clause, re.I)
                     and re.search(selection["actor"], clause, re.I)
                     and (reply_runtime == {"Python"} or re.search(r"\bbriefcase\.observe\(", clause, re.I))):
                 clause = _python_exporter_call(table, clause)
