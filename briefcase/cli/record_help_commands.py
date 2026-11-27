@@ -54,8 +54,10 @@ def _source_text(table, text):
         index = quoted.lastindex
         launch_literal = (re.search(table["launchLiteralContext"], text[:quoted.start()], re.I)
                           and re.fullmatch(table["launchLiteralValue"], quoted.group(index), re.I))
-        if not launch_literal and not (re.search(table["sourceLiteralContext"], text[:quoted.start()], re.I)
-                and re.fullmatch(table["sourceLiteralValue"], quoted.group(index), re.I)):
+        if not launch_literal and not (
+            re.search(table["sourceLiteralContext"], text[:quoted.start()], re.I)
+            and re.fullmatch(table["sourceLiteralValue"], quoted.group(index), re.I)
+        ):
             spans.add(quoted.span(index))
     for name in table["opaqueRoles"]:
         for tier in table["entities"][name]["tiers"]:
