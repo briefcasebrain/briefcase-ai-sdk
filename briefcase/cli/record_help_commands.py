@@ -6,7 +6,7 @@ import json
 import os
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -48,7 +48,7 @@ def _matches(rule: Dict[str, Any], evidence: str) -> bool:
             and not any(re.search(pattern, evidence, flags) for pattern in rule.get("none", [])))
 
 
-def _source_text(table, text):
+def _source_text(table, text, path_aliases=None):
     """Opaque values can correlate observations. Their spelling cannot select a source."""
     spans = {(match.start(1), match.end(1)) for pattern in table["opaqueBindings"]
              for match in re.finditer(pattern, text, re.I)}
@@ -105,6 +105,8 @@ def _source_text(table, text):
         if qualifier:
             start += qualifier.end()
         chars[start:end - 6] = "_" * (end - start - 6)
+        if path_aliases is not None:
+            path_aliases.setdefault("".join(chars[start:end]), set()).add(text[start:end])
     return "".join(chars)
 
 
@@ -736,6 +738,7 @@ def _execution_evidence(table, source, inherited=None):
         if any(re.search(table["wrapperFailed"], clause, re.I) for clause in clauses):
             wrapper_facts.add("wrapperRejected")
     if choices:
+        wrapper_facts.add("applicationExporterSelected")
         wrapper_facts.discard("pythonUninstrumented")
     return commands, choices or wrapper_choices, wrapper_facts
 
@@ -749,6 +752,7 @@ class _SourceCheck:
     correct_instance: Optional[bool] = None
     outcome: Optional[str] = None
     matching_rows: int = 0
+    shared_identifier: bool = False
 
     def compare(self, source, result, action, facts):
         if self.foreign_target:
@@ -761,7 +765,7 @@ class _SourceCheck:
             return "confirmation_unresolved_path"
         if self.correct_instance is False:
             return "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
-        if action == "ask_id" or "unresolvedOriginal" in facts:
+        if action == "ask_id" or "unresolvedOriginal" in facts or self.shared_identifier:
             return "ask_id"
         if self.ambiguous:
             return "confirmation_ambiguous"
@@ -826,31 +830,70 @@ def _report_clauses(table, turns):
     return reports, quoted_values
 
 
-def _confirmation_conflict(table, source, result, turns, action, facts):
-    """Bind an observation to its source and target before interpreting a structured outcome."""
+@dataclass
+class _GuideOrigin:
+    files: Set[str] = field(default_factory=set)
+    identifier: Optional[str] = None
+
+
+def _report_identities(table, reports, quoted_values):
     spec = table["confirmation"]["attribution"]
-    checks = {name: _SourceCheck() for name in spec["sources"]}
-    if "readDifferentPath" in facts:
-        checks["jsonl"].correct_instance = False
-    active = set()
-    original_marker = False
     original_ids = set()
-    destinations = {source: set() for source in checks}
-    reports, quoted_values = _report_clauses(table, turns)
+    shared_ids = set()
+    last_declared = set()
+    shared_unspecified = False
     for clauses in reports:
         for clause in clauses:
             roles, scope = _report_roles(spec, clause, quoted_values)
-            if re.search(spec["fileContext"], scope, re.I) and not re.search(spec["lookupPerformed"], scope, re.I):
-                destinations["jsonl"].update(_report_files(table, scope, quoted_values))
-            if re.search(spec["instanceContext"], scope, re.I) and not re.search(spec["lookupPerformed"], scope, re.I):
-                for name, values in _source_instances(table, scope, quoted_values).items():
-                    if name != "jsonl":
-                        destinations[name].update(values)
+            if roles["declaredIdentifier"]:
+                last_declared = set(roles["declaredIdentifier"])
+            if re.search(spec["sharedIdentifier"], clause, re.I):
+                literal = re.search(spec["sharedValue"], clause, re.I)
+                if literal:
+                    shared_ids.add(quoted_values.get(literal.group(1), literal.group(1)))
+                elif not re.search(r"\bticket\b", scope, re.I):
+                    shared_ids.update(last_declared)
+                    shared_unspecified |= not bool(last_declared)
             if re.search(spec["originalMarker"], scope, re.I) and not re.search(spec["uncertain"], scope, re.I):
                 original_ids.update(roles["declaredIdentifier"])
                 identity = _entities(table, clause).get("correlation", {})
                 if identity.get("independent") and identity.get("value"):
                     original_ids.add(quoted_values.get(identity["value"], identity["value"]))
+    return original_ids, shared_ids, shared_unspecified
+
+
+def _confirmation_conflict(table, source, result, turns, action, facts, guide_origin):
+    """Bind an observation to its source and target before interpreting a structured outcome."""
+    spec = table["confirmation"]["attribution"]
+    active = set()
+    original_marker = False
+    disowned_report = set()
+    launch_files = guide_origin.files
+    destinations = {name: set() for name in spec["sources"]}
+    destinations["jsonl"].update(launch_files)
+    reports, quoted_values = _report_clauses(table, turns)
+    original_ids, shared_ids, shared_unspecified = _report_identities(table, reports, quoted_values)
+    if guide_origin.identifier:
+        original_ids = {guide_origin.identifier}
+    for clauses in reports:
+        for clause in clauses:
+            _, scope = _report_roles(spec, clause, quoted_values)
+            if (not launch_files and re.search(spec["fileContext"], scope, re.I)
+                    and not re.search(spec["lookupPerformed"], scope, re.I)):
+                destinations["jsonl"].update(_report_files(table, scope, quoted_values))
+            if re.search(spec["instanceContext"], scope, re.I) and not re.search(spec["lookupPerformed"], scope, re.I):
+                for name, values in _source_instances(table, scope, quoted_values).items():
+                    if name != "jsonl":
+                        destinations[name].update(values)
+    # A continuation belongs to the preceding lookup of that source. A different source
+    # instance or identifier starts a separate attempt and cannot replace the original one.
+    unique_ids = original_ids - shared_ids
+    origin = {name: (name, frozenset(instances), frozenset(unique_ids)) for name, instances in destinations.items()}
+    attempts = {key: _SourceCheck() for key in origin.values()}
+    current = dict(origin)
+    latest = dict(origin)
+    if "readDifferentPath" in facts:
+        attempts[origin["jsonl"]].correct_instance = False
     for clauses in reports:
         for clause in clauses:
             roles, source_scope = _report_roles(spec, clause, quoted_values)
@@ -862,6 +905,24 @@ def _confirmation_conflict(table, source, result, turns, action, facts):
             named = {key for key, pattern in spec["sources"].items() if re.search(pattern, source_scope, re.I)}
             clause = source_scope
             inspected = _source_instances(table, source_scope, quoted_values)
+            sought = set(roles["lookupIdentifier"])
+            subject = re.search(spec["outcomeTarget"], clause, re.I)
+            if subject:
+                sought = {quoted_values.get(subject.group(1), subject.group(1))}
+            event = dict(current)
+            for name in named or active:
+                if checked or subject or re.search(spec["attempted"], clause, re.I):
+                    instance = frozenset(inspected[name] or (current[name][1] if subject else destinations[name]))
+                    identifiers = frozenset(sought or unique_ids or original_ids)
+                    event[name] = (name, instance, identifiers)
+                    attempts.setdefault(event[name], _SourceCheck())
+                    if checked or not subject:
+                        current[name] = event[name]
+                latest[name] = event[name]
+            checks = {name: attempts[key] for name, key in event.items()}
+            for name in named or active:
+                if shared_ids.intersection(event[name][2]) or (shared_unspecified and not unique_ids):
+                    checks[name].shared_identifier = True
             failed = re.search(spec["attempted"], clause, re.I) or re.search(spec["readFailed"], clause, re.I)
             if failed or re.search(spec["unchecked"], clause, re.I):
                 blocked = named or active
@@ -887,7 +948,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts):
                 first = min(re.search(spec["sources"][key], source_scope, re.I).start() for key in named)
                 if re.search(spec["exclusiveSource"], clause[:first], re.I):
                     for target in checks.keys() - named:
-                        checks[target].unchecked = True
+                        attempts[origin[target]].unchecked = True
             if named and (checked or re.search(spec["observation"], clause, re.I)):
                 active = named
             targets = named or active or set(spec["sources"])
@@ -902,11 +963,13 @@ def _confirmation_conflict(table, source, result, turns, action, facts):
             explicit = (re.search(spec["reportedForeign"], clause, re.I)
                         or re.search(spec["foreignLookup"], clause, re.I))
             query_ids = set(roles["lookupIdentifier"])
+            if subject:
+                query_ids.add(quoted_values.get(subject.group(1), subject.group(1)))
             row_ids = set(roles["returnedIdentifier"])
             comparable = original_ids and query_ids
-            if comparable and original_ids != query_ids:
+            if comparable and (unique_ids or original_ids) != query_ids and not shared_ids.intersection(query_ids):
                 foreign, explicit = True, True
-            original_target = original or original_marker or (comparable and original_ids == query_ids)
+            original_target = original or original_marker or (comparable and (unique_ids or original_ids) == query_ids)
             if checked and qualified and original_target and not (foreign and explicit):
                 for target in targets:
                     checks[target].original_target = True
@@ -920,26 +983,29 @@ def _confirmation_conflict(table, source, result, turns, action, facts):
                 contents = check.original_target and (re.search(spec["returnedContents"], clause, re.I)
                                                       or re.search(spec["reportedContents"], clause, re.I))
                 if foreign and (explicit or not contents):
+                    if re.search(spec["reportedForeign"], clause, re.I):
+                        disowned_report.add(target)
                     check.foreign_target = True
                     check.original_target = False
                     check.outcome = None
                     continue
-                same_id = query_ids and original_ids == query_ids
+                same_id = query_ids and (unique_ids or original_ids) == query_ids
                 identified = original or same_id
                 correction = (qualified and identified and (named or re.search(spec["reportRef"], clause, re.I))
                               and (checked or re.search(spec["identifiesOriginal"], clause, re.I)))
                 if correction:
+                    disowned_report.discard(target)
                     check.foreign_target = False
                     check.original_target = True
                 if correction and checked:
                     check.ambiguous = False
-                if ambiguous_rows or (original_ids and len(original_ids) != 1 and (query_ids or row_ids)):
+                if ambiguous_rows or (original_ids and len(unique_ids or original_ids) != 1 and (query_ids or row_ids)):
                     check.ambiguous = True
                 if not check.foreign_target and (check.original_target or (row_ids and original_ids)):
                     if re.search(spec["miss"], clause, re.I):
                         check.outcome = "no-match"
-                    elif qualified and len(original_ids) == 1 and row_ids:
-                        count = sum(value in original_ids for value in roles["returnedIdentifier"])
+                    elif qualified and len(unique_ids or original_ids) == 1 and row_ids:
+                        count = sum(value in (unique_ids or original_ids) for value in roles["returnedIdentifier"])
                         check.matching_rows += count
                         if check.matching_rows > 1:
                             check.ambiguous = True
@@ -950,27 +1016,38 @@ def _confirmation_conflict(table, source, result, turns, action, facts):
                         check.outcome = "no-match"
                     elif qualified and not foreign and re.search(spec["match"], clause, re.I):
                         check.outcome = "matched"
-    if source == "storage" and checks[source].outcome is None:
+    if source in disowned_report:
+        return "confirmation_other_run"
+    original_check = attempts[origin[source]]
+    last_check = attempts[latest[source]]
+    check = original_check if original_check.outcome or original_check.ambiguous else last_check
+    if source == "storage" and check.outcome is None:
         if "linkedStoreReadback" in facts:
-            checks[source].outcome = "matched"
+            check.outcome = "matched"
         elif "storageIDMismatch" in facts:
-            checks[source].outcome = "no-match"
-    return checks[source].compare(source, result, action, facts)
+            check.outcome = "no-match"
+    return check.compare(source, result, action, facts)
 
 
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
           confirmation: Optional[Tuple[str, str]] = None, privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
-    key, facts = _next_step(table, question, answer, shell, inherited, privacy_notes)
+    origin = _GuideOrigin()
+    key, facts = _next_step(table, question, answer, shell, inherited, privacy_notes, origin)
     if confirmation:
         source, result = confirmation
         outcome = table["confirmation"]["outcomes"].get(source, {}).get(result)
         if outcome:
-            key = _confirmation_conflict(table, source, result, (question, answer), key, facts) or outcome
+            if origin.files:
+                aliases: Dict[str, Set[str]] = {}
+                for turn in (question, answer or ""):
+                    _source_text(table, turn, aliases)
+                origin.files = {original for path in origin.files for original in aliases.get(path, {path})}
+            key = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin) or outcome
     return key, table["actions"][key]["text"]
 
 
-def _next_step(table, question, answer=None, shell=None, inherited=None, privacy_notes=()):
+def _next_step(table, question, answer=None, shell=None, inherited=None, privacy_notes=(), guide_origin=None):
     def preprocess(value: str, private: Optional[bool] = None) -> str:
         sensitive = table["sensitiveInput"]
         if private is None:
@@ -1002,7 +1079,8 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
             value = re.sub(change["pattern"], change["replacement"], value, flags=re.I)
         return value.strip()
 
-    source_question = _original_commands(table, _source_text(table, question))
+    path_aliases = {}
+    source_question = _original_commands(table, _source_text(table, question, path_aliases))
     question = _original_commands(table, question)
     evidence = preprocess(question)
     disowned = {rule["fact"] for rule in table["disownedObservations"] if re.search(rule["pattern"], evidence, re.I)}
@@ -1125,6 +1203,12 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
         facts.add("ambiguousFileWitness")
     entities = _entities(table, evidence)
     facts.update(value["fact"] for value in entities.values() if value.get("fact"))
+    if re.search(table["confirmation"]["attribution"]["sharedIdentifier"], question, re.I):
+        reports, quoted = _report_clauses(table, (question,))
+        originals, shared, unspecified = _report_identities(table, reports, quoted)
+        if (originals.intersection(shared) or unspecified) and not originals.difference(shared):
+            facts.discard("hasID")
+            facts.add("sharedInput")
     for comparison in table["comparisons"]:
         original = entities.get(comparison["left"], {})
         observed = entities.get(comparison["right"], {}).get("value")
@@ -1141,6 +1225,8 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
                 if kind.get("path"):
                     shell_path = value
                 break
+    if guide_origin is not None and shell_path and not facts.intersection(("wrapperRejected", "inlineUnknown")):
+        guide_origin.files.update(path_aliases.get(shell_path, {shell_path}))
     key = _select(table, facts)
     if key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value")):
         key = "ask_path"
@@ -1204,7 +1290,7 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
             # Reuse the first-turn routing path with the accepted original launch as the clarification.
             # The combined session has no pending answer, so this cannot trigger another clarification.
             choice, combined_facts = _next_step(table, question + "\n" + launch_reply, shell=shell, inherited=inherited,
-                                                privacy_notes=(*privacy_notes, answer))
+                                                privacy_notes=(*privacy_notes, answer), guide_origin=guide_origin)
             if table["actions"][choice]["kind"] == "ask":
                 choice = table["fallback"]
             return choice, combined_facts
@@ -1234,6 +1320,8 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
         else:
             if key in ("ask_path", "ask_exporter"):
                 shell_path = None
+            if guide_origin is not None and key == "ask_id" and valid_id:
+                guide_origin.identifier = reply_id.get("value")
             entities.update(reply_entities)
             evidence = contextual_reply + "\n" + evidence
             if key in ("ask_subject", "ask_run") and not valid.get("action"):
@@ -1241,7 +1329,7 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
                 facts.update(preflight)
                 if len(launches) == 1 or calls or not facts.isdisjoint(("file", "jsonl")):
                     combined, combined_facts = _next_step(table, question + "\n" + launch_reply, shell=shell,
-                                                          inherited=inherited)
+                                                          inherited=inherited, guide_origin=guide_origin)
                     if table["actions"][combined]["kind"] != "ask":
                         return combined, combined_facts
             facts.difference_update(valid.get("drop", []))

@@ -3315,7 +3315,7 @@
   {
     "name": "Stdout extension is not stderr evidence",
     "question": "The console exporter was used. Stdout was redirected to app.err. I did not retain stderr.",
-    "expected": "console",
+    "expected": "console_unretained",
     "includes": [
       "retained stderr"
     ]
@@ -14160,5 +14160,1151 @@
       "source": "storage",
       "result": "no-match"
     }
+  },
+  {
+    "name": "Available observation before transport Z10",
+    "question": "The original application's exporter was explicitly set to console. We ran python courier.py 2>courier.err and kept the redirected output. Where should I verify the decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for ",
+      "redirected"
+    ]
+  },
+  {
+    "name": "Available observation before transport Z11",
+    "question": "I have a receiver log entry with the original decision ID hive-437. The downstream store has not been queried. How far does that evidence take me?",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches ",
+      "receipt",
+      "downstream"
+    ]
+  },
+  {
+    "name": "Available observation before transport Z11 report",
+    "question": "I have a receiver log entry with the original decision ID hive-437. The downstream store has not been queried. How far does that evidence take me?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport original application’s exporter was explicitly set toWe ran python tool.py 2> job.jsonl and kept that file.",
+    "question": "The original application’s exporter was explicitly set to console. We ran python tool.py 2> job.jsonl and kept that file. How can I verify the original decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for ",
+      "stderr",
+      "redirected"
+    ]
+  },
+  {
+    "name": "Available observation before transport original application’s exporter was explicitly set toThe launcher archived stderr.",
+    "question": "The original application’s exporter was explicitly set to console. The launcher archived stderr. How can I verify the original decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for ",
+      "stderr",
+      "redirected"
+    ]
+  },
+  {
+    "name": "Available observation before transport actual process destination was directly configured asWe ran python tool.py 2> job.jsonl and kept that file.",
+    "question": "The actual process destination was directly configured as console. We ran python tool.py 2> job.jsonl and kept that file. How can I verify the original decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for ",
+      "stderr",
+      "redirected"
+    ]
+  },
+  {
+    "name": "Available observation before transport actual process destination was directly configured asThe launcher archived stderr.",
+    "question": "The actual process destination was directly configured as console. The launcher archived stderr. How can I verify the original decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for ",
+      "stderr",
+      "redirected"
+    ]
+  },
+  {
+    "name": "Available observation before transport original sink was deliberately assigned toWe ran python tool.py 2> job.jsonl and kept that file.",
+    "question": "The original sink was deliberately assigned to console. We ran python tool.py 2> job.jsonl and kept that file. How can I verify the original decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for ",
+      "stderr",
+      "redirected"
+    ]
+  },
+  {
+    "name": "Available observation before transport original sink was deliberately assigned toThe launcher archived stderr.",
+    "question": "The original sink was deliberately assigned to console. The launcher archived stderr. How can I verify the original decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for ",
+      "stderr",
+      "redirected"
+    ]
+  },
+  {
+    "name": "Available observation before transport I have an entry in the receiver log which carries the original decision ID.I have not queried storage.",
+    "question": "I have an entry in the receiver log which carries the original decision ID. I have not queried storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches ",
+      "receipt",
+      "downstream"
+    ]
+  },
+  {
+    "name": "Available observation before transport I have an entry in the receiver log which carries the original decision ID.Downstream storage is unknown.",
+    "question": "I have an entry in the receiver log which carries the original decision ID. Downstream storage is unknown.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches ",
+      "receipt",
+      "downstream"
+    ]
+  },
+  {
+    "name": "Available observation before transport I have an entry in the receiver log which carries the original decision ID.Does that mean the database stored it?",
+    "question": "I have an entry in the receiver log which carries the original decision ID. Does that mean the database stored it?",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches ",
+      "receipt",
+      "downstream"
+    ]
+  },
+  {
+    "name": "Available observation before transport We retained a collector span with the original trace ID.I have not queried storage.",
+    "question": "We retained a collector span with the original trace ID. I have not queried storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches ",
+      "receipt",
+      "downstream"
+    ]
+  },
+  {
+    "name": "Available observation before transport We retained a collector span with the original trace ID.Downstream storage is unknown.",
+    "question": "We retained a collector span with the original trace ID. Downstream storage is unknown.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches ",
+      "receipt",
+      "downstream"
+    ]
+  },
+  {
+    "name": "Available observation before transport We retained a collector span with the original trace ID.Does that mean the database stored it?",
+    "question": "We retained a collector span with the original trace ID. Does that mean the database stored it?",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches ",
+      "receipt",
+      "downstream"
+    ]
+  },
+  {
+    "name": "Available observation before transport Our saved receiver log record lists our original marker.I have not queried storage.",
+    "question": "Our saved receiver log record lists our original marker. I have not queried storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches ",
+      "receipt",
+      "downstream"
+    ]
+  },
+  {
+    "name": "Available observation before transport Our saved receiver log record lists our original marker.Downstream storage is unknown.",
+    "question": "Our saved receiver log record lists our original marker. Downstream storage is unknown.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches ",
+      "receipt",
+      "downstream"
+    ]
+  },
+  {
+    "name": "Available observation before transport Our saved receiver log record lists our original marker.Does that mean the database stored it?",
+    "question": "Our saved receiver log record lists our original marker. Does that mean the database stored it?",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches ",
+      "receipt",
+      "downstream"
+    ]
+  },
+  {
+    "name": "Available observation before transport If we have a receiver log entry with the original ID, is that enough?",
+    "question": "If we have a receiver log entry with the original ID, is that enough?",
+    "expected": "receipt_unknown",
+    "includes": [
+      "Receipt of the original ID o"
+    ]
+  },
+  {
+    "name": "Available observation before transport I have a receiver log entry with the original ID from another run.",
+    "question": "I have a receiver log entry with the original ID from another run.",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want t"
+    ]
+  },
+  {
+    "name": "Available observation before transport My transcript says \"I have a receiver log entry with the original decision ID\". What can I verify?",
+    "question": "My transcript says \"I have a receiver log entry with the original decision ID\". What can I verify?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want t"
+    ]
+  },
+  {
+    "name": "Available observation before transport My original exporter was not explicitly set to console. I captured stderr.",
+    "question": "My original exporter was not explicitly set to console. I captured stderr.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the origi"
+    ]
+  },
+  {
+    "name": "Available observation before transport My original exporter was explicitly set to console. I only kept stdout.",
+    "question": "My original exporter was explicitly set to console. I only kept stdout.",
+    "expected": "console_unretained",
+    "includes": [
+      "The console exporter writes "
+    ]
+  },
+  {
+    "name": "Available observation before transport The original exporter was explicitly set to console. The process discarded stderr.",
+    "question": "The original exporter was explicitly set to console. The process discarded stderr.",
+    "expected": "console_unretained",
+    "includes": [
+      "The console exporter writes "
+    ]
+  },
+  {
+    "name": "Available observation before transport My original exporter was explicitly set to console. The file on stdout is an application transcript. Please show the application reply.",
+    "question": "My original exporter was explicitly set to console. The file on stdout is an application transcript. Please show the application reply.",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for the"
+    ]
+  },
+  {
+    "name": "Available observation before transport R32 review 0",
+    "question": "The original exporter was memory. This was not the original launch: briefcase-ai exec --to pebble.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Available observation before transport R32 review 1",
+    "question": "The original launch was briefcase-ai exec --to otlp -- python app.py. The OpenTelemetry packages were not installed. Its startup diagnostic said auto-instrumentation is disabled for this process.",
+    "expected": "bootstrap_off",
+    "includes": [
+      "The original startup diagnos"
+    ]
+  },
+  {
+    "name": "Available observation before transport R32 review 2",
+    "question": "My original Python launch was briefcase-ai exec --to pool.jsonl -- python app.py. I searched salt.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport R32 review 3",
+    "question": "The original run used haze.jsonl. I never reopened the original file. I have no evidence about its contents.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport R32 review 4",
+    "question": "The original run used haze.jsonl. I only checked the original JSONL file.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport R32 review 5",
+    "question": "The original run used haze.jsonl. My original marker was tile-12. That marker was shared by both runs. I searched the original file for marker tile-12 and found a matching record.",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID or"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport R32 review 6",
+    "question": "The original run used haze.jsonl. My original decision ID was cedar. I scanned the original file for decision ID cedar. It returned a row with decision ID cedar. There were no matching rows for decision ID birch.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport R32 review 7",
+    "question": "The original run sent to receiver North. I searched receiver North for the original decision ID and found a matching record. I searched receiver South for the original decision ID and found no matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver True True True True",
+    "question": "The original run sent to receiver North. I searched receiver South for the original decision ID and found a matching record. I searched receiver North for the original decision ID and found a matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver True True True False",
+    "question": "The original run sent to receiver North. I searched receiver South for the original decision ID and found a matching record. I searched receiver North for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver True True False True",
+    "question": "The original run sent to receiver North. I searched receiver North for the original decision ID and found a matching record. I searched receiver South for the original decision ID and found a matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver True True False False",
+    "question": "The original run sent to receiver North. I searched receiver North for the original decision ID and found a matching record. I searched receiver South for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver True False True True",
+    "question": "The original run sent to receiver North. I searched receiver South for the original decision ID and found no matching record. I searched receiver North for the original decision ID and found a matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver True False True False",
+    "question": "The original run sent to receiver North. I searched receiver South for the original decision ID and found no matching record. I searched receiver North for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver True False False True",
+    "question": "The original run sent to receiver North. I searched receiver North for the original decision ID and found a matching record. I searched receiver South for the original decision ID and found no matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver True False False False",
+    "question": "The original run sent to receiver North. I searched receiver North for the original decision ID and found a matching record. I searched receiver South for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver False True True True",
+    "question": "The original run sent to receiver North. I searched receiver South for the original decision ID and found a matching record. I searched receiver North for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver False True True False",
+    "question": "The original run sent to receiver North. I searched receiver South for the original decision ID and found a matching record. I searched receiver North for the original decision ID and found no matching record.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver False True False True",
+    "question": "The original run sent to receiver North. I searched receiver North for the original decision ID and found no matching record. I searched receiver South for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver False True False False",
+    "question": "The original run sent to receiver North. I searched receiver North for the original decision ID and found no matching record. I searched receiver South for the original decision ID and found a matching record.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver False False True True",
+    "question": "The original run sent to receiver North. I searched receiver South for the original decision ID and found no matching record. I searched receiver North for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver False False True False",
+    "question": "The original run sent to receiver North. I searched receiver South for the original decision ID and found no matching record. I searched receiver North for the original decision ID and found no matching record.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver False False False True",
+    "question": "The original run sent to receiver North. I searched receiver North for the original decision ID and found no matching record. I searched receiver South for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source receiver False False False False",
+    "question": "The original run sent to receiver North. I searched receiver North for the original decision ID and found no matching record. I searched receiver South for the original decision ID and found no matching record.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss receiver True True",
+    "question": "The original run sent to receiver North. My original decision ID was cedar. I scanned receiver North for decision ID cedar. There were no matching rows for decision ID birch. It returned a row with decision ID cedar.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss receiver True False",
+    "question": "The original run sent to receiver North. My original decision ID was cedar. I scanned receiver North for decision ID cedar. There were no matching rows for decision ID birch. It returned a row with decision ID cedar.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss receiver False True",
+    "question": "The original run sent to receiver North. My original decision ID was cedar. I scanned receiver North for decision ID cedar. It returned a row with decision ID cedar. There were no matching rows for decision ID birch.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss receiver False False",
+    "question": "The original run sent to receiver North. My original decision ID was cedar. I scanned receiver North for decision ID cedar. It returned a row with decision ID cedar. There were no matching rows for decision ID birch.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage True True True True",
+    "question": "The original run used downstream store North. I searched store South for the original decision ID and found a matching record. I searched store North for the original decision ID and found a matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage True True True False",
+    "question": "The original run used downstream store North. I searched store South for the original decision ID and found a matching record. I searched store North for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage True True False True",
+    "question": "The original run used downstream store North. I searched store North for the original decision ID and found a matching record. I searched store South for the original decision ID and found a matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage True True False False",
+    "question": "The original run used downstream store North. I searched store North for the original decision ID and found a matching record. I searched store South for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage True False True True",
+    "question": "The original run used downstream store North. I searched store South for the original decision ID and found no matching record. I searched store North for the original decision ID and found a matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage True False True False",
+    "question": "The original run used downstream store North. I searched store South for the original decision ID and found no matching record. I searched store North for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage True False False True",
+    "question": "The original run used downstream store North. I searched store North for the original decision ID and found a matching record. I searched store South for the original decision ID and found no matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage True False False False",
+    "question": "The original run used downstream store North. I searched store North for the original decision ID and found a matching record. I searched store South for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage False True True True",
+    "question": "The original run used downstream store North. I searched store South for the original decision ID and found a matching record. I searched store North for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage False True True False",
+    "question": "The original run used downstream store North. I searched store South for the original decision ID and found a matching record. I searched store North for the original decision ID and found no matching record.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage False True False True",
+    "question": "The original run used downstream store North. I searched store North for the original decision ID and found no matching record. I searched store South for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage False True False False",
+    "question": "The original run used downstream store North. I searched store North for the original decision ID and found no matching record. I searched store South for the original decision ID and found a matching record.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage False False True True",
+    "question": "The original run used downstream store North. I searched store South for the original decision ID and found no matching record. I searched store North for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage False False True False",
+    "question": "The original run used downstream store North. I searched store South for the original decision ID and found no matching record. I searched store North for the original decision ID and found no matching record.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage False False False True",
+    "question": "The original run used downstream store North. I searched store North for the original decision ID and found no matching record. I searched store South for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source storage False False False False",
+    "question": "The original run used downstream store North. I searched store North for the original decision ID and found no matching record. I searched store South for the original decision ID and found no matching record.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss storage True True",
+    "question": "The original run used downstream store North. My original decision ID was cedar. I scanned store North for decision ID cedar. There were no matching rows for decision ID birch. It returned a row with decision ID cedar.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss storage True False",
+    "question": "The original run used downstream store North. My original decision ID was cedar. I scanned store North for decision ID cedar. There were no matching rows for decision ID birch. It returned a row with decision ID cedar.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss storage False True",
+    "question": "The original run used downstream store North. My original decision ID was cedar. I scanned store North for decision ID cedar. It returned a row with decision ID cedar. There were no matching rows for decision ID birch.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss storage False False",
+    "question": "The original run used downstream store North. My original decision ID was cedar. I scanned store North for decision ID cedar. It returned a row with decision ID cedar. There were no matching rows for decision ID birch.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl True True True True",
+    "question": "The original run used north.jsonl. I searched south.jsonl for the original decision ID and found a matching record. I searched north.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl True True True False",
+    "question": "The original run used north.jsonl. I searched south.jsonl for the original decision ID and found a matching record. I searched north.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl True True False True",
+    "question": "The original run used north.jsonl. I searched north.jsonl for the original decision ID and found a matching record. I searched south.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl True True False False",
+    "question": "The original run used north.jsonl. I searched north.jsonl for the original decision ID and found a matching record. I searched south.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl True False True True",
+    "question": "The original run used north.jsonl. I searched south.jsonl for the original decision ID and found no matching record. I searched north.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl True False True False",
+    "question": "The original run used north.jsonl. I searched south.jsonl for the original decision ID and found no matching record. I searched north.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl True False False True",
+    "question": "The original run used north.jsonl. I searched north.jsonl for the original decision ID and found a matching record. I searched south.jsonl for the original decision ID and found no matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl True False False False",
+    "question": "The original run used north.jsonl. I searched north.jsonl for the original decision ID and found a matching record. I searched south.jsonl for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl False True True True",
+    "question": "The original run used north.jsonl. I searched south.jsonl for the original decision ID and found a matching record. I searched north.jsonl for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl False True True False",
+    "question": "The original run used north.jsonl. I searched south.jsonl for the original decision ID and found a matching record. I searched north.jsonl for the original decision ID and found no matching record.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl False True False True",
+    "question": "The original run used north.jsonl. I searched north.jsonl for the original decision ID and found no matching record. I searched south.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl False True False False",
+    "question": "The original run used north.jsonl. I searched north.jsonl for the original decision ID and found no matching record. I searched south.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl False False True True",
+    "question": "The original run used north.jsonl. I searched south.jsonl for the original decision ID and found no matching record. I searched north.jsonl for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl False False True False",
+    "question": "The original run used north.jsonl. I searched south.jsonl for the original decision ID and found no matching record. I searched north.jsonl for the original decision ID and found no matching record.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl False False False True",
+    "question": "The original run used north.jsonl. I searched north.jsonl for the original decision ID and found no matching record. I searched south.jsonl for the original decision ID and found no matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport bound source jsonl False False False False",
+    "question": "The original run used north.jsonl. I searched north.jsonl for the original decision ID and found no matching record. I searched south.jsonl for the original decision ID and found no matching record.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss jsonl True True",
+    "question": "The original run used north.jsonl. My original decision ID was cedar. I scanned north.jsonl for decision ID cedar. There were no matching rows for decision ID birch. It returned a row with decision ID cedar.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss jsonl True False",
+    "question": "The original run used north.jsonl. My original decision ID was cedar. I scanned north.jsonl for decision ID cedar. There were no matching rows for decision ID birch. It returned a row with decision ID cedar.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss jsonl False True",
+    "question": "The original run used north.jsonl. My original decision ID was cedar. I scanned north.jsonl for decision ID cedar. It returned a row with decision ID cedar. There were no matching rows for decision ID birch.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport independent ID miss jsonl False False",
+    "question": "The original run used north.jsonl. My original decision ID was cedar. I scanned north.jsonl for decision ID cedar. It returned a row with decision ID cedar. There were no matching rows for decision ID birch.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Available observation before transport unique independent jsonl",
+    "question": "My original marker was tile-12. That marker was shared by both runs. My original decision ID was cedar. I searched the original file for decision ID cedar and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport unique independent storage",
+    "question": "My original marker was tile-12. That marker was shared by both runs. My original decision ID was cedar. I searched the original database for decision ID cedar and found a matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport unique independent receiver",
+    "question": "My original marker was tile-12. That marker was shared by both runs. My original decision ID was cedar. I searched the original receiver for decision ID cedar and found a matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport wrapper accepted pool.jsonl True",
+    "question": "My original Python launch was briefcase-ai exec --to pool.jsonl -- python app.py. I searched pool.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport wrapper accepted pool.jsonl False",
+    "question": "My original Python launch was briefcase-ai exec --to pool.jsonl -- python app.py. I searched salt.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport wrapper accepted \"my logs/pool.jsonl\" True",
+    "question": "My original Python launch was briefcase-ai exec --to \"my logs/pool.jsonl\" -- python app.py. I searched \"my logs/pool.jsonl\" for the original decision ID and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Available observation before transport wrapper accepted \"my logs/pool.jsonl\" False",
+    "question": "My original Python launch was briefcase-ai exec --to \"my logs/pool.jsonl\" -- python app.py. I searched salt.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Original lookup unresolved shared identifier",
+    "question": "The original run used haze.jsonl. My original marker was tile-12. That marker was shared by both runs. I searched the original file for marker tile-12 and found a matching record.",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision I"
+    ]
+  },
+  {
+    "name": "Original lookup new declared original receipt",
+    "question": "The original run used haze.jsonl. My original marker was tile-12. That marker was shared by both runs. I searched the original file for marker tile-12 and found a matching record.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL "
+    ],
+    "answer": "The decision ID on our original receipt is cobalt."
   }
 ]
