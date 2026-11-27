@@ -231,6 +231,10 @@
     "preload_startup": {
       "kind": "action",
       "text": "Check the original Node startup diagnostic for a package import error. Verify that the launch requested a public package export before checking for decisions from the preload."
+    },
+    "wrapper_startup": {
+      "kind": "action",
+      "text": "Check the original briefcase-ai exec preflight diagnostic. Confirm the destination, OTLP protocol and endpoint were accepted before checking the child process for an exporter."
     }
   },
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
@@ -256,7 +260,7 @@
       "\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|moved|reconfigured|replaced|overrode|unset|reset)\\b[^.!?;\\n]{0,65}\\b(?:exporter|configuration|settings?|environment|variables?|destination)s?\\b"
     ]
   },
-  "revision": 22,
+  "revision": 23,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -956,6 +960,24 @@
     }
   },
   "decisions": [
+    {
+      "action": "wrapper_startup",
+      "all": [
+        "wrapperRejected"
+      ]
+    },
+    {
+      "action": "console",
+      "all": [
+        "pythonConsole"
+      ]
+    },
+    {
+      "action": "jsonl",
+      "all": [
+        "pythonFile"
+      ]
+    },
     {
       "action": "invalid_web",
       "all": [
@@ -2676,10 +2698,15 @@
     ],
     "optionsArgument": "\\s+((?:[^\\s\"]+|\"(?:\\\\.|[^\"\\\\])*\")+)",
     "optionsPart": "[^\\s\"]+|\"((?:\\\\.|[^\"\\\\])*)\"",
-    "execWrapper": "\\bbriefcase-ai\\s+exec(?:\\s+--to(?:=|\\s+)(\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s;|&]+))?\\s+--\\s+(?=node\\s)",
     "loaderFlags": [
       "--loader",
       "--experimental-loader"
+    ],
+    "wrapperCommand": "\\b((?:(?:[A-Z_][A-Z0-9_]*=(?:\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s\"\\x27`;|&]*))[ \\t]+)*)briefcase-ai\\s+exec(?:\\s+--to(?:=|\\s+)(\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s;|&]+))?\\s+--\\s+(?=(?:node|python[23]?)\\s)(node|python[23]?)\\b",
+    "wrapperProtocols": [
+      "http/protobuf",
+      "grpc",
+      "http"
     ]
   },
   "privateJobMarker": {
@@ -2766,7 +2793,7 @@
     },
     "instruction": "Optional confirmation: report only a check you performed for the original decision ID or run-unique marker. Supply both --source and --result, for example --source jsonl --result matched, or pipe the source and result on their own final line after any clarification. See --help for the available choices."
   },
-  "destinationDenied": "\\b(?:i|we|it|they|the (?:job|process|script|application|run|original))\\s+(?:did not|didn.t|does not|doesn.t|was not|wasn.t|never|cannot|could not|couldn.t)\\s+(?:use|choos?e|select|configure|export|launch|run|set|send|inherit|connect)\\w*\\b|\\b(?:did not|didn.t|never|not) (?:use|using|configured for|configured with|selected|choose|send to|export to|set to|the exporter)\\b|\\b(?:uncertain whether|unsure whether|i think|i suspect|maybe|perhaps|might have used|may have used)\\b|\\b(?:exporter|destination|sink|capture|export|protocol)\\s+(?:(?:is|was|had been|has been|remained|stayed)\\s+)?(?:disabled|inactive|switched off|turned off|deactivated|unselected)\\b|\\b(?:disabled|deactivated) (?:the |our |my )?(?:otlp|http|console|memory) exporter\\b",
+  "destinationDenied": "\\b(?:i|we|it|they|the (?:job|process|script|application|run|original))\\s+(?:did not|didn.t|does not|doesn.t|was not|wasn.t|never|cannot|could not|couldn.t)\\s+(?:use|choos?e|select|configure|export|launch|run|set|send|inherit|connect)\\w*\\b|\\b(?:did not|didn.t|never|not) (?:use|using|configured for|configured with|selected|choose|send to|export to|set to|the exporter)\\b|\\b(?:uncertain whether|unsure whether|(?:i|we) (?:think|suspect|guess|bet|assume)|maybe|perhaps|might have used|may have used)\\b|\\b(?:exporter|destination|sink|capture|export|protocol)\\s+(?:(?:is|was|had been|has been|remained|stayed)\\s+)?(?:disabled|inactive|switched off|turned off|deactivated|unselected)\\b|\\b(?:disabled|deactivated) (?:the |our |my )?(?:otlp|http|console|memory) exporter\\b",
   "shellContinuity": {
     "all": [
       "unchanged|stayed (?:the same|identical)|same (?:shell (?:configuration|settings)|exporter settings|environment|configuration) (?:as|since|through)|(?:no (?:exporter |environment )?changes?|never changed) (?:since|between)",
@@ -2847,10 +2874,10 @@
   "fenceBoundary": "^\\s*(`{3,}|~{3,})([^\\r\\n]*)$",
   "applicationSelection": {
     "before": "\\b(?:before (?:recording|capturing|writing|emitting|creating) (?:the |this |my |our |its )?(?:original )?(?:decision|record)|before (?:the )?capture)\\b",
-    "actor": "\\b(?:application|app|script|program|source|process)\\s+(?:(?:explicitly|actually|then)\\s+)?(?:called|calls|used|uses|selected|set|invoked)\\s+observe\\(",
+    "actor": "\\b(?:application|app|script|program|source|process)\\s+(?:(?:explicitly|actually|then)\\s+)?(?:called|calls|used|uses|selected|set|invoked)\\s+(?:briefcase\\.)?observe\\(",
     "none": "\\b(?:not|never|unknown|unsure|maybe|possibly|might|would|could|example|if|whether|another|different|unrelated)\\b",
     "value": "\\bobserve\\(\\s*(?:\"([^\"\\n]+)\"|'([^'\\n]+)')\\s*(?=,|\\))",
-    "workerActor": "\\b(?:my |our |the )?(?:original |actual )?(?:node )?worker(?: thread)?\\s+(?:(?:explicitly|directly|then)\\s+)?(?:called|calls|used|uses|invoked)\\s+observe\\(",
+    "workerActor": "\\b(?:my |our |the )?(?:original |actual )?(?:node )?worker(?: thread)?\\s+(?:(?:explicitly|directly|then)\\s+)?(?:called|calls|used|uses|invoked)\\s+(?:briefcase\\.)?observe\\(",
     "instance": "\\bobserve\\(\\s*new\\s+([A-Za-z_$][\\w$]*)\\s*\\(\\s*(?:\"([^\"\\n]*)\"|'([^'\\n]*)')?",
     "argument": "\\bobserve\\(\\s*(?!undefined\\s*[,)]|\\s*\\))\\S",
     "constructors": {
@@ -2865,5 +2892,6 @@
   "fenceComment": "^\\s*(?:#(?:\\s|$)|<!--[^\\n]*-->\\s*$)",
   "sensitiveAsideSplit": ",\\s*(?=(?:(?:my|the|our|a)\\s+)?(?:[\\w-]+\\s+){0,3}(?:token|password|credential|secret|api key)\\b)",
   "launchLiteralContext": "(?:\\b(?:BRIEFCASE_AUTO|NODE_OPTIONS|OTEL_EXPORTER_OTLP_(?:TRACES_)?PROTOCOL)\\s*=|(?:--import|--require|-r|--loader|--experimental-loader)(?:\\s+|=))\\s*$",
-  "launchLiteralValue": "^\\s*(?:(?:(?:--[\\w-]+|-r)(?:\\s+|=)[^\\n]*)|0|1|true|false|grpc|http/json|http/protobuf|@briefcase-ai/auto/register(?:\\.js)?)\\s*$"
+  "launchLiteralValue": "^\\s*(?:(?:(?:--[\\w-]+|-r)(?:\\s+|=)[^\\n]*)|0|1|true|false|grpc|http/json|http/protobuf|@briefcase-ai/auto/register(?:\\.js)?)\\s*$",
+  "executionAssertionSubject": "\\b(?:original|actual|target)\\s+(?:(?:node|python|local)\\s+)?(?:run|app(?:lication)?|process|job|invocation|launch|script|worker|program)\\b"
 }

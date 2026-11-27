@@ -98,3 +98,21 @@ def test_loader_thread_and_option_quoting(run_node):
         assert result.returncode == 0 and result.stdout.strip() == active, result.stderr
     rejected = run_node(["-e", "0"], {"BRIEFCASE_AUTO": "1", "NODE_OPTIONS": "--import '" + module + "'"})
     assert rejected.returncode and "ERR_MODULE_NOT_FOUND" in rejected.stderr
+
+
+@pytest.mark.parametrize("protocol,expected", [("http/json", "wrapper_startup"), ("http/protobuf", "otlp")])
+def test_real_wrapper_preflight_before_child_start(protocol, expected):
+    import os
+    import sys
+
+    module = "@briefcase-ai/auto/register"
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("OTEL_", "BRIEFCASE_"))}
+    env["OTEL_EXPORTER_OTLP_PROTOCOL"] = protocol
+    # Preflight runs before the child. A fixed Python child proves whether the wrapper starts it.
+    result = subprocess.run([sys.executable, "-m", "briefcase.cli", "exec", "--to", "otlp", "--",
+                             sys.executable, "-c", "print('child-started')"],
+                            cwd=PACKAGE.parents[1], env=env, capture_output=True, text=True, timeout=20)
+    assert result.returncode == (2 if expected == "wrapper_startup" else 0), result.stderr
+    assert ("child-started" in result.stdout) == (expected == "otlp")
+    launch = f"OTEL_EXPORTER_OTLP_PROTOCOL={protocol} NODE_OPTIONS=--import={module} briefcase-ai exec --to otlp"
+    assert route(TABLE, launch + " -- node app.js")[0] == expected

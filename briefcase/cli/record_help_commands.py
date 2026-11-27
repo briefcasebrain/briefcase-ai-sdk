@@ -215,11 +215,6 @@ def _command_register(inline, match):
 
 def _original_commands(table: Dict[str, Any], text: str) -> str:
     """Keep an original launch and its arguments, without attributing later shell commands to it."""
-    def wrapper(match):
-        destination = "BRIEFCASE_EXPORTER=" + match.group(1) + " " if match.group(1) else ""
-        return "BRIEFCASE_AUTO=1 " + destination
-
-    text = re.sub(table["inlineNode"]["execWrapper"], wrapper, text)
     inherited_register = _shell_matches(table, text)
     lines = []
     fence = ""
@@ -265,10 +260,13 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
             example_next = False
             continue
         if clause.strip():
-            example_next = bool(hypothetical and not launch and clause.rstrip().endswith(":"))
+            example_next = bool(hypothetical and not launch)
         if hypothetical and launch:
             parts[index] = clause[:hypothetical.start()]
         else:
+            wrapper = re.search(table["inlineNode"]["wrapperCommand"], parts[index])
+            if wrapper and re.fullmatch(table["commandContext"], parts[index][:wrapper.start()], re.I):
+                continue
             command = re.search(table["inlineNode"]["command"], parts[index])
             if command and (not re.fullmatch(table["commandContext"], parts[index][:command.start()], re.I)
                             or not (_command_register(table["inlineNode"], command) or inherited_register)):
@@ -294,15 +292,109 @@ def _shell_matches(table: Dict[str, Any], launch: str) -> bool:
     )
 
 
-def _launch_commands(table, source, inherited_register=False):
-    """Accept commands only from evidence already projected to original source roles."""
+def _runtime_names(table, clauses):
+    return {name for name, pattern in table["runtimeSource"].items() for clause in clauses
+            if not re.search(table["runtimeInspection"], clause, re.I)
+            and not re.search(table["runtimeDenied"], clause, re.I)
+            and re.search(pattern, clause, re.I)}
+
+
+def _execution_evidence(table, source, inherited=None):
+    """Resolve launch and explicit application evidence identically for a question or its clarification."""
     inline = table["inlineNode"]
-    return [
-        match for clause in re.split(table["split"], _scoped(table, source), flags=re.I)
-        for match in re.finditer(inline["command"], clause)
-        if (_command_register(inline, match) or inherited_register)
-        and re.fullmatch(table["commandContext"], clause[:match.start()], re.I)
-    ]
+    clauses = re.split(table["split"], _scoped(table, source), flags=re.I)
+    runtime = _runtime_names(table, clauses) & {"Python", "Node"}
+    commands = []
+    wrapper_choices = set()
+    wrapper_facts = set()
+    ambient = (inherited or {}).get("REGISTER_FROM_NODE_OPTIONS")
+    for clause in clauses:
+        wrapper = re.search(inline["wrapperCommand"], clause)
+        if wrapper and re.fullmatch(table["commandContext"], clause[:wrapper.start()], re.I):
+            prefix, destination, child = wrapper.groups()
+            settings = {match.group(1): next((v for v in match.groups()[1:] if v is not None), "")
+                        for match in re.finditer(inline["assignment"], prefix)}
+            settings = {**(inherited or {}), **settings}
+            if destination is not None:
+                settings["BRIEFCASE_EXPORTER"] = destination.strip("\"'")
+            choice = settings.get("BRIEFCASE_EXPORTER", "").strip()
+            endpoint = next((settings[k].strip() for k in inline["endpoints"] if settings.get(k, "").strip()), "")
+            protocol = (settings.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL")
+                        or settings.get("OTEL_EXPORTER_OTLP_PROTOCOL") or "").strip().lower()
+            otlp = choice.lower() in ("otel", "otlp") or (not choice and bool(endpoint))
+            if otlp and ((protocol and protocol not in inline["wrapperProtocols"])
+                         or (endpoint and not _http_destination(endpoint, allow_insecure=True))):
+                wrapper_facts.add("wrapperRejected")
+            direct_url = choice.lower().startswith(("http://", "https://"))
+            if direct_url and not _http_destination(choice, allow_insecure=True):
+                wrapper_facts.add("wrapperRejected")
+            if child.startswith("python"):
+                from briefcase.cli.exec_commands import blocking_python_flags
+
+                args = [part.group(1).strip("\"'") for part in re.finditer(inline["argument"], clause[wrapper.end():])]
+                if blocking_python_flags([child, *args]):
+                    wrapper_facts.add("wrapperRejected")
+                runtime.add("Python")
+                kind = {"console": "pythonConsole", "memory": "inlineMemory"}.get(choice)
+                if otlp:
+                    kind = "inlineOTLP"
+                elif direct_url:
+                    kind = "inlineHTTP" if _http_destination(choice) else "invalidPythonWeb"
+                elif choice.endswith(".jsonl"):
+                    kind = "pythonFile"
+                wrapper_choices.add((kind or "inlineUnknown", choice if kind == "pythonFile" else None))
+                continue
+            runtime.add("Node")
+            assigned = "BRIEFCASE_EXPORTER=" + destination + " " if destination else ""
+            clause = prefix + "BRIEFCASE_AUTO=1 " + assigned + child + clause[wrapper.end():]
+        for match in re.finditer(inline["command"], clause):
+            if (_command_register(inline, match) or ambient) and re.fullmatch(
+                table["commandContext"], clause[:match.start()], re.I
+            ):
+                commands.append(match)
+    selection = table["applicationSelection"]
+    choices: Set[Tuple[str, Optional[str]]] = set()
+    for clause in clauses:
+        worker_call = re.search(selection["workerActor"], clause, re.I)
+        before_capture = re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
+        assertion = re.sub(table["quoteSpans"], " ", clause)
+        if (worker_call or before_capture) and not re.search(selection["none"], assertion, re.I):
+            literal = re.search(selection["value"], clause, re.I)
+            instance = re.search(selection["instance"], clause, re.I)
+            path = None
+            if literal:
+                value = next(x for x in literal.groups() if x is not None)
+                kind = {"memory": "inlineMemory", "console": "inlineConsole"}.get(value, "inlineUnknown")
+                if value.endswith(".jsonl") and "://" not in value:
+                    kind, path = "inlineFile", value
+                elif value.lower().startswith(("http://", "https://")):
+                    python = runtime == {"Python"}
+                    python_valid = _http_destination(value)
+                    node_valid = _node_endpoint(value, allow_insecure=False)
+                    if len(runtime) != 1 and python_valid != node_valid:
+                        kind = "inlineUnknown"
+                    else:
+                        accepted = python_valid if python else node_valid
+                        kind = "inlineHTTP" if accepted else ("invalidPythonWeb" if python else "inlineStartup")
+                if runtime == {"Python"}:
+                    kind = {"inlineConsole": "pythonConsole", "inlineFile": "pythonFile"}.get(kind, kind)
+            elif instance:
+                kind = selection["constructors"].get(instance.group(1), "unknownWorkerExporter")
+                value = next((part for part in instance.groups()[1:] if part is not None), None)
+                if kind == "inlineFile":
+                    path = value
+                elif kind in ("inlineHTTP", "inlineOTLP") and value is None:
+                    kind = "inlineStartup" if clause[instance.end():].lstrip().startswith(")") else "inlineUnknown"
+                elif kind in ("inlineHTTP", "inlineOTLP") and value is not None:
+                    insecure = re.search(selection["insecureOption"], clause[instance.end():])
+                    if not _node_endpoint(value, allow_insecure=bool(insecure)):
+                        kind = "inlineStartup"
+            elif worker_call and re.search(selection["argument"], clause, re.I):
+                kind = "unknownWorkerExporter"
+            else:
+                continue
+            choices.add((kind, path))
+    return commands, choices or wrapper_choices, wrapper_facts
 
 
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
@@ -384,7 +476,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             previous_read = file_read
     inline_path = None
     inline = table["inlineNode"]
-    commands = _launch_commands(table, source_question, (inherited or {}).get("REGISTER_FROM_NODE_OPTIONS"))
+    commands, choices, wrapper_facts = _execution_evidence(table, source_question, inherited)
+    facts.update(wrapper_facts)
     selected = None
     inherited_preload = inherited is not None and bool(re.search(inline["preloadSource"], evidence, re.I))
     if len(commands) == 1 or (not commands and inherited_preload):
@@ -405,6 +498,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         if inherited is not None:
             settings = {**inherited, **settings}
         launch_kind = _command_register(inline, commands[0]) if commands else ""
+        option_known = "REGISTER_FROM_NODE_OPTIONS" in settings
         option_kind = settings.pop("REGISTER_FROM_NODE_OPTIONS", "")
         if "loader" in (launch_kind, option_kind) and not ({launch_kind, option_kind} & {"argv", "register"}):
             facts.add("loaderOnly")
@@ -413,6 +507,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         explicit_preload = launch_kind == "argv" or re.search(inline["explicitPreload"], evidence, re.I)
         from_options = not explicit_preload and (option_kind == "register"
                                                  or re.search(inline["nodeOptionsOnly"], evidence, re.I))
+        if commands and not explicit_preload and option_known and not option_kind:
+            settings["BRIEFCASE_AUTO"] = "0"
         if from_options and settings.get("BRIEFCASE_AUTO", "").lower() not in ("1", "true"):
             settings["BRIEFCASE_AUTO"] = "0"
         choice = settings.get("BRIEFCASE_EXPORTER", "")
@@ -441,39 +537,6 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     if inherited_preload and re.search(r"\bworker thread\b", evidence, re.I):
         if not facts.intersection(("workerForward", "workerCreatedFirst")):
             facts.add("workerUnknown")
-    selection = table["applicationSelection"]
-    choices: Set[Tuple[str, Optional[str]]] = set()
-    for clause in re.split(table["split"], _scoped(table, source_question), flags=re.I):
-        worker_call = re.search(selection["workerActor"], clause, re.I)
-        before_capture = re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
-        assertion = re.sub(table["quoteSpans"], " ", clause)
-        if (worker_call or before_capture) and not re.search(selection["none"], assertion, re.I):
-            literal = re.search(selection["value"], clause, re.I)
-            instance = re.search(selection["instance"], clause, re.I)
-            path = None
-            if literal:
-                value = next(x for x in literal.groups() if x is not None)
-                kind = {"memory": "inlineMemory", "console": "inlineConsole"}.get(value, "inlineUnknown")
-                if value.endswith(".jsonl") and "://" not in value:
-                    kind, path = "inlineFile", value
-                elif value.lower().startswith(("http://", "https://")):
-                    python = re.search(table["runtimeSource"]["Python"], clause, re.I)
-                    accepted = _http_destination(value) if python else _node_endpoint(value, allow_insecure=False)
-                    kind = "inlineHTTP" if accepted else ("invalidPythonWeb" if python else "inlineStartup")
-            elif instance:
-                kind = selection["constructors"].get(instance.group(1), "unknownWorkerExporter")
-                value = next((part for part in instance.groups()[1:] if part is not None), None)
-                if kind == "inlineFile":
-                    path = value
-                elif kind in ("inlineHTTP", "inlineOTLP") and value is not None:
-                    insecure = re.search(selection["insecureOption"], clause[instance.end():])
-                    if not _node_endpoint(value, allow_insecure=bool(insecure)):
-                        kind = "inlineStartup"
-            elif worker_call and re.search(selection["argument"], clause, re.I):
-                kind = "unknownWorkerExporter"
-            else:
-                continue
-            choices.add((kind, path))
     if choices:
         facts.discard("loaderOnly")
         facts.difference_update(("workerUnknown", "workerForward"))
@@ -520,8 +583,15 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         )
         launch_input = re.sub(table["sensitiveInput"]["credentialBinding"], " ", answer, flags=re.I)
         launch_reply = _original_commands(table, _source_text(table, launch_input))
-        launches = _launch_commands(table, launch_reply) if key in ("ask_exporter", "ask_protocol") else []
-        safe_launch = len(launches) == 1
+        launches, calls, preflight = _execution_evidence(table, launch_reply, inherited)
+        asserted = any(
+            re.search(table["executionAssertionSubject"], clause, re.I)
+            and not _collect_facts(table, clause).isdisjoint(("console", "memory", "http", "otlp",
+                                                              "rejectedWeb", "explicitWeb"))
+            for clause in re.split(table["split"], _scoped(table, preprocess(launch_reply)), flags=re.I)
+        )
+        safe_launch = (key in ("ask_exporter", "ask_protocol") and
+                       (len(launches) == 1 or bool(calls or preflight) or (asserted and not safe_choice)))
         unsafe_reply = ((_sensitive(table, question) and not (safe_choice or safe_path or safe_launch))
                         or any(value in reply_source for value in raw_private))
         if safe_launch and not unsafe_reply:
@@ -766,11 +836,7 @@ def _guide_session(args) -> int:
         print(table["guide"])
         return 0
     launch = _scoped(table, _original_commands(table, _source_text(table, question)))
-    launch_clauses = [clause for clause in re.split(table["split"], launch, flags=re.I)
-                      if not (re.search(table["runtimeInspection"], clause, re.I)
-                              or re.search(table["runtimeDenied"], clause, re.I))]
-    runtime = " ".join(name for name, pattern in table["runtimeSource"].items()
-                       if any(re.search(pattern, clause, re.I) for clause in launch_clauses))
+    runtime = " ".join(_runtime_names(table, re.split(table["split"], launch, flags=re.I)))
     shell = _shell_exporter(runtime) if _shell_matches(table, launch) else None
     inherited = None
     if shell is not None:
@@ -785,7 +851,7 @@ def _guide_session(args) -> int:
         for key in ("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"):
             protocol = os.environ.get(key, "")
             if protocol:
-                inherited[key] = "grpc" if protocol.strip().lower() == "grpc" else "http/json"
+                inherited[key] = protocol.strip().lower() or "unspecified"
         for key in table["inlineNode"]["endpoints"]:
             if os.environ.get(key):
                 inherited[key] = os.environ[key]

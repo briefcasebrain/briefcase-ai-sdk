@@ -190,3 +190,16 @@ def test_current_shell_register_applies_command_overrides(assignment, expected, 
     question = "The original Node preload inherited the unchanged settings from this shell. "
     assert main(["record-help", question + assignment + " node app.js"]) == 0
     assert expected in capsys.readouterr().out
+
+
+def test_inline_empty_options_remove_inherited_register(monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    monkeypatch.setenv("BRIEFCASE_AUTO", "1")
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "console")
+    monkeypatch.setenv("NODE_OPTIONS", "--import=@briefcase-ai/auto/register")
+    question = "The original Node preload inherited the unchanged settings from this shell. "
+    assert main(["record-help", question + 'NODE_OPTIONS="" BRIEFCASE_EXPORTER=memory node app.js']) == 0
+    assert "disabled Node preload" in capsys.readouterr().out

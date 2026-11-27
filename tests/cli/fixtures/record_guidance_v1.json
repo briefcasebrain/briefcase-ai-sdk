@@ -5644,5 +5644,319 @@
     "includes": [
       "startup diagnostic"
     ]
+  },
+  {
+    "name": "Docs heading with full stop as question",
+    "question": "The docs show this command.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Docs heading with full stop as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "static"
+    ],
+    "answer": "The docs show this command.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Affirmative application console as question",
+    "question": "Before recording the decision, the original Node application called observe(\"console\").",
+    "expected": "node_console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Affirmative application console as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "node_console",
+    "includes": [
+      "retained stderr"
+    ],
+    "answer": "Before recording the decision, the original Node application called observe(\"console\")."
+  },
+  {
+    "name": "Python wrapper on command line as question",
+    "question": "briefcase-ai exec --to memory -- python app.py",
+    "expected": "memory_only",
+    "includes": [
+      "memory exporter"
+    ]
+  },
+  {
+    "name": "Python wrapper on command line as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "memory exporter"
+    ],
+    "answer": "briefcase-ai exec --to memory -- python app.py"
+  },
+  {
+    "name": "Qualified Python override as question",
+    "question": "BRIEFCASE_EXPORTER=memory briefcase-ai exec -- python app.py. Before recording the decision, the original Python application called briefcase.observe(\"console\").",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Qualified Python override as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "answer": "BRIEFCASE_EXPORTER=memory briefcase-ai exec -- python app.py. Before recording the decision, the original Python application called briefcase.observe(\"console\")."
+  },
+  {
+    "name": "Previous clause Python rejects short loopback as question",
+    "question": "My original Python job used the SDK. Before recording the decision, the application called observe(\"http://127.1/events\").",
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ]
+  },
+  {
+    "name": "Previous clause Python rejects short loopback as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ],
+    "answer": "My original Python job used the SDK. Before recording the decision, the application called observe(\"http://127.1/events\")."
+  },
+  {
+    "name": "Previous clause Python accepts numeric domain as question",
+    "question": "My original Python job used the SDK. Before recording the decision, the application called observe(\"https://999.999.999.999./events\").",
+    "expected": "receiver",
+    "includes": [
+      "HTTP receiver"
+    ]
+  },
+  {
+    "name": "Previous clause Python accepts numeric domain as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "receiver",
+    "includes": [
+      "HTTP receiver"
+    ],
+    "answer": "My original Python job used the SDK. Before recording the decision, the application called observe(\"https://999.999.999.999./events\")."
+  },
+  {
+    "name": "Wrapper rejects unsupported OTLP encoding as question",
+    "question": "OTEL_EXPORTER_OTLP_PROTOCOL=http/json NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec --to otlp -- node app.js",
+    "expected": "wrapper_startup",
+    "includes": [
+      "preflight diagnostic"
+    ]
+  },
+  {
+    "name": "Wrapper rejects unsupported OTLP encoding as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "preflight diagnostic"
+    ],
+    "answer": "OTEL_EXPORTER_OTLP_PROTOCOL=http/json NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec --to otlp -- node app.js"
+  },
+  {
+    "name": "Missing explicit HTTP constructor value as question",
+    "question": "Before recording the decision, the original Node application called observe(new HttpExporter()).",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Missing explicit HTTP constructor value as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ],
+    "answer": "Before recording the decision, the original Node application called observe(new HttpExporter())."
+  },
+  {
+    "name": "Wrapper permits standard OTLP encoding as question",
+    "question": "OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec --to otlp -- node app.js",
+    "expected": "otlp",
+    "includes": [
+      "OTLP"
+    ]
+  },
+  {
+    "name": "Wrapper permits standard OTLP encoding as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "otlp",
+    "includes": [
+      "OTLP"
+    ],
+    "answer": "OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec --to otlp -- node app.js"
+  },
+  {
+    "name": "Wrapper ignores OTLP protocol for selected memory destination as question",
+    "question": "OTEL_EXPORTER_OTLP_PROTOCOL=http/json NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec --to memory -- node app.js",
+    "expected": "memory_only",
+    "includes": [
+      "memory exporter"
+    ]
+  },
+  {
+    "name": "Wrapper ignores OTLP protocol for selected memory destination as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "memory exporter"
+    ],
+    "answer": "OTEL_EXPORTER_OTLP_PROTOCOL=http/json NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec --to memory -- node app.js"
+  },
+  {
+    "name": "Python isolation blocks wrapper as question",
+    "question": "briefcase-ai exec --to memory -- python -I app.py",
+    "expected": "wrapper_startup",
+    "includes": [
+      "preflight diagnostic"
+    ]
+  },
+  {
+    "name": "Python isolation blocks wrapper as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "preflight diagnostic"
+    ],
+    "answer": "briefcase-ai exec --to memory -- python -I app.py"
+  },
+  {
+    "name": "Malformed URL blocks wrapper as question",
+    "question": "NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec --to https://host.invalid:70000 -- node app.js",
+    "expected": "wrapper_startup",
+    "includes": [
+      "preflight diagnostic"
+    ]
+  },
+  {
+    "name": "Malformed URL blocks wrapper as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "preflight diagnostic"
+    ],
+    "answer": "NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec --to https://host.invalid:70000 -- node app.js"
+  },
+  {
+    "name": "Source engine needed for conflicting URL behavior as question",
+    "question": "Before recording the decision, the application called observe(\"http://127.1/events\").",
+    "expected": "check_launch",
+    "includes": [
+      "original"
+    ]
+  },
+  {
+    "name": "Source engine needed for conflicting URL behavior as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "original"
+    ],
+    "answer": "Before recording the decision, the application called observe(\"http://127.1/events\")."
+  },
+  {
+    "name": "Declared Node endpoint rejected as evidence reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ],
+    "answer": "My original Node job called observe(\"http://receiver.example/decisions\")."
+  },
+  {
+    "name": "Unasserted command source For example: as evidence reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "answer": "My original run used the console exporter. For example: BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Unasserted command source The docs show this command: as evidence reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "answer": "My original run used the console exporter. The docs show this command: BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Independent example on next line Example command: as evidence reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "answer": "My original run used the console exporter. Example command:\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Fenced command in example sh as evidence reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "answer": "My original run used the console exporter. For example:\n```sh\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js\n```"
+  },
+  {
+    "name": "Direct Node initialization rejects malformed IPv4 as evidence reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ],
+    "answer": "My original Node job called observe(\"https://999.999.999.999\")."
+  },
+  {
+    "name": "Fence retains heading across non-content 0 as evidence reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "Search the collector"
+    ],
+    "answer": "My original run used the console exporter. For example:\n\n```sh\n# test launch\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js\n```"
+  },
+  {
+    "name": "Direct Node host removes trailing root dot as evidence reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ],
+    "answer": "My original Node job called observe(\"https://999.999.999.999./events\")."
+  },
+  {
+    "name": "Qualified original exporter speculation bet",
+    "question": "Which exporter did my original process use?",
+    "answer": "I bet my original run used the console exporter.",
+    "expected": "fallback",
+    "includes": [
+      "static guide"
+    ]
+  },
+  {
+    "name": "Qualified original exporter speculation guess",
+    "question": "Which exporter did my original process use?",
+    "answer": "I guess my original run used the console exporter.",
+    "expected": "fallback",
+    "includes": [
+      "static guide"
+    ]
   }
 ]

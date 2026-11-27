@@ -403,3 +403,17 @@ def test_only_runtime_options_activate_the_original_preload(arguments, expected)
     from briefcase.cli.record_help_commands import _node_register
 
     assert (_node_register(TABLE["inlineNode"], " " + arguments) == "register") is expected
+
+
+@pytest.mark.parametrize("case", [
+    case for case in CASES if not any(key in case for key in ("answer", "shell", "confirmation"))
+    and ("node " in case["question"] or "exec --" in case["question"] or "called observe(" in case["question"])
+    and case["expected"] in {"node_startup", "preload_startup", "wrapper_startup", "console", "node_console",
+                             "node_file", "memory_only", "inactive_preload", "otlp", "receiver", "invalid_web"}
+    and ("--import" in case["question"] or "--require" in case["question"]
+         or "called observe(" in case["question"] or "exec --" in case["question"])
+], ids=lambda c: c["name"])
+def test_original_execution_evidence_is_position_independent(case):
+    original = case["question"]
+    actual = route(TABLE, "Which exporter did my original process use?", answer=original)
+    assert actual == route(TABLE, original)
