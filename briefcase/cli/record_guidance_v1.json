@@ -1,0 +1,404 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "fresh",
+      "all": [
+        "^Original correlation:",
+        "(?:no|without|lost|missing|don.t have|do not have|didn.t (?:save|keep)|cannot recover) (?:the |an? |my |any )?(?:original |unique |decision |correlation |run )*(?:id\\b|identifier|marker|correlation|token)|nothing (?:unique|identifying) survives"
+      ]
+    },
+    {
+      "action": "jsonl",
+      "all": [
+        "^Original correlation: \\S",
+        "[^\\s\"\\x27`<>]+\\.jsonl\\b"
+      ]
+    },
+    {
+      "action": "jsonl",
+      "all": [
+        "^Original correlation: \\S",
+        "file|jsonl|ticket|duplicate"
+      ]
+    },
+    {
+      "action": "node_file",
+      "all": [
+        "^Original path: [^\\n]*\\.jsonl\\b",
+        "\\bnode\\b|preload|fake.provider"
+      ]
+    },
+    {
+      "action": "jsonl",
+      "all": [
+        "^Original path: [^\\n]*\\.jsonl\\b"
+      ]
+    },
+    {
+      "action": "fallback",
+      "all": [
+        "^Original path:"
+      ]
+    },
+    {
+      "action": "memory",
+      "all": [
+        "^Original program: [^\\n]*(?:first_decision\\.py|quickstart|memory)"
+      ]
+    },
+    {
+      "action": "console",
+      "all": [
+        "^Original program: [^\\n]*(?:console|stderr)"
+      ]
+    },
+    {
+      "action": "hosted",
+      "all": [
+        "^Original artifact: [^\\n]*(?:hosted|dashboard|submitted)"
+      ]
+    },
+    {
+      "action": "reply",
+      "all": [
+        "^Original artifact: [^\\n]*(?:reply|words|text|stdout)"
+      ]
+    },
+    {
+      "action": "node_console",
+      "all": [
+        "^Original artifact: [^\\n]*(?:metadata|local|decision)",
+        "\\bnode\\b|preload|fake.provider",
+        "console|stderr"
+      ]
+    },
+    {
+      "action": "fresh",
+      "all": [
+        "(?:no|without|lost|missing|don.t have|do not have|didn.t (?:save|keep)|cannot recover) (?:the |an? |my |any )?(?:original |unique |decision |correlation |run )*(?:id\\b|identifier|marker|correlation|token)|nothing (?:unique|identifying) survives",
+        "file|jsonl|ticket|duplicat|identical"
+      ]
+    },
+    {
+      "action": "ask_id",
+      "all": [
+        "duplicat|(?:identical|repeated|same) (?:ticket|input)|(?:ticket|input) (?:is |was )?(?:identical|repeated)|multiple (?:decisions|matches|rows)|two .*same"
+      ],
+      "none": [
+        "^Original correlation:"
+      ]
+    },
+    {
+      "action": "ask_program",
+      "all": [
+        "only one ran|which (?:python )?(?:script|program) (?:ran|was)|(?:unsure|unknown|unclear|don.t know).*(?:which|whether).*(?:script|quickstart)|either .*quickstart|might have run .*quickstart"
+      ],
+      "none": [
+        "^Original program:"
+      ]
+    },
+    {
+      "action": "ask_subject",
+      "all": [
+        "could (?:be|mean)|whether .*hosted|local or hosted|hosted or local|reply or (?:the )?(?:record|decision)|(?:local|sdk) decision or .*hosted"
+      ],
+      "none": [
+        "^Original artifact:"
+      ]
+    },
+    {
+      "action": "hosted",
+      "all": [
+        "hosted (?:dashboard|run|submission)|dashboard run|submitted (?:job|run)|run submit|workspace .*run id"
+      ],
+      "none": [
+        "^Original artifact: .*local"
+      ]
+    },
+    {
+      "action": "memory_lost",
+      "all": [
+        "quickstart|memory",
+        "no (?:saved|retained) (?:stdout|output)|(?:lost|discarded) (?:the )?(?:stdout|output)|stdout .*lost"
+      ]
+    },
+    {
+      "action": "future",
+      "all": [
+        "next (?:run|ticket|decision)|survive a restart|future (?:run|decision)",
+        "memory|quickstart"
+      ]
+    },
+    {
+      "action": "reply",
+      "all": [
+        "(?:want|need|looking for|where.{0,10})[^.\\n]*(?:application (?:reply|text)|app.s reply|text shown to the application|(?:actual|printed|provider) reply)|words returned to the caller"
+      ]
+    },
+    {
+      "action": "stored",
+      "all": [
+        "(?:archive|storage|downstream|database|store)[^.\\n]*(?:returned|found|contains|retrieved|matched)[^.\\n]*(?:matching|original|same (?:id|decision)|exact)|(?:matching|matched) (?:decision|row|record|span) (?:in|from) (?:the )?(?:store|archive|database|storage)"
+      ],
+      "none": [
+        "(?:not|never|no|without) (?:yet )?(?:returned|found|matching|matched)|(?:no|zero) match|different id"
+      ]
+    },
+    {
+      "action": "storage",
+      "all": [
+        "(?:receiver|collector)[^.\\n]*(?:log contains|matching (?:entry|span|id)|received [^.\\n]*original|captured [^.\\n]*original)|matching (?:receiver|collector) (?:entry|span|log)|(?:receiver|collector) (?:received|logged|shows|contains) (?:the |my )?(?:same|original|matching)"
+      ],
+      "none": [
+        "no matching|only .*different|prior decision|(?:no|never|without) (?:a )?matching|(?:does not|doesn.t) (?:contain|show)"
+      ]
+    },
+    {
+      "action": "ask_exporter",
+      "all": [
+        "(?:current|today.s) shell|shell (?:now|today)|terminal (?:currently |now )?(?:lists|shows)|BRIEFCASE_EXPORTER="
+      ],
+      "none": [
+        "Inherited exporter:|^Launch exporter:|explicit|observe\\(\\s*[\"\\x27]|(?:source|code) (?:uses|sets|selects)|(?:launch|original) shell set"
+      ]
+    },
+    {
+      "action": "memory",
+      "all": [
+        "python quickstart|verbatim .*quickstart|observe\\(\\s*[\"\\x27]memory|memory exporter|explicit memory"
+      ],
+      "none": [
+        "^(?:Launch exporter|Original program):"
+      ]
+    },
+    {
+      "action": "node_file",
+      "all": [
+        "\\bnode\\b|preload|fake.provider",
+        "[^\\s\"\\x27`<>]+\\.jsonl\\b"
+      ]
+    },
+    {
+      "action": "jsonl",
+      "all": [
+        "[^\\s\"\\x27`<>]+\\.jsonl\\b"
+      ]
+    },
+    {
+      "action": "ask_path",
+      "all": [
+        "jsonl|which file|file exporter"
+      ]
+    },
+    {
+      "action": "otlp",
+      "all": [
+        "\\botlp\\b|briefcase\\.decision spans"
+      ]
+    },
+    {
+      "action": "receiver",
+      "all": [
+        "\\bhttp\\b|received batch|https?://"
+      ]
+    },
+    {
+      "action": "endpoint",
+      "all": [
+        "(?:collector|receiver) (?:url|endpoint)|configured (?:the |a )?(?:endpoint|collector)"
+      ]
+    },
+    {
+      "action": "ask_protocol",
+      "all": [
+        "collector|receiver|remote exporter"
+      ]
+    },
+    {
+      "action": "ask_exporter",
+      "all": [
+        "\\bnode\\b|preload|fake.provider",
+        "inherit|shell settings"
+      ],
+      "none": [
+        "^Launch exporter:|Inherited exporter:"
+      ]
+    },
+    {
+      "action": "node_console",
+      "all": [
+        "\\bnode\\b|preload|fake.provider",
+        "token|decision type|empty (?:inputs|maps)|metadata|usage count",
+        "console|stderr"
+      ]
+    },
+    {
+      "action": "memory",
+      "all": [
+        "Inherited exporter: memory|^Launch exporter: [^\\n]*memory"
+      ]
+    },
+    {
+      "action": "console",
+      "all": [
+        "Inherited exporter: console|(?:console (?:destination|exporter)|(?:^Launch exporter: .*console)|observe\\(\\s*[\"\\x27]console|console at launch|console.*2>)"
+      ],
+      "none": [
+        "could (?:be|mean)|whether .*hosted|local or hosted|hosted or local|reply or (?:the )?(?:record|decision)|(?:local|sdk) decision or .*hosted"
+      ]
+    },
+    {
+      "action": "ask_exporter",
+      "all": [
+        "which (?:stream|log)|exporter|destination|launcher|which file|local decision|decision json"
+      ]
+    },
+    {
+      "action": "ask_subject",
+      "all": [
+        "."
+      ]
+    }
+  ],
+  "actions": {
+    "fresh": {
+      "kind": "action",
+      "text": "The original run cannot be singled out from the surviving evidence. For a new test, use the complete JSONL example in the static guide. Give the new run a unique marker, exit, then open the file in another process and match that marker. This verifies only the new run."
+    },
+    "memory_lost": {
+      "kind": "action",
+      "text": "The in-memory decision ended with the process. Its printed copy would be in retained stdout. With no retained output, the original remains unknown. For a new test, use the complete JSONL example in the static guide. Give the new run a unique marker, exit, then open the file in another process and match that marker. This verifies only the new run."
+    },
+    "future": {
+      "kind": "action",
+      "text": "For a new test, use the complete JSONL example in the static guide. Give the new run a unique marker, exit, then open the file in another process and match that marker. This verifies only the new run."
+    },
+    "jsonl": {
+      "kind": "action",
+      "text": "Open {path} in a second process, resolving a relative path from the original working directory. Search all rows for {correlation}. One matching decision verifies that record reached the file. Older rows, multiple matches, or unreadable lines leave the original unverified."
+    },
+    "memory": {
+      "kind": "action",
+      "text": "Inspect {stdout} for the Python quickstart’s printed decision and match the original ID or unique marker. Its in-memory list ended when the process exited."
+    },
+    "console": {
+      "kind": "action",
+      "text": "Inspect {stderr} for the console exporter’s decision JSON. Match the original ID or unique marker to verify a retained copy."
+    },
+    "reply": {
+      "kind": "action",
+      "text": "Inspect {stdout} from the application for the printed reply. The decision metadata is a separate artifact."
+    },
+    "node_console": {
+      "kind": "action",
+      "text": "Inspect {stderr} for decision_type and token_usage.total_tokens in the JSON decision. The demo prints its reply to stdout. Default Node capture omits prompt and reply content from inputs and outputs."
+    },
+    "node_file": {
+      "kind": "action",
+      "text": "Open {path} from the launch directory and match the original decision ID or unique marker. Inspect decision_type and token_usage.total_tokens in the matching row. The demo prints its application reply to stdout."
+    },
+    "hosted": {
+      "kind": "action",
+      "text": "Open the workspace and agent that received the submission. Match {correlation} against the hosted run ID in the run details."
+    },
+    "receiver": {
+      "kind": "action",
+      "text": "Search the HTTP receiver’s received batch contents for {correlation}. A matching entry verifies receipt. A URL, status code, or a different ID leaves receipt unconfirmed. Verify storage separately by querying the downstream store for the same ID."
+    },
+    "otlp": {
+      "kind": "action",
+      "text": "Search the collector’s received briefcase.decision spans for {correlation}. A matching span proves collector receipt. Query downstream storage for the same correlation to verify persistence."
+    },
+    "endpoint": {
+      "kind": "action",
+      "text": "Search the receiver’s log or received spans for {correlation}. A configured endpoint leaves receipt unknown. Verify storage with a separate downstream query for the same ID."
+    },
+    "storage": {
+      "kind": "action",
+      "text": "Query downstream storage for {correlation} and inspect the matching record. A matching receiver entry establishes receipt. Only a matching downstream result verifies storage."
+    },
+    "stored": {
+      "kind": "action",
+      "text": "Inspect the matching downstream query result and compare {correlation} to the original. If they match, the returned decision verifies storage at the time of the query."
+    },
+    "ask_path": {
+      "kind": "ask",
+      "text": "What JSONL path did the original process use? Enter the path from its launch configuration.",
+      "replyPrefix": "Original path: "
+    },
+    "ask_id": {
+      "kind": "ask",
+      "text": "What original decision ID or marker unique to this invocation do you have? Identical ticket text cannot distinguish the runs.",
+      "replyPrefix": "Original correlation: "
+    },
+    "ask_program": {
+      "kind": "ask",
+      "text": "Which script or launch command actually ran: the Python quickstart with observe(\"memory\"), or the script using the console exporter?",
+      "replyPrefix": "Original program: "
+    },
+    "ask_subject": {
+      "kind": "ask",
+      "text": "Which artifact do you want: the application reply, a local SDK decision, or a hosted dashboard run?",
+      "replyPrefix": "Original artifact: "
+    },
+    "ask_exporter": {
+      "kind": "ask",
+      "text": "Which exporter did the original process use? Check the launch configuration and any explicit in-code exporter. For a file, give the original path. The current shell alone is a clue.",
+      "replyPrefix": "Launch exporter: "
+    },
+    "ask_protocol": {
+      "kind": "ask",
+      "text": "Did the original process send JSON over HTTP or export OTLP spans? Check its launch configuration.",
+      "replyPrefix": "Launch exporter: "
+    },
+    "fallback": {
+      "kind": "fallback",
+      "text": "Use the static guide below to check the original launch command, retained output, or known destination. The original remains unidentified until evidence matches it."
+    }
+  },
+  "extract": {
+    "path": [
+      "^Original path: (?:[\"\\x27\\x60])?((?:[a-z]:)?[./~][^\\n]*?\\.jsonl)\\b",
+      "^Original path: [^\\n]*?([^\\s=\"\\x27\\x60]+\\.jsonl)\\b",
+      "(?:explicit(?:ly)? (?:selects? |sets? |uses? )?|observe\\(\\s*[\"\\x27]|export(?:ed)? to |file export to )([^\\s\"\\x27`<>]+\\.jsonl)\\b",
+      "([^\\s=\"\\x27`<>]+\\.jsonl)\\b"
+    ],
+    "correlation": [
+      "^Original correlation: ([^\\s.,]+)(?:\\n|$)",
+      "^Original correlation: [^\\n]*?\\b([\\w:-]*\\d[\\w:-]*)\\b",
+      "^Original correlation: ([^\\n]+)",
+      "(?:original )?(?:decision id|run id|trace id|token|ticket|correlation|marker)\\s*(?:[:=]\\s*|is (?:unique, )?|#)?([\\w.:-]*\\d[\\w:-]*)\\b",
+      "\\b([a-z]+-\\d+)\\b"
+    ],
+    "stderr": [
+      "2>\\s*([^\\s;]+)",
+      "(?:stderr (?:was )?(?:archived|saved|redirected|retained) (?:in|to|as) )([^\\s;]+\\.(?:log|err|txt))",
+      "\\b([^\\s;]+\\.err)\\b"
+    ],
+    "stdout": [
+      "(?:^|\\s)1?>\\s*([^\\s;]+)",
+      "(?:stdout (?:was )?(?:archived |saved |retained )?(?:in|to|as) )([^\\s;]+\\.(?:log|out|txt))",
+      "\\b([^\\s;]+\\.out)\\b"
+    ]
+  },
+  "defaults": {
+    "path": "the original JSONL path",
+    "correlation": "the original ID or unique marker",
+    "stdout": "retained stdout",
+    "stderr": "retained stderr"
+  },
+  "unknown": "^(?:unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
+  "fallback": "fallback",
+  "defaultAction": "ask_subject",
+  "guide": "Find the original record\n\nStart with the original decision ID or a value unique to that invocation. If several runs reused a ticket, obtain the original ID from a launch log or retained output. The ticket alone cannot identify the original.\n\nWhich Python script ran? The Python quickstart uses memory and prints its decision to stdout. After exit, check retained stdout. The console exporter writes decision JSON to stderr. For a redirected stream, inspect the file named by the original launch command.\n\nWhich output do you want? The Node demo prints the app reply to stdout. Its console decision on stderr contains decision_type and token_usage.total_tokens. An explicitly selected or inherited JSONL exporter sends that metadata to its file. For a hosted submission, match its run ID in the receiving workspace and agent.\n\nCheck the original exporter and working directory. An explicit in-code exporter takes precedence over an inherited default. For JSONL, reopen the file in a separate process and inspect every row for the original ID or unique marker. Zero matches, multiple matches or unreadable lines leave attribution unresolved.\n\nFor HTTP, find the original ID in a received batch. For OTLP, find its briefcase.decision span using the original trace correlation. A URL or HTTP status leaves receipt unverified. A matching receiver entry proves receipt. Query downstream storage separately for that same ID.\n\nVerify a new local run with these two Python commands from the same directory. The first prints the synthetic marker. Paste it when the second asks. A unique match proves only the new run.\n\npython -c 'import uuid, briefcase; marker=str(uuid.uuid4()); briefcase.observe(\"record-check.jsonl\"); briefcase.capture(lambda ticket: \"ok\")(marker); print(marker)'\n\npython -c 'import json; marker=input(\"New marker: \").strip(); rows=[json.loads(line) for line in open(\"record-check.jsonl\", encoding=\"utf-8\")]; hits=[r for r in rows if marker and r.get(\"inputs\", {}).get(\"args\") == repr((marker,))]; print(\"Matches:\", len(hits), [r.get(\"decision_id\") for r in hits])'",
+  "shell": {
+    "all": [
+      "inherit|unchanged|stayed identical|same (?:shell|settings|environment)",
+      "default exporter|default configuration|environment.driven|observe\\(\\)|inherited .*settings|used .*exporter configuration|used .*shell|used .*default|inherit.*default"
+    ],
+    "none": [
+      "explicit|observe\\(\\s*[\"\\x27]|(?:not|never|didn.t|unknown|unsure|uncertain|don.t know|can.t confirm|whether|if) [^.\\n]{0,55}(?:inherit|unchanged|same shell)|(?:inheritance|inherit\\w*|shell settings) (?:is |was )?(?:unknown|unclear|unconfirmed)"
+    ]
+  }
+}

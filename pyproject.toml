@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "briefcase-ai"
-version = "5.0.0"
+version = "5.1.0"
 description = "Compliance monitoring, auditing, and evaluating third-party artificial intelligence systems and models."
 readme = "README.md"
 license = "Apache-2.0"
@@ -246,6 +246,7 @@ python-packages = ["briefcase_entry"]
 # listed here, so they MUST be enumerated explicitly (a missing entry silently drops them from the
 # wheel — see check_imports.py).
 include = [
+    "briefcase/cli/record_guidance_v1.json",
     "briefcase/connect/conformance.json",
     "briefcase/connect/conformance-report.json",
     "briefcase/_features/*.json",

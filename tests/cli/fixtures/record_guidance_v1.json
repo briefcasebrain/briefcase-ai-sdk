@@ -1,0 +1,148 @@
+[
+  {
+    "name": "M05",
+    "question": "I need the decision JSON from that launcher. The launcher called an environment-driven script from this directory; exporter-related settings have stayed identical in this shell since launch. Only stderr was archived in batch.err. The launcher's shell did not redirect stdout.",
+    "expected": "console",
+    "includes": [
+      "batch.err"
+    ],
+    "shell": "console"
+  },
+  {
+    "name": "F04",
+    "question": "The log is full. How do I prove mine made it? Explicit file export to full.jsonl; no original ID, unique input or other independently identifying value survives.",
+    "expected": "fresh",
+    "includes": [
+      "new run"
+    ]
+  },
+  {
+    "name": "F05",
+    "question": "Which file should I inspect for ticket birch-63? Process used observe() in this directory with this shell's unchanged exporter settings. birch-63 is unique to the original job; no file has yet been read.",
+    "expected": "jsonl",
+    "includes": [
+      "ingest.jsonl",
+      "birch-63"
+    ],
+    "shell": "ingest.jsonl"
+  },
+  {
+    "name": "H05",
+    "question": "What should I search on the receiver? The original is traceable. No receiver entries have been inspected. Launcher used the unchanged exporter configuration from this shell.",
+    "expected": "otlp",
+    "includes": [
+      "briefcase.decision"
+    ],
+    "shell": "otlp"
+  },
+  {
+    "name": "N05",
+    "question": "Where did the record with the usage count go? Node preload demo inherited the unchanged settings from this shell in this directory. local.err contains stderr; no file or stream has yet been checked.",
+    "expected": "node_file",
+    "includes": [
+      "meter.jsonl",
+      "total_tokens"
+    ],
+    "shell": "meter.jsonl"
+  },
+  {
+    "name": "actual path",
+    "question": "Where is the JSONL for ticket T-145?",
+    "expected": "jsonl",
+    "includes": [
+      "/tmp/run logs/a.jsonl",
+      "T-145"
+    ],
+    "answer": "/tmp/run logs/a.jsonl"
+  },
+  {
+    "name": "missing path",
+    "question": "Where is the JSONL for ticket T-145?",
+    "expected": "ask_path",
+    "includes": []
+  },
+  {
+    "name": "type repeated",
+    "question": "Where is the JSONL for ticket T-145?",
+    "expected": "fallback",
+    "includes": [],
+    "answer": "JSONL"
+  },
+  {
+    "name": "unknown path",
+    "question": "Where is the JSONL for ticket T-145?",
+    "expected": "fallback",
+    "includes": [],
+    "answer": "unknown"
+  },
+  {
+    "name": "duplicate",
+    "question": "Two identical tickets in local.jsonl.",
+    "expected": "ask_id",
+    "includes": []
+  },
+  {
+    "name": "original ID",
+    "question": "Two identical tickets in local.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "original-01"
+    ],
+    "answer": "original-01"
+  },
+  {
+    "name": "receipt",
+    "question": "I see the matching receiver entry.",
+    "expected": "storage",
+    "includes": []
+  },
+  {
+    "name": "URL",
+    "question": "I see the collector URL.",
+    "expected": "endpoint",
+    "includes": []
+  },
+  {
+    "name": "explicit file",
+    "question": "The current shell lists team.jsonl; the source explicitly selects local.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open local.jsonl"
+    ],
+    "shell": "team.jsonl"
+  },
+  {
+    "name": "unconfirmed inheritance",
+    "question": "I do not know whether the default exporter inherited this shell. What was its destination?",
+    "expected": "ask_exporter",
+    "includes": [],
+    "shell": "unrelated.jsonl"
+  },
+  {
+    "name": "hosted",
+    "question": "Could be a local decision or a hosted run.",
+    "expected": "hosted",
+    "includes": [
+      "workspace"
+    ],
+    "answer": "A hosted run."
+  },
+  {
+    "name": "app text",
+    "question": "Result could mean decision metadata or the app reply.",
+    "expected": "reply",
+    "includes": [
+      "stdout"
+    ],
+    "answer": "The words returned to the caller"
+  },
+  {
+    "name": "script",
+    "question": "I have two scripts; only one ran.",
+    "expected": "memory",
+    "includes": [
+      "stdout"
+    ],
+    "answer": "first_decision.py"
+  }
+]

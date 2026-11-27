@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [5.1.0] - 2026-11-26
+
+### Added
+- Use `briefcase-ai record-help` to find a decision using evidence from the
+  original run. It accepts a question and one clarification locally. `--static`
+  opens the complete offline guide.
+
+### Changed
+- `briefcase-ai status` follows the path chosen during setup. Use `--all` for
+  the full inventory or `--json` for the existing machine-readable report.
+
 ## [5.0.0] - 2026-11-25
 
 ### Added

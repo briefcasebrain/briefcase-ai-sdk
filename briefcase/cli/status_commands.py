@@ -14,8 +14,8 @@ the environment. One exception is inherited from the SDK: resolving
 ``BRIEFCASE_EXPORTER=<dir>/runs.jsonl`` creates ``<dir>`` if it is missing, exactly as the
 first ``briefcase.observe()`` in a program would.
 
-It ends with exactly one ``Next:`` line, picked by ``choose_next`` from a fixed priority
-list. ``--json`` prints the same data (``items``, ``summary``, ``next``) and nothing else.
+Text follows the finished setup choice and ends with one ``Next:`` line. ``--all`` shows
+the full inventory. ``--json`` always prints the full report (``items``, ``summary``, ``next``) and nothing else.
 Exit code is 0 whatever the states are; use ``briefcase-ai doctor --connect --strict`` to gate
 a script on problems.
 """
@@ -43,12 +43,12 @@ def register(sub) -> None:
     p = sub.add_parser(
         "status",
         help="What is on, what is off, and what to do next.",
-        description="One screen: connected coding tools, the receiver, where records go, the MCP "
-                    "server, and any feature that reports its own state. Ends with one suggested "
-                    "next command. Read-only.",
+        description="Show status for the path selected in setup and one suggested next command. "
+                    "Without a saved choice, show the full inventory. JSON always includes every row.",
         epilog="example:\n  briefcase-ai status --json",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    p.add_argument("--all", action="store_true", help="Show the full inventory and counts.")
     _ux.add_json_flag(p)
     p.set_defaults(func=cmd_status)
 
@@ -455,8 +455,49 @@ def render(report: Dict[str, Any], out: Callable[[str], Any] = print) -> None:
     _ux.print_next(report["next"]["command"], report["next"]["reason"], out=out)
 
 
+def render_setup_status(report: Dict[str, Any], persona: str, out: Callable[[str], Any]) -> None:
+    items = {row["id"]: row for row in report["items"]}
+    if persona == "app":
+        out("Python capture")
+        records = items["records"]
+        sdk = records["data"].get("sdk", {})
+        kind, target = sdk.get("kind"), sdk.get("target")
+        if kind in ("https", "otlp"):
+            destination = f"Configured to send to {target}"
+        elif kind == "file":
+            destination = f"Configured to append to {target}"
+        else:
+            destination = {"memory": "in memory until the process exits",
+                           "console": "stderr (the SDK writes no record file)",
+                           "disabled": "capture disabled by OTEL_SDK_DISABLED"}.get(kind, target or "unresolved")
+        out(f"  Default for this shell: {destination}")
+        problem = sdk.get("problem") if sdk else records["detail"]
+        if problem:
+            out(f"  Attention: {problem}")
+        feature = "exporters" if problem or kind == "disabled" else "capture-decorator"
+        command = f"briefcase-ai features {feature}"
+    else:
+        team = persona == "team"
+        out("Team rollout" if team else "Coding tools")
+        primary = ("receive", "policy", "budgets") if team else ("connect", "receive", "mcp")
+        rows = [items[key] for key in primary if key in items]
+        rows.extend(row for row in report["items"] if row["state"] == "attention" and row not in rows)
+        for row in rows:
+            out(f"  {_ux.state_label(row['state'])} {row['title']}  {row['detail']}")
+        command = next((row["next"] for row in rows if row["state"] == "attention" and row["next"]), "")
+        connect, receive = items["connect"], items["receive"]
+        if not command and connect["state"] == "on" and receive["state"] == "off":
+            command = receive["next"] or ""
+        if not command:
+            if team:
+                command = "briefcase-ai features managed-rollout"
+            else:
+                command = connect["next"] or items["mcp"]["next"] or "briefcase-ai features connect"
+    _ux.print_next(command, out=out)
+
+
 def print_status(modules: Optional[List[_discovery.CommandModule]] = None, as_json: bool = False,
-                 out: Callable[[str], Any] = print) -> Dict[str, Any]:
+                 out: Callable[[str], Any] = print, show_all: bool = False) -> Dict[str, Any]:
     report = collect(modules)
     if _ux.debug_enabled():
         import sys
@@ -466,10 +507,18 @@ def print_status(modules: Optional[List[_discovery.CommandModule]] = None, as_js
     if as_json:
         _ux.print_json(report, out=out)
     else:
-        render(report, out)
+        from briefcase.cli.setup_commands import setup_state
+
+        state = {} if show_all else (setup_state() or {})
+        persona = state.get("persona")
+        finished = state.get("version") == 1 and state.get("outcome") == "finished"
+        if finished and persona in ("app", "coding-tools", "team"):
+            render_setup_status(report, persona, out)
+        else:
+            render(report, out)
     return report
 
 
 def cmd_status(args, store=None, engine=None, stack=None) -> int:
-    print_status(as_json=getattr(args, "json", False))
+    print_status(as_json=args.json, show_all=args.all)
     return 0

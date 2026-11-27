@@ -601,3 +601,52 @@ def test_zsh_and_fish_completion_parse_when_the_shell_is_installed(shell, check,
     script.write_text(completion_commands.script(shell))
     result = subprocess.run([binary, *check, str(script)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_saved_app_choice_controls_text_only(shell_home, fake_tool, capsys, monkeypatch):
+    fake_tool("cursor", "1.0")
+    assert main(["status", "--json"]) == 0
+    baseline = json.loads(capsys.readouterr().out)
+    setup_commands.mark_done("app", "finished")
+    for args in (["status", "--json"], ["status", "--all", "--json"]):
+        assert main(args) == 0
+        assert json.loads(capsys.readouterr().out) == baseline
+    assert main(["status", "--all"]) == 0
+    assert "Coding tools" in capsys.readouterr().out
+    assert main([]) == 0
+    assert capsys.readouterr().out.rstrip().endswith("Next: briefcase-ai features capture-decorator")
+    for dest, detail in [("console", "stderr"), ("memory", "until the process exits"),
+                         ("runs.jsonl", "Configured to append to"), ("bad-destination", "Attention:"),
+                         ("https://127.0.0.1:1", "Configured to send to https://127.0.0.1:1")]:
+        monkeypatch.setenv("BRIEFCASE_EXPORTER", dest)
+        assert main(["status"]) == 0
+        out = capsys.readouterr().out
+        assert out.count("Next:") == 1 and detail in out
+        assert "Cursor" not in out and "saved" not in out
+        command = out.split("Next: briefcase-ai ")[1].strip().split()
+        assert main(command) == 0
+        capsys.readouterr()
+
+
+def test_otlp_app_status_describes_only_configuration(shell_home, monkeypatch, capsys):
+    setup_commands.mark_done("app", "finished")
+    pytest.importorskip("opentelemetry.exporter.otlp.proto.http.trace_exporter")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:1")
+    assert main(["status"]) == 0
+    out = capsys.readouterr().out
+    assert "Configured to send to http://127.0.0.1:1" in out
+    assert "saved" not in out and "delivered" not in out
+
+
+def test_setup_choice_changes_and_invalid_state(shell_home, capsys):
+    for persona, heading, feature in [("team", "Team rollout", "managed-rollout"),
+                                      ("coding-tools", "Coding tools", "connect")]:
+        setup_commands.mark_done(persona, "finished")
+        assert main(["status"]) == 0
+        out = capsys.readouterr().out
+        assert out.startswith(heading) and out.rstrip().endswith(f"Next: briefcase-ai features {feature}")
+    for value in ["{", "[]", '{"version":1,"outcome":"finished","persona":[]}',
+                  '{"version":1,"outcome":"skipped","persona":"app"}']:
+        setup_commands.setup_path().write_text(value)
+        assert main(["status"]) == 0
+        assert capsys.readouterr().out.startswith("briefcase-ai status")
