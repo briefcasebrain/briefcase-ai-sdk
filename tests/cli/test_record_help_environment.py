@@ -203,3 +203,46 @@ def test_inline_empty_options_remove_inherited_register(monkeypatch, capsys):
     question = "The original Node preload inherited the unchanged settings from this shell. "
     assert main(["record-help", question + 'NODE_OPTIONS="" BRIEFCASE_EXPORTER=memory node app.js']) == 0
     assert "disabled Node preload" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("channel", ["question", "flag", "pipe"])
+@pytest.mark.parametrize("assignment,expected", [("BRIEFCASE_EXPORTER=memory", "memory exporter"),
+                                                 ('NODE_OPTIONS=""', "disabled Node preload")])
+def test_evidence_in_either_turn_authorizes_shell(channel, assignment, expected, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    question = "Which exporter did my original process use?"
+    evidence = "The original Node preload inherited the unchanged settings from this shell. " + assignment
+    evidence += " node app.js"
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "console")
+    monkeypatch.setenv("NODE_OPTIONS", "--import=@briefcase-ai/auto/register")
+    monkeypatch.setenv("BRIEFCASE_AUTO", "1")
+    monkeypatch.setattr("sys.stdin", StringIO(evidence if channel == "pipe" else ""))
+    args = [evidence] if channel == "question" else [question]
+    if channel == "flag":
+        args.extend(["--answer", evidence])
+    assert main(["record-help", *args]) == 0
+    assert expected in capsys.readouterr().out
+
+
+def test_python_wrapper_disabled_export_and_explicit_override(tmp_path):
+    import os
+    from pathlib import Path
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[2]
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("BRIEFCASE_", "OTEL_"))}
+    env.update(PYTHONPATH=str(root), OTEL_SDK_DISABLED="true")
+    code = (
+        'import briefcase;print(type(briefcase.observe()).__name__);'
+        'memory=briefcase.observe("memory");briefcase.observe("console");'
+        'briefcase.capture(lambda: 1)();print(len(memory.records))'
+    )
+    result = subprocess.run([sys.executable, "-m", "briefcase.cli", "exec", "--to", "otlp", "--",
+                             sys.executable, "-c", code], cwd=tmp_path, env=env,
+                            text=True, capture_output=True, timeout=20)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["_DisabledExporter", "0"]
+    assert '"function_name"' in result.stderr

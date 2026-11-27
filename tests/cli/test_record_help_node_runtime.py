@@ -116,3 +116,19 @@ def test_real_wrapper_preflight_before_child_start(protocol, expected):
     assert ("child-started" in result.stdout) == (expected == "otlp")
     launch = f"OTEL_EXPORTER_OTLP_PROTOCOL={protocol} NODE_OPTIONS=--import={module} briefcase-ai exec --to otlp"
     assert route(TABLE, launch + " -- node app.js")[0] == expected
+
+
+@pytest.mark.parametrize("field,value,allowed", [
+    ("BRIEFCASE_AUTO_SKIP", "openai,bedrock", True), ("BRIEFCASE_AUTO_SKIP", "synthetic-invalid", False),
+    ("BRIEFCASE_AUTO_DEDUPE", "framework", True), ("BRIEFCASE_AUTO_DEDUPE", "both", False),
+    ("BRIEFCASE_CAPTURE_CONTENT", "hash", True), ("BRIEFCASE_CAPTURE_CONTENT", "store", False),
+])
+def test_wrapper_settings_agree_with_public_preflight(field, value, allowed):
+    from briefcase.cli.exec_commands import _known_integrations, preflight
+
+    assert TABLE["inlineNode"]["wrapperSettings"]["integrations"] == _known_integrations()
+    native = preflight(["python", "app.py"], {field: value, "BRIEFCASE_EXPORTER": "memory"})
+    assert (native is None) is allowed
+    for child in ["python app.py", "node --import @briefcase-ai/auto/register app.js"]:
+        statement = f"{field}={value} briefcase-ai exec --to memory -- {child}"
+        assert route(TABLE, statement)[0] == ("memory_only" if allowed else "wrapper_startup")

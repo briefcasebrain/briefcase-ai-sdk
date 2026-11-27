@@ -5958,5 +5958,464 @@
     "includes": [
       "static guide"
     ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 0 initial",
+    "question": "BRIEFCASE_AUTO_SKIP=synthetic-missing briefcase-ai exec --to memory -- python app.py",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 0 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ],
+    "answer": "BRIEFCASE_AUTO_SKIP=synthetic-missing briefcase-ai exec --to memory -- python app.py"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 1 initial",
+    "question": "BRIEFCASE_AUTO_SKIP=openai,bedrock briefcase-ai exec --to memory -- python app.py",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 1 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ],
+    "answer": "BRIEFCASE_AUTO_SKIP=openai,bedrock briefcase-ai exec --to memory -- python app.py"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 2 initial",
+    "question": "BRIEFCASE_CAPTURE_CONTENT=invalid briefcase-ai exec --to memory -- python app.py",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 2 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ],
+    "answer": "BRIEFCASE_CAPTURE_CONTENT=invalid briefcase-ai exec --to memory -- python app.py"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 3 initial",
+    "question": "BRIEFCASE_AUTO_DEDUPE=invalid briefcase-ai exec --to memory -- python app.py",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 3 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ],
+    "answer": "BRIEFCASE_AUTO_DEDUPE=invalid briefcase-ai exec --to memory -- python app.py"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 4 initial",
+    "question": "briefcase-ai exec --skip invalid --to memory -- python app.py",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 4 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ],
+    "answer": "briefcase-ai exec --skip invalid --to memory -- python app.py"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 5 initial",
+    "question": "briefcase-ai exec --skip openai --to memory --dedupe=provider -- python app.py",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 5 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ],
+    "answer": "briefcase-ai exec --skip openai --to memory --dedupe=provider -- python app.py"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 6 initial",
+    "question": "briefcase-ai exec --to memory --capture-content hash -- python app.py",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 6 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ],
+    "answer": "briefcase-ai exec --to memory --capture-content hash -- python app.py"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 7 initial",
+    "question": "briefcase-ai exec --capture-content FULL --to memory -- python app.py",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 7 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ],
+    "answer": "briefcase-ai exec --capture-content FULL --to memory -- python app.py"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 8 initial",
+    "question": "BRIEFCASE_AUTO_SKIP=invalid briefcase-ai exec --to memory --skip openai -- python app.py",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 8 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ],
+    "answer": "BRIEFCASE_AUTO_SKIP=invalid briefcase-ai exec --to memory --skip openai -- python app.py"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 9 initial",
+    "question": "OTEL_SDK_DISABLED=true briefcase-ai exec --to otlp -- python app.py",
+    "expected": "disabled",
+    "includes": [
+      "The original inherited settings disa"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 9 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "disabled",
+    "includes": [
+      "The original inherited settings disa"
+    ],
+    "answer": "OTEL_SDK_DISABLED=true briefcase-ai exec --to otlp -- python app.py"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 10 initial",
+    "question": "BRIEFCASE_AUTO_SKIP=synthetic-missing briefcase-ai exec --to memory -- node --import @briefcase-ai/auto/register app.js",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 10 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ],
+    "answer": "BRIEFCASE_AUTO_SKIP=synthetic-missing briefcase-ai exec --to memory -- node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 11 initial",
+    "question": "BRIEFCASE_AUTO_SKIP=openai,bedrock briefcase-ai exec --to memory -- node --import @briefcase-ai/auto/register app.js",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 11 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ],
+    "answer": "BRIEFCASE_AUTO_SKIP=openai,bedrock briefcase-ai exec --to memory -- node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 12 initial",
+    "question": "BRIEFCASE_CAPTURE_CONTENT=invalid briefcase-ai exec --to memory -- node --import @briefcase-ai/auto/register app.js",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 12 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ],
+    "answer": "BRIEFCASE_CAPTURE_CONTENT=invalid briefcase-ai exec --to memory -- node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 13 initial",
+    "question": "BRIEFCASE_AUTO_DEDUPE=invalid briefcase-ai exec --to memory -- node --import @briefcase-ai/auto/register app.js",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 13 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ],
+    "answer": "BRIEFCASE_AUTO_DEDUPE=invalid briefcase-ai exec --to memory -- node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 14 initial",
+    "question": "briefcase-ai exec --skip invalid --to memory -- node --import @briefcase-ai/auto/register app.js",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 14 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ],
+    "answer": "briefcase-ai exec --skip invalid --to memory -- node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 15 initial",
+    "question": "briefcase-ai exec --skip openai --to memory --dedupe=provider -- node --import @briefcase-ai/auto/register app.js",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 15 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ],
+    "answer": "briefcase-ai exec --skip openai --to memory --dedupe=provider -- node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 16 initial",
+    "question": "briefcase-ai exec --to memory --capture-content hash -- node --import @briefcase-ai/auto/register app.js",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 16 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ],
+    "answer": "briefcase-ai exec --to memory --capture-content hash -- node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 17 initial",
+    "question": "briefcase-ai exec --capture-content FULL --to memory -- node --import @briefcase-ai/auto/register app.js",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 17 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcase-ai exec"
+    ],
+    "answer": "briefcase-ai exec --capture-content FULL --to memory -- node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 18 initial",
+    "question": "BRIEFCASE_AUTO_SKIP=invalid briefcase-ai exec --to memory --skip openai -- node --import @briefcase-ai/auto/register app.js",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 18 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ],
+    "answer": "BRIEFCASE_AUTO_SKIP=invalid briefcase-ai exec --to memory --skip openai -- node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 19 initial",
+    "question": "OTEL_SDK_DISABLED=true briefcase-ai exec --to otlp -- node --import @briefcase-ai/auto/register app.js",
+    "expected": "otlp",
+    "includes": [
+      "Search the collector's received brie"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 19 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "otlp",
+    "includes": [
+      "Search the collector's received brie"
+    ],
+    "answer": "OTEL_SDK_DISABLED=true briefcase-ai exec --to otlp -- node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 20 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"memory\") and then briefcase.observe(\"console\").",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for the cons"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 20 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for the cons"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"memory\") and then briefcase.observe(\"console\")."
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 21 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"memory\"). Then the application called briefcase.observe(\"console\").",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for the cons"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 21 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for the cons"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"memory\"). Then the application called briefcase.observe(\"console\")."
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 22 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"console\") and then briefcase.observe(\"memory\").",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 22 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"console\") and then briefcase.observe(\"memory\")."
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 23 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"console\"). Then the application called briefcase.observe(\"memory\").",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 23 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory export"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"console\"). Then the application called briefcase.observe(\"memory\")."
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 24 initial",
+    "question": "I copied this command from the README. I never ran it.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the original proc"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 24 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to check "
+    ],
+    "answer": "I copied this command from the README. I never ran it.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 25 initial",
+    "question": "I quoted the command from the documentation. It was just an example.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the original proc"
+    ]
+  },
+  {
+    "name": "Wrapper settings and ordered evidence 25 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to check "
+    ],
+    "answer": "I quoted the command from the documentation. It was just an example.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Alternative application destination on first turn",
+    "question": "Before recording the decision, the original Python application called either briefcase.observe(\"memory\") or briefcase.observe(\"console\").",
+    "expected": "check_launch",
+    "includes": [
+      "original launch configuration"
+    ]
+  },
+  {
+    "name": "Alternative application destination on second turn",
+    "question": "Which exporter did my original process use?",
+    "answer": "Before recording the decision, the original Python application called either briefcase.observe(\"memory\") or briefcase.observe(\"console\").",
+    "expected": "check_launch",
+    "includes": [
+      "original launch configuration"
+    ]
   }
 ]

@@ -255,12 +255,18 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
             if boundary:
                 parts[index] = clause[:launch.start() + boundary.start()]
         hypothetical = re.search(table["nonOriginalCommand"], clause, re.I)
-        if launch and example_next:
+        candidate = re.search(table["inlineNode"]["wrapperCommand"], clause) or re.search(
+            table["inlineNode"]["command"], clause)
+        prefix = clause[:candidate.start()] if candidate else ""
+        original = re.fullmatch(table["commandContext"], prefix, re.I) and re.search(
+            table["launchAttribution"], prefix, re.I)
+        if launch and example_next and not original:
             parts[index] = ""
             example_next = False
             continue
         if clause.strip():
-            example_next = bool(hypothetical and not launch)
+            example_next = bool((hypothetical and not launch) or
+                                (example_next and re.match(table["exampleContinuation"], clause, re.I)))
         if hypothetical and launch:
             parts[index] = clause[:hypothetical.start()]
         else:
@@ -311,12 +317,30 @@ def _execution_evidence(table, source, inherited=None):
     for clause in clauses:
         wrapper = re.search(inline["wrapperCommand"], clause)
         if wrapper and re.fullmatch(table["commandContext"], clause[:wrapper.start()], re.I):
-            prefix, destination, child = wrapper.groups()
+            prefix, flags, child = wrapper.groups()
             settings = {match.group(1): next((v for v in match.groups()[1:] if v is not None), "")
                         for match in re.finditer(inline["assignment"], prefix)}
             settings = {**(inherited or {}), **settings}
-            if destination is not None:
-                settings["BRIEFCASE_EXPORTER"] = destination.strip("\"'")
+            spec = inline["wrapperSettings"]
+            destination = None
+            allow_uninstrumented = False
+            invalid_flag = False
+            for option in re.finditer(inline["wrapperOption"], flags):
+                name, operand = option.groups()
+                if name == "--allow-uninstrumented":
+                    allow_uninstrumented = True
+                if name in spec["flags"] and operand is not None:
+                    value = operand.strip("\"'")
+                    if name in ("--capture-content", "--dedupe"):
+                        invalid_flag |= value not in spec["content" if name == "--capture-content" else "dedupe"]
+                    if value:
+                        settings[spec["flags"][name]] = value
+                        if name == "--to":
+                            destination = operand
+            from briefcase.cli.exec_commands import _capture_configuration_problem
+
+            if invalid_flag or _capture_configuration_problem(settings):
+                wrapper_facts.add("wrapperRejected")
             choice = settings.get("BRIEFCASE_EXPORTER", "").strip()
             endpoint = next((settings[k].strip() for k in inline["endpoints"] if settings.get(k, "").strip()), "")
             protocol = (settings.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL")
@@ -333,11 +357,12 @@ def _execution_evidence(table, source, inherited=None):
 
                 args = [part.group(1).strip("\"'") for part in re.finditer(inline["argument"], clause[wrapper.end():])]
                 if blocking_python_flags([child, *args]):
-                    wrapper_facts.add("wrapperRejected")
+                    wrapper_facts.add("pythonUninstrumented" if allow_uninstrumented else "wrapperRejected")
                 runtime.add("Python")
                 kind = {"console": "pythonConsole", "memory": "inlineMemory"}.get(choice)
                 if otlp:
-                    kind = "inlineOTLP"
+                    disabled = settings.get("OTEL_SDK_DISABLED", "").strip().lower() == "true"
+                    kind = "disabled" if disabled else "inlineOTLP"
                 elif direct_url:
                     kind = "inlineHTTP" if _http_destination(choice) else "invalidPythonWeb"
                 elif choice.endswith(".jsonl"):
@@ -354,11 +379,26 @@ def _execution_evidence(table, source, inherited=None):
                 commands.append(match)
     selection = table["applicationSelection"]
     choices: Set[Tuple[str, Optional[str]]] = set()
+    application_clauses: List[str] = []
     for clause in clauses:
+        continuation = re.match(selection["orderedContinuation"], clause, re.I)
+        if continuation and application_clauses and re.search(selection["callStart"], application_clauses[-1], re.I):
+            application_clauses[-1] += " and then " + clause[continuation.end():]
+        elif clause.strip():
+            application_clauses.append(clause.strip())
+    for clause in application_clauses:
         worker_call = re.search(selection["workerActor"], clause, re.I)
         before_capture = re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
         assertion = re.sub(table["quoteSpans"], " ", clause)
         if (worker_call or before_capture) and not re.search(selection["none"], assertion, re.I):
+            calls = list(re.finditer(selection["callStart"], re.sub(
+                table["quoteSpans"], lambda m: "_" * len(m.group()), clause), re.I))
+            if len(calls) > 1:
+                if not all(re.search(selection["orderedNext"], clause[prior.end():later.start()], re.I)
+                           for prior, later in zip(calls, calls[1:])):
+                    choices.add(("inlineUnknown", None))
+                    continue
+                clause = clause[:calls[0].start()] + clause[calls[-1].start():]
             literal = re.search(selection["value"], clause, re.I)
             instance = re.search(selection["instance"], clause, re.I)
             path = None
@@ -804,6 +844,36 @@ def cmd_record_help(args, store, engine, stack) -> int:
         return 2
 
 
+def _session_environment(table, question):
+    launch = _scoped(table, _original_commands(table, _source_text(table, question)))
+    runtime = " ".join(_runtime_names(table, re.split(table["split"], launch, flags=re.I)))
+    shell = _shell_exporter(runtime) if _shell_matches(table, launch) else None
+    inherited = None
+    if shell is not None:
+        # Node overlays command assignments on the launch environment. Only exporter vocabulary is needed here.
+        inherited = {}
+        auto_flag = os.environ.get("BRIEFCASE_AUTO", "").strip().lower()
+        if auto_flag in ("0", "false", "1", "true"):
+            inherited["BRIEFCASE_AUTO"] = auto_flag
+        options = _node_register(table["inlineNode"], " " + os.environ.get("NODE_OPTIONS", ""), options=True)
+        if options:
+            inherited["REGISTER_FROM_NODE_OPTIONS"] = options
+        for key in ("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"):
+            protocol = os.environ.get(key, "")
+            if protocol:
+                inherited[key] = protocol.strip().lower() or "unspecified"
+        for key in table["inlineNode"]["endpoints"]:
+            if os.environ.get(key):
+                inherited[key] = os.environ[key]
+        for key in ("OTEL_SDK_DISABLED", "BRIEFCASE_AUTO_SKIP", "BRIEFCASE_CAPTURE_CONTENT", "BRIEFCASE_AUTO_DEDUPE"):
+            if key in os.environ:
+                inherited[key] = os.environ[key]
+        choice = os.environ.get("BRIEFCASE_EXPORTER", "").strip()
+        if choice:
+            inherited["BRIEFCASE_EXPORTER"] = choice
+    return shell, inherited
+
+
 def _guide_session(args) -> int:
     table = json.loads(_TABLE.read_text(encoding="utf-8"))
     interactive = _ux.is_interactive() and sys.stdin.isatty()
@@ -835,29 +905,7 @@ def _guide_session(args) -> int:
     if args.static or (not question and not confirmation):
         print(table["guide"])
         return 0
-    launch = _scoped(table, _original_commands(table, _source_text(table, question)))
-    runtime = " ".join(_runtime_names(table, re.split(table["split"], launch, flags=re.I)))
-    shell = _shell_exporter(runtime) if _shell_matches(table, launch) else None
-    inherited = None
-    if shell is not None:
-        # Node overlays command assignments on the launch environment. Only exporter vocabulary is needed here.
-        inherited = {}
-        auto_flag = os.environ.get("BRIEFCASE_AUTO", "").strip().lower()
-        if auto_flag in ("0", "false", "1", "true"):
-            inherited["BRIEFCASE_AUTO"] = auto_flag
-        options = _node_register(table["inlineNode"], " " + os.environ.get("NODE_OPTIONS", ""), options=True)
-        if options:
-            inherited["REGISTER_FROM_NODE_OPTIONS"] = options
-        for key in ("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"):
-            protocol = os.environ.get(key, "")
-            if protocol:
-                inherited[key] = protocol.strip().lower() or "unspecified"
-        for key in table["inlineNode"]["endpoints"]:
-            if os.environ.get(key):
-                inherited[key] = os.environ[key]
-        choice = os.environ.get("BRIEFCASE_EXPORTER", "").strip()
-        if choice:
-            inherited["BRIEFCASE_EXPORTER"] = choice
+    shell, inherited = _session_environment(table, question)
     key, text = route(table, question, None, shell, inherited)
     if not confirmation and not args.answer and table["actions"][key]["kind"] == "ask":
         print(text, flush=True)
@@ -865,6 +913,8 @@ def _guide_session(args) -> int:
             if not interactive:
                 return 0
             question, answer, confirmation = read_turn("Answer (or unknown): ")
+    if answer is not None and table["actions"][key]["kind"] == "ask":
+        shell, inherited = _session_environment(table, question + "\n" + answer)
     key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
     prompted = not confirmation and interactive and key in table["confirmation"]["next"]
     if prompted:
