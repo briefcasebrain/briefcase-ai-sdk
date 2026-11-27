@@ -558,13 +558,16 @@ def test_blank_before_optional_report_preserves_full_session(terminal, extra, ga
     assert capsys.readouterr().out.count("You reported") == (0 if extra else 1)
 
 
-def test_terminal_applies_optional_details_before_collecting_outcome(monkeypatch, capsys):
+@pytest.mark.parametrize("record", [
+    "The query returned a full record with that same ID.", "The query returned a record with the original ID.",
+])
+def test_terminal_applies_optional_details_before_collecting_outcome(record, monkeypatch, capsys):
     from io import StringIO
     from briefcase.cli import _ux
     from briefcase.cli.__main__ import main
 
     stream = StringIO("I queried the intended downstream store for the original decision ID.\n"
-                      "The query returned a full record with that same ID.\nstorage matched me original original\n")
+                      f"{record}\nstorage matched me original original\n")
     monkeypatch.setattr(stream, "isatty", lambda: True)
     monkeypatch.setattr(_ux, "is_interactive", lambda: True)
     monkeypatch.setattr("sys.stdin", stream)

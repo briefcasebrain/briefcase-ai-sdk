@@ -286,6 +286,12 @@ def _storage_lookup(table, evidence):
             pending_at = index
             intervening_status.add(index)
             continue
+        stages = attribution["rowStages"]
+        if lookups and re.match(stages["resultReference"], clause.strip(), re.I):
+            named = {kind for kind, pattern in attribution["sources"].items() if re.search(pattern, clause, re.I)}
+            if named and "storage" not in named:
+                records.clear()
+                continue
         comparison = re.search(spec["identityComparison"], clause, re.I)
         compared_to = clause[comparison.end():] if comparison else ""
         if lookups and comparison and re.search(spec["foreignComparison"], compared_to, re.I):
@@ -297,6 +303,8 @@ def _storage_lookup(table, evidence):
             if lookups and not re.search(spec["otherSource"], clause, re.I):
                 lookups[index] = (False, set())
             continue
+        if _returned_result(attribution, clause.strip(), roles) in ("match", "miss", "mixed_match"):
+            intervening_status.add(index)
         if re.search(spec["denied"], clause, re.I) or re.search(spec["otherSource"], clause, re.I):
             continue
         if (comparison and re.search(spec["originalComparison"], compared_to, re.I)
@@ -330,6 +338,7 @@ def _storage_lookup(table, evidence):
             return "foreignStoreComparison"
         if valid is False:
             return "differentStoreLookup"
+        different_row = False
         for position, (returned, original, same) in records.items():
             original = original or position in compared_original or (
                 position + 1 in compared_original and position + 1 not in lookups)
@@ -347,8 +356,11 @@ def _storage_lookup(table, evidence):
                 if returned and not target and not original:
                     continue
                 if target and returned and returned != target:
-                    return "storageIDMismatch"
-                return "linkedStoreReadback"
+                    different_row = True
+                else:
+                    return "linkedStoreReadback"
+        if different_row:
+            return "storageIDMismatch"
         if valid is not None:
             return "pendingStoreReadback"
         if latest in durable_queries and not any(
@@ -374,6 +386,10 @@ def _collect_facts(table: Dict[str, Any], evidence: str) -> Set[str]:
     facts = set()
     for name, criterion in table["facts"].items():
         units = scopes[criterion["scope"]]
+        if name == "sharedInput":
+            equality = table["confirmation"]["attribution"]["rowStages"]["same"]
+            units = [unit for unit in units
+                     if not any(re.fullmatch(pattern, unit.strip(), re.I) for pattern in equality)]
         if any(_matches(criterion, unit) for unit in units):
             facts.add(name)
     return facts
@@ -987,12 +1003,35 @@ class _SourceCheck:
     anonymous_match: bool = False
     zero_matches: bool = False
     unresolved_detail: bool = False
+    matched_objects: int = 0
+    other_objects: int = 0
+    latest_object: Optional[str] = None
+    relocated: bool = False
+    uncertain_origin: bool = False
+    personal_gap: bool = False
+    pending_relation: Optional[str] = None
+
+    def add_object(self, comparison):
+        if self.pending_relation:
+            if comparison in ("match", "miss") and comparison != self.pending_relation:
+                self.conflicting_results = True
+            comparison = self.pending_relation
+            self.pending_relation = None
+        self.latest_object = comparison
+        self.matched_objects += comparison == "match"
+        self.other_objects += comparison == "miss"
 
     def compare(self, source, result, action, facts):
         if self.foreign_target:
             return "confirmation_other_run"
         if result == "unverified":
             return None
+        if self.relocated:
+            return "confirmation_other_source"
+        if self.uncertain_origin:
+            return "confirmation_unresolved_lookup"
+        if self.personal_gap and result == "no-match":
+            return "confirmation_partial"
         if self.unchecked or self.pending or self.foreign_reader_only:
             return "confirmation_unchecked"
         if source == "jsonl" and ("unresolvedPath" in facts or ("pendingPath" in facts and not self.original_target)):
@@ -1007,9 +1046,11 @@ class _SourceCheck:
             return "confirmation_partial"
         if self.conflicting_results:
             return "confirmation_inconsistent"
-        if self.ambiguous:
+        if self.ambiguous or self.matched_objects > 1:
             return "confirmation_ambiguous"
-        if self.outcome and result != self.outcome:
+        # A nonmatching returned row does not erase another row that matched the same lookup.
+        observed = "matched" if self.matched_objects and self.other_objects else self.outcome
+        if observed and result != observed:
             return "confirmation_inconsistent"
         if self.unlinked_record and self.returned_unbound and self.original_target and not self.unaccounted:
             return "ask_evidence" if result == "matched" else "confirmation_unresolved_lookup"
@@ -1382,6 +1423,58 @@ def _context_statement(table, clause):
             and bool(re.fullmatch(r"[\w.:-]+" + spec["roleTail"], remaining, re.I)))
 
 
+def _stage_row_detail(spec, clause, named, previous, current, attempts):
+    """Refine the previous returned object or describe an additional object of that lookup."""
+    stages = spec["rowStages"]
+    owners = [attempts[current[kind]] for kind in previous]
+    if re.search(stages["personalGap"], clause, re.I):
+        for check in owners:
+            check.personal_gap = True
+    reference = re.match(stages["resultReference"], clause, re.I)
+    if reference and named:
+        # A back-reference describes the immediately preceding observation. A
+        # second source's mention is not a second independent lookup.
+        for kind in previous - named:
+            check = attempts[current[kind]]
+            if check.latest_object or check.zero_matches:
+                if re.match(stages["originPredicate"], clause[reference.end():], re.I):
+                    check.relocated = True
+                else:
+                    check.uncertain_origin = True
+        if previous - named:
+            return False
+    equality = next((kind for kind in ("different", "same") if any(
+        re.fullmatch(pattern, clause, re.I) for pattern in stages[kind]
+    )), None)
+    additional = re.fullmatch(stages["additional"], clause, re.I)
+    if not (equality or additional):
+        return False
+    applied = False
+    for check in owners:
+        comparison = ("match" if equality == "same" else "miss") if equality else additional[1].lower()
+        if not check.latest_object:
+            if equality:
+                check.pending_relation = comparison
+                check.outcome = "matched" if comparison == "match" else "no-match"
+                applied = True
+            continue
+        if additional:
+            comparison = {"original": "match", "different": "miss", "same": check.latest_object}[comparison]
+            check.add_object(comparison)
+        else:
+            if check.latest_object in ("match", "miss") and comparison != check.latest_object:
+                check.conflicting_results = True
+            check.matched_objects -= check.latest_object == "match"
+            check.other_objects -= check.latest_object == "miss"
+            check.add_object(comparison)
+        if comparison in ("match", "miss"):
+            check.outcome = "matched" if check.matched_objects else "no-match"
+            check.unlinked_record = False
+            check.returned_unbound = False
+            applied = True
+    return applied
+
+
 def _confirmation_conflict(table, source, result, turns, action, facts, guide_origin, eligible):
     """Bind an observation to its source and target before interpreting a structured outcome."""
     spec = table["confirmation"]["attribution"]
@@ -1416,6 +1509,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     latest = dict(origin)
     foreign_context = set()
     unbound_details = []
+    unresolved_stages = set()
     inspected_sources = set()
     background_sources = set()
     narrative_gap = False
@@ -1460,11 +1554,20 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             named = {key for key, pattern in spec["sources"].items() if re.search(pattern, source_scope, re.I)}
             if (checked or denied_check) and re.search(spec["fileReference"], source_scope, re.I):
                 named.add("jsonl")
+            if _stage_row_detail(spec, source_scope.strip(), named, active or {source}, current, attempts):
+                continue
             details = {role for role, pattern in spec["detailRoles"].items() if re.search(pattern, source_scope, re.I)}
             if (details or re.search(spec["standaloneResult"], source_scope, re.I)) and not (named or active):
                 # A standalone result qualifier still constrains the submitted report.
                 active = {source}
             meaning = {name for name, rule in spec["observedSemantics"].items() if _matches(rule, source_scope)}
+            if (re.match(spec["rowStages"]["unknownResult"], source_scope, re.I)
+                    and not _context_statement(table, clause)):
+                returned = _returned_result(spec, source_scope.strip(), roles)
+                allowed_read = checked and _accounted_read(table, source_scope, roles["lookupIdentifier"])
+                consumed = returned or allowed_read or _permitted_continuation(spec, source_scope)
+                if returned == "unknown" or not consumed:
+                    unresolved_stages.update(named or active or {source})
             if "exclusiveEvidence" in meaning and active:
                 for target in active:
                     if "externalEvidence" in meaning or (named and target not in named):
@@ -1480,6 +1583,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 foreign_context = named or active or set(origin)
                 for target in foreign_context:
                     prior = attempts[origin[target]]
+                    if re.search(spec["rowStages"]["remainingPortion"], source_scope, re.I):
+                        prior.personal_gap = True
                     prior.clarification_veto = True
                     excluded_reader = re.search(spec["readerExcluded"], source_scope, re.I)
                     if exclusive_subject or excluded_reader or not prior.original_target or (
@@ -1594,8 +1699,13 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     returned = "match"
                 if not returned:
                     continue
+                parsed = returned
                 for name in owners:
                     check = checks[name]
+                    returned = parsed
+                    if returned in ("match", "miss", "unlinked_record"):
+                        check.add_object(returned)
+                        returned = check.latest_object
                     if returned in ("match", "named", "miss", "zero", "unlinked_record"):
                         for other in set(origin) - owners:
                             attempts[origin[other]].clarification_veto = True
@@ -1839,6 +1949,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
         elif "storageIDMismatch" in facts:
             check.outcome = "no-match"
     conflict = check.compare(source, result, action, facts)
+    if source in unresolved_stages and conflict in (None, "ask_evidence") and result != "unverified":
+        return "confirmation_unresolved_lookup"
     accounted_result = check.original_target and check.outcome == result
     needs_binding = narrative_gap or (check.referenced_check and check.outcome is None)
     unexplained = any(not kinds or source in kinds for kinds, _ in unbound_details)
