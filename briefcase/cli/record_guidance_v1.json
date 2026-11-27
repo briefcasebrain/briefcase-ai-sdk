@@ -15,7 +15,7 @@
     },
     "jsonl": {
       "kind": "action",
-      "text": "Open the original JSONL file from the original working directory and search all rows for the original ID or unique marker. Require exactly one matching decision_id or unique marker before attributing the record to this run. Older rows, multiple matches or unreadable lines leave the original unverified. A printed ID identifies what to search for. It does not by itself verify a write."
+      "text": "Open the original JSONL file from the original working directory and search all rows for the original ID or unique marker. A ticket value qualifies only if it is unique to this run. Require exactly one matching decision_id or unique marker before attributing the record to this run. Older rows, multiple matches or unreadable lines leave the original unverified. A printed ID identifies what to search for. It does not by itself verify a write."
     },
     "memory": {
       "kind": "action",
