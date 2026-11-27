@@ -1,6 +1,7 @@
 """Local, session-only guidance for finding a decision from an earlier run."""
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -218,12 +219,19 @@ def _before_capture(table, text):
     spec = table["applicationSelection"]
     parts = re.split(f"({table['split']})", text, flags=re.I)
     captured = False
+    pending = None
     for index in range(0, len(parts), 2):
         clause = parts[index]
         masked = re.sub(table["quoteSpans"], lambda m: "_" * len(m.group()), clause)
         calls = list(re.finditer(spec["callStart"], masked, re.I))
         after = re.search(spec["after"], masked, re.I)
         event = re.search(spec["captureEvent"], masked, re.I)
+        if event and (_matches(table["excludeClauses"], masked)
+                      or re.search(spec["none"], masked[:event.start()], re.I)):
+            event = None
+        continuation = bool(re.match(spec["orderedContinuation"], masked, re.I))
+        if event and not after and pending is not None and (not calls or continuation):
+            parts[pending] = "Before recording the decision, " + parts[pending]
         if calls:
             if re.search(spec["before"], masked, re.I):
                 captured = False
@@ -242,62 +250,144 @@ def _before_capture(table, text):
                 if earlier:
                     cutoff = calls[len(earlier)].start() if len(earlier) < len(calls) else boundary.start()
                     parts[index] = clause[:cutoff]
+                    if event and not continuation and not re.search(spec["before"], masked, re.I):
+                        parts[index] = "Before recording the decision, " + parts[index]
                 else:
                     parts[index] = ""
+        if clause.strip():
+            if after or event or captured:
+                pending = None
+            elif calls and not (continuation and pending is not None):
+                pending = index if re.search(spec["actor"], masked, re.I) else None
+            elif not calls:
+                pending = None
         if after or event:
             captured = True
     return "".join(parts)
 
 
-def _python_exporter_call(table, clause):
-    """Identify the top-level exporter argument, keeping nested option values opaque."""
+def _python_call_span(table, clause):
+    """Locate one balanced configuration call without evaluating its arguments."""
     spec = table["applicationSelection"]
     masked = re.sub(table["quoteSpans"], lambda m: "_" * len(m.group()), clause)
     start = re.search(spec["callStart"], masked, re.I)
     if not start:
-        return clause
+        return None
     depth, begin = 0, start.end()
-    arguments = []
     for i in range(begin, len(masked)):
         char = masked[i]
         if char in "([{":
             depth += 1
         elif depth == 0 and char in ",)":
-            arguments.append(clause[begin:i].strip())
-            begin = i + 1
             if char == ")":
                 break
         elif char in ")]}":
             depth -= 1
     else:
+        return None
+    return start, i
+
+
+def _python_choice(table, clause):
+    """Bind the public call to reported arguments without resolving names or evaluating source."""
+    span = _python_call_span(table, clause)
+    unknown = ("inlineUnknown", None)
+    if not span:
+        return unknown
+    start, end = span
+    method = "setup" if start.group().endswith("setup(") else "observe"
+    source = method + "(" + clause[start.end():end + 1]
+    try:
+        call = ast.parse(source, mode="eval").body
+    except (SyntaxError, ValueError, RecursionError):
+        return unknown
+    if not isinstance(call, ast.Call):
+        return unknown
+    spec = table["applicationSelection"]
+    names = spec["setupParameters" if method == "setup" else "pythonParameters"]
+    if len(call.args) > (len(names) if method == "setup" else 1):
+        return unknown
+    bound = dict(zip(names, call.args))
+    for kw in call.keywords:
+        if kw.arg not in names or kw.arg in bound:
+            return unknown
+        bound[kw.arg] = kw.value
+    target = bound.get("exporter")
+    if target is None:
+        return None
+    if "guardrail_packs" in bound and not isinstance(bound["guardrail_packs"], ast.Constant):
+        return unknown
+    if isinstance(target, ast.Constant):
+        if target.value is None:
+            return ("configOff" if method == "setup" else "pythonConsole", None)
+        if method == "setup" or not isinstance(target.value, str):
+            return unknown
+        value = target.value
+        if not value.lower().startswith(("http://", "https://")):
+            empty_options = {"Constant(value=None)", "Constant(value='')", "Dict(keys=[], values=[])"}
+            if any(ast.dump(bound[key]) not in empty_options for key in ("token", "headers") if key in bound):
+                return unknown
+        if value in ("console", "memory"):
+            return ("pythonConsole" if value == "console" else "inlineMemory", None)
+        if value.lower().startswith(("http://", "https://")):
+            return ("inlineHTTP" if _http_destination(value) else "invalidPythonWeb", None)
+        return ("pythonFile", value) if value.endswith(".jsonl") else unknown
+    if not isinstance(target, ast.Call) or len(target.args) > 1:
+        return unknown
+    constructor = ast.unparse(target.func)
+    parts = constructor.split(".")
+    name = parts[-1]
+    module = spec["pythonModules"].get(name)
+    if not module or ".".join(parts[:-1]) not in ("", "briefcase", "briefcase.exporters", module):
+        return unknown
+    parameters = spec["pythonConstructors"].get(name)
+    if not parameters:
+        return unknown
+    args = dict(zip(parameters, target.args))
+    for kw in target.keywords:
+        if kw.arg not in parameters or kw.arg in args:
+            return unknown
+        args[kw.arg] = kw.value
+    first = args.get(parameters[0])
+    value = first.value if isinstance(first, ast.Constant) else None
+    if name == "MemoryExporter":
+        valid = first is None or isinstance(first, ast.Constant) and (value is None or type(value) is int and value > 0)
+        return ("inlineMemory", None) if valid else unknown
+    if name == "ConsoleExporter":
+        stream = ast.unparse(first) if first is not None else "None"
+        if stream in ("None", "sys.stderr"):
+            return ("pythonConsole", None)
+        return ("consoleStdout", None) if stream == "sys.stdout" else unknown
+    if not isinstance(value, str) or not value:
+        return unknown
+    if name == "JSONLFileExporter":
+        return ("pythonFile", value)
+    insecure = args.get("allow_insecure")
+    if insecure is not None and not (isinstance(insecure, ast.Constant) and isinstance(insecure.value, bool)):
+        return unknown
+    accepted = _http_destination(value, allow_insecure=bool(insecure is not None and insecure.value))
+    return ("inlineHTTP" if accepted else "invalidPythonWeb", None)
+
+
+def _python_exporter_call(table, clause):
+    """Normalize a credential-bearing call for replay, using only its argument role."""
+    span = _python_call_span(table, clause)
+    if not span:
         return clause
-    positional = []
-    keywords = {}
-    valid = True
-    for argument in arguments:
-        if not argument:
-            continue
-        name = re.match(r"([a-zA-Z_]\w*)\s*=(?!=)\s*", argument)
-        if name:
-            valid &= name[1] not in keywords and name[1] in spec["pythonParameters"]
-            keywords[name[1]] = argument[name.end():]
-        else:
-            valid &= not keywords
-            positional.append(argument)
-    valid &= len(positional) <= 1 and not (positional and "exporter" in keywords)
-    literal = keywords.get("exporter", positional[0] if positional else None)
-    if not valid:
-        literal = "unverifiedExporterArgument"
-    elif literal is None:
+    choice = _python_choice(table, clause)
+    if choice is None:
         return clause
-    elif literal == "None":
-        literal = '"console"'
-    elif not re.fullmatch(r"""(?:"[^"\n]*"|'[^'\n]*')""", literal):
-        literal = "unverifiedExporterArgument"
-    if literal != "unverifiedExporterArgument" and not literal[1:-1].lower().startswith(("http://", "https://")):
-        if any(keywords.get(key, "None").strip() not in ("None", "''", '""', "{}") for key in ("token", "headers")):
-            literal = "unverifiedExporterArgument"
-    return clause[:start.end()] + literal + clause[i:]
+    kind, path = choice
+    canonical = {"inlineMemory": 'observe("memory")', "pythonConsole": 'observe("console")',
+                 "configOff": "setup(None)", "consoleStdout": "setup(ConsoleExporter(sys.stdout))",
+                 "inlineHTTP": 'observe("https://example.invalid")',
+                 "invalidPythonWeb": 'observe("http://invalid.test")'}
+    if kind == "pythonFile":
+        call = "setup(JSONLFileExporter(" + json.dumps(path) + "))"
+    else:
+        call = canonical.get(kind, "observe(unverifiedExporterArgument)")
+    start, end = span
+    return clause[:start.start()] + "briefcase." + call + clause[end + 1:]
 
 
 def _original_commands(table: Dict[str, Any], text: str) -> str:
@@ -357,7 +447,7 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
         original = re.fullmatch(table["commandContext"], prefix, re.I) and re.search(
             table["launchAttribution"], prefix, re.I)
         if launch and example_next and not original:
-            parts[index] = ""
+            parts[index] = " original exporter unknown "
             example_next = False
             continue
         if clause.strip():
@@ -494,9 +584,21 @@ def _execution_evidence(table, source, inherited=None):
                            for prior, later in zip(calls, calls[1:])):
                     choices.add(("inlineUnknown", None))
                     continue
+            qualified = re.search(r"\bbriefcase\.(?:observe|setup)\(", clause)
+            python = runtime == {"Python"} or (runtime != {"Node"} and qualified)
+            if python:
+                selected_python = None
+                for call in calls:
+                    candidate = _python_choice(table, clause[call.start():])
+                    if candidate is not None:
+                        selected_python = candidate
+                    elif call.group().endswith("observe("):
+                        selected_python = None
+                if selected_python:
+                    choices.add(selected_python)
+                continue
+            if len(calls) > 1:
                 clause = clause[:calls[0].start()] + clause[calls[-1].start():]
-            if runtime == {"Python"} or (runtime != {"Node"} and re.search(r"\bbriefcase\.observe\(", clause, re.I)):
-                clause = _python_exporter_call(table, clause)
             literal = re.search(selection["value"], clause, re.I)
             instance = re.search(selection["instance"], clause, re.I)
             path = None
@@ -727,7 +829,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         reply_runtime = _runtime_names(table, pieces[::2]) & {"Python", "Node"}
         for index in range(0, len(pieces), 2):
             clause = pieces[index]
-            if (re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
+            if (_sensitive(table, clause) and re.search(selection["before"], clause, re.I)
+                    and re.search(selection["actor"], clause, re.I)
                     and (reply_runtime == {"Python"} or re.search(r"\bbriefcase\.observe\(", clause, re.I))):
                 clause = _python_exporter_call(table, clause)
             pieces[index] = re.sub(table["sensitiveInput"]["credentialBinding"], " ", clause, flags=re.I)

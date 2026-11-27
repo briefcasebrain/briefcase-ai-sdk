@@ -6791,5 +6791,787 @@
       "Inspect retained stderr for"
     ],
     "answer": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI copied this command from the README. I never ran it. My actual launch was BRIEFCASE_EXPORTER=console node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Ordered capture configuration 0 question",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI copied it from the README and never ran it.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the origi"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 0 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below t"
+    ],
+    "answer": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI copied it from the README and never ran it."
+  },
+  {
+    "name": "Ordered capture configuration 1 question",
+    "question": "I copied it from the README and never ran it.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the origi"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 1 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below t"
+    ],
+    "answer": "I copied it from the README and never ran it.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Ordered capture configuration 2 question",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nIt was a proposal and we never executed it.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the origi"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 2 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below t"
+    ],
+    "answer": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nIt was a proposal and we never executed it."
+  },
+  {
+    "name": "Ordered capture configuration 3 question",
+    "question": "It was a proposal and we never executed it.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the origi"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 3 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below t"
+    ],
+    "answer": "It was a proposal and we never executed it.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Ordered capture configuration 4 question",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI did not launch that command.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the origi"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 4 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below t"
+    ],
+    "answer": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI did not launch that command."
+  },
+  {
+    "name": "Ordered capture configuration 5 question",
+    "question": "I did not launch that command.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the origi"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 5 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below t"
+    ],
+    "answer": "I did not launch that command.\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Ordered capture configuration 6 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(exporter=MemoryExporter()).",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 6 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(exporter=MemoryExporter())."
+  },
+  {
+    "name": "Ordered capture configuration 7 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=MemoryExporter()) and then it recorded the decision.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 7 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=MemoryExporter()) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 8 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=MemoryExporter()). Then it recorded the decision.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 8 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=MemoryExporter()). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 9 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(briefcase.MemoryExporter(max_records=1)).",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 9 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(briefcase.MemoryExporter(max_records=1))."
+  },
+  {
+    "name": "Ordered capture configuration 10 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(briefcase.MemoryExporter(max_records=1)) and then it recorded the decision.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 10 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(briefcase.MemoryExporter(max_records=1)) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 11 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(briefcase.MemoryExporter(max_records=1)). Then it recorded the decision.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 11 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(briefcase.MemoryExporter(max_records=1)). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 12 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.observe(MemoryExporter()).",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 12 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.observe(MemoryExporter())."
+  },
+  {
+    "name": "Ordered capture configuration 13 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.observe(MemoryExporter()) and then it recorded the decision.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 13 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.observe(MemoryExporter()) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 14 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.observe(MemoryExporter()). Then it recorded the decision.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 14 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.observe(MemoryExporter()). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 15 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(exporter=ConsoleExporter()).",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 15 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(exporter=ConsoleExporter())."
+  },
+  {
+    "name": "Ordered capture configuration 16 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=ConsoleExporter()) and then it recorded the decision.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 16 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=ConsoleExporter()) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 17 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=ConsoleExporter()). Then it recorded the decision.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 17 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=ConsoleExporter()). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 18 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(ConsoleExporter(sys.stdout)).",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdout for "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 18 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdout for "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(ConsoleExporter(sys.stdout))."
+  },
+  {
+    "name": "Ordered capture configuration 19 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(ConsoleExporter(sys.stdout)) and then it recorded the decision.",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdout for "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 19 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdout for "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(ConsoleExporter(sys.stdout)) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 20 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(ConsoleExporter(sys.stdout)). Then it recorded the decision.",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdout for "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 20 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdout for "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(ConsoleExporter(sys.stdout)). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 21 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(JSONLFileExporter(path=\"local.jsonl\")).",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 21 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(JSONLFileExporter(path=\"local.jsonl\"))."
+  },
+  {
+    "name": "Ordered capture configuration 22 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(JSONLFileExporter(path=\"local.jsonl\")) and then it recorded the decision.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 22 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(JSONLFileExporter(path=\"local.jsonl\")) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 23 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(JSONLFileExporter(path=\"local.jsonl\")). Then it recorded the decision.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 23 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(JSONLFileExporter(path=\"local.jsonl\")). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 24 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(HTTPExporter(url=\"https://example.invalid/path\")).",
+    "expected": "receiver",
+    "includes": [
+      "Search the HTTP receiver's r"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 24 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "receiver",
+    "includes": [
+      "Search the HTTP receiver's r"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(HTTPExporter(url=\"https://example.invalid/path\"))."
+  },
+  {
+    "name": "Ordered capture configuration 25 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(HTTPExporter(url=\"https://example.invalid/path\")) and then it recorded the decision.",
+    "expected": "receiver",
+    "includes": [
+      "Search the HTTP receiver's r"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 25 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "receiver",
+    "includes": [
+      "Search the HTTP receiver's r"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(HTTPExporter(url=\"https://example.invalid/path\")) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 26 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(HTTPExporter(url=\"https://example.invalid/path\")). Then it recorded the decision.",
+    "expected": "receiver",
+    "includes": [
+      "Search the HTTP receiver's r"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 26 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "receiver",
+    "includes": [
+      "Search the HTTP receiver's r"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(HTTPExporter(url=\"https://example.invalid/path\")). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 27 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(exporter=None).",
+    "expected": "config_off",
+    "includes": [
+      "The reported application con"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 27 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "config_off",
+    "includes": [
+      "The reported application con"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(exporter=None)."
+  },
+  {
+    "name": "Ordered capture configuration 28 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=None) and then it recorded the decision.",
+    "expected": "config_off",
+    "includes": [
+      "The reported application con"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 28 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "config_off",
+    "includes": [
+      "The reported application con"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=None) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 29 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=None). Then it recorded the decision.",
+    "expected": "config_off",
+    "includes": [
+      "The reported application con"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 29 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "config_off",
+    "includes": [
+      "The reported application con"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=None). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 30 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(exporter=\"memory\").",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 30 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(exporter=\"memory\")."
+  },
+  {
+    "name": "Ordered capture configuration 31 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=\"memory\") and then it recorded the decision.",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 31 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=\"memory\") and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 32 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=\"memory\"). Then it recorded the decision.",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 32 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=\"memory\"). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 33 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(exporter=unreported()).",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 33 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(exporter=unreported())."
+  },
+  {
+    "name": "Ordered capture configuration 34 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=unreported()) and then it recorded the decision.",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 34 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=unreported()) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 35 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=unreported()). Then it recorded the decision.",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 35 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(exporter=unreported()). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 36 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.observe(exporter=unreported()).",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 36 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.observe(exporter=unreported())."
+  },
+  {
+    "name": "Ordered capture configuration 37 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.observe(exporter=unreported()) and then it recorded the decision.",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 37 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.observe(exporter=unreported()) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 38 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.observe(exporter=unreported()). Then it recorded the decision.",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 38 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.observe(exporter=unreported()). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 39 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(MemoryExporter(0)).",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 39 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nBefore recording the decision, The original Python application called briefcase.setup(MemoryExporter(0))."
+  },
+  {
+    "name": "Ordered capture configuration 40 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(MemoryExporter(0)) and then it recorded the decision.",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 40 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(MemoryExporter(0)) and then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 41 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(MemoryExporter(0)). Then it recorded the decision.",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 41 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(MemoryExporter(0)). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 42 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.observe(\"memory\"). Then it called briefcase.setup(router=router). Then it recorded the decision.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 42 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.observe(\"memory\"). Then it called briefcase.setup(router=router). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 43 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(MemoryExporter()) and then it recorded the decision. Then it called briefcase.observe(\"console\").",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 43 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memor"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application called briefcase.setup(MemoryExporter()) and then it recorded the decision. Then it called briefcase.observe(\"console\")."
+  },
+  {
+    "name": "Ordered capture configuration 44 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe other Python application called briefcase.setup(MemoryExporter()). Then it recorded the decision.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 44 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe other Python application called briefcase.setup(MemoryExporter()). Then it recorded the decision."
+  },
+  {
+    "name": "Ordered capture configuration 45 question",
+    "question": "briefcase-ai exec --to console -- python app.py\nThe original Python application recorded the decision. Then it called briefcase.setup(MemoryExporter()).",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for "
+    ]
+  },
+  {
+    "name": "Ordered capture configuration 45 answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for "
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application recorded the decision. Then it called briefcase.setup(MemoryExporter())."
   }
 ]

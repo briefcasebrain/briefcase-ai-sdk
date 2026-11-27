@@ -289,3 +289,42 @@ def test_ordered_python_capture_uses_current_exporter(keyword, change_before_cap
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == ("0" if change_before_capture else "1")
     assert ('"function_name"' in result.stderr) is change_before_capture
+
+
+@pytest.mark.parametrize("configuration,before,expected_rows", [
+    ("briefcase.setup(exporter=mem)", True, 1), ("briefcase.setup(mem)", True, 1),
+    ("briefcase.observe(exporter=mem)", True, 1), ("briefcase.setup(exporter=mem)", False, 0),
+    ("briefcase.setup(exporter=mem);briefcase.setup(router=None)", True, 1),
+    ("briefcase.setup(exporter=mem);briefcase.setup(exporter=None)", True, 0),
+])
+def test_public_configuration_order_inside_real_wrapper(configuration, before, expected_rows, tmp_path):
+    import os
+    from pathlib import Path
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[2]
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("BRIEFCASE_", "OTEL_"))}
+    env["PYTHONPATH"] = str(root)
+    capture = "briefcase.capture(async_capture=False)(lambda: 7)()"
+    ordered = [configuration, capture] if before else [capture, configuration]
+    code = ";".join(["import briefcase", "mem=briefcase.MemoryExporter()", *ordered, "print(len(mem.records))"])
+    run = subprocess.run([sys.executable, "-m", "briefcase.cli", "exec", "--to", "console", "--",
+                          sys.executable, "-c", code], cwd=tmp_path, env=env,
+                         capture_output=True, text=True, timeout=15)
+    assert run.returncode == 0, run.stderr
+    assert run.stdout.strip() == str(expected_rows)
+    assert ('"function_name"' in run.stderr) is (not before)
+
+
+def test_guidance_configuration_matches_public_signatures():
+    import inspect
+    import json
+    import briefcase
+    from briefcase.cli.record_help_commands import _TABLE
+
+    spec = json.loads(_TABLE.read_text())["applicationSelection"]
+    assert spec["setupParameters"] == list(inspect.signature(briefcase.setup).parameters)
+    assert spec["pythonParameters"] == list(inspect.signature(briefcase.observe).parameters)
+    for name, params in spec["pythonConstructors"].items():
+        assert params == list(inspect.signature(getattr(briefcase, name)).parameters)

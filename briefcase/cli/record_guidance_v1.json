@@ -235,6 +235,14 @@
     "wrapper_startup": {
       "kind": "action",
       "text": "Check the original briefcase-ai exec preflight diagnostic. Confirm the destination, OTLP protocol and endpoint were accepted before checking the child process for an exporter."
+    },
+    "config_off": {
+      "kind": "action",
+      "text": "The reported application configuration clears the capture exporter. Check whether the original application separately printed or retained a decision before capture export was enabled again."
+    },
+    "console_stdout": {
+      "kind": "action",
+      "text": "Inspect retained stdout for the console exporter's decision JSON. Match the original decision ID or a marker unique to the run."
     }
   },
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
@@ -260,7 +268,7 @@
       "\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|moved|reconfigured|replaced|overrode|unset|reset)\\b[^.!?;\\n]{0,65}\\b(?:exporter|configuration|settings?|environment|variables?|destination)s?\\b"
     ]
   },
-  "revision": 25,
+  "revision": 26,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -964,6 +972,18 @@
       "action": "wrapper_startup",
       "all": [
         "wrapperRejected"
+      ]
+    },
+    {
+      "action": "console_stdout",
+      "all": [
+        "consoleStdout"
+      ]
+    },
+    {
+      "action": "config_off",
+      "all": [
+        "configOff"
       ]
     },
     {
@@ -2847,7 +2867,7 @@
   "commandClauseSplit": "\\n+|[.!?](?=\\s|$)|\\b(?:but|whereas|however)\\b|\\bwhile (?=(?:my|our|the original|another|the other)\\b)|,?\\s+and (?=(?:my|our|the original) (?:actual |original )?(?:process|run|worker|launcher)\\b)|,?\\s+(?:and|while)\\s+(?=(?:(?:another|the other|an? unrelated|an? different|an? separate|an? previous|unrelated|someone else.s)\\s+(?:(?:python|node|local|hosted|separate|earlier|previous)\\s+){0,3}(?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)\\b|(?:my|our|the) (?:original|actual|target) (?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)))",
   "commandToken": "\"(?:\\\\.|[^\"\\\\\\n])*\"|'[^'\\n]*'|(;|&&|\\|\\||\\||(?<!\\S)#)",
   "destinationAlternative": "(?:,?\\s+(?:(?:and|but)\\s+)?(?:(?:(?:did|does|was|is)\\s+not|didn.t|doesn.t|wasn.t|isn.t|never)\\s+(?:use|select(?:ed)?|enabl(?:e|ed)|configur(?:e|ed)(?: for| with)?)|not|rather than|instead of)\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+exporter)?\\b)|\\bneither\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+(?:spans?|batches|batch|requests?|records?|events?|exporter|destination|protocol))?\\s+nor\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+exporter)?\\b",
-  "nonOriginalCommand": "\\b(?:(?:the )?(?:docs|documentation|readme|tutorial) (?:shows?|lists?|gives?|suggests?) (?:this |the |an? )?(?:example |sample )?(?:command|launch)|for example|e\\.g\\.|example command|as an example|illustrat(?:ive|ion)|sample command|hypothetical|in future|next time|next run|plan to|would (?:run|launch|use)|could (?:run|launch|use)|might (?:run|launch|use)|if (?:you|i|we) (?:run|launch|use)|(?:do not|did not|didn.t|never) (?:run|launch|execute))\\b|\\b(?:copied|took|quoted|borrowed|pasted) (?:this |the |that |an? )?(?:sample |example )?(?:command|launch|example) from (?:the |a |our )?(?:readme|docs|documentation|tutorial|manual)\\b|\\b(?:i|we) (?:never|did not|didn.t) (?:ran|run|executed?|launched?) (?:it|this|that|the command)\\b",
+  "nonOriginalCommand": "\\b(?:(?:the )?(?:docs|documentation|readme|tutorial) (?:shows?|lists?|gives?|suggests?) (?:this |the |an? )?(?:example |sample )?(?:command|launch)|for example|e\\.g\\.|example command|as an example|illustrat(?:ive|ion)|sample command|hypothetical|in future|next time|next run|plan to|would (?:run|launch|use)|could (?:run|launch|use)|might (?:run|launch|use)|if (?:you|i|we) (?:run|launch|use)|(?:do not|did not|didn.t|never) (?:run|launch|execute))\\b|\\b(?:copied|took|quoted|borrowed|pasted) (?:this |the |that |an? )?(?:sample |example )?(?:command|launch|example) from (?:the |a |our )?(?:readme|docs|documentation|tutorial|manual)\\b|\\b(?:i|we) (?:never|did not|didn.t) (?:ran|run|executed?|launched?) (?:it|this|that|the command)\\b|\\b(?:(?:i|we)\\s+)?(?:never|did not|didn.t)\\s+(?:run|ran|execute|executed|launch|launched|use|used)\\s+(?:it|this|that|the (?:above |previous |preceding )?(?:example|command|launch))\\b|^\\s*(?:i|we)\\s+(?:copied|quoted|pasted|borrowed|took)\\s+it\\s+from\\s+(?:the |our |a )?(?:docs|readme|tutorial|manual|documentation)\\b",
   "positiveDestinations": {
     "otlp": [
       "\\b(?:(?:i|we|it|(?:my |our |the |this |that |a )?(?:(?:original|actual|local|separate|explicit|default|python|node|test)\\s+){0,3}(?:run|job|program|process|application|app|service|batch|script|worker|launcher|source|exporter|receiver|node|python))\\s+(?:(?:explicitly|originally|directly|actually)\\s+)?)\\b(?:used?|uses|selected|chose|configured|enabled|set|exported|sent|exports?|writes?)\\s+(?:(?:the|an?|its|my|our|explicit|original|default|exporter|over|via|through|using|to|with|for|as)\\s+){0,5}(?:otlp|otel)(?![\\w-])",
@@ -2906,14 +2926,14 @@
     "privateFileWitness"
   ],
   "quoteSpans": "(?<![\\w])(?:\"((?:\\\\.|[^\"\\\\])*)\"|'((?:\\\\.|[^'\\\\])*)'|“([^”]*)”|‘([^’]*)’)",
-  "sourceLiteralContext": "(?:[(,]\\s*exporter\\s*=\\s*|observe\\(\\s*|(?:http|jsonlfile|otlphttp)exporter\\(\\s*|(?:\\bBRIEFCASE_EXPORTER|\\bOTEL_EXPORTER_OTLP_(?:TRACES_)?ENDPOINT)\\s*=\\s*|(?:exporter|path|file|jsonl|stdout|stderr|saved|opened|reopened|scanned|read|wrote|redirected|writes)\\s+(?:(?:as|was|is|to|from|out of|at|in|the|original|file)\\s+){0,5}|(?:^|\\s)\\d?>>?\\s*)$",
+  "sourceLiteralContext": "(?:[(,]\\s*exporter\\s*=\\s*|observe\\(\\s*|(?:http|jsonlfile|otlphttp)exporter\\(\\s*(?:(?:url|path)\\s*=\\s*)?|(?:\\bBRIEFCASE_EXPORTER|\\bOTEL_EXPORTER_OTLP_(?:TRACES_)?ENDPOINT)\\s*=\\s*|(?:exporter|path|file|jsonl|stdout|stderr|saved|opened|reopened|scanned|read|wrote|redirected|writes)\\s+(?:(?:as|was|is|to|from|out of|at|in|the|original|file)\\s+){0,5}|(?:^|\\s)\\d?>>?\\s*)$",
   "sourceLiteralValue": "^(?:[^\"'\\n]+\\.jsonl|memory|console|otlp|otel|https?://[^\\s\"'\\n]+)$",
-  "fileRoleBefore": "(?:\\b(?:BRIEFCASE_EXPORTER\\s*=|observe\\(\\s*)|\\b(?:read|opened|reopened|checked|scanned|inspected|queried|searched|examined|parsed|appended|exported|wrote|writes|writing|used|uses|selected|selects|chose|set|configured|exporter|export|jsonl|original file|export file|original path|export path|entries|rows?|decisions?|records?|tickets?|attempts?|results?|matches|copies|lines|scan|lookup)\\b(?:\\s+(?:up|of|out|the|its|my|our|an?|original|source|export|exporter|file|path|data|local|same|multiple|different|both|two|unique|identical|decision[s]?|row[s]?|record[s]?|attempt[s]?|ticket[s]?|text|request|body|value|appears?|twice|are|is|was|in|to|at|from|into|as|for|with)){0,9}\\s*[:=]?\\s+)[\"'`“‘]?\\s*$",
+  "fileRoleBefore": "(?:\\bJSONLFileExporter\\(\\s*(?:path\\s*=\\s*)?$|(?:\\b(?:BRIEFCASE_EXPORTER\\s*=|observe\\(\\s*)|\\b(?:read|opened|reopened|checked|scanned|inspected|queried|searched|examined|parsed|appended|exported|wrote|writes|writing|used|uses|selected|selects|chose|set|configured|exporter|export|jsonl|original file|export file|original path|export path|entries|rows?|decisions?|records?|tickets?|attempts?|results?|matches|copies|lines|scan|lookup)\\b(?:\\s+(?:up|of|out|the|its|my|our|an?|original|source|export|exporter|file|path|data|local|same|multiple|different|both|two|unique|identical|decision[s]?|row[s]?|record[s]?|attempt[s]?|ticket[s]?|text|request|body|value|appears?|twice|are|is|was|in|to|at|from|into|as|for|with)){0,9}\\s*[:=]?\\s+)[\"'`“‘]?\\s*$)",
   "fileRoleAfter": "^[\"'`”’]?\\s+(?:(?:has|holds?|contains?|lists?|includes?|shows?|had)\\b[^.;!?\\n]{0,40}\\b(?:rows?|records?|decisions?|entries|tickets?|attempts?)\\b|(?:was|is) (?:the |my |our )?(?:exporter|file export|original destination))|^[\"'`”’]?[,;]?\\s+(?:(?:i|we)\\s+(?:saw|found|counted|read)\\s+)?(?:two|multiple|several|both)\\s+(?:decision\\s+)?(?:records?|decisions?|entries|rows?|tickets?)\\b",
   "fenceBoundary": "^\\s*(`{3,}|~{3,})([^\\r\\n]*)$",
   "applicationSelection": {
     "before": "\\b(?:before (?:recording|capturing|writing|emitting|creating) (?:the |this |my |our |its )?(?:original )?(?:decision|record)|before (?:the )?capture)\\b",
-    "actor": "\\b(?:application|app|script|program|source|process)\\s+(?:(?:explicitly|actually|then)\\s+)?(?:called|calls|used|uses|selected|set|invoked)\\s+(?:either\\s+)?(?:briefcase\\.)?observe\\(",
+    "actor": "\\b(?:application|app|script|program|source|process)\\s+(?:(?:explicitly|actually|then)\\s+)?(?:called|calls|used|uses|selected|set|invoked)\\s+(?:either\\s+)?(?:briefcase\\.)?(?:observe|setup)\\(",
     "none": "\\b(?:not|never|unknown|unsure|maybe|possibly|might|would|could|example|if|whether|another|different|unrelated)\\b",
     "value": "\\bobserve\\(\\s*(?:\"([^\"\\n]+)\"|'([^'\\n]+)')\\s*(?=,|\\))",
     "workerActor": "\\b(?:my |our |the )?(?:original |actual )?(?:node )?worker(?: thread)?\\s+(?:(?:explicitly|directly|then)\\s+)?(?:called|calls|used|uses|invoked)\\s+(?:briefcase\\.)?observe\\(",
@@ -2927,9 +2947,9 @@
       "OtlpHttpExporter": "inlineOTLP"
     },
     "insecureOption": "^\\s*,\\s*\\{[^{}]*?\\ballowInsecure\\s*:\\s*true\\b[^{}]*\\}\\s*\\)",
-    "callStart": "\\b(?:briefcase\\.)?observe\\(",
+    "callStart": "\\b(?:briefcase\\.)?(?:observe|setup)\\(",
     "orderedNext": "\\)\\s*,?\\s*(?:and\\s+then|then|followed\\s+by|and\\s+afterwards?)\\s+(?:(?:it|the (?:app(?:lication)?|worker|script))\\s+)?(?:(?:called|invoked|used)\\s+)?$",
-    "orderedContinuation": "^\\s*(?:then|next|afterward(?:s)?)\\s*,?\\s*(?:(?:it|the (?:same |original )?(?:app(?:lication)?|worker|script|process))\\s+)?(?:(?:called|invoked|used)\\s+)?(?=(?:briefcase\\.)?observe\\()",
+    "orderedContinuation": "^\\s*(?:then|next|afterward(?:s)?)\\s*,?\\s*(?:(?:it|the (?:same |original )?(?:app(?:lication)?|worker|script|process))\\s+)?(?:(?:called|invoked|used)\\s+)?(?=(?:briefcase\\.)?(?:observe|setup)\\()",
     "after": "\\b(?:after|following)\\s+(?:the\\s+|my\\s+|our\\s+)?(?:(?:recording|capturing|emitting|writing|creating)\\s+(?:(?:the|this|my|our|its|original)\\s+)*(?:decision|record)|(?:original\\s+)?(?:decision\\s+)?capture|(?:original\\s+)?(?:decision|record)\\s+(?:was|had been)\\s+(?:recorded|captured|emitted|written|created))\\b",
     "captureEvent": "\\b(?:then\\s+)?(?:it|i|we|(?:the|my|our)\\s+(?:original\\s+)?(?:app(?:lication)?|process|script|program))\\s+(?:recorded|captured|emitted|wrote|created)\\s+(?:(?:the|this|my|our|its|original)\\s+)*(?:decision|record)\\b",
     "pythonParameters": [
@@ -2937,7 +2957,48 @@
       "level",
       "token",
       "headers"
-    ]
+    ],
+    "setupParameters": [
+      "exporter",
+      "router",
+      "webhook_url",
+      "webhook_secret",
+      "events",
+      "event_bus",
+      "storage",
+      "guardrail_packs"
+    ],
+    "pythonConstructors": {
+      "MemoryExporter": [
+        "max_records"
+      ],
+      "ConsoleExporter": [
+        "stream",
+        "pretty"
+      ],
+      "JSONLFileExporter": [
+        "path"
+      ],
+      "HTTPExporter": [
+        "url",
+        "token",
+        "headers",
+        "timeout",
+        "batch_size",
+        "flush_interval",
+        "max_retries",
+        "backoff_base",
+        "backoff_max",
+        "max_buffer",
+        "allow_insecure"
+      ]
+    },
+    "pythonModules": {
+      "MemoryExporter": "briefcase.exporters.memory",
+      "ConsoleExporter": "briefcase.exporters.console",
+      "JSONLFileExporter": "briefcase.exporters.file",
+      "HTTPExporter": "briefcase.exporters.http"
+    }
   },
   "fenceComment": "^\\s*(?:#(?:\\s|$)|<!--[^\\n]*-->\\s*$)",
   "sensitiveAsideSplit": ",\\s*(?=(?:(?:my|the|our|a)\\s+)?(?:[\\w-]+\\s+){0,3}(?:token|password|credential|secret|api key)\\b)",
@@ -2946,5 +3007,5 @@
   "executionAssertionSubject": "\\b(?:original|actual|target)\\s+(?:(?:node|python|local)\\s+)?(?:run|app(?:lication)?|process|job|invocation|launch|script|worker|program)\\b",
   "exampleContinuation": "^\\s*(?:(?:i|we) (?:merely|only|just|never|did not|didn.t)|(?:it|that|this) (?:is|was) (?:only|just|merely|an? example)|(?:the |this )?command (?:was|is) (?:only|just|never))\\b",
   "launchAttribution": "\\b(?:original|actual|(?:i|we) (?:actually )?(?:ran|launched|executed))\\b",
-  "disownPreviousCommand": "^\\s*(?:(?:i|we) (?:copied|quoted|pasted|took|borrowed) (?:this|that|the (?:previous|preceding|above)) (?:command|example|launch) from (?:the |an? )?(?:readme|manual|tutorial|docs|documentation)|(?:i|we) (?:never|did not|didn.t) (?:ran|run|executed?|launched?) (?:it|this|that|the (?:previous |preceding |above )?command)|(?:that|this|the (?:previous|preceding|above)) (?:command|launch) (?:was|is) (?:merely |only |just )?(?:an? example|copied|illustrative|from (?:the )?(?:docs|readme|manual)))\\b"
+  "disownPreviousCommand": "^\\s*(?:(?:i|we) (?:copied|quoted|pasted|took|borrowed) (?:this|that|the (?:previous|preceding|above)) (?:command|example|launch) from (?:the |an? )?(?:readme|manual|tutorial|docs|documentation)|(?:i|we) (?:never|did not|didn.t) (?:ran|run|executed?|launched?) (?:it|this|that|the (?:previous |preceding |above )?command)|(?:that|this|the (?:previous|preceding|above)) (?:command|launch) (?:was|is) (?:merely |only |just )?(?:an? example|copied|illustrative|from (?:the )?(?:docs|readme|manual)))\\b|\\b(?:(?:i|we)\\s+)?(?:never|did not|didn.t)\\s+(?:run|ran|execute|executed|launch|launched|use|used)\\s+(?:it|this|that|the (?:above |previous |preceding )?(?:example|command|launch))\\b|^\\s*(?:i|we)\\s+(?:copied|quoted|pasted|borrowed|took)\\s+it\\s+from\\s+(?:the |our |a )?(?:docs|readme|tutorial|manual|documentation)\\b"
 }
