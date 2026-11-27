@@ -478,5 +478,197 @@
       "saved.err",
       "console"
     ]
+  },
+  {
+    "name": "Original destination over other app",
+    "question": "My original application used OTLP. {owner} selected observe(\"other.jsonl\").",
+    "variants": {
+      "owner": [
+        "A different application",
+        "Another workflow",
+        "An unrelated job",
+        "The other engine"
+      ]
+    },
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ]
+  },
+  {
+    "name": "Original destination over other app",
+    "question": "{owner} selected observe(\"other.jsonl\"), and my original application used OTLP.",
+    "variants": {
+      "owner": [
+        "A different application",
+        "Another workflow",
+        "An unrelated job",
+        "The other engine"
+      ]
+    },
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ]
+  },
+  {
+    "name": "Zero receiver events",
+    "question": "The original marker was unit-42.prod. The receiver received marker unit-42.prod {count}.",
+    "variants": {
+      "count": [
+        "0 times",
+        "zero times",
+        "on no occasion",
+        "not once",
+        "zero occurrences"
+      ]
+    },
+    "expected": "receipt_unknown",
+    "includes": [
+      "unit-42.prod"
+    ]
+  },
+  {
+    "name": "Exact receiver opaque identifier",
+    "question": "The original marker was {marker}. The receiver received marker {marker}.",
+    "variants": {
+      "marker": [
+        "trace-17.prod",
+        "deploy-55:alpha.prod",
+        "A-15/team.v4",
+        "qa-66+release"
+      ]
+    },
+    "expected": "storage",
+    "includes": [
+      "{marker}"
+    ]
+  },
+  {
+    "name": "Exact receiver opaque identifier",
+    "question": "The original marker was {marker}. The receiver received marker {marker}.dev.",
+    "variants": {
+      "marker": [
+        "trace-17.prod",
+        "deploy-55:alpha.prod",
+        "A-15/team.v4",
+        "qa-66+release"
+      ]
+    },
+    "expected": "receipt_unknown",
+    "includes": [
+      "{marker}"
+    ]
+  },
+  {
+    "name": "Zero database events",
+    "question": "The original marker was unit-42.prod. The database returned marker unit-42.prod {count}.",
+    "variants": {
+      "count": [
+        "0 times",
+        "zero times",
+        "on no occasion",
+        "not once",
+        "zero occurrences"
+      ]
+    },
+    "expected": "store_missing",
+    "includes": [
+      "unit-42.prod"
+    ]
+  },
+  {
+    "name": "Exact database opaque identifier",
+    "question": "The original marker was {marker}. The database returned marker {marker}.",
+    "variants": {
+      "marker": [
+        "trace-17.prod",
+        "deploy-55:alpha.prod",
+        "A-15/team.v4",
+        "qa-66+release"
+      ]
+    },
+    "expected": "stored",
+    "includes": [
+      "{marker}"
+    ]
+  },
+  {
+    "name": "Exact database opaque identifier",
+    "question": "The original marker was {marker}. The database returned marker {marker}.dev.",
+    "variants": {
+      "marker": [
+        "trace-17.prod",
+        "deploy-55:alpha.prod",
+        "A-15/team.v4",
+        "qa-66+release"
+      ]
+    },
+    "expected": "store_missing",
+    "includes": [
+      "{marker}"
+    ]
+  },
+  {
+    "name": "Path sentence is uncertain",
+    "question": "Where is the JSONL for marker form-13?",
+    "variants": {
+      "prefix": [
+        "Maybe it was",
+        "I only recall",
+        "Perhaps it used",
+        "I have seen",
+        "Try looking under"
+      ]
+    },
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "{prefix} logs/old.jsonl"
+  },
+  {
+    "name": "Inline preload destination outranks stderr file",
+    "question": "BRIEFCASE_EXPORTER={value} node --import @briefcase-ai/auto/register app.js 2> saved.jsonl",
+    "variants": {
+      "value": [
+        "memory",
+        "\"memory\"",
+        "'memory'"
+      ]
+    },
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ]
+  },
+  {
+    "name": "Inline Node protocol selects stderr",
+    "question": "{environment} node --import=@briefcase-ai/auto/register app.js 2> saved.jsonl",
+    "variants": {
+      "environment": [
+        "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
+        "OTEL_EXPORTER_OTLP_PROTOCOL=grpc BRIEFCASE_EXPORTER=\"otel\"",
+        "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=grpc OTEL_EXPORTER_OTLP_PROTOCOL=http/json BRIEFCASE_EXPORTER=otlp"
+      ]
+    },
+    "expected": "node_console",
+    "includes": [
+      "saved.jsonl"
+    ]
+  },
+  {
+    "name": "Inline Node traces protocol wins",
+    "question": "{environment} node --import @briefcase-ai/auto/register app.js 2> saved.jsonl",
+    "variants": {
+      "environment": [
+        "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_PROTOCOL=grpc OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/json",
+        "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/json BRIEFCASE_EXPORTER=otel OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
+      ]
+    },
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ]
   }
 ]

@@ -30,9 +30,10 @@ def register(sub) -> None:
 
 def _matches(rule: Dict[str, Any], evidence: str) -> bool:
     alternatives = rule.get("any", [])
-    return (all(re.search(pattern, evidence, re.I) for pattern in rule.get("all", []))
-            and (not alternatives or any(re.search(pattern, evidence, re.I) for pattern in alternatives))
-            and not any(re.search(pattern, evidence, re.I) for pattern in rule.get("none", [])))
+    flags = 0 if rule.get("caseSensitive") else re.I
+    return (all(re.search(pattern, evidence, flags) for pattern in rule.get("all", []))
+            and (not alternatives or any(re.search(pattern, evidence, flags) for pattern in alternatives))
+            and not any(re.search(pattern, evidence, flags) for pattern in rule.get("none", [])))
 
 
 def _collect_facts(table: Dict[str, Any], evidence: str) -> Set[str]:
@@ -131,6 +132,21 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     if len(relevant) != len(clauses):
         evidence = "\n".join(relevant)
     facts = _collect_facts(table, evidence)
+    inline_path = None
+    inline = table["inlineNode"]
+    commands = list(re.finditer(inline["command"], evidence))
+    if len(commands) == 1:
+        # Parse literal assignment tokens as data. Last assignment to a key wins.
+        settings = {m.group(1): next((v for v in m.groups()[1:] if v is not None), "")
+                    for m in re.finditer(inline["assignment"], commands[0].group(1))}
+        lines = "\n".join(f"{key}={value}" for key, value in settings.items())
+        selected = next((rule for rule in inline["rules"] if _matches(rule, lines)), None)
+        if selected:
+            facts.add(selected["fact"])
+            if selected["fact"] == "inlineFile":
+                inline_path = settings["BRIEFCASE_EXPORTER"]
+    elif commands:
+        facts.add("inlineUnknown")
     entities = _entities(table, evidence)
     facts.update(value["fact"] for value in entities.values() if value.get("fact"))
     for comparison in table["comparisons"]:
@@ -138,8 +154,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         observed = entities.get(comparison["right"], {}).get("value")
         if original.get("independent") and observed:
             facts.add(comparison["equal"] if original["value"] == observed else comparison["different"])
-    shell_path = None
-    if shell and _matches(table["shell"], evidence):
+    shell_path = inline_path
+    if shell and not commands and _matches(table["shell"], evidence):
         value = preprocess(shell)
         for kind in table["shellKinds"]:
             if _matches(kind, value):
@@ -160,7 +176,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         reply_entities = _entities(table, contextual_reply)
         reply_id = reply_entities.get("correlation", {})
         repeated = not facts.isdisjoint(("sharedInput", "multiple"))
-        shared_value = entities.get("correlation", {}).get("value")
+        shared_value = (entities.get("businessTicket") or entities.get("correlation") or {}).get("value")
         valid_id = key != "ask_id" or (reply_id.get("fact") == "hasID"
                                        and not (repeated and reply_id.get("value") == shared_value))
         if not reply or re.fullmatch(table["unknown"], reply, re.I) or valid is None or not valid_id:
@@ -182,6 +198,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         name = placeholder.group(1)
         if name == "path" and shell_path:
             return shell_path
+        if name == "correlation" and name not in entities and key in table["businessTicketActions"]:
+            return entities.get("businessTicket", {}).get("value", table["defaults"][name])
         if name in table["entities"]:
             return entities.get(name, {}).get("value", table["defaults"][name])
         for pattern in table["extract"][name]:

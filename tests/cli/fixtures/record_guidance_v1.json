@@ -1726,5 +1726,204 @@
     "includes": [
       "launch configuration"
     ]
+  },
+  {
+    "name": "J01",
+    "question": "Our support worker wrote multiple decisions with the same ticket to support.jsonl. The original decision ID was desk-705. Which row is ours?",
+    "expected": "jsonl",
+    "includes": [
+      "support.jsonl",
+      "desk-705"
+    ]
+  },
+  {
+    "name": "J02 initial",
+    "question": "The same ticket appears twice in repeat.jsonl, from two different runs. Which entry belongs to my original invocation?",
+    "expected": "ask_id",
+    "includes": []
+  },
+  {
+    "name": "J02",
+    "question": "The same ticket appears twice in repeat.jsonl, from two different runs. Which entry belongs to my original invocation?",
+    "expected": "jsonl",
+    "includes": [
+      "repeat.jsonl",
+      "call-818"
+    ],
+    "answer": "My original decision ID is call-818."
+  },
+  {
+    "name": "J03",
+    "question": "We ran the Python quickstart first_decision.py unchanged, redirected stdout to keep.out and saved it after exit. Where can I see the printed ticket decision?",
+    "expected": "memory",
+    "includes": [
+      "keep.out"
+    ]
+  },
+  {
+    "name": "J04 initial",
+    "question": "Either the Python quickstart or our console-exporting background worker ran. The launcher retained stdout in launch.out and stderr in launch.err. Which one should I inspect?",
+    "expected": "ask_program",
+    "includes": []
+  },
+  {
+    "name": "J04",
+    "question": "Either the Python quickstart or our console-exporting background worker ran. The launcher retained stdout in launch.out and stderr in launch.err. Which one should I inspect?",
+    "expected": "console",
+    "includes": [
+      "launch.err"
+    ],
+    "answer": "The original launcher ran the worker with the console exporter."
+  },
+  {
+    "name": "J05",
+    "question": "I have a hosted submission in workspace west for agent ledger. Its run ID is host-283. How do I look it up?",
+    "expected": "hosted",
+    "includes": [
+      "west",
+      "ledger",
+      "host-283"
+    ]
+  },
+  {
+    "name": "J06 initial",
+    "question": "There were two executions, a local SDK run and a hosted dashboard submission. I need to check my run. Which one should I open?",
+    "expected": "ask_run",
+    "includes": []
+  },
+  {
+    "name": "J06",
+    "question": "There were two executions, a local SDK run and a hosted dashboard submission. I need to check my run. Which one should I open?",
+    "expected": "hosted",
+    "includes": [
+      "pine",
+      "job-248"
+    ],
+    "answer": "I mean the hosted submission in workspace pine, run ID job-248."
+  },
+  {
+    "name": "J07",
+    "question": "I want to read the application reply text from the Node demo. The launcher saved stdout in demo.out and console decision metadata in demo.err. Which file do I open?",
+    "expected": "reply",
+    "includes": [
+      "demo.out"
+    ]
+  },
+  {
+    "name": "J08 initial",
+    "question": "We saved stdout from our Node demo in my.out and the console decision on stderr in my.err. Which output should I read for the result?",
+    "expected": "ask_subject",
+    "includes": []
+  },
+  {
+    "name": "J08",
+    "question": "We saved stdout from our Node demo in my.out and the console decision on stderr in my.err. Which output should I read for the result?",
+    "expected": "node_console",
+    "includes": [
+      "my.err"
+    ],
+    "answer": "I mean the decision metadata with the token count."
+  },
+  {
+    "name": "J09",
+    "question": "A separate process checked morning.jsonl for the original unique marker fog-448. No matching record was found. The only entry is older and has marker fog-447. What does that prove?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "morning.jsonl",
+      "fog-448"
+    ]
+  },
+  {
+    "name": "J10",
+    "question": "The service used the console exporter. Its original launch command was python run.py 2>saved.err and we kept the redirected stream. Where should I verify the decision?",
+    "expected": "console",
+    "includes": [
+      "saved.err"
+    ]
+  },
+  {
+    "name": "J11",
+    "question": "The receiver log contains a matching entry for our original decision ID rx-604. Downstream storage has not been queried. What can we verify?",
+    "expected": "storage",
+    "includes": [
+      "rx-604"
+    ]
+  },
+  {
+    "name": "J12",
+    "question": "A separate downstream storage query returned a matching record for my original decision ID db-483 after the job exited. Can I verify it reached storage?",
+    "expected": "stored",
+    "includes": [
+      "db-483"
+    ]
+  },
+  {
+    "name": "Shell of help command ran record-help",
+    "question": "The original job used the default exporter. I ran record-help in this shell with unchanged settings.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "current.jsonl"
+  },
+  {
+    "name": "Shell of help command launched record-help",
+    "question": "The original job used the default exporter. I launched record-help in this shell with unchanged settings.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "current.jsonl"
+  },
+  {
+    "name": "Shell of help command started the help command",
+    "question": "The original job used the default exporter. I started the help command in this shell with unchanged settings.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "current.jsonl"
+  },
+  {
+    "name": "Shell of help command ran the guidance CLI",
+    "question": "The original job used the default exporter. I ran the guidance CLI in this shell with unchanged settings.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "current.jsonl"
+  },
+  {
+    "name": "Case sensitive Node memory shorthand",
+    "question": "BRIEFCASE_EXPORTER=MEMORY node --import @briefcase-ai/auto/register script.js 2> launch.jsonl",
+    "expected": "check_launch",
+    "includes": [
+      "launch configuration"
+    ]
+  },
+  {
+    "name": "Last inline file assignment wins",
+    "question": "BRIEFCASE_EXPORTER=first.jsonl BRIEFCASE_EXPORTER=\"run logs/final.jsonl\" node --import @briefcase-ai/auto/register script.js 2> launch.jsonl",
+    "expected": "node_file",
+    "includes": [
+      "run logs/final.jsonl"
+    ]
+  },
+  {
+    "name": "Case sensitive file suffix",
+    "question": "BRIEFCASE_EXPORTER=records.JSONL node --import @briefcase-ai/auto/register script.js 2> launch.jsonl",
+    "expected": "check_launch",
+    "includes": [
+      "launch configuration"
+    ]
+  },
+  {
+    "name": "Uncertain noun and relative path",
+    "question": "Where is the JSONL for marker run-32?",
+    "answer": "possibly logs/old.jsonl",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ]
   }
 ]
