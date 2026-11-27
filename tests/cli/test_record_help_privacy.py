@@ -147,3 +147,16 @@ def test_invalid_or_conflicting_confirmation_never_echoes_arguments(flags, capsy
     captured = capsys.readouterr()
     assert "exactly one supported source" in captured.err
     assert "demo-712" not in captured.out + captured.err
+
+
+@pytest.mark.parametrize("label", ["CI_JOB_TOKEN was", "CI-JOB-TOKEN is", "CI job token is"])
+@pytest.mark.parametrize("argument", [True, False])
+def test_positional_and_piped_question_share_second_turn_privacy(label, argument, monkeypatch, capsys):
+    from briefcase.cli.__main__ import main
+
+    question = "Original marker visit-671. My run used OTLP."
+    lines = ([] if argument else [question]) + [f"My {label} visit-671."]
+    monkeypatch.setattr("sys.stdin", StringIO("\n".join(lines) + "\n"))
+    assert main(["record-help"] + ([question] if argument else [])) == 0
+    output = capsys.readouterr()
+    assert "collector" in output.out and "visit-671" not in output.out + output.err

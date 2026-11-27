@@ -117,3 +117,18 @@ def test_confirmed_node_launch_overlays_inline_settings(monkeypatch, capsys, inl
                 + inline + " node --import @briefcase-ai/auto/register app.js 2> debug.err")
     assert main(["record-help", question]) == 0
     assert expected in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("raw_traces,expected", [("   ", "Search the collector"), ("", "Inspect debug.err")])
+def test_node_selects_raw_protocol_before_trimming(raw_traces, expected, monkeypatch, capsys):
+    from io import StringIO
+
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", raw_traces)
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    question = ("The Node preload inherited the unchanged settings from this shell. "
+                "BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js 2> debug.err")
+    assert main(["record-help", question]) == 0
+    assert expected in capsys.readouterr().out

@@ -2727,5 +2727,130 @@
     "includes": [
       "unverified"
     ]
+  },
+  {
+    "name": "Quickstart running without archived output",
+    "question": "My Python quickstart is still running; no saved stdout exists.",
+    "expected": "memory_lost",
+    "includes": [
+      "still running",
+      "inspect its in-memory decisions"
+    ]
+  },
+  {
+    "name": "Unconfirmed private launch I did not use OTLP.",
+    "question": "I did not use OTLP. My CI job token is bench-71.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ]
+  },
+  {
+    "name": "Unconfirmed private launch I think it was OTLP.",
+    "question": "I think it was OTLP. My CI job token is bench-71.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ]
+  },
+  {
+    "name": "Unconfirmed private launch I am unsure whether it was HTTP.",
+    "question": "I am unsure whether it was HTTP. My CI job token is bench-71.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ]
+  },
+  {
+    "name": "Ordered fd resolution > combined.log 2>&1",
+    "question": "The console exporter was used. Original command: python app.py > combined.log 2>&1.",
+    "expected": "console",
+    "includes": [
+      "combined.log"
+    ]
+  },
+  {
+    "name": "Ordered fd resolution 1> first.log 2>&1 > later.log",
+    "question": "The console exporter was used. Original command: python app.py 1> first.log 2>&1 > later.log.",
+    "expected": "console",
+    "includes": [
+      "first.log"
+    ]
+  },
+  {
+    "name": "Ordered fd resolution 2>&1 > after.log",
+    "question": "The console exporter was used. Original command: python app.py 2>&1 > after.log.",
+    "expected": "console",
+    "includes": [
+      "retained stdout"
+    ]
+  },
+  {
+    "name": "Ordered fd resolution 2> \"saved file.err\" 1>&2",
+    "question": "The console exporter was used. Original command: python app.py 2> \"saved file.err\" 1>&2.",
+    "expected": "console",
+    "includes": [
+      "saved file.err"
+    ]
+  },
+  {
+    "name": "Stdout extension is not stderr evidence",
+    "question": "The console exporter was used. Stdout was redirected to app.err. I did not retain stderr.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Point-in-time exporter settings",
+    "question": "The original job inherited the default exporter from this shell. Settings were unchanged at launch. I later switched to a different exporter.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "today.jsonl"
+  },
+  {
+    "name": "Credential in raw answer CI_JOB_TOKEN",
+    "question": "Original marker visit-671. My run used OTLP.",
+    "expected": "otlp",
+    "includes": [
+      "original ID or unique marker"
+    ],
+    "answer": "My CI_JOB_TOKEN was visit-671."
+  },
+  {
+    "name": "Credential in raw answer CI-JOB-TOKEN",
+    "question": "Original marker visit-671. My run used OTLP.",
+    "expected": "otlp",
+    "includes": [
+      "original ID or unique marker"
+    ],
+    "answer": "My CI-JOB-TOKEN was visit-671."
+  },
+  {
+    "name": "Credential in raw answer workflow_job_token",
+    "question": "Original marker visit-671. My run used OTLP.",
+    "expected": "otlp",
+    "includes": [
+      "original ID or unique marker"
+    ],
+    "answer": "My workflow_job_token was visit-671."
+  },
+  {
+    "name": "Console stream outside quoted argument",
+    "question": "My original process used the console exporter. python app.py --note \"debug 2> fake.log\"",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr"
+    ]
+  },
+  {
+    "name": "Console stream outside next pipeline command",
+    "question": "My original process used the console exporter. python first.py | python inspect.py 2> inspections.err",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr"
+    ]
   }
 ]

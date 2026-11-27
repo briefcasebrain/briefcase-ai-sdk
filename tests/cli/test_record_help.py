@@ -116,3 +116,40 @@ def test_outcome_requires_explicit_complete_pair(monkeypatch, capsys):
     assert main(["record-help", question, "--source", "jsonl"]) == 2
     captured = capsys.readouterr()
     assert "both --source and --result" in captured.err and "Reader-confirmed" not in captured.out
+
+
+def test_three_turn_pipe_accepts_source_result_after_clarification(monkeypatch, capsys):
+    from io import StringIO
+
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO("Where is the JSONL for marker run-123?\naudit.jsonl\njsonl no-match\n"))
+    assert main(["record-help"]) == 0
+    result = capsys.readouterr().out
+    assert "Reader-confirmed absence" in result
+    assert "audit.jsonl" not in result and "Open audit.jsonl" not in result
+
+
+@pytest.mark.parametrize("question,missing", [
+    ("The console exporter was used. Stdout was redirected to app.err. I did not retain stderr.", "app.err"),
+    ("The console exporter was used. python app.py 2>&1 > after.log", "after.log"),
+    ("The console exporter was used. python app.py > merged.log 2>&1", "&1"),
+])
+def test_console_stream_does_not_swap_descriptors(question, missing):
+    assert missing not in route(TABLE, question)[1]
+
+
+def test_terminal_accepts_confirmation_after_path_clarification(monkeypatch, capsys):
+    from io import StringIO
+
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    terminal = StringIO("Where is the JSONL for marker visit-671?\naudit.jsonl\njsonl no-match\n")
+    monkeypatch.setattr(terminal, "isatty", lambda: True)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: True)
+    monkeypatch.setattr("sys.stdin", terminal)
+    assert main(["record-help"]) == 0
+    output = capsys.readouterr().out
+    assert "Optional source and result" in output and "Reader-confirmed absence" in output
+    assert "audit.jsonl" not in output
