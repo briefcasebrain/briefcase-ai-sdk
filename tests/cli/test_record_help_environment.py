@@ -100,7 +100,7 @@ def test_nonaffirmative_runtime_cannot_resolve_default(monkeypatch, capsys, runt
 
 
 @pytest.mark.parametrize("inline,expected", [
-    ("BRIEFCASE_EXPORTER=otlp", "Inspect debug.err"),
+    ("BRIEFCASE_EXPORTER=otlp", "Inspect retained stderr"),
     ("BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/json", "Search the collector"),
     ("BRIEFCASE_EXPORTER=memory", "before exit"),
 ])
@@ -119,7 +119,7 @@ def test_confirmed_node_launch_overlays_inline_settings(monkeypatch, capsys, inl
     assert expected in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("raw_traces,expected", [("   ", "Search the collector"), ("", "Inspect debug.err")])
+@pytest.mark.parametrize("raw_traces,expected", [("   ", "Search the collector"), ("", "Inspect retained stderr")])
 def test_node_selects_raw_protocol_before_trimming(raw_traces, expected, monkeypatch, capsys):
     from io import StringIO
 

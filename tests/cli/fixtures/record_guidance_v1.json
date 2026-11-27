@@ -4,18 +4,24 @@
     "question": "I need the decision JSON from that launcher. The launcher called an environment-driven script from this directory; exporter-related settings have stayed identical in this shell since launch. Only stderr was archived in batch.err. The launcher's shell did not redirect stdout.",
     "expected": "console",
     "includes": [
-      "batch.err"
+      "retained stderr"
     ],
-    "shell": "console"
+    "shell": "console",
+    "omits": [
+      "batch.err"
+    ]
   },
   {
     "name": "F04",
     "question": "The log is full. How do I prove mine made it? Explicit file export to full.jsonl; no original ID, unique input or other independently identifying value survives.",
     "expected": "fresh",
     "includes": [
-      "full.jsonl",
+      "original JSONL file",
       "new ID",
       "new run"
+    ],
+    "omits": [
+      "full.jsonl"
     ]
   },
   {
@@ -23,11 +29,12 @@
     "question": "Which file should I inspect for ticket birch-63? Process used observe() in this directory with this shell's unchanged exporter settings. birch-63 is unique to the original job; no file has yet been read.",
     "expected": "jsonl",
     "includes": [
-      "ingest.jsonl"
+      "original JSONL file"
     ],
     "shell": "ingest.jsonl",
     "omits": [
-      "birch-63"
+      "birch-63",
+      "ingest.jsonl"
     ]
   },
   {
@@ -44,21 +51,25 @@
     "question": "Where did the record with the usage count go? Node preload demo inherited the unchanged settings from this shell in this directory. local.err contains stderr; no file or stream has yet been checked.",
     "expected": "node_file",
     "includes": [
-      "meter.jsonl",
+      "original JSONL file",
       "total_tokens"
     ],
-    "shell": "meter.jsonl"
+    "shell": "meter.jsonl",
+    "omits": [
+      "meter.jsonl"
+    ]
   },
   {
     "name": "actual path",
     "question": "Where is the JSONL for ticket T-145?",
     "expected": "jsonl",
     "includes": [
-      "/tmp/run logs/a.jsonl"
+      "original JSONL file"
     ],
     "answer": "/tmp/run logs/a.jsonl",
     "omits": [
-      "T-145"
+      "T-145",
+      "/tmp/run logs/a.jsonl"
     ]
   },
   {
@@ -116,9 +127,12 @@
     "question": "The current shell lists team.jsonl; the source explicitly selects local.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "Open local.jsonl"
+      "original JSONL file"
     ],
-    "shell": "team.jsonl"
+    "shell": "team.jsonl",
+    "omits": [
+      "local.jsonl"
+    ]
   },
   {
     "name": "unconfirmed inheritance",
@@ -159,10 +173,11 @@
     "question": "Both entries in inbox.jsonl share the ticket. The original decision ID was trace-714.",
     "expected": "jsonl",
     "includes": [
-      "inbox.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "trace-714"
+      "trace-714",
+      "inbox.jsonl"
     ]
   },
   {
@@ -205,6 +220,9 @@
     "question": "The Node exporter writes monitor.jsonl. I need the application reply. stdout was saved to answers.log.",
     "expected": "reply",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "answers.log"
     ]
   },
@@ -222,11 +240,12 @@
     "question": "I reopened events.jsonl. Every row has a different marker from my original marker job-231.",
     "expected": "jsonl_stale",
     "includes": [
-      "events.jsonl",
+      "original JSONL file",
       "no readback"
     ],
     "omits": [
-      "job-231"
+      "job-231",
+      "events.jsonl"
     ]
   },
   {
@@ -282,8 +301,11 @@
     "question": "The console exporter was active. I ran python app.py 2>terminal.jsonl.",
     "expected": "console",
     "includes": [
-      "terminal.jsonl",
+      "retained stderr",
       "console"
+    ],
+    "omits": [
+      "terminal.jsonl"
     ]
   },
   {
@@ -291,9 +313,12 @@
     "question": "Which JSONL contains marker z-71?",
     "expected": "jsonl",
     "includes": [
-      "/tmp/scan $(date)/t.jsonl"
+      "original JSONL file"
     ],
-    "answer": "/tmp/scan $(date)/t.jsonl"
+    "answer": "/tmp/scan $(date)/t.jsonl",
+    "omits": [
+      "/tmp/scan $(date)/t.jsonl"
+    ]
   },
   {
     "name": "retained stderr not an exporter",
@@ -333,9 +358,12 @@
     "question": "Which JSONL file was used?",
     "expected": "jsonl",
     "includes": [
-      "run logs/a.jsonl"
+      "original JSONL file"
     ],
-    "answer": "run logs/a.jsonl"
+    "answer": "run logs/a.jsonl",
+    "omits": [
+      "run logs/a.jsonl"
+    ]
   },
   {
     "name": "http URL with credentials and file extension",
@@ -347,7 +375,7 @@
   },
   {
     "name": "runtime disabled exporter",
-    "question": "The default exporter inherited this shell\u2019s unchanged configuration.",
+    "question": "The default exporter inherited this shell’s unchanged configuration.",
     "expected": "disabled",
     "includes": [
       "disable"
@@ -356,7 +384,7 @@
   },
   {
     "name": "unrecognized runtime default",
-    "question": "The default exporter inherited this shell\u2019s unchanged configuration.",
+    "question": "The default exporter inherited this shell’s unchanged configuration.",
     "expected": "check_launch",
     "includes": [
       "original launch configuration"
@@ -365,7 +393,7 @@
   },
   {
     "name": "arbitrary memory does not print",
-    "question": "The Node default exporter inherited this shell\u2019s unchanged configuration.",
+    "question": "The Node default exporter inherited this shell’s unchanged configuration.",
     "expected": "memory_only",
     "includes": [
       "explicitly printed"
@@ -393,10 +421,11 @@
     "question": "Two rows in refund.jsonl carry the same ticket text. The original decision ID was d-308. How can I pick my row?",
     "expected": "jsonl",
     "includes": [
-      "refund.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "d-308"
+      "d-308",
+      "refund.jsonl"
     ]
   },
   {
@@ -410,11 +439,12 @@
     "question": "Our refund case was processed twice. Both entries in night.jsonl contain that ticket. Which was my invocation?",
     "expected": "jsonl",
     "includes": [
-      "night.jsonl"
+      "original JSONL file"
     ],
     "answer": "I found the original decision ID d-401.",
     "omits": [
-      "d-401"
+      "d-401",
+      "night.jsonl"
     ]
   },
   {
@@ -422,6 +452,9 @@
     "question": "I ran the Python quickstart first_decision.py unchanged. We saved stdout as build.out and stderr as build.err. Where is the printed decision after exit?",
     "expected": "memory",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "build.out"
     ]
   },
@@ -436,19 +469,23 @@
     "question": "I had both the Python quickstart and a worker with a console exporter open. The launcher saved stdout to job.out and stderr to job.err. Which file should I inspect?",
     "expected": "console",
     "includes": [
-      "job.err"
+      "retained stderr"
     ],
-    "answer": "The command in the launcher was python worker.py, the worker with the explicit console exporter."
+    "answer": "The command in the launcher was python worker.py, the worker with the explicit console exporter.",
+    "omits": [
+      "job.err"
+    ]
   },
   {
     "name": "A05",
     "question": "I submitted the job to the hosted workspace north. My run ID is run-742. Where should I check its result?",
     "expected": "hosted",
     "includes": [
-      "north"
+      "receiving workspace"
     ],
     "omits": [
-      "run-742"
+      "run-742",
+      "north"
     ]
   },
   {
@@ -462,11 +499,12 @@
     "question": "We tried a local SDK job and a hosted submission the same afternoon. I want to track one of them. Where do I check?",
     "expected": "hosted",
     "includes": [
-      "east"
+      "receiving workspace"
     ],
     "answer": "It was the hosted submission in workspace east, run ID run-853.",
     "omits": [
-      "run-853"
+      "run-853",
+      "east"
     ]
   },
   {
@@ -474,6 +512,9 @@
     "question": "I need the application's reply text. The app printed it to stdout, retained in answer.out. The decision trace is in tracing.jsonl. Where do I read the answer?",
     "expected": "reply",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "answer.out"
     ]
   },
@@ -488,19 +529,23 @@
     "question": "The app printed its reply to stdout in response.txt and wrote decision metadata to meta.jsonl. Which file has my output?",
     "expected": "reply",
     "includes": [
-      "response.txt"
+      "retained stdout"
     ],
-    "answer": "I mean the application reply text."
+    "answer": "I mean the application reply text.",
+    "omits": [
+      "response.txt"
+    ]
   },
   {
     "name": "A09",
     "question": "A separate process parsed archive.jsonl looking for the original unique marker copper-824. Every row has yesterday's marker instead. Did I recover my decision?",
     "expected": "jsonl_stale",
     "includes": [
-      "archive.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "copper-824"
+      "copper-824",
+      "archive.jsonl"
     ]
   },
   {
@@ -508,6 +553,9 @@
     "question": "The original worker used the explicit console exporter. I launched python worker.py 2>shift.err and kept that file. Where can I check the decision ID?",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "shift.err"
     ]
   },
@@ -538,10 +586,11 @@
     "question": "The local exporter appended both attempts with the same request body to order-log.jsonl. My launcher printed decision_id=ord-91 for my attempt. How do I select it?",
     "expected": "jsonl",
     "includes": [
-      "order-log.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "ord-91"
+      "ord-91",
+      "order-log.jsonl"
     ]
   },
   {
@@ -555,18 +604,22 @@
     "question": "In queue.jsonl two decision records share a customer request. How do I tell which is from my failed retry?",
     "expected": "jsonl",
     "includes": [
-      "queue.jsonl"
+      "original JSONL file"
     ],
     "answer": "The retry log says decision ID q-980.",
     "omits": [
-      "q-980"
+      "q-980",
+      "queue.jsonl"
     ]
   },
   {
     "name": "B03",
-    "question": "My archived command ran the unchanged Python first_decision.py quickstart using memory; stdout went to capture.txt. The console exporter from another program writes elsewhere. Where is this quickstart\u2019s printed decision?",
+    "question": "My archived command ran the unchanged Python first_decision.py quickstart using memory; stdout went to capture.txt. The console exporter from another program writes elsewhere. Where is this quickstart’s printed decision?",
     "expected": "memory",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "capture.txt"
     ]
   },
@@ -581,19 +634,23 @@
     "question": "The release bundle has a Python memory quickstart and a service that sets a console exporter. I can't tell which was launched. Both streams were kept: stdout in kept.out, stderr in kept.err. Where should I read the decision?",
     "expected": "memory",
     "includes": [
-      "kept.out"
+      "retained stdout"
     ],
-    "answer": "It was the unchanged Python quickstart, first_decision.py."
+    "answer": "It was the unchanged Python quickstart, first_decision.py.",
+    "omits": [
+      "kept.out"
+    ]
   },
   {
     "name": "B05",
     "question": "The dashboard accepted my hosted submission for agent Atlas in workspace garden and issued run ID host-661. How do I find that job?",
     "expected": "hosted",
     "includes": [
-      "garden"
+      "receiving workspace"
     ],
     "omits": [
-      "host-661"
+      "host-661",
+      "garden"
     ]
   },
   {
@@ -607,11 +664,12 @@
     "question": "The operator has a local Python execution and a dashboard submission on the same change. I want to find my run. Which place should I open?",
     "expected": "hosted",
     "includes": [
-      "Birch"
+      "receiving workspace"
     ],
     "answer": "The dashboard submission, workspace Birch and run ID hrun-72.",
     "omits": [
-      "hrun-72"
+      "hrun-72",
+      "Birch"
     ]
   },
   {
@@ -619,6 +677,9 @@
     "question": "The console decision includes token usage, but I want the words my application returned. I saved its stdout as message.txt. Where do I look?",
     "expected": "reply",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "message.txt"
     ]
   },
@@ -633,19 +694,23 @@
     "question": "The Node app saved its stdout in chat.out and its console export in chat.err. I want to inspect the result. Which one is it?",
     "expected": "node_console",
     "includes": [
-      "chat.err"
+      "retained stderr"
     ],
-    "answer": "I want decision metadata, specifically token_usage."
+    "answer": "I want decision metadata, specifically token_usage.",
+    "omits": [
+      "chat.err"
+    ]
   },
   {
     "name": "B09",
     "question": "The original invocation's unique marker was cedar-808. I reopened session.jsonl after exit: it has only cedar-707 from a previous run. Is the original persisted there?",
     "expected": "jsonl_stale",
     "includes": [
-      "session.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "cedar-808"
+      "cedar-808",
+      "session.jsonl"
     ]
   },
   {
@@ -653,7 +718,10 @@
     "question": "The batch set its console exporter in code. The launch command was python batch.py 2>trace.log. Where can I verify its original decision?",
     "expected": "console",
     "includes": [
-      "trace.log for"
+      "retained stderr"
+    ],
+    "omits": [
+      "trace.log"
     ]
   },
   {
@@ -730,16 +798,19 @@
   },
   {
     "name": "inherited path preserving spaces",
-    "question": "Python used the default exporter and inherited this shell\u2019s unchanged configuration.",
+    "question": "Python used the default exporter and inherited this shell’s unchanged configuration.",
     "expected": "jsonl",
     "includes": [
-      "Open run logs/a.jsonl"
+      "original JSONL file"
     ],
-    "shell": "run logs/a.jsonl"
+    "shell": "run logs/a.jsonl",
+    "omits": [
+      "run logs/a.jsonl"
+    ]
   },
   {
     "name": "redirect is not inherited memory exporter",
-    "question": "Node used the default exporter and inherited this shell\u2019s unchanged configuration. stderr went to debug.jsonl.",
+    "question": "Node used the default exporter and inherited this shell’s unchanged configuration. stderr went to debug.jsonl.",
     "expected": "memory_only",
     "includes": [
       "before exit"
@@ -751,10 +822,11 @@
     "question": "BRIEFCASE_EXPORTER=\"/tmp/Replay #3/Decisions v2.jsonl\" python collect.py > reply.jsonl 2>> diagnostics.jsonl. Stdout printed decision ID rc-204. Where is the full local decision?",
     "expected": "jsonl",
     "includes": [
-      "/tmp/Replay #3/Decisions v2.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "rc-204"
+      "rc-204",
+      "/tmp/Replay #3/Decisions v2.jsonl"
     ]
   },
   {
@@ -782,7 +854,10 @@
     "question": "My console exporter wrote stderr from my command python proc.py 2> \"run.log!\".",
     "expected": "console",
     "includes": [
-      "run.log! for"
+      "retained stderr"
+    ],
+    "omits": [
+      "run.log!"
     ]
   },
   {
@@ -799,10 +874,11 @@
     "question": "An overnight Python worker wrote two decisions to ledger.jsonl for the same ticket. The origin log recorded my decision ID as debit-197. Which entry do I retrieve?",
     "expected": "jsonl",
     "includes": [
-      "ledger.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "debit-197"
+      "debit-197",
+      "ledger.jsonl"
     ]
   },
   {
@@ -816,11 +892,12 @@
     "question": "I can see the ticket twice in visits.jsonl, once for each invocation. Is there a way to tell which row belongs to my call?",
     "expected": "jsonl",
     "includes": [
-      "visits.jsonl"
+      "original JSONL file"
     ],
     "answer": "The original decision ID from my invocation is visit-62.",
     "omits": [
-      "visit-62"
+      "visit-62",
+      "visits.jsonl"
     ]
   },
   {
@@ -828,6 +905,9 @@
     "question": "We kept only stdout in results.out from the Python quickstart. I ran first_decision.py unchanged and it has already exited. Where can I look for the printed ticket decision?",
     "expected": "memory",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "results.out"
     ]
   },
@@ -842,20 +922,24 @@
     "question": "Our deployment has the unchanged Python quickstart and a worker configured for console. We archived stdout in one.txt and stderr in two.txt. Which of those has the record from my run?",
     "expected": "console",
     "includes": [
-      "two.txt"
+      "retained stderr"
     ],
-    "answer": "The launch command ran telemetry_worker.py, our worker with the explicit console exporter."
+    "answer": "The launch command ran telemetry_worker.py, our worker with the explicit console exporter.",
+    "omits": [
+      "two.txt"
+    ]
   },
   {
     "name": "C05",
     "question": "My submission receipt names hosted workspace cobalt, agent invoice and run ID hosted-413. Where do I check this run?",
     "expected": "hosted",
     "includes": [
-      "cobalt",
-      "invoice"
+      "receiving workspace"
     ],
     "omits": [
-      "hosted-413"
+      "hosted-413",
+      "cobalt",
+      "invoice"
     ]
   },
   {
@@ -869,11 +953,12 @@
     "question": "The same test was run from my laptop with the SDK and submitted in our hosted dashboard. I need to locate my run. Which should I inspect?",
     "expected": "hosted",
     "includes": [
-      "nightly"
+      "receiving workspace"
     ],
     "answer": "I mean the hosted run. The receipt has workspace nightly and run ID hosted-702.",
     "omits": [
-      "hosted-702"
+      "hosted-702",
+      "nightly"
     ]
   },
   {
@@ -881,6 +966,9 @@
     "question": "I want the app reply text from our Node demo, not its token counts. The launcher saved stdout in bot.out and stderr in bot.err. Which one should I open?",
     "expected": "reply",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "bot.out"
     ]
   },
@@ -895,19 +983,23 @@
     "question": "Our Node demo wrote reply text to stdout, saved as body.txt, and the console exporter wrote metadata to stderr, saved as usage.txt. Where is my result?",
     "expected": "node_console",
     "includes": [
-      "usage.txt"
+      "retained stderr"
     ],
-    "answer": "The decision metadata. I want the decision type and token count."
+    "answer": "The decision metadata. I want the decision type and token count.",
+    "omits": [
+      "usage.txt"
+    ]
   },
   {
     "name": "C09",
     "question": "The worker assigned our run the unique marker blue-186. I parsed lastnight.jsonl after it exited. There is one old record for blue-115 and no row for blue-186. What does that show?",
     "expected": "scanned_missing",
     "includes": [
-      "lastnight.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "blue-186"
+      "blue-186",
+      "lastnight.jsonl"
     ]
   },
   {
@@ -915,6 +1007,9 @@
     "question": "The original process selected the console exporter in code. The shell launched python sync.py 2>sync-errors.txt from the job directory. What should I inspect for that decision?",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "sync-errors.txt"
     ]
   },
@@ -953,7 +1048,10 @@
     "question": "A different job used /mnt/prior.jsonl. The original process wrote its decisions to our.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "Open our.jsonl"
+      "original JSONL file"
+    ],
+    "omits": [
+      "our.jsonl"
     ]
   },
   {
@@ -994,10 +1092,11 @@
     "question": "Two rows in audit.jsonl share ticket T-145. My original decision ID was recorded as new-751.",
     "expected": "jsonl",
     "includes": [
-      "audit.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "new-751"
+      "new-751",
+      "audit.jsonl"
     ]
   },
   {
@@ -1043,15 +1142,21 @@
     "question": "The deployment includes a tutorial quickstart and a wrapper that uses the console sink. stderr was archived in wrap.err.",
     "expected": "console",
     "includes": [
-      "wrap.err"
+      "retained stderr"
     ],
-    "answer": "python run_wrapper.py"
+    "answer": "python run_wrapper.py",
+    "omits": [
+      "wrap.err"
+    ]
   },
   {
     "name": "confirmed stock command overrides alternatives",
     "question": "Our repo has a worker with console output and the quickstart. Shell history: python first_decision.py >job.log 2>console.log.",
     "expected": "memory",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "job.log"
     ]
   },
@@ -1118,10 +1223,11 @@
     "question": "Different calls wrote the same ticket text to status.jsonl. I copied the original decision ID (bill-710) from my run. How do I identify the right row?",
     "expected": "jsonl",
     "includes": [
-      "status.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "bill-710"
+      "bill-710",
+      "status.jsonl"
     ]
   },
   {
@@ -1135,11 +1241,12 @@
     "question": "Three rows in jobs.jsonl have the same ticket text from three attempts. Which one corresponds to my run?",
     "expected": "jsonl",
     "includes": [
-      "jobs.jsonl"
+      "original JSONL file"
     ],
     "answer": "I recovered the original decision ID job-53 from that run.",
     "omits": [
-      "job-53"
+      "job-53",
+      "jobs.jsonl"
     ]
   },
   {
@@ -1147,6 +1254,9 @@
     "question": "I launched the unmodified Python quickstart first_decision.py. Its stdout was redirected to session.out and the job has exited. Where can I find what it printed?",
     "expected": "memory",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "session.out"
     ]
   },
@@ -1161,20 +1271,24 @@
     "question": "The launcher can run either first_decision.py from the Python quickstart or a worker using the console exporter. It saved stdout in a.out and stderr in a.err. Which one should I inspect?",
     "expected": "console",
     "includes": [
-      "a.err"
+      "retained stderr"
     ],
-    "answer": "It ran console_worker.py, the worker that sets its console exporter explicitly."
+    "answer": "It ran console_worker.py, the worker that sets its console exporter explicitly.",
+    "omits": [
+      "a.err"
+    ]
   },
   {
     "name": "D05",
     "question": "My hosted job is in workspace forest, agent booking, and the submission receipt shows run ID book-770. Where do I check the run?",
     "expected": "hosted",
     "includes": [
-      "forest",
-      "booking"
+      "receiving workspace"
     ],
     "omits": [
-      "book-770"
+      "book-770",
+      "forest",
+      "booking"
     ]
   },
   {
@@ -1188,11 +1302,12 @@
     "question": "There was a local SDK execution and a hosted dashboard run for our build. I need to find my run. Where should I start?",
     "expected": "hosted",
     "includes": [
-      "lake"
+      "receiving workspace"
     ],
     "answer": "I mean the hosted dashboard run. Its workspace is lake and its run ID is cloud-404.",
     "omits": [
-      "cloud-404"
+      "cloud-404",
+      "lake"
     ]
   },
   {
@@ -1200,6 +1315,9 @@
     "question": "In the Node demo I want the application reply, rather than the SDK decision. Stdout is saved as stdout.log and stderr as stderr.log. Which log should I open?",
     "expected": "reply",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "stdout.log"
     ]
   },
@@ -1214,19 +1332,23 @@
     "question": "The Node demo retained stdout in print.log and console decision metadata on stderr in record.log. Which output do I need to see the result?",
     "expected": "reply",
     "includes": [
-      "print.log"
+      "retained stdout"
     ],
-    "answer": "I want the reply text the application printed."
+    "answer": "I want the reply text the application printed.",
+    "omits": [
+      "print.log"
+    ]
   },
   {
     "name": "D09",
     "question": "My independent scan of delta.jsonl found no record matching the original unique marker sky-701. It contained a previous run tagged sky-698. Does this file verify my decision?",
     "expected": "scanned_missing",
     "includes": [
-      "delta.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "sky-701"
+      "sky-701",
+      "delta.jsonl"
     ]
   },
   {
@@ -1234,6 +1356,9 @@
     "question": "My original Python process used the console exporter. The command was python agent.py 2>observe.err and I saved that stream. Where can I verify its record?",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "observe.err"
     ]
   },
@@ -1264,7 +1389,7 @@
     "question": "I need the hosted run. Its workspace might be lake. My run ID is task-358.",
     "expected": "hosted",
     "includes": [
-      "workspace identified by"
+      "receiving workspace"
     ],
     "omits": [
       "task-358"
@@ -1275,7 +1400,7 @@
     "question": "I need the hosted run. The receipt might refer to workspace lake or dune. Run ID exec-72.",
     "expected": "hosted",
     "includes": [
-      "workspace identified by"
+      "receiving workspace"
     ]
   },
   {
@@ -1283,7 +1408,7 @@
     "question": "I have a hosted run receipt naming workspace lake and workspace dune. I know the run ID task-358.",
     "expected": "hosted",
     "includes": [
-      "workspace identified by"
+      "receiving workspace"
     ]
   },
   {
@@ -1302,7 +1427,10 @@
     "question": "My hosted run was not in the workspace ember. The receipt names workspace juniper, run ID tx-99.",
     "expected": "hosted",
     "includes": [
-      "workspace juniper"
+      "receiving workspace"
+    ],
+    "omits": [
+      "juniper"
     ]
   },
   {
@@ -1363,13 +1491,16 @@
   },
   {
     "name": "Resolved Node console overrides OTLP setting label",
-    "question": "Node used the default exporter and inherited this shell\u2019s unchanged configuration. BRIEFCASE_EXPORTER=otlp; stderr went to debug.jsonl.",
+    "question": "Node used the default exporter and inherited this shell’s unchanged configuration. BRIEFCASE_EXPORTER=otlp; stderr went to debug.jsonl.",
     "expected": "node_console",
     "includes": [
-      "debug.jsonl",
+      "retained stderr",
       "token_usage"
     ],
-    "shell": "console"
+    "shell": "console",
+    "omits": [
+      "debug.jsonl"
+    ]
   },
   {
     "name": "Candidate row has unrelated identifier",
@@ -1384,6 +1515,9 @@
     "question": "A separate script used observe() with the console destination at launch. The command was python worker.py 2>worker.err and the file is retained.",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "worker.err"
     ]
   },
@@ -1392,10 +1526,11 @@
     "question": "The JSONL exporter appended two identical tickets to billing.jsonl. The decision ID for my original run was invoice-88. How do I check which one is mine?",
     "expected": "jsonl",
     "includes": [
-      "billing.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "invoice-88"
+      "invoice-88",
+      "billing.jsonl"
     ]
   },
   {
@@ -1409,11 +1544,12 @@
     "question": "In review.jsonl I found multiple rows with the same ticket, from separate invocations. How do I choose the original one?",
     "expected": "jsonl",
     "includes": [
-      "review.jsonl"
+      "original JSONL file"
     ],
     "answer": "I found the original decision ID rev-602.",
     "omits": [
-      "rev-602"
+      "rev-602",
+      "review.jsonl"
     ]
   },
   {
@@ -1421,6 +1557,9 @@
     "question": "I ran the Python quickstart first_decision.py as written. The launcher kept its stdout in retained.out. Now that the process exited, where do I look for the decision it printed?",
     "expected": "memory",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "retained.out"
     ]
   },
@@ -1435,20 +1574,24 @@
     "question": "I have both the Python quickstart and a separate script with the console exporter. The launcher captured stdout in standard.txt and stderr in error.txt. Where should I search for the decision?",
     "expected": "memory",
     "includes": [
-      "standard.txt"
+      "retained stdout"
     ],
-    "answer": "It ran the unchanged Python quickstart first_decision.py."
+    "answer": "It ran the unchanged Python quickstart first_decision.py.",
+    "omits": [
+      "standard.txt"
+    ]
   },
   {
     "name": "E05",
     "question": "I submitted this hosted run to workspace harbor, agent routing, and saved run ID work-913. Where can I look it up?",
     "expected": "hosted",
     "includes": [
-      "harbor",
-      "routing"
+      "receiving workspace"
     ],
     "omits": [
-      "work-913"
+      "work-913",
+      "harbor",
+      "routing"
     ]
   },
   {
@@ -1462,11 +1605,12 @@
     "question": "We had both a local SDK run and a hosted dashboard run for this release. Where should I check my run?",
     "expected": "hosted",
     "includes": [
-      "violet"
+      "receiving workspace"
     ],
     "answer": "I want the hosted submission in workspace violet, run ID run-906.",
     "omits": [
-      "run-906"
+      "run-906",
+      "violet"
     ]
   },
   {
@@ -1474,6 +1618,9 @@
     "question": "I want the text my Node application printed as its reply. Its stdout was saved as reply.out and its SDK telemetry went to telemetry.jsonl. Which file should I look in?",
     "expected": "reply",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "reply.out"
     ]
   },
@@ -1488,19 +1635,23 @@
     "question": "Our Node demo saved the application response from stdout in answer.txt and the console decision from stderr in decision.txt. Which output should I look at?",
     "expected": "node_console",
     "includes": [
-      "decision.txt"
+      "retained stderr"
     ],
-    "answer": "The decision metadata for the call, including the token count."
+    "answer": "The decision metadata for the call, including the token count.",
+    "omits": [
+      "decision.txt"
+    ]
   },
   {
     "name": "E09",
     "question": "After the process exited I checked history.jsonl for my original unique marker red-901. The only row belongs to yesterday, red-670; there is no match for red-901. Can I verify my run there?",
     "expected": "scanned_missing",
     "includes": [
-      "history.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "red-901"
+      "red-901",
+      "history.jsonl"
     ]
   },
   {
@@ -1508,6 +1659,9 @@
     "question": "The process selected the console exporter. The original launch command was python transfer.py 2>transfer.err and stderr was retained. Where should I check for the record?",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "transfer.err"
     ]
   },
@@ -1546,7 +1700,10 @@
     "question": "My coworker used old.jsonl. My original process used real.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "Open real.jsonl"
+      "original JSONL file"
+    ],
+    "omits": [
+      "real.jsonl"
     ]
   },
   {
@@ -1554,7 +1711,10 @@
     "question": "My original process used real.jsonl. My coworker used old.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "Open real.jsonl"
+      "original JSONL file"
+    ],
+    "omits": [
+      "real.jsonl"
     ]
   },
   {
@@ -1619,7 +1779,10 @@
     "question": "The retained artifacts include audit.jsonl and stream.jsonl. My original process exported to decisions.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "Open decisions.jsonl"
+      "original JSONL file"
+    ],
+    "omits": [
+      "decisions.jsonl"
     ]
   },
   {
@@ -1635,10 +1798,11 @@
     "question": "We retried the same ticket twice. The two records in attempts.jsonl have different IDs. My original decision ID is op-729. Which record should I use?",
     "expected": "jsonl",
     "includes": [
-      "attempts.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "op-729"
+      "op-729",
+      "attempts.jsonl"
     ]
   },
   {
@@ -1652,11 +1816,12 @@
     "question": "We reused the same ticket on two runs and both appended to match.jsonl. How can I identify my original invocation?",
     "expected": "jsonl",
     "includes": [
-      "match.jsonl"
+      "original JSONL file"
     ],
     "answer": "My original decision ID was tag-43.",
     "omits": [
-      "tag-43"
+      "tag-43",
+      "match.jsonl"
     ]
   },
   {
@@ -1664,6 +1829,9 @@
     "question": "I ran the unmodified Python quickstart first_decision.py and retained its stdout as output.txt. Where is its printed decision after the process exits?",
     "expected": "memory",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "output.txt"
     ]
   },
@@ -1678,20 +1846,24 @@
     "question": "We have both the Python quickstart and a separate worker that sets the console exporter. We retained stdout in work.out and stderr in work.err. Which should I inspect?",
     "expected": "console",
     "includes": [
-      "work.err"
+      "retained stderr"
     ],
-    "answer": "The launch log says we ran the worker with the explicit console exporter."
+    "answer": "The launch log says we ran the worker with the explicit console exporter.",
+    "omits": [
+      "work.err"
+    ]
   },
   {
     "name": "G05",
     "question": "Our hosted dashboard run was submitted to agent support in workspace shore. The original run ID is host-892. How can I check it?",
     "expected": "hosted",
     "includes": [
-      "support",
-      "shore"
+      "receiving workspace"
     ],
     "omits": [
-      "host-892"
+      "host-892",
+      "support",
+      "shore"
     ]
   },
   {
@@ -1705,11 +1877,12 @@
     "question": "We ran a local SDK example and a hosted submission for the same ticket. Where can I look up my run?",
     "expected": "hosted",
     "includes": [
-      "mineral"
+      "receiving workspace"
     ],
     "answer": "It was the hosted submission, workspace mineral, run ID job-357.",
     "omits": [
-      "job-357"
+      "job-357",
+      "mineral"
     ]
   },
   {
@@ -1717,6 +1890,9 @@
     "question": "I want the application reply text from the Node demo. The launcher saved stdout to result.out, and the console decision metadata is in result.err. Which one should I read?",
     "expected": "reply",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "result.out"
     ]
   },
@@ -1731,19 +1907,23 @@
     "question": "We kept the Node demo output in two files: stdout in node.out and the console decision on stderr in node.err. Which file is the result?",
     "expected": "node_console",
     "includes": [
-      "node.err"
+      "retained stderr"
     ],
-    "answer": "I need the decision metadata, including token usage."
+    "answer": "I need the decision metadata, including token usage.",
+    "omits": [
+      "node.err"
+    ]
   },
   {
     "name": "G09",
     "question": "I reopened batch.jsonl in a separate process and searched for the original unique marker acorn-901. No matching record was found; only acorn-801 from the previous run was present. Does this verify my original?",
     "expected": "jsonl_stale",
     "includes": [
-      "batch.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "acorn-901"
+      "acorn-901",
+      "batch.jsonl"
     ]
   },
   {
@@ -1751,6 +1931,9 @@
     "question": "The original process explicitly used the console exporter. Its launch command was python classify.py 2>classify.err and that stream is retained. Where do I verify the decision?",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "classify.err"
     ]
   },
@@ -1845,8 +2028,11 @@
     "question": "My original Python script configured OTLP. Its launch warning said: Falling back to the console exporter. I retained app.err.",
     "expected": "runtime_console",
     "includes": [
-      "app.err",
+      "retained stderr",
       "fallback"
+    ],
+    "omits": [
+      "app.err"
     ]
   },
   {
@@ -1862,9 +2048,12 @@
     "question": "Node inherited its unchanged exporter configuration. stderr is retained but the original exporter is unknown.",
     "expected": "node_file",
     "includes": [
-      "report.jsonl"
+      "original JSONL file"
     ],
-    "answer": "The launch shell set BRIEFCASE_EXPORTER=report.jsonl."
+    "answer": "The launch shell set BRIEFCASE_EXPORTER=report.jsonl.",
+    "omits": [
+      "report.jsonl"
+    ]
   },
   {
     "name": "Check noncanonical numeric loopback against launch",
@@ -1879,10 +2068,11 @@
     "question": "Our support worker wrote multiple decisions with the same ticket to support.jsonl. The original decision ID was desk-705. Which row is ours?",
     "expected": "jsonl",
     "includes": [
-      "support.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "desk-705"
+      "desk-705",
+      "support.jsonl"
     ]
   },
   {
@@ -1896,11 +2086,12 @@
     "question": "The same ticket appears twice in repeat.jsonl, from two different runs. Which entry belongs to my original invocation?",
     "expected": "jsonl",
     "includes": [
-      "repeat.jsonl"
+      "original JSONL file"
     ],
     "answer": "My original decision ID is call-818.",
     "omits": [
-      "call-818"
+      "call-818",
+      "repeat.jsonl"
     ]
   },
   {
@@ -1908,6 +2099,9 @@
     "question": "We ran the Python quickstart first_decision.py unchanged, redirected stdout to keep.out and saved it after exit. Where can I see the printed ticket decision?",
     "expected": "memory",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "keep.out"
     ]
   },
@@ -1922,20 +2116,24 @@
     "question": "Either the Python quickstart or our console-exporting background worker ran. The launcher retained stdout in launch.out and stderr in launch.err. Which one should I inspect?",
     "expected": "console",
     "includes": [
-      "launch.err"
+      "retained stderr"
     ],
-    "answer": "The original launcher ran the worker with the console exporter."
+    "answer": "The original launcher ran the worker with the console exporter.",
+    "omits": [
+      "launch.err"
+    ]
   },
   {
     "name": "J05",
     "question": "I have a hosted submission in workspace west for agent ledger. Its run ID is host-283. How do I look it up?",
     "expected": "hosted",
     "includes": [
-      "west",
-      "ledger"
+      "receiving workspace"
     ],
     "omits": [
-      "host-283"
+      "host-283",
+      "west",
+      "ledger"
     ]
   },
   {
@@ -1949,11 +2147,12 @@
     "question": "There were two executions, a local SDK run and a hosted dashboard submission. I need to check my run. Which one should I open?",
     "expected": "hosted",
     "includes": [
-      "pine"
+      "receiving workspace"
     ],
     "answer": "I mean the hosted submission in workspace pine, run ID job-248.",
     "omits": [
-      "job-248"
+      "job-248",
+      "pine"
     ]
   },
   {
@@ -1961,6 +2160,9 @@
     "question": "I want to read the application reply text from the Node demo. The launcher saved stdout in demo.out and console decision metadata in demo.err. Which file do I open?",
     "expected": "reply",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "demo.out"
     ]
   },
@@ -1975,19 +2177,23 @@
     "question": "We saved stdout from our Node demo in my.out and the console decision on stderr in my.err. Which output should I read for the result?",
     "expected": "node_console",
     "includes": [
-      "my.err"
+      "retained stderr"
     ],
-    "answer": "I mean the decision metadata with the token count."
+    "answer": "I mean the decision metadata with the token count.",
+    "omits": [
+      "my.err"
+    ]
   },
   {
     "name": "J09",
     "question": "A separate process checked morning.jsonl for the original unique marker fog-448. No matching record was found. The only entry is older and has marker fog-447. What does that prove?",
     "expected": "jsonl_stale",
     "includes": [
-      "morning.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "fog-448"
+      "fog-448",
+      "morning.jsonl"
     ]
   },
   {
@@ -1995,6 +2201,9 @@
     "question": "The service used the console exporter. Its original launch command was python run.py 2>saved.err and we kept the redirected stream. Where should I verify the decision?",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "saved.err"
     ]
   },
@@ -2069,6 +2278,9 @@
     "question": "BRIEFCASE_EXPORTER=first.jsonl BRIEFCASE_EXPORTER=\"run logs/final.jsonl\" node --import @briefcase-ai/auto/register script.js 2> launch.jsonl",
     "expected": "node_file",
     "includes": [
+      "original JSONL file"
+    ],
+    "omits": [
       "run logs/final.jsonl"
     ]
   },
@@ -2094,10 +2306,11 @@
     "question": "The launched source explicitly selects local.jsonl. Its original ticket is unique, bench-14. No readback was attempted.",
     "expected": "jsonl",
     "includes": [
-      "local.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "bench-14"
+      "bench-14",
+      "local.jsonl"
     ]
   },
   {
@@ -2105,9 +2318,12 @@
     "question": "Explicit JSONL to demo.jsonl. Job token bench-14 was unique to this invocation. The second process opened demo.jsonl and found a row containing bench-14.",
     "expected": "private_file_read",
     "includes": [
-      "demo.jsonl",
+      "original JSONL file",
       "reported readback",
       "job token from your original invocation"
+    ],
+    "omits": [
+      "demo.jsonl"
     ]
   },
   {
@@ -2115,9 +2331,12 @@
     "question": "Explicit JSONL to demo.jsonl. Job token bench-14 was unique to this invocation. The second process parsed the file. Only a different token was present.",
     "expected": "private_file_miss",
     "includes": [
-      "demo.jsonl",
+      "original JSONL file",
       "found no row",
       "job token from your original invocation"
+    ],
+    "omits": [
+      "demo.jsonl"
     ]
   },
   {
@@ -2125,8 +2344,11 @@
     "question": "Explicit JSONL to demo.jsonl. Job token bench-14 was unique to this invocation. The second process opened demo.jsonl and found a row containing bench-142.",
     "expected": "private_file",
     "includes": [
-      "demo.jsonl",
+      "original JSONL file",
       "search locally"
+    ],
+    "omits": [
+      "demo.jsonl"
     ]
   },
   {
@@ -2182,8 +2404,8 @@
     ]
   },
   {
-    "name": "Quoted receiver prefix mismatch \u201c",
-    "question": "The original marker was build-42. The receiver received marker \u201cbuild-42 dev\u201d.",
+    "name": "Quoted receiver prefix mismatch “",
+    "question": "The original marker was build-42. The receiver received marker “build-42 dev”.",
     "expected": "receipt_unknown",
     "includes": [
       "original"
@@ -2193,8 +2415,8 @@
     ]
   },
   {
-    "name": "Complete quoted receiver result \u201c",
-    "question": "The original marker was \u201cbuild-42 dev\u201d. The receiver received marker \u201cbuild-42 dev\u201d.",
+    "name": "Complete quoted receiver result “",
+    "question": "The original marker was “build-42 dev”. The receiver received marker “build-42 dev”.",
     "expected": "storage",
     "includes": [
       "original decision ID"
@@ -2270,8 +2492,8 @@
     ]
   },
   {
-    "name": "Quoted database prefix mismatch \u201c",
-    "question": "The original marker was build-42. The database returned marker \u201cbuild-42 dev\u201d.",
+    "name": "Quoted database prefix mismatch “",
+    "question": "The original marker was build-42. The database returned marker “build-42 dev”.",
     "expected": "store_missing",
     "includes": [
       "original"
@@ -2281,8 +2503,8 @@
     ]
   },
   {
-    "name": "Complete quoted database result \u201c",
-    "question": "The original marker was \u201cbuild-42 dev\u201d. The database returned marker \u201cbuild-42 dev\u201d.",
+    "name": "Complete quoted database result “",
+    "question": "The original marker was “build-42 dev”. The database returned marker “build-42 dev”.",
     "expected": "stored",
     "includes": [
       "original ID"
@@ -2359,6 +2581,9 @@
     "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_ENDPOINT=http://collector.invalid:4318 OTEL_EXPORTER_OTLP_PROTOCOL=grpc node --import @briefcase-ai/auto/register app.js 2> actual.err",
     "expected": "node_console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "actual.err"
     ]
   },
@@ -2367,6 +2592,9 @@
     "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://collector.invalid:4318 OTEL_EXPORTER_OTLP_PROTOCOL=grpc node --import @briefcase-ai/auto/register app.js 2> actual.err",
     "expected": "node_console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "actual.err"
     ]
   },
@@ -2430,6 +2658,9 @@
     "answer": "The console exporter.",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "batch.err"
     ]
   },
@@ -2483,11 +2714,12 @@
     "question": "I scanned runlog.jsonl in another process for my original unique marker sand-456. The scan found no matching record; all rows were from yesterday. Does this prove my run made it to that file?",
     "expected": "scanned_missing",
     "includes": [
-      "runlog.jsonl",
+      "original JSONL file",
       "Other destinations remain unknown"
     ],
     "omits": [
-      "sand-456"
+      "sand-456",
+      "runlog.jsonl"
     ]
   },
   {
@@ -2496,6 +2728,9 @@
     "expected": "private_file",
     "includes": [
       "search locally",
+      "original JSONL file"
+    ],
+    "omits": [
       "events.jsonl"
     ]
   },
@@ -2505,6 +2740,9 @@
     "expected": "private_file",
     "includes": [
       "search locally",
+      "original JSONL file"
+    ],
+    "omits": [
       "events.jsonl"
     ]
   },
@@ -2514,6 +2752,9 @@
     "expected": "private_file",
     "includes": [
       "search locally",
+      "original JSONL file"
+    ],
+    "omits": [
       "events.jsonl"
     ]
   },
@@ -2523,6 +2764,9 @@
     "expected": "private_file",
     "includes": [
       "search locally",
+      "original JSONL file"
+    ],
+    "omits": [
       "events.jsonl"
     ]
   },
@@ -2532,6 +2776,9 @@
     "expected": "private_file_read",
     "includes": [
       "reported readback",
+      "original JSONL file"
+    ],
+    "omits": [
       "events.jsonl"
     ]
   },
@@ -2765,8 +3012,11 @@
     "question": "Explicit JSONL to events.jsonl. Job token case-17 was unique to this invocation. A reader opened events.jsonl and found a record containing case-17 in another file.",
     "expected": "private_file",
     "includes": [
-      "events.jsonl",
+      "original JSONL file",
       "search locally"
+    ],
+    "omits": [
+      "events.jsonl"
     ]
   },
   {
@@ -2774,8 +3024,11 @@
     "question": "Explicit JSONL to events.jsonl. Job token case-17 was unique to this invocation. A reader opened events.jsonl. Only yesterday's token was present in the database.",
     "expected": "private_file",
     "includes": [
-      "events.jsonl",
+      "original JSONL file",
       "search locally"
+    ],
+    "omits": [
+      "events.jsonl"
     ]
   },
   {
@@ -2783,8 +3036,11 @@
     "question": "Explicit JSONL to events.jsonl. Job token case-17 was unique to this invocation. A reader opened events.jsonl. A separate file contained only an older record.",
     "expected": "private_file",
     "includes": [
-      "events.jsonl",
+      "original JSONL file",
       "search locally"
+    ],
+    "omits": [
+      "events.jsonl"
     ]
   },
   {
@@ -2792,8 +3048,11 @@
     "question": "Explicit JSONL to events.jsonl. Job token case-17 was unique to this invocation. A second process inspected events.jsonl. The remote service returned no matches.",
     "expected": "private_file",
     "includes": [
-      "events.jsonl",
+      "original JSONL file",
       "search locally"
+    ],
+    "omits": [
+      "events.jsonl"
     ]
   },
   {
@@ -3017,6 +3276,9 @@
     "question": "The console exporter was used. Original command: python app.py > combined.log 2>&1.",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "combined.log"
     ]
   },
@@ -3025,6 +3287,9 @@
     "question": "The console exporter was used. Original command: python app.py 1> first.log 2>&1 > later.log.",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "first.log"
     ]
   },
@@ -3033,7 +3298,7 @@
     "question": "The console exporter was used. Original command: python app.py 2>&1 > after.log.",
     "expected": "console",
     "includes": [
-      "retained stdout"
+      "retained stderr"
     ]
   },
   {
@@ -3041,6 +3306,9 @@
     "question": "The console exporter was used. Original command: python app.py 2> \"saved file.err\" 1>&2.",
     "expected": "console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "saved file.err"
     ]
   },
@@ -3109,20 +3377,23 @@
     "question": "Explicit JSONL to runs.jsonl. No original ID was printed. A unique marker survives in the launch log.",
     "expected": "surviving_marker",
     "includes": [
-      "runs.jsonl",
+      "original JSONL file",
       "Retrieve the surviving run-unique marker"
     ],
-    "omits": []
+    "omits": [
+      "runs.jsonl"
+    ]
   },
   {
     "name": "Unquoted shell comment cannot redirect stderr",
     "question": "The console exporter was used. python app.py 2>run.err # 2>ignored.err",
     "expected": "console",
     "includes": [
-      "run.err"
+      "retained stderr"
     ],
     "omits": [
-      "ignored.err"
+      "ignored.err",
+      "run.err"
     ]
   },
   {
@@ -3209,7 +3480,7 @@
     "question": "My original decision ID was book-301. My original run explicitly used logs/book-301.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "original JSONL path"
+      "original JSONL file"
     ],
     "omits": [
       "book-301"
@@ -3220,7 +3491,7 @@
     "question": "Its reconciliation handle was TRACE72X. My original process selected /tmp/TRACE72X/archive.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "original JSONL path"
+      "original JSONL file"
     ],
     "omits": [
       "TRACE72X"
@@ -3231,7 +3502,7 @@
     "question": "The lookup handle was walnut. Explicit JSONL to kept-walnut.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "original JSONL path"
+      "original JSONL file"
     ],
     "omits": [
       "walnut"
@@ -3242,10 +3513,11 @@
     "question": "The lookup handle was TX4810. Explicit JSONL to November-Replay/observed.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "November-Replay/observed.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "TX4810"
+      "TX4810",
+      "November-Replay/observed.jsonl"
     ]
   },
   {
@@ -3253,7 +3525,7 @@
     "question": "My original marker was work-88. Another process used marker old-31. Explicit JSONL to old-31-cache.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "original JSONL path"
+      "original JSONL file"
     ],
     "omits": [
       "work-88",
@@ -3265,11 +3537,11 @@
     "question": "My hosted run was submitted under workspace delta-run-87 for agent helper. Its run ID was run-87.",
     "expected": "hosted",
     "includes": [
-      "workspace identified by",
-      "helper"
+      "receiving workspace"
     ],
     "omits": [
-      "run-87"
+      "run-87",
+      "helper"
     ]
   },
   {
@@ -3288,11 +3560,140 @@
     "question": "Explicit JSONL to runs.jsonl. No original decision ID was printed, and a unique marker survives in the original log.",
     "expected": "surviving_marker",
     "includes": [
-      "runs.jsonl",
+      "original JSONL file",
       "surviving run-unique marker"
     ],
     "omits": [
-      "Write a new run"
+      "Write a new run",
+      "runs.jsonl"
+    ]
+  },
+  {
+    "name": "Reverse token label in unused note",
+    "question": "Explicit JSONL to plum.jsonl. Job token case-14 was unique to this invocation.",
+    "expected": "private_file",
+    "includes": [
+      "original JSONL file"
+    ],
+    "omits": [
+      "plum",
+      "case-14"
+    ],
+    "answer": "plum was the token for another job."
+  },
+  {
+    "name": "Ticket number embedded in reply locator",
+    "question": "Which JSONL? The original ticket number was 42.",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ],
+    "omits": [
+      "42",
+      "kept-42.jsonl"
+    ],
+    "answer": "kept-42.jsonl"
+  },
+  {
+    "name": "Hosted names all remain local",
+    "question": "I submitted a hosted dashboard run. The receiving workspace is plum. The agent is probe. plum was the hosted run ID.",
+    "expected": "hosted",
+    "includes": [
+      "original submission receipt"
+    ],
+    "omits": [
+      "plum",
+      "probe"
+    ]
+  },
+  {
+    "name": "Redirection belongs to subsequent command ;",
+    "question": "My run used the console exporter. python app.py ; echo done 2>other.err",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "other.err"
+    ]
+  },
+  {
+    "name": "Redirection belongs to subsequent command &&",
+    "question": "My run used the console exporter. python app.py && echo done 2>other.err",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "other.err"
+    ]
+  },
+  {
+    "name": "Redirection belongs to subsequent command ||",
+    "question": "My run used the console exporter. python app.py || echo done 2>other.err",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "other.err"
+    ]
+  },
+  {
+    "name": "Redirection belongs to subsequent command |",
+    "question": "My run used the console exporter. python app.py | echo done 2>other.err",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "other.err"
+    ]
+  },
+  {
+    "name": "Redirection belongs to subsequent command #",
+    "question": "My run used the console exporter. python app.py # echo done 2>other.err",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "other.err"
+    ]
+  },
+  {
+    "name": "Shell prompt unchanged only",
+    "question": "The original job inherited the default exporter from this shell. Only the shell prompt is unchanged.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "today.jsonl"
+    ],
+    "shell": "today.jsonl"
+  },
+  {
+    "name": "Unrelated unchanged object in shell",
+    "question": "The original job inherited the default exporter from this shell. The window title is unchanged from this shell.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "today.jsonl"
+    ],
+    "shell": "today.jsonl"
+  },
+  {
+    "name": "Disabled transport then affirmative exporter",
+    "question": "The OTLP exporter was disabled. My run used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "collector"
     ]
   }
 ]

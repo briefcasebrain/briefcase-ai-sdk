@@ -17,6 +17,8 @@ def test_shared_record_guidance(case):
     confirmation = (pair["source"], pair["result"]) if pair else None
     action, text = route(TABLE, case["question"], case.get("answer"), case.get("shell"), confirmation=confirmation)
     assert action == case["expected"]
+    assert text == TABLE["actions"][action]["text"]
+    assert "{" not in text and "}" not in text
     for fragment in case["includes"]:
         assert fragment in text
     for value in case.get("omits", []):
@@ -32,7 +34,7 @@ def test_piped_clarification_uses_the_original_path(monkeypatch, capsys):
     assert main(["record-help"]) == 0
     result = capsys.readouterr().out
     assert result.count("What JSONL path") == 1
-    assert "/tmp/my runs/a.jsonl" in result
+    assert "the original JSONL file" in result and "/tmp/my runs/a.jsonl" not in result
     assert "job-31" not in result
 
 
@@ -192,3 +194,45 @@ def test_terminal_confirmation_after_answer_option(monkeypatch, capsys):
     assert main(["record-help", "Where is the JSONL for marker visit-671?", "--answer", "audit.jsonl"]) == 0
     result = capsys.readouterr().out
     assert "Reader-confirmed absence" in result and "visit-671" not in result and "audit.jsonl" not in result
+
+
+@pytest.mark.parametrize("option", ["--static=violet-892", "--help=violet-892"])
+def test_malformed_option_uses_fixed_diagnostic(option, capsys):
+    from briefcase.cli.__main__ import main
+
+    with pytest.raises(SystemExit) as exc:
+        main(["record-help", "My marker was violet-892.", option])
+    assert exc.value.code == 2
+    result = capsys.readouterr()
+    assert result.out == ""
+    assert result.err == "Invalid record-help arguments. See record-help --help.\n"
+
+
+@pytest.mark.parametrize("lines,code,phrase", [
+    ("jsonl matched\njsonl no-match\n", 2, "once"),
+    ("A question\nreceiver matched\nstorage matched\n", 2, "once"),
+    ("Explicit JSONL to audit.jsonl.\nI reopened it after exit.\njsonl no-match\n", 0, "Reader-confirmed absence"),
+])
+def test_final_report_is_decoded_independently_of_question(lines, code, phrase, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(lines))
+    assert main(["record-help"]) == code
+    result = capsys.readouterr()
+    assert phrase in result.out + result.err
+    assert "audit.jsonl" not in result.out + result.err
+
+
+@pytest.mark.parametrize("inline,expected", [("", "disabled Node preload"), ("BRIEFCASE_AUTO=1 ", "original JSONL file")])
+def test_bare_preload_honors_inherited_activation(inline, expected, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    monkeypatch.setenv("BRIEFCASE_AUTO", "0")
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "audit.jsonl")
+    q = "The Node preload inherited the unchanged settings from this shell. "
+    assert main(["record-help", q + inline + "node --import @briefcase-ai/auto/register app.js"]) == 0
+    result = capsys.readouterr()
+    assert expected in result.out and "audit.jsonl" not in result.out + result.err

@@ -70,7 +70,7 @@ def test_unique_job_tokens_stay_private_during_file_matching(observation, expect
     assert main(["record-help"]) == 0
     captured = capsys.readouterr()
     text = captured.out + captured.err
-    assert "events.jsonl" in text and "job token from your original invocation" in text
+    assert "events.jsonl" not in text and "the original JSONL file" in text and "job token from your original invocation" in text
     assert expected in text and "receipt-718" not in text
 
 

@@ -4,7 +4,7 @@
     "question": "I need the hosted dashboard run. The receipt lists {label}{join}{value}, agent Billing and run ID lookup-802.",
     "expected": "hosted",
     "includes": [
-      "workspace {display}"
+      "receiving workspace"
     ],
     "variants": {
       "label": [
@@ -24,14 +24,17 @@
       "display": [
         "lake"
       ]
-    }
+    },
+    "omits": [
+      "{display}"
+    ]
   },
   {
     "name": "Delimited multiword workspace",
     "question": "I submitted the hosted job to workspace {name}. Its run ID is req-64.",
     "expected": "hosted",
     "includes": [
-      "workspace Team Lake"
+      "receiving workspace"
     ],
     "variants": {
       "name": [
@@ -39,12 +42,13 @@
         "'Team Lake'",
         "`Team Lake`",
         "(Team Lake)",
-        "\u201cTeam Lake\u201d",
-        "\u2018Team Lake\u2019"
+        "“Team Lake”",
+        "‘Team Lake’"
       ]
     },
     "omits": [
-      "req-64"
+      "req-64",
+      "Team Lake"
     ]
   },
   {
@@ -52,7 +56,7 @@
     "question": "Two rows in tasks.jsonl have the same input. My original {label}{join}{token}. Which is mine?",
     "expected": "jsonl",
     "includes": [
-      "tasks.jsonl"
+      "original JSONL file"
     ],
     "variants": {
       "label": [
@@ -72,11 +76,12 @@
         "\"rose-880\"",
         "'rose-880'",
         "`rose-880`",
-        "\u201crose-880\u201d"
+        "“rose-880”"
       ]
     },
     "omits": [
-      "rose-880"
+      "rose-880",
+      "tasks.jsonl"
     ]
   },
   {
@@ -84,7 +89,7 @@
     "question": "I {scan} tasks.jsonl. The lookup {miss} the original marker rose-880. Did the file establish persistence?",
     "expected": "scanned_missing",
     "includes": [
-      "tasks.jsonl",
+      "original JSONL file",
       "found no matching"
     ],
     "variants": {
@@ -102,7 +107,8 @@
       ]
     },
     "omits": [
-      "rose-880"
+      "rose-880",
+      "tasks.jsonl"
     ]
   },
   {
@@ -110,7 +116,7 @@
     "question": "The original marker is rose-880. I have not checked tasks.jsonl. If the lookup {miss} the original ID, what should I check?",
     "expected": "jsonl",
     "includes": [
-      "tasks.jsonl"
+      "original JSONL file"
     ],
     "variants": {
       "miss": [
@@ -120,7 +126,8 @@
       ]
     },
     "omits": [
-      "rose-880"
+      "rose-880",
+      "tasks.jsonl"
     ]
   },
   {
@@ -128,7 +135,7 @@
     "question": "I submitted a hosted job. The workspace {missing}. Its run ID is req-64.",
     "expected": "hosted",
     "includes": [
-      "workspace identified by"
+      "receiving workspace"
     ],
     "variants": {
       "missing": [
@@ -151,7 +158,7 @@
     "answer": "I mean the hosted run. Its workspace{join}{token} and its run ID is proof-650.",
     "expected": "hosted",
     "includes": [
-      "workspace North"
+      "receiving workspace"
     ],
     "variants": {
       "join": [
@@ -162,11 +169,12 @@
       "token": [
         "North",
         "(North)",
-        "\u201cNorth\u201d"
+        "“North”"
       ]
     },
     "omits": [
-      "proof-650"
+      "proof-650",
+      "North"
     ]
   },
   {
@@ -286,10 +294,11 @@
     },
     "expected": "jsonl",
     "includes": [
-      "batch.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "proof-673"
+      "proof-673",
+      "batch.jsonl"
     ]
   },
   {
@@ -319,6 +328,9 @@
     },
     "expected": "reply",
     "includes": [
+      "retained stdout"
+    ],
+    "omits": [
       "answer.log"
     ]
   },
@@ -379,8 +391,11 @@
     },
     "expected": "node_console",
     "includes": [
-      "counts.log",
+      "retained stderr",
       "token_usage"
+    ],
+    "omits": [
+      "counts.log"
     ]
   },
   {
@@ -439,7 +454,7 @@
     "answer": "{prose} old.jsonl",
     "variants": {
       "prose": [
-        "I can\u2019t verify",
+        "I can’t verify",
         "I cannot vouch for",
         "I searched",
         "Someone suggested",
@@ -468,10 +483,11 @@
     },
     "expected": "jsonl",
     "includes": [
-      "audit/replies.jsonl"
+      "original JSONL file"
     ],
     "omits": [
-      "run-93"
+      "run-93",
+      "audit/replies.jsonl"
     ]
   },
   {
@@ -503,8 +519,11 @@
     },
     "expected": "runtime_console",
     "includes": [
-      "saved.err",
+      "retained stderr",
       "console"
+    ],
+    "omits": [
+      "saved.err"
     ]
   },
   {
@@ -700,6 +719,9 @@
     },
     "expected": "node_console",
     "includes": [
+      "retained stderr"
+    ],
+    "omits": [
       "saved.jsonl"
     ]
   },
