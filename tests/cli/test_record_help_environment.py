@@ -246,3 +246,46 @@ def test_python_wrapper_disabled_export_and_explicit_override(tmp_path):
     assert result.returncode == 0, result.stderr
     assert result.stdout.splitlines() == ["_DisabledExporter", "0"]
     assert '"function_name"' in result.stderr
+
+
+@pytest.mark.parametrize("destination,word", [
+    ("memory", "memory exporter"), ("console", "retained stderr"), ("audit.jsonl", "original JSONL file")
+])
+@pytest.mark.parametrize("channel", ["question", "flag", "pipe"])
+def test_python_default_observe_inherits_in_either_turn(destination, word, channel, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    prompt = "Which exporter did my original process use?"
+    evidence = ("The original Python process called briefcase.observe() with the unchanged settings "
+                "inherited from this shell.")
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", destination)
+    monkeypatch.setattr("sys.stdin", StringIO(evidence if channel == "pipe" else ""))
+    args = [evidence] if channel == "question" else [prompt]
+    if channel == "flag":
+        args += ["--answer", evidence]
+    assert main(["record-help", *args]) == 0
+    assert word in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("keyword", [False, True])
+@pytest.mark.parametrize("change_before_capture", [False, True])
+def test_ordered_python_capture_uses_current_exporter(keyword, change_before_capture, tmp_path):
+    import os
+    from pathlib import Path
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[2]
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("BRIEFCASE_", "OTEL_"))}
+    env["PYTHONPATH"] = str(root)
+    argument = 'exporter="memory"' if keyword else '"memory"'
+    first = f'import briefcase;mem=briefcase.observe({argument});'
+    second = 'briefcase.observe(exporter="console");'
+    capture = 'briefcase.capture(async_capture=False)(lambda: 7)();'
+    source = first + (second + capture if change_before_capture else capture + second) + 'print(len(mem.records))'
+    result = subprocess.run([sys.executable, "-c", source], cwd=tmp_path, env=env,
+                            text=True, capture_output=True, timeout=15)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == ("0" if change_before_capture else "1")
+    assert ('"function_name"' in result.stderr) is change_before_capture

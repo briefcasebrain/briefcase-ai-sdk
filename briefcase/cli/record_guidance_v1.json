@@ -260,7 +260,7 @@
       "\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|moved|reconfigured|replaced|overrode|unset|reset)\\b[^.!?;\\n]{0,65}\\b(?:exporter|configuration|settings?|environment|variables?|destination)s?\\b"
     ]
   },
-  "revision": 24,
+  "revision": 25,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -2906,7 +2906,7 @@
     "privateFileWitness"
   ],
   "quoteSpans": "(?<![\\w])(?:\"((?:\\\\.|[^\"\\\\])*)\"|'((?:\\\\.|[^'\\\\])*)'|“([^”]*)”|‘([^’]*)’)",
-  "sourceLiteralContext": "(?:observe\\(\\s*|(?:http|jsonlfile|otlphttp)exporter\\(\\s*|(?:\\bBRIEFCASE_EXPORTER|\\bOTEL_EXPORTER_OTLP_(?:TRACES_)?ENDPOINT)\\s*=\\s*|(?:exporter|path|file|jsonl|stdout|stderr|saved|opened|reopened|scanned|read|wrote|redirected|writes)\\s+(?:(?:as|was|is|to|from|out of|at|in|the|original|file)\\s+){0,5}|(?:^|\\s)\\d?>>?\\s*)$",
+  "sourceLiteralContext": "(?:[(,]\\s*exporter\\s*=\\s*|observe\\(\\s*|(?:http|jsonlfile|otlphttp)exporter\\(\\s*|(?:\\bBRIEFCASE_EXPORTER|\\bOTEL_EXPORTER_OTLP_(?:TRACES_)?ENDPOINT)\\s*=\\s*|(?:exporter|path|file|jsonl|stdout|stderr|saved|opened|reopened|scanned|read|wrote|redirected|writes)\\s+(?:(?:as|was|is|to|from|out of|at|in|the|original|file)\\s+){0,5}|(?:^|\\s)\\d?>>?\\s*)$",
   "sourceLiteralValue": "^(?:[^\"'\\n]+\\.jsonl|memory|console|otlp|otel|https?://[^\\s\"'\\n]+)$",
   "fileRoleBefore": "(?:\\b(?:BRIEFCASE_EXPORTER\\s*=|observe\\(\\s*)|\\b(?:read|opened|reopened|checked|scanned|inspected|queried|searched|examined|parsed|appended|exported|wrote|writes|writing|used|uses|selected|selects|chose|set|configured|exporter|export|jsonl|original file|export file|original path|export path|entries|rows?|decisions?|records?|tickets?|attempts?|results?|matches|copies|lines|scan|lookup)\\b(?:\\s+(?:up|of|out|the|its|my|our|an?|original|source|export|exporter|file|path|data|local|same|multiple|different|both|two|unique|identical|decision[s]?|row[s]?|record[s]?|attempt[s]?|ticket[s]?|text|request|body|value|appears?|twice|are|is|was|in|to|at|from|into|as|for|with)){0,9}\\s*[:=]?\\s+)[\"'`“‘]?\\s*$",
   "fileRoleAfter": "^[\"'`”’]?\\s+(?:(?:has|holds?|contains?|lists?|includes?|shows?|had)\\b[^.;!?\\n]{0,40}\\b(?:rows?|records?|decisions?|entries|tickets?|attempts?)\\b|(?:was|is) (?:the |my |our )?(?:exporter|file export|original destination))|^[\"'`”’]?[,;]?\\s+(?:(?:i|we)\\s+(?:saw|found|counted|read)\\s+)?(?:two|multiple|several|both)\\s+(?:decision\\s+)?(?:records?|decisions?|entries|rows?|tickets?)\\b",
@@ -2929,7 +2929,15 @@
     "insecureOption": "^\\s*,\\s*\\{[^{}]*?\\ballowInsecure\\s*:\\s*true\\b[^{}]*\\}\\s*\\)",
     "callStart": "\\b(?:briefcase\\.)?observe\\(",
     "orderedNext": "\\)\\s*,?\\s*(?:and\\s+then|then|followed\\s+by|and\\s+afterwards?)\\s+(?:(?:it|the (?:app(?:lication)?|worker|script))\\s+)?(?:(?:called|invoked|used)\\s+)?$",
-    "orderedContinuation": "^\\s*(?:then|next|afterward(?:s)?)\\s*,?\\s*(?:(?:it|the (?:same |original )?(?:app(?:lication)?|worker|script|process))\\s+)?(?:(?:called|invoked|used)\\s+)?(?=(?:briefcase\\.)?observe\\()"
+    "orderedContinuation": "^\\s*(?:then|next|afterward(?:s)?)\\s*,?\\s*(?:(?:it|the (?:same |original )?(?:app(?:lication)?|worker|script|process))\\s+)?(?:(?:called|invoked|used)\\s+)?(?=(?:briefcase\\.)?observe\\()",
+    "after": "\\b(?:after|following)\\s+(?:the\\s+|my\\s+|our\\s+)?(?:(?:recording|capturing|emitting|writing|creating)\\s+(?:(?:the|this|my|our|its|original)\\s+)*(?:decision|record)|(?:original\\s+)?(?:decision\\s+)?capture|(?:original\\s+)?(?:decision|record)\\s+(?:was|had been)\\s+(?:recorded|captured|emitted|written|created))\\b",
+    "captureEvent": "\\b(?:then\\s+)?(?:it|i|we|(?:the|my|our)\\s+(?:original\\s+)?(?:app(?:lication)?|process|script|program))\\s+(?:recorded|captured|emitted|wrote|created)\\s+(?:(?:the|this|my|our|its|original)\\s+)*(?:decision|record)\\b",
+    "pythonParameters": [
+      "exporter",
+      "level",
+      "token",
+      "headers"
+    ]
   },
   "fenceComment": "^\\s*(?:#(?:\\s|$)|<!--[^\\n]*-->\\s*$)",
   "sensitiveAsideSplit": ",\\s*(?=(?:(?:my|the|our|a)\\s+)?(?:[\\w-]+\\s+){0,3}(?:token|password|credential|secret|api key)\\b)",
@@ -2937,5 +2945,6 @@
   "launchLiteralValue": "^\\s*(?:(?:(?:--[\\w-]+|-r)(?:\\s+|=)[^\\n]*)|[a-z][a-z0-9-]*(?:\\s*,\\s*[a-z][a-z0-9-]*)*|0|1|true|false|grpc|http/json|http/protobuf|@briefcase-ai/auto/register(?:\\.js)?)\\s*$",
   "executionAssertionSubject": "\\b(?:original|actual|target)\\s+(?:(?:node|python|local)\\s+)?(?:run|app(?:lication)?|process|job|invocation|launch|script|worker|program)\\b",
   "exampleContinuation": "^\\s*(?:(?:i|we) (?:merely|only|just|never|did not|didn.t)|(?:it|that|this) (?:is|was) (?:only|just|merely|an? example)|(?:the |this )?command (?:was|is) (?:only|just|never))\\b",
-  "launchAttribution": "\\b(?:original|actual|(?:i|we) (?:actually )?(?:ran|launched|executed))\\b"
+  "launchAttribution": "\\b(?:original|actual|(?:i|we) (?:actually )?(?:ran|launched|executed))\\b",
+  "disownPreviousCommand": "^\\s*(?:(?:i|we) (?:copied|quoted|pasted|took|borrowed) (?:this|that|the (?:previous|preceding|above)) (?:command|example|launch) from (?:the |an? )?(?:readme|manual|tutorial|docs|documentation)|(?:i|we) (?:never|did not|didn.t) (?:ran|run|executed?|launched?) (?:it|this|that|the (?:previous |preceding |above )?command)|(?:that|this|the (?:previous|preceding|above)) (?:command|launch) (?:was|is) (?:merely |only |just )?(?:an? example|copied|illustrative|from (?:the )?(?:docs|readme|manual)))\\b"
 }

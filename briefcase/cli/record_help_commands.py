@@ -213,8 +213,96 @@ def _command_register(inline, match):
     return "loader" if "loader" in (argv, options) else ""
 
 
+def _before_capture(table, text):
+    """Retain only application configuration that could precede the reported original capture."""
+    spec = table["applicationSelection"]
+    parts = re.split(f"({table['split']})", text, flags=re.I)
+    captured = False
+    for index in range(0, len(parts), 2):
+        clause = parts[index]
+        masked = re.sub(table["quoteSpans"], lambda m: "_" * len(m.group()), clause)
+        calls = list(re.finditer(spec["callStart"], masked, re.I))
+        after = re.search(spec["after"], masked, re.I)
+        event = re.search(spec["captureEvent"], masked, re.I)
+        if calls:
+            if re.search(spec["before"], masked, re.I):
+                captured = False
+            if captured:
+                parts[index] = ""
+            elif after or event:
+                boundary = after or event
+                earlier = [c for c in calls if c.start() < boundary.start()]
+                later = [c for c in calls if c.start() > boundary.start()]
+                # A trailing "after recording" qualifies the immediately preceding call. An
+                # intervening sequence connector instead attaches it to the following call.
+                connector = earlier and re.search(r"\b(?:then|next|afterwards?)\b",
+                                                  masked[earlier[-1].end():boundary.start()], re.I)
+                if after and earlier and not (later and connector):
+                    earlier.pop()
+                if earlier:
+                    cutoff = calls[len(earlier)].start() if len(earlier) < len(calls) else boundary.start()
+                    parts[index] = clause[:cutoff]
+                else:
+                    parts[index] = ""
+        if after or event:
+            captured = True
+    return "".join(parts)
+
+
+def _python_exporter_call(table, clause):
+    """Identify the top-level exporter argument, keeping nested option values opaque."""
+    spec = table["applicationSelection"]
+    masked = re.sub(table["quoteSpans"], lambda m: "_" * len(m.group()), clause)
+    start = re.search(spec["callStart"], masked, re.I)
+    if not start:
+        return clause
+    depth, begin = 0, start.end()
+    arguments = []
+    for i in range(begin, len(masked)):
+        char = masked[i]
+        if char in "([{":
+            depth += 1
+        elif depth == 0 and char in ",)":
+            arguments.append(clause[begin:i].strip())
+            begin = i + 1
+            if char == ")":
+                break
+        elif char in ")]}":
+            depth -= 1
+    else:
+        return clause
+    positional = []
+    keywords = {}
+    valid = True
+    for argument in arguments:
+        if not argument:
+            continue
+        name = re.match(r"([a-zA-Z_]\w*)\s*=(?!=)\s*", argument)
+        if name:
+            valid &= name[1] not in keywords and name[1] in spec["pythonParameters"]
+            keywords[name[1]] = argument[name.end():]
+        else:
+            valid &= not keywords
+            positional.append(argument)
+    valid &= len(positional) <= 1 and not (positional and "exporter" in keywords)
+    literal = keywords.get("exporter", positional[0] if positional else None)
+    if not valid:
+        literal = "unverifiedExporterArgument"
+    elif literal is None:
+        return clause
+    elif literal == "None":
+        literal = '"console"'
+    elif not re.fullmatch(r"""(?:"[^"\n]*"|'[^'\n]*')""", literal):
+        literal = "unverifiedExporterArgument"
+    if literal != "unverifiedExporterArgument" and not literal[1:-1].lower().startswith(("http://", "https://")):
+        if any(keywords.get(key, "None").strip() not in ("None", "''", '""', "{}") for key in ("token", "headers")):
+            literal = "unverifiedExporterArgument"
+    return clause[:start.end()] + literal + clause[i:]
+
+
 def _original_commands(table: Dict[str, Any], text: str) -> str:
     """Keep an original launch and its arguments, without attributing later shell commands to it."""
+    text = _before_capture(table, text)
     inherited_register = _shell_matches(table, text)
     lines = []
     fence = ""
@@ -245,6 +333,14 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
         lines.append(line)
     text = "\n".join(lines)
     parts = re.split(f"({table['commandClauseSplit']})", text, flags=re.I)
+    previous = None
+    for index in range(0, len(parts), 2):
+        clause = parts[index]
+        if not clause.strip():
+            continue
+        if previous is not None and re.search(table["disownPreviousCommand"], clause, re.I):
+            parts[previous] = " original exporter unknown "
+        previous = index if re.search(table["launchCommand"], clause, re.I) else None
     example_next = False
     for index in range(0, len(parts), 2):
         clause = parts[index]
@@ -399,6 +495,8 @@ def _execution_evidence(table, source, inherited=None):
                     choices.add(("inlineUnknown", None))
                     continue
                 clause = clause[:calls[0].start()] + clause[calls[-1].start():]
+            if runtime == {"Python"} or (runtime != {"Node"} and re.search(r"\bbriefcase\.observe\(", clause, re.I)):
+                clause = _python_exporter_call(table, clause)
             literal = re.search(selection["value"], clause, re.I)
             instance = re.search(selection["instance"], clause, re.I)
             path = None
@@ -429,6 +527,8 @@ def _execution_evidence(table, source, inherited=None):
                     insecure = re.search(selection["insecureOption"], clause[instance.end():])
                     if not _node_endpoint(value, allow_insecure=bool(insecure)):
                         kind = "inlineStartup"
+            elif "observe(unverifiedExporterArgument)" in clause:
+                kind = "inlineUnknown"
             elif worker_call and re.search(selection["argument"], clause, re.I):
                 kind = "unknownWorkerExporter"
             else:
@@ -621,8 +721,17 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         safe_path = key in ("ask_exporter", "ask_path") and _matches(
             table["replies"]["ask_path"][0], reply_source.strip()
         )
-        launch_input = re.sub(table["sensitiveInput"]["credentialBinding"], " ", answer, flags=re.I)
-        launch_reply = _original_commands(table, _source_text(table, launch_input))
+        projected = _source_text(table, answer)
+        selection = table["applicationSelection"]
+        pieces = re.split(f"({table['split']})", projected, flags=re.I)
+        reply_runtime = _runtime_names(table, pieces[::2]) & {"Python", "Node"}
+        for index in range(0, len(pieces), 2):
+            clause = pieces[index]
+            if (re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
+                    and (reply_runtime == {"Python"} or re.search(r"\bbriefcase\.observe\(", clause, re.I))):
+                clause = _python_exporter_call(table, clause)
+            pieces[index] = re.sub(table["sensitiveInput"]["credentialBinding"], " ", clause, flags=re.I)
+        launch_reply = _original_commands(table, "".join(pieces))
         launches, calls, preflight = _execution_evidence(table, launch_reply, inherited)
         asserted = any(
             re.search(table["executionAssertionSubject"], clause, re.I)
@@ -630,8 +739,13 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                                                               "rejectedWeb", "explicitWeb"))
             for clause in re.split(table["split"], _scoped(table, preprocess(launch_reply)), flags=re.I)
         )
+        shell_reply = (shell is not None and not (safe_choice or safe_path)
+                       and _shell_matches(table, _scoped(table, question + "\n" + launch_reply))
+                       and (re.search(selection["callStart"], launch_reply, re.I)
+                            or _shell_matches(table, _scoped(table, launch_reply))))
         safe_launch = (key in ("ask_exporter", "ask_protocol") and
-                       (len(launches) == 1 or bool(calls or preflight) or (asserted and not safe_choice)))
+                       (len(launches) == 1 or bool(calls or preflight) or shell_reply
+                        or (asserted and not safe_choice)))
         unsafe_reply = ((_sensitive(table, question) and not (safe_choice or safe_path or safe_launch))
                         or any(value in reply_source for value in raw_private))
         if safe_launch and not unsafe_reply:

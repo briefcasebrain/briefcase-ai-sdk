@@ -6417,5 +6417,379 @@
     "includes": [
       "original launch configuration"
     ]
+  },
+  {
+    "name": "Capture order and exporter argument 0 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"memory\"). Then it called briefcase.observe(\"console\") after recording the decision.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 0 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"memory\"). Then it called briefcase.observe(\"console\") after recording the decision."
+  },
+  {
+    "name": "Capture order and exporter argument 1 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"memory\"). After recording the decision, the original Python application called briefcase.observe(\"console\").",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 1 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"memory\"). After recording the decision, the original Python application called briefcase.observe(\"console\")."
+  },
+  {
+    "name": "Capture order and exporter argument 2 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"memory\"). The process recorded the decision. Then it called briefcase.observe(\"console\").",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 2 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"memory\"). The process recorded the decision. Then it called briefcase.observe(\"console\")."
+  },
+  {
+    "name": "Capture order and exporter argument 3 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"memory\") and then briefcase.observe(\"console\") after recording the decision.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 3 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"memory\") and then briefcase.observe(\"console\") after recording the decision."
+  },
+  {
+    "name": "Capture order and exporter argument 4 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"console\"). Then it called briefcase.observe(\"memory\") after recording the decision.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 4 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"console\"). Then it called briefcase.observe(\"memory\") after recording the decision."
+  },
+  {
+    "name": "Capture order and exporter argument 5 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"console\"). After recording the decision, the original Python application called briefcase.observe(\"memory\").",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 5 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"console\"). After recording the decision, the original Python application called briefcase.observe(\"memory\")."
+  },
+  {
+    "name": "Capture order and exporter argument 6 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"console\"). The process recorded the decision. Then it called briefcase.observe(\"memory\").",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 6 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"console\"). The process recorded the decision. Then it called briefcase.observe(\"memory\")."
+  },
+  {
+    "name": "Capture order and exporter argument 7 initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(\"console\") and then briefcase.observe(\"memory\") after recording the decision.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 7 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(\"console\") and then briefcase.observe(\"memory\") after recording the decision."
+  },
+  {
+    "name": "Capture order and exporter argument 8 initial",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\").",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 8 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\")."
+  },
+  {
+    "name": "Capture order and exporter argument 9 initial",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter = 'console').",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 9 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter = 'console')."
+  },
+  {
+    "name": "Capture order and exporter argument 10 initial",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(level=\"INFO\", exporter=\"memory\").",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 10 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(level=\"INFO\", exporter=\"memory\")."
+  },
+  {
+    "name": "Capture order and exporter argument 11 initial",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\", level=\"INFO\").",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 11 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\", level=\"INFO\")."
+  },
+  {
+    "name": "Capture order and exporter argument 12 initial",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=None).",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 12 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=None)."
+  },
+  {
+    "name": "Capture order and exporter argument 13 initial",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\", headers={} ).",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 13 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\", headers={} )."
+  },
+  {
+    "name": "Capture order and exporter argument 14 initial",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\", headers={\"test\":\"opaque\"}).",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 14 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\", headers={\"test\":\"opaque\"})."
+  },
+  {
+    "name": "Capture order and exporter argument 15 initial",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=some_value).",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 15 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=some_value)."
+  },
+  {
+    "name": "Capture order and exporter argument 16 initial",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(\"memory\", exporter=\"console\").",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 16 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(\"memory\", exporter=\"console\")."
+  },
+  {
+    "name": "Capture order and exporter argument 17 initial",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=\"console\", exporter=\"memory\").",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 17 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch"
+    ],
+    "answer": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(exporter=\"console\", exporter=\"memory\")."
+  },
+  {
+    "name": "Capture order and exporter argument 18 initial",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI copied this command from the README. I never ran it.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the orig"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 18 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below "
+    ],
+    "answer": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI copied this command from the README. I never ran it."
+  },
+  {
+    "name": "Capture order and exporter argument 19 initial",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI never ran that command.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the orig"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 19 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below "
+    ],
+    "answer": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI never ran that command."
+  },
+  {
+    "name": "Capture order and exporter argument 20 initial",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nThat command was only an example.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the orig"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 20 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below "
+    ],
+    "answer": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nThat command was only an example."
+  },
+  {
+    "name": "Capture order and exporter argument 21 initial",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI copied this command from the README. I never ran it. My actual launch was BRIEFCASE_EXPORTER=console node --import @briefcase-ai/auto/register app.js",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for"
+    ]
+  },
+  {
+    "name": "Capture order and exporter argument 21 reply",
+    "question": "Which exporter did my original process use?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for"
+    ],
+    "answer": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI copied this command from the README. I never ran it. My actual launch was BRIEFCASE_EXPORTER=console node --import @briefcase-ai/auto/register app.js"
   }
 ]
