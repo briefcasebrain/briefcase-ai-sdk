@@ -2264,5 +2264,231 @@
     "includes": [
       "unidentified"
     ]
+  },
+  {
+    "name": "K09 completed independent scan",
+    "question": "I scanned runlog.jsonl in another process for my original unique marker sand-456. The scan found no matching record; all rows were from yesterday. Does this prove my run made it to that file?",
+    "expected": "scanned_missing",
+    "includes": [
+      "runlog.jsonl",
+      "sand-456",
+      "Other destinations remain unknown"
+    ]
+  },
+  {
+    "name": "Unconfirmed private file witness 0",
+    "question": "Explicit JSONL to events.jsonl. Job token fixture-52 was unique to this invocation. A reader opened events.jsonl and hasn't found a record containing fixture-52.",
+    "expected": "private_file",
+    "includes": [
+      "search locally",
+      "events.jsonl"
+    ]
+  },
+  {
+    "name": "Unconfirmed private file witness 1",
+    "question": "Explicit JSONL to events.jsonl. Job token fixture-52 was unique to this invocation. A reader opened events.jsonl and found a record containing fixture-52 in other.jsonl.",
+    "expected": "private_file",
+    "includes": [
+      "search locally",
+      "events.jsonl"
+    ]
+  },
+  {
+    "name": "Unconfirmed private file witness 2",
+    "question": "Explicit JSONL to events.jsonl. Job token fixture-52 was unique to this invocation. A reader opened events.jsonl. A database returned a record containing fixture-52.",
+    "expected": "private_file",
+    "includes": [
+      "search locally",
+      "events.jsonl"
+    ]
+  },
+  {
+    "name": "Unconfirmed private file witness 3",
+    "question": "Explicit JSONL to events.jsonl. Job token fixture-52 was unique to this invocation. A reader opened events.jsonl. I found a record containing fixture-52 in the database.",
+    "expected": "private_file",
+    "includes": [
+      "search locally",
+      "events.jsonl"
+    ]
+  },
+  {
+    "name": "Independent file witness continuation",
+    "question": "Explicit JSONL to events.jsonl. Job token fixture-52 was unique to this invocation. A reader opened events.jsonl. The file contained a record containing fixture-52.",
+    "expected": "private_file_read",
+    "includes": [
+      "reported readback",
+      "events.jsonl"
+    ]
+  },
+  {
+    "name": "receiver disowning it belongs to another process",
+    "question": "Original marker run-864. The receiver received marker run-864, but it belongs to another process.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "run-864"
+    ]
+  },
+  {
+    "name": "receiver disowning this was for a different run",
+    "question": "Original marker run-864. The receiver received marker run-864, but this was for a different run.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "run-864"
+    ]
+  },
+  {
+    "name": "receiver disowning that actually came from the other worker",
+    "question": "Original marker run-864. The receiver received marker run-864, but that actually came from the other worker.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "run-864"
+    ]
+  },
+  {
+    "name": "database disowning it belongs to another process",
+    "question": "Original marker run-864. The database returned marker run-864, but it belongs to another process.",
+    "expected": "query_storage",
+    "includes": [
+      "run-864"
+    ]
+  },
+  {
+    "name": "database disowning this was for a different run",
+    "question": "Original marker run-864. The database returned marker run-864, but this was for a different run.",
+    "expected": "query_storage",
+    "includes": [
+      "run-864"
+    ]
+  },
+  {
+    "name": "database disowning that actually came from the other worker",
+    "question": "Original marker run-864. The database returned marker run-864, but that actually came from the other worker.",
+    "expected": "query_storage",
+    "includes": [
+      "run-864"
+    ]
+  },
+  {
+    "name": "Nonoriginal shell: The staging job",
+    "question": "The original job used the default exporter. The staging job ran in this shell with unchanged settings.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "machine.jsonl"
+  },
+  {
+    "name": "Nonoriginal shell: The comparison process",
+    "question": "The original job used the default exporter. The comparison process ran in this shell with unchanged settings.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "machine.jsonl"
+  },
+  {
+    "name": "Nonoriginal shell: My diagnostic worker",
+    "question": "The original job used the default exporter. My diagnostic worker ran in this shell with unchanged settings.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "machine.jsonl"
+  },
+  {
+    "name": "Nonoriginal shell: A different app",
+    "question": "The original job used the default exporter. A different app ran in this shell with unchanged settings.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "machine.jsonl"
+  },
+  {
+    "name": "Node protocol with normalized literals 289",
+    "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_PROTOCOL=' grpc ' node --import @briefcase-ai/auto/register app.js 2> debug.err",
+    "expected": "node_console",
+    "includes": [
+      "token_usage"
+    ]
+  },
+  {
+    "name": "Node protocol with normalized literals 290",
+    "question": "BRIEFCASE_EXPORTER=otlp BRIEFCASE_EXPORTER_TOKEN=fake-411 OTEL_EXPORTER_OTLP_PROTOCOL=grpc node --import @briefcase-ai/auto/register app.js 2> debug.err",
+    "expected": "node_console",
+    "includes": [
+      "token_usage"
+    ]
+  },
+  {
+    "name": "Node protocol with normalized literals 291",
+    "question": "OTEL_EXPORTER_OTLP_PROTOCOL=grpc BRIEFCASE_EXPORTER=otel OTEL_EXPORTER_OTLP_HEADERS='authorization=Bearer fake-411' node --import @briefcase-ai/auto/register app.js 2> debug.err",
+    "expected": "node_console",
+    "includes": [
+      "token_usage"
+    ]
+  },
+  {
+    "name": "Unconfirmed protocol I think it was OTLP",
+    "question": "Where should I look on the receiver?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "I think it was OTLP"
+  },
+  {
+    "name": "Unconfirmed protocol A different application used HTTP",
+    "question": "Where should I look on the receiver?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "A different application used HTTP"
+  },
+  {
+    "name": "Unconfirmed protocol Perhaps HTTP",
+    "question": "Where should I look on the receiver?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "Perhaps HTTP"
+  },
+  {
+    "name": "Unconfirmed protocol The OTLP protocol?",
+    "question": "Where should I look on the receiver?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "The OTLP protocol?"
+  },
+  {
+    "name": "Confirmed protocol The OTLP protocol.",
+    "question": "Where should I look on the receiver?",
+    "expected": "otlp",
+    "includes": [
+      "receipt"
+    ],
+    "answer": "The OTLP protocol."
+  },
+  {
+    "name": "Confirmed protocol An HTTP exporter.",
+    "question": "Where should I look on the receiver?",
+    "expected": "receiver",
+    "includes": [
+      "receipt"
+    ],
+    "answer": "An HTTP exporter."
+  },
+  {
+    "name": "Confirmed protocol The protocol was OTLP.",
+    "question": "Where should I look on the receiver?",
+    "expected": "otlp",
+    "includes": [
+      "receipt"
+    ],
+    "answer": "The protocol was OTLP."
   }
 ]

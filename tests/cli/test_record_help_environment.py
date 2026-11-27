@@ -61,3 +61,21 @@ def test_other_runtime_cannot_decide_original_shell_configuration(monkeypatch, c
                 "A different Node app used console.")
     assert main(["record-help", question]) == 0
     assert "original launch configuration" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("inspection", [
+    "I use Node to inspect the output.",
+    "Node is my tool for reviewing the logs.",
+    "I use a Node dashboard.",
+])
+def test_inspection_tool_does_not_identify_original_runtime(monkeypatch, capsys, inspection):
+    from io import StringIO
+
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "otlp")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    question = "The original job used the default exporter from this shell with unchanged settings. " + inspection
+    assert main(["record-help", question]) == 0
+    assert "original launch configuration" in capsys.readouterr().out

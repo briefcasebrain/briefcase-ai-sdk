@@ -160,21 +160,39 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
 
         evidence = re.sub(marker["token"], hide_token, evidence)
     facts = _collect_facts(table, evidence) | disowned
+    if "privateFileWitness" in facts:
+        witness = table["fileWitness"]
+        previous_read = False
+        for clause in re.split(table["split"], evidence, flags=re.I):
+            clause = clause.strip()
+            if not clause:
+                continue
+            file_read = bool(re.search(witness["read"], clause, re.I)) and _matches(table["facts"]["fileRead"], clause)
+            linked = file_read or (previous_read and re.search(witness["continuation"], clause, re.I))
+            if (linked and not re.search(witness["foreign"], clause, re.I)
+                    and _matches(table["facts"]["privateFileWitness"], clause)):
+                facts.add("linkedFileWitness")
+                break
+            previous_read = file_read
     inline_path = None
     inline = table["inlineNode"]
-    commands = list(re.finditer(inline["command"], evidence))
+    commands = list(re.finditer(inline["command"], _scoped(table, question)))
     if len(commands) == 1:
         # Parse literal assignment tokens as data. Last assignment to a key wins.
-        settings = {m.group(1): next((v for v in m.groups()[1:] if v is not None), "")
-                    for m in re.finditer(inline["assignment"], commands[0].group(1))}
+        settings = {m.group(1): next((v.strip() for v in m.groups()[1:] if v is not None), "")
+                    for m in re.finditer(inline["assignment"], commands[0].group(1)) if m.group(1) in inline["keys"]}
         lines = "\n".join(f"{key}={value}" for key, value in settings.items())
         selected = next((rule for rule in inline["rules"] if _matches(rule, lines)), None)
         if selected:
             facts.add(selected["fact"])
             if selected["fact"] == "inlineFile":
-                inline_path = settings["BRIEFCASE_EXPORTER"]
+                inline_path = None if _sensitive(table, question) else settings["BRIEFCASE_EXPORTER"]
     elif commands:
         facts.add("inlineUnknown")
+    files = {next(value for value in match.groups() if value is not None)
+             for match in re.finditer(table["fileMentions"], evidence, re.I)}
+    if len(files) > 1:
+        facts.add("ambiguousFileWitness")
     entities = _entities(table, evidence)
     facts.update(value["fact"] for value in entities.values() if value.get("fact"))
     for comparison in table["comparisons"]:
@@ -201,7 +219,9 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         unsafe_reply = _sensitive(table, question) or any(value in answer for value in private_values)
         reply = "" if unsafe_reply else _scoped(table, preprocess(answer))
         transitions = table["replies"][key]
-        valid = next((step for step in transitions if _matches(step, reply)), None)
+        valid = next((step for step in transitions if _matches(step, reply) and
+                      ("affirmative" not in step or re.fullmatch(table["exporterReplies"][step["affirmative"]],
+                                                                 reply, re.I))), None)
         contextual_reply = action["replyPrefix"] + reply
         reply_entities = _entities(table, contextual_reply)
         reply_id = reply_entities.get("correlation", {})
@@ -222,10 +242,15 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             unresolved_path = key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value"))
             if table["actions"][key]["kind"] == "ask" or unresolved_path:
                 key = table["fallback"]
+    # Treat both turns as one privacy boundary, independent of which turn supplied a field.
+    private_rendering = any(_sensitive(table, raw) or re.search(table["privateWebAddress"], raw, re.I)
+                            for raw in (question, answer or ""))
     template = table["actions"][key]["text"]
 
     def substitute(placeholder: re.Match) -> str:
         name = placeholder.group(1)
+        if private_rendering:
+            return table["defaults"][name]
         if name == "path" and shell_path:
             return shell_path
         if name == "correlation" and name not in entities and key in table["businessTicketActions"]:
@@ -321,7 +346,11 @@ def cmd_record_help(args, store, engine, stack) -> int:
         print(table["guide"])
         return 0
     launch = _scoped(table, question)
-    shell = _shell_exporter(launch) if _matches(table["shell"], launch) else None
+    launch_clauses = [clause for clause in re.split(table["split"], launch, flags=re.I)
+                      if not re.search(table["runtimeInspection"], clause, re.I)]
+    runtime = " ".join(name for name, pattern in table["runtimeSource"].items()
+                       if any(re.search(pattern, clause, re.I) for clause in launch_clauses))
+    shell = _shell_exporter(runtime) if _matches(table["shell"], launch) else None
     key, text = route(table, question, args.answer, shell)
     if table["actions"][key]["kind"] == "ask" and args.answer is None:
         print(text, flush=True)

@@ -201,7 +201,7 @@
       "default exporter|default configuration|environment.driven|observe\\(\\)|inherited .*settings|used .*exporter configuration|used .*shell|used .*default|inherit.*default",
       "\\b(?:in|from|under|with|of|inherited|using)\\s+(?:the )?(?:unchanged |same )?(?:this|current)\\s+(?:local )?(?:shell|terminal|environment|session)\\b|\\b(?:this|current) (?:local )?(?:shell|terminal|environment|session)[\\x27’]s\\s+(?:unchanged|original|default|exporter)|\\binherited[^.?!;\\n]{0,65}\\bfrom (?:my |the )?(?:same|current) (?:local )?(?:terminal|shell)\\b",
       "\\b(?:inherited|used|ran|launched|executed|called|started)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,130}\\b(?:this|current) (?:local )?(?:terminal|shell|environment|session)\\b|\\b(?:this|current) (?:local )?(?:terminal|shell|session|environment)\\b[^.;\\n]{0,70}(?:since (?:the |its |that |original )?(?:launch|run|job)|launched (?:the |my |our )?(?:process|worker|job|script)|started the original process)|\\b(?:launched|ran|inherited|used)\\b[^.;\\n]{0,65}\\bfrom (?:my |the )?same (?:local )?(?:shell|terminal) (?:i am|as this|as the one i.m) (?:using|running|in)\\b",
-      "\\b(?:process|job|worker|application|app|script|launcher|run|node(?: preload demo)?|python|preload|exporter)\\b(?:(?!\\brecord-help\\b|[.!?;](?:\\s|$))[^\\n]){0,34}?\\b(?:inherited|used|ran|launched|started|executed|called)\\b(?:(?!\\brecord-help\\b|[.!?;](?:\\s|$))[^\\n]){0,115}\\b(?:this|current|same) (?:local )?(?:shell|terminal|session|environment)\\b|\\b(?:this|current) (?:shell|terminal|environment|session)\\b(?:(?!\\brecord-help\\b|[.!?;](?:\\s|$))[^\\n]){0,45}\\bsince (?:the |its |original )?(?:launch|run)\\b|\\b(?:we|i)\\s+(?:used|ran|launched|started|executed|called)\\s+(?:(?:the|my|our|that|this|original|actual|default|environment.driven)\\s+){0,5}(?:exporter|process|job|worker|script|application|python\\b|node\\b)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,80}\\b(?:this|current|same) (?:local )?(?:shell|terminal|session|environment)\\b"
+      "(?:^|[.;!?]\\s+|\\n)\\s*(?:(?:my|our|the|this|that|its|original|actual|default|environment.driven|node|python)\\s+){0,5}(?:process|job|worker|application|app|script|launcher|run|node(?: preload demo)?|python|preload|exporter)\\b(?:(?!\\brecord-help\\b|[.!?;](?:\\s|$))[^\\n]){0,34}?\\b(?:inherited|used|ran|launched|started|executed|called)\\b(?:(?!\\brecord-help\\b|[.!?;](?:\\s|$))[^\\n]){0,115}\\b(?:this|current|same) (?:local )?(?:shell|terminal|session|environment)\\b|\\b(?:this|current) (?:shell|terminal|environment|session)\\b(?:(?!\\brecord-help\\b|[.!?;](?:\\s|$))[^\\n]){0,45}\\bsince (?:the |its |original )?(?:launch|run)\\b|\\b(?:we|i)\\s+(?:used|ran|launched|started|executed|called)\\s+(?:(?:the|my|our|that|this|original|actual|default|environment.driven)\\s+){0,5}(?:exporter|process|job|worker|script|application|python\\b|node\\b)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,80}\\b(?:this|current|same) (?:local )?(?:shell|terminal|session|environment)\\b"
     ],
     "none": [
       "explicit|observe\\(\\s*[\"\\x27]|(?:not|never|didn.t|unknown|unsure|uncertain|don.t know|can.t confirm|whether|if) [^.\\n]{0,55}(?:inherit|unchanged|same shell)|(?:inheritance|inherit\\w*|shell settings) (?:is |was )?(?:unknown|unclear|unconfirmed)",
@@ -210,7 +210,7 @@
       "\\b(?:not|never|didn.t|did not|wasn.t|was not|outside|separate from|different from|other than|cannot confirm|can.t verify|unrelated to|possibly|maybe|unsure|no evidence)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,100}\\b(?:this|current|same) (?:local )?(?:shell|session|terminal|environment)\\b|\\b(?:this|current) (?:shell|terminal|session|environment)[^.;\\n]{0,35}(?:did not|didn.t|was not|wasn.t|never)\\b"
     ]
   },
-  "revision": 9,
+  "revision": 10,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -812,7 +812,8 @@
       "none": [
         "\\b(?:if|whether|unsure|possibly|could|might|maybe|suppose|no|not|never|didn.t|denied|denies|false|zero)\\b",
         "\\b(?:false|untrue|incorrect|mistaken|inaccurate|disputed|unsubstantiated|unverified|unconfirmed|contradicted|refuted|retracted|fabricated|disproved|alleged|hypothetical|den(?:y|ies|ied)|disagree(?:d)?|disput(?:e|es|ed)|reject(?:ed|s)? the (?:claim|assertion|idea|notion)|no reason to believe|not (?:true|accurate|correct|a fact)|no such|without confirming|cannot (?:verify|confirm)|can.t (?:verify|confirm)|lacks? (?:proof|evidence))\\b|\\b(?:claim|assertion|rumou?r|hearsay|unverified report|suggestion|possibility|prediction|hypothesis|guess|assumption) (?:that|about|regarding)|\\b(?:supposedly|purportedly|allegedly|disputed|contested|deny|denies|refuted|doubt|doubted)\\b|\\b(?:contest(?:s|ed)?|disbelieve|disbelieved|disputed|rejected|reject(?:s|ed)? (?:it|this|that)|cannot independently (?:verify|confirm))\\b|\\b(?:zero|0|no)\\s+(?:times?|occurrences?|instances?|hits?|appearances?)\\b|\\b(?:not (?:even )?(?:once|a single time)|never once|on no occasion)\\b|\\b(?:occurrences?|match count|hit count)\\s*[:=]?\\s*(?:was |is )?(?:zero|0)\\b",
-        "\\b(?:denied|deny|suppose|suspect|speculate|believe|alleged|doubt|possibly|uncertain|unclear|reported by|couldn.t confirm)\\b"
+        "\\b(?:denied|deny|suppose|suspect|speculate|believe|alleged|doubt|possibly|uncertain|unclear|reported by|couldn.t confirm)\\b",
+        "\\b(?:hasn.t|haven.t|hadn.t|didn.t|doesn.t|wasn.t|weren.t|couldn.t|haven|hasn|hadn|didn|couldn|never|cannot|can.t|can not)\\b|\\b(?:had|has|have|did|does|could|would)\\s+(?:still |yet )?not\\b"
       ]
     },
     "negatedReceiptWitness": {
@@ -1057,7 +1058,8 @@
         "readMiss"
       ],
       "none": [
-        "readDifferentPath"
+        "readDifferentPath",
+        "ambiguousFileWitness"
       ]
     },
     {
@@ -1066,10 +1068,12 @@
         "file",
         "privateJobMarker",
         "fileRead",
-        "privateFileWitness"
+        "privateFileWitness",
+        "linkedFileWitness"
       ],
       "none": [
-        "readDifferentPath"
+        "readDifferentPath",
+        "ambiguousFileWitness"
       ]
     },
     {
@@ -1108,7 +1112,8 @@
         "readMiss"
       ],
       "none": [
-        "storeObserved"
+        "storeObserved",
+        "ambiguousFileWitness"
       ]
     },
     {
@@ -1120,6 +1125,9 @@
       "any": [
         "fileRead",
         "otherRows"
+      ],
+      "none": [
+        "ambiguousFileWitness"
       ]
     },
     {
@@ -1159,7 +1167,8 @@
         "staleRows"
       ],
       "none": [
-        "receiptObserved"
+        "receiptObserved",
+        "ambiguousFileWitness"
       ]
     },
     {
@@ -1741,9 +1750,6 @@
         ]
       },
       {
-        "all": [
-          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?(?:console|stderr)[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
-        ],
         "none": [
           "\\b(?:unsure|unknown|maybe|not sure|might|could be|don.t (?:have|know)|do not (?:have|know)|can.t tell|cannot tell|either|only a guess)\\b",
           "\\b(?:not|never|wasn.t|isn.t|doubt|perhaps|possibly|maybe|unavailable|nobody knows|cannot confirm)\\b",
@@ -1759,12 +1765,10 @@
           "shellClue",
           "alternateScript",
           "remoteLaunch"
-        ]
+        ],
+        "affirmative": "console"
       },
       {
-        "all": [
-          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?(?:otlp|otel)[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
-        ],
         "none": [
           "\\b(?:unsure|unknown|maybe|not sure|might|could be|don.t (?:have|know)|do not (?:have|know)|can.t tell|cannot tell|either|only a guess)\\b",
           "\\b(?:not|never|wasn.t|isn.t|doubt|perhaps|possibly|maybe|unavailable|nobody knows|cannot confirm)\\b",
@@ -1776,12 +1780,10 @@
         "action": "otlp",
         "drop": [
           "remoteLaunch"
-        ]
+        ],
+        "affirmative": "otlp"
       },
       {
-        "all": [
-          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?http(?: endpoint)?[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
-        ],
         "none": [
           "\\b(?:unsure|unknown|maybe|not sure|might|could be|don.t (?:have|know)|do not (?:have|know)|can.t tell|cannot tell|either|only a guess)\\b",
           "\\b(?:not|never|wasn.t|isn.t|doubt|perhaps|possibly|maybe|unavailable|nobody knows|cannot confirm)\\b",
@@ -1793,12 +1795,10 @@
         "action": "receiver",
         "drop": [
           "remoteLaunch"
-        ]
+        ],
+        "affirmative": "http"
       },
       {
-        "all": [
-          "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?memory[\"\\x27`]?(?: exporter)?[.!]?\\s*$"
-        ],
         "none": [
           "\\b(?:unsure|unknown|maybe|not sure|might|could be|don.t (?:have|know)|do not (?:have|know)|can.t tell|cannot tell|either|only a guess)\\b",
           "\\b(?:not|never|wasn.t|isn.t|doubt|perhaps|possibly|maybe|unavailable|nobody knows|cannot confirm)\\b",
@@ -1809,14 +1809,12 @@
         "action": "memory_only",
         "drop": [
           "remoteLaunch"
-        ]
+        ],
+        "affirmative": "memory"
       }
     ],
     "ask_protocol": [
       {
-        "all": [
-          "\\b(?:otlp|otel)\\b"
-        ],
         "none": [
           "\\b(?:unsure|unknown|maybe|not sure|might|could be|don.t (?:have|know)|do not (?:have|know)|can.t tell|cannot tell|either|only a guess)\\b",
           "\\b(?:not|never|wasn.t|isn.t|doubt|perhaps|possibly|maybe|unavailable|nobody knows|cannot confirm)\\b",
@@ -1824,12 +1822,10 @@
           "\\b(?:lost|forgotten|forgot|unknown|unavailable|missing|unclear|uncertain|unsaved|misplaced|unrecorded|unrecoverable|ambiguous|unidentified)\\b|\\b(?:dunno|idk|nobody knows|no idea|can.t remember)\\b|\\s+or\\s+",
           "\\b(?:probably|perhaps|potentially|possibly|i guess|i suspect|i suppose|nope|nah|no idea|not positive|not certain|presumably|seems? like|likely|best guess)\\b"
         ],
-        "action": "otlp"
+        "action": "otlp",
+        "affirmative": "otlp"
       },
       {
-        "all": [
-          "\\bhttp\\b"
-        ],
         "none": [
           "\\b(?:unsure|unknown|maybe|not sure|might|could be|don.t (?:have|know)|do not (?:have|know)|can.t tell|cannot tell|either|only a guess)\\b",
           "\\b(?:not|never|wasn.t|isn.t|doubt|perhaps|possibly|maybe|unavailable|nobody knows|cannot confirm)\\b",
@@ -1837,7 +1833,8 @@
           "\\b(?:lost|forgotten|forgot|unknown|unavailable|missing|unclear|uncertain|unsaved|misplaced|unrecorded|unrecoverable|ambiguous|unidentified)\\b|\\b(?:dunno|idk|nobody knows|no idea|can.t remember)\\b|\\s+or\\s+",
           "\\b(?:probably|perhaps|potentially|possibly|i guess|i suspect|i suppose|nope|nah|no idea|not positive|not certain|presumably|seems? like|likely|best guess)\\b"
         ],
-        "action": "receiver"
+        "action": "receiver",
+        "affirmative": "http"
       }
     ]
   },
@@ -1961,11 +1958,13 @@
       "\\b(?:another|the other|an unrelated|a different|unrelated) (?:process|program|script|service|worker|deployment|job|invocation|execution)\\b|\\b(?:someone else.s|an unrelated) (?:launch|runtime|worker|service|job|process)\\b|\\b(?:for|from|of|belonged to) (?:a |the )?separate (?:process|application|worker|job|deployment)\\b",
       "\\b(?:my|our|a|another) (?:coworker|colleague|teammate|neighbor|friend)[’']?s?\\b[^.;\\n]{0,50}\\b(?:used|uses?|set|selected|wrote|configured|exported|appended|logged)\\b|\\b(?:exporter|file|path|log|output) (?:belong(?:ing|s) to|for|from|of) (?:a|my|our) (?:coworker|colleague|teammate)\\b",
       "\\b(?:another|the other|an? unrelated|an? different|unrelated|someone else.s)\\s+(?:(?:python|node|local|hosted|separate|earlier|previous)\\s+){0,3}(?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)\\b",
-      "\\b(?:my|our|a|the) (?:test|diagnostic|comparison|separate test|other|second|unrelated) (?:script|app|program|shell|worker)\\s+(?:ran|was launched|used|inherited|was executed|started|launched)\\b"
+      "\\b(?:my|our|a|the) (?:test|diagnostic|comparison|separate test|other|second|unrelated) (?:script|app|program|shell|worker)\\s+(?:ran|was launched|used|inherited|was executed|started|launched)\\b",
+      "^\\s*(?:i|we) use (?:a |an |my |our )?(?:(?:node|python|javascript|local|internal|custom)\\s+)*(?:dashboard|inspector|viewer|reader)\\b"
     ],
     "none": [
       "\\b(?:separate|another|different) process (?:read back|reopened|queried|parsed|verified|searched|inspected|checked|scanned)\\b",
-      "\\b(?:in|with|using|from) (?:a |an )?(?:separate|another|different) process\\b[, ]*(?:(?:i|we|the reader|a reviewer)\\s+)?(?:then |independently )?(?:read back|reopened|queried|parsed|verified|searched|inspected|checked|scanned)\\b"
+      "\\b(?:in|with|using|from) (?:a |an )?(?:separate|another|different) process\\b[, ]*(?:(?:i|we|the reader|a reviewer)\\s+)?(?:then |independently )?(?:read back|reopened|queried|parsed|verified|searched|inspected|checked|scanned)\\b",
+      "\\b(?:i|we|(?:the |a |our )?(?:reader|verifier|reviewer))\\s+(?:independently |then )?(?:read back|reopened|queried|parsed|verified|searched|inspected|checked|scanned|opened)\\b[^;!?\\n]{0,90}\\b(?:in|using|with|from) (?:a |an )?(?:new|separate|second|different|another|independent) (?:process|reader|interpreter)\\b"
     ]
   },
   "entities": {
@@ -2396,6 +2395,11 @@
         ],
         "none": []
       }
+    ],
+    "keys": [
+      "BRIEFCASE_EXPORTER",
+      "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+      "OTEL_EXPORTER_OTLP_PROTOCOL"
     ]
   },
   "privateJobMarker": {
@@ -2405,12 +2409,31 @@
   },
   "disownedObservations": [
     {
-      "pattern": "\\b(?:receiver|collector|batch|ingress log)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,200}?\\s*(?:[,;.]\\s*)?(?:(?:but|however|although|and)\\s+)?(?:that|this|the)\\s+(?:entry|row|record|match|event|span|observation|result|decision)\\s+(?:(?:actually|really)\\s+)?(?:belongs? to|came from|was for|is for|was from|is from|identifies|describes|corresponds to)\\s+(?:(?:an?|the|my|our)\\s+)?(?:another|other|unrelated|different|previous|separate)\\s+(?:\\w+\\s+){0,2}(?:process|run|application|job|worker|invocation|attempt)\\b",
+      "pattern": "\\b(?:receiver|collector|batch|ingress log)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,200}?\\s*(?:[,;.]\\s*)?(?:(?:but|however|although|and)\\s+)?(?:it|that|this|(?:that|this|the)\\s+(?:entry|row|record|match|event|span|observation|result|decision))\\s+(?:(?:actually|really)\\s+)?(?:belongs? to|came from|was for|is for|was from|is from|identifies|describes|corresponds to)\\s+(?:(?:an?|the|my|our)\\s+)?(?:another|other|unrelated|different|previous|separate)\\s+(?:\\w+\\s+){0,2}(?:process|run|application|job|worker|invocation|attempt)\\b",
       "fact": "DeniedReceiptFollowup"
     },
     {
-      "pattern": "\\b(?:store|storage|database|warehouse|archive|query result)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,200}?\\s*(?:[,;.]\\s*)?(?:(?:but|however|although|and)\\s+)?(?:that|this|the)\\s+(?:entry|row|record|match|event|span|observation|result|decision)\\s+(?:(?:actually|really)\\s+)?(?:belongs? to|came from|was for|is for|was from|is from|identifies|describes|corresponds to)\\s+(?:(?:an?|the|my|our)\\s+)?(?:another|other|unrelated|different|previous|separate)\\s+(?:\\w+\\s+){0,2}(?:process|run|application|job|worker|invocation|attempt)\\b",
+      "pattern": "\\b(?:store|storage|database|warehouse|archive|query result)\\b(?:(?![.!?;](?:\\s|$))[^\\n]){0,200}?\\s*(?:[,;.]\\s*)?(?:(?:but|however|although|and)\\s+)?(?:it|that|this|(?:that|this|the)\\s+(?:entry|row|record|match|event|span|observation|result|decision))\\s+(?:(?:actually|really)\\s+)?(?:belongs? to|came from|was for|is for|was from|is from|identifies|describes|corresponds to)\\s+(?:(?:an?|the|my|our)\\s+)?(?:another|other|unrelated|different|previous|separate)\\s+(?:\\w+\\s+){0,2}(?:process|run|application|job|worker|invocation|attempt)\\b",
       "fact": "DeniedStoreFollowup"
     }
-  ]
+  ],
+  "privateWebAddress": "https?://(?:[^/\\s<>]*@|[^\\s<>]*[?#])",
+  "fileMentions": "(?:[\"“]([^\"”\\n]+?\\.jsonl)[\"”]|[\\x27‘]([^\\x27’\\n]+?\\.jsonl)[\\x27’]|`([^`\\n]+?\\.jsonl)`|([^\\s\"\\x27`“”‘’<>(),;=]+?\\.jsonl))(?=$|[\\s\"\\x27`“”‘’),;:!?]|\\.(?=\\s|$))",
+  "runtimeInspection": "\\b(?:to|for|when|while)\\s+(?:inspect(?:ing)?|examin(?:e|ing)|read(?:ing)?|review(?:ing)?|check(?:ing)?|analy[sz](?:e|ing)|verify(?:ing)?|query(?:ing)?|search(?:ing)?|diagnos(?:e|ing)|debug(?:ging)?)\\s+(?:the |my |our |its |that |this )?(?:output|results?|export|file|logs?|record|response|database|artifact|jsonl|decision)",
+  "exporterReplies": {
+    "console": "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|protocol|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?(?:console|stderr)[\"\\x27`]?(?: exporter| protocol)?[.!]?\\s*$",
+    "otlp": "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|protocol|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?(?:otlp|otel)[\"\\x27`]?(?: exporter| protocol)?[.!]?\\s*$",
+    "http": "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|protocol|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?http(?: endpoint)?[\"\\x27`]?(?: exporter| protocol)?[.!]?\\s*$",
+    "memory": "^\\s*(?:(?:it|(?:the |my |our )?(?:original |actual |launch )?(?:exporter|protocol|configuration|setting|job|process|application|script|runtime|worker|command))\\s+(?:used|uses|selected|selected the|was|is|was set to|explicitly set|writes to)\\s+|(?:BRIEFCASE_EXPORTER\\s*=\\s*))?(?:(?:the|an?)\\s+)?[\"\\x27`]?memory[\"\\x27`]?(?: exporter| protocol)?[.!]?\\s*$"
+  },
+  "fileWitness": {
+    "read": "\\b(?:parsed|scanned|reopened|read(?: back)?|checked|searched|inspected|opened|examined|reviewed|loaded)\\b[^;!?\\n]{0,75}\\b(?:jsonl|file|rows?|entries|records?)\\b",
+    "continuation": "^\\s*(?:(?:the|that|this|its)\\s+(?:file|readback|scan|search|reader|lookup|contents|record|rows?)\\b|it\\s+(?:contained|contains|showed|included|returned|found|had)\\b)",
+    "foreign": "\\b(?:in|from|inside|on|via|at)\\s+(?:(?:an?|the|another|our|my|remote|local|different|other)\\s+)*(?:database|collector|receiver|dashboard|store|warehouse|log stream|queue|service)\\b"
+  },
+  "runtimeSource": {
+    "Node": "(?:^\\s*(?:(?:the|my|our|that|original|actual|target|local)\\s+){0,4}(?:node(?:js)?|javascript|typescript|preload)\\b[^.;!?\\n]{0,50}\\b(?:inherited|used|ran|launched|script|preload|worker|process|job|application|exporter)\\b|\\b(?:original|actual|target|launch(?:ed)?(?: with)?|running under|executed with)\\s+(?:the |my |our )?(?:node(?:js)?|javascript|typescript|preload)\\b|\\b(?:node(?:js)?|javascript|typescript|preload)\\s+(?:--(?:import|require)|[^\\s]+\\.(?:py|[cm]?js))\\b)",
+    "Python": "(?:^\\s*(?:(?:the|my|our|that|original|actual|target|local)\\s+){0,4}(?:python[23]?)\\b[^.;!?\\n]{0,50}\\b(?:inherited|used|ran|launched|script|preload|worker|process|job|application|exporter)\\b|\\b(?:original|actual|target|launch(?:ed)?(?: with)?|running under|executed with)\\s+(?:the |my |our )?(?:python[23]?)\\b|\\b(?:python[23]?)\\s+(?:--(?:import|require)|[^\\s]+\\.(?:py|[cm]?js))\\b)",
+    "worker thread": "\\bworker[_ ]threads?\\b"
+  }
 }

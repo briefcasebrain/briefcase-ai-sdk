@@ -100,3 +100,18 @@ def test_credential_relabelled_as_marker_or_file_remains_private(credential, que
     assert main(["record-help"]) == 0
     captured = capsys.readouterr()
     assert "demo-712" not in captured.out + captured.err
+
+
+@pytest.mark.parametrize("lines", [
+    "Where in the receiver can I check original marker demo-712?\nOTLP. My CI job token is demo-712.",
+    "My original marker was demo-712. I set the exporter to https://api:demo-712@example.invalid/events.",
+    "My original marker was demo-712. I set the exporter to https://example.invalid/events?signature=demo-712.",
+    "My original marker was demo-712. I set the exporter to https://example.invalid/events#demo-712.",
+])
+def test_sensitive_session_never_interpolates_original_input(lines, monkeypatch, capsys):
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(lines + "\n"))
+    assert main(["record-help"]) == 0
+    captured = capsys.readouterr()
+    assert "demo-712" not in captured.out + captured.err
