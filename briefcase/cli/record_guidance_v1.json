@@ -210,7 +210,7 @@
     },
     "node_startup": {
       "kind": "action",
-      "text": "Check the original Node preload startup diagnostic and its effective OTLP endpoint. Check for successful initialization before searching the collector for the original decision."
+      "text": "Check the original Node exporter startup diagnostic and its configured endpoint. Verify successful initialization before checking for any decisions from this exporter."
     },
     "worker_forward": {
       "kind": "action",
@@ -256,7 +256,7 @@
       "\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|moved|reconfigured|replaced|overrode|unset|reset)\\b[^.!?;\\n]{0,65}\\b(?:exporter|configuration|settings?|environment|variables?|destination)s?\\b"
     ]
   },
-  "revision": 21,
+  "revision": 22,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -644,7 +644,7 @@
     "launchQuestion": {
       "scope": "clause",
       "all": [
-        "launcher|exporter|destination|which (?:stream|log)|local decision|decision json"
+        "launcher|exporter|destination|which (?:stream|log)|local decision|decision json|(?:docs|documentation|readme|tutorial) (?:shows?|lists?|gives?|suggests?) (?:this |the |an? )?(?:example |sample )?(?:command|launch)"
       ]
     },
     "scriptChoice": {
@@ -942,7 +942,7 @@
         "\\b(?:printed|wrote|writes|emitted|sent|logged)\\s+(?:(?:its|the|my|our|original|application|app|reply|response|text|message)\\s+){0,5}(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:directly\\s+)?(?:to|on|via)\\s+(?:its\\s+|the\\s+)?(?:stderr|standard error)\\b|\\b(?:application|app)\\s+(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:(?:was|is)\\s+)?(?:printed|written|sent|emitted|logged)\\s+(?:to|on|via)\\s+(?:stderr|standard error)\\b"
       ],
       "none": [
-        "\\b(?:not|never|might|perhaps|maybe|whether|would|could|if|hypothetical|example)\\b"
+        "\\b(?:not(?!\\s+(?:stdout|standard output)\\b)|never|might|perhaps|maybe|whether|would|could|if|hypothetical|example)\\b"
       ]
     },
     "replyOnStdout": {
@@ -951,11 +951,23 @@
         "\\b(?:printed|wrote|writes|emitted|sent|logged)\\s+(?:(?:its|the|my|our|original|application|app|reply|response|text|message)\\s+){0,5}(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:directly\\s+)?(?:to|on|via)\\s+(?:its\\s+|the\\s+)?(?:stdout|standard output)\\b|\\b(?:application|app)\\s+(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:(?:was|is)\\s+)?(?:printed|written|sent|emitted|logged)\\s+(?:to|on|via)\\s+(?:stdout|standard output)\\b"
       ],
       "none": [
-        "\\b(?:not|never|might|perhaps|maybe|whether|would|could|if|hypothetical|example)\\b"
+        "\\b(?:not(?!\\s+(?:stderr|standard error)\\b)|never|might|perhaps|maybe|whether|would|could|if|hypothetical|example)\\b"
       ]
     }
   },
   "decisions": [
+    {
+      "action": "invalid_web",
+      "all": [
+        "invalidPythonWeb"
+      ]
+    },
+    {
+      "action": "ask_exporter",
+      "all": [
+        "loaderOnly"
+      ]
+    },
     {
       "action": "reply",
       "all": [
@@ -1975,7 +1987,8 @@
           "jsonl",
           "remoteLaunch",
           "uncertainPrivateDestination",
-          "unknownWorkerExporter"
+          "unknownWorkerExporter",
+          "loaderOnly"
         ]
       },
       {
@@ -1995,7 +2008,8 @@
           "alternateScript",
           "remoteLaunch",
           "uncertainPrivateDestination",
-          "unknownWorkerExporter"
+          "unknownWorkerExporter",
+          "loaderOnly"
         ],
         "affirmative": "console"
       },
@@ -2629,9 +2643,7 @@
     "preloadFlags": [
       "--import",
       "--require",
-      "-r",
-      "--loader",
-      "--experimental-loader"
+      "-r"
     ],
     "valueFlags": [
       "--conditions",
@@ -2646,7 +2658,10 @@
       "--eval",
       "-e",
       "--print",
-      "-p"
+      "-p",
+      "--input-type",
+      "--loader",
+      "--experimental-loader"
     ],
     "registerModules": [
       "@briefcase-ai/auto/register"
@@ -2658,6 +2673,13 @@
       "@briefcase-ai/auto/register",
       "@briefcase-ai/auto/esbuild",
       "@briefcase-ai/auto/package.json"
+    ],
+    "optionsArgument": "\\s+((?:[^\\s\"]+|\"(?:\\\\.|[^\"\\\\])*\")+)",
+    "optionsPart": "[^\\s\"]+|\"((?:\\\\.|[^\"\\\\])*)\"",
+    "execWrapper": "\\bbriefcase-ai\\s+exec(?:\\s+--to(?:=|\\s+)(\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s;|&]+))?\\s+--\\s+(?=node\\s)",
+    "loaderFlags": [
+      "--loader",
+      "--experimental-loader"
     ]
   },
   "privateJobMarker": {
@@ -2759,7 +2781,7 @@
   "commandClauseSplit": "\\n+|[.!?](?=\\s|$)|\\b(?:but|whereas|however)\\b|\\bwhile (?=(?:my|our|the original|another|the other)\\b)|,?\\s+and (?=(?:my|our|the original) (?:actual |original )?(?:process|run|worker|launcher)\\b)|,?\\s+(?:and|while)\\s+(?=(?:(?:another|the other|an? unrelated|an? different|an? separate|an? previous|unrelated|someone else.s)\\s+(?:(?:python|node|local|hosted|separate|earlier|previous)\\s+){0,3}(?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)\\b|(?:my|our|the) (?:original|actual|target) (?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)))",
   "commandToken": "\"(?:\\\\.|[^\"\\\\\\n])*\"|'[^'\\n]*'|(;|&&|\\|\\||\\||(?<!\\S)#)",
   "destinationAlternative": "(?:,?\\s+(?:(?:and|but)\\s+)?(?:(?:(?:did|does|was|is)\\s+not|didn.t|doesn.t|wasn.t|isn.t|never)\\s+(?:use|select(?:ed)?|enabl(?:e|ed)|configur(?:e|ed)(?: for| with)?)|not|rather than|instead of)\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+exporter)?\\b)|\\bneither\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+(?:spans?|batches|batch|requests?|records?|events?|exporter|destination|protocol))?\\s+nor\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+exporter)?\\b",
-  "nonOriginalCommand": "\\b(?:for example|e\\.g\\.|example command|as an example|illustrat(?:ive|ion)|sample command|hypothetical|in future|next time|next run|plan to|would (?:run|launch|use)|could (?:run|launch|use)|might (?:run|launch|use)|if (?:you|i|we) (?:run|launch|use)|(?:do not|did not|didn.t|never) (?:run|launch|execute))\\b",
+  "nonOriginalCommand": "\\b(?:(?:the )?(?:docs|documentation|readme|tutorial) (?:shows?|lists?|gives?|suggests?) (?:this |the |an? )?(?:example |sample )?(?:command|launch)|for example|e\\.g\\.|example command|as an example|illustrat(?:ive|ion)|sample command|hypothetical|in future|next time|next run|plan to|would (?:run|launch|use)|could (?:run|launch|use)|might (?:run|launch|use)|if (?:you|i|we) (?:run|launch|use)|(?:do not|did not|didn.t|never) (?:run|launch|execute))\\b",
   "positiveDestinations": {
     "otlp": [
       "\\b(?:(?:i|we|it|(?:my |our |the |this |that |a )?(?:(?:original|actual|local|separate|explicit|default|python|node|test)\\s+){0,3}(?:run|job|program|process|application|app|service|batch|script|worker|launcher|source|exporter|receiver|node|python))\\s+(?:(?:explicitly|originally|directly|actually)\\s+)?)\\b(?:used?|uses|selected|chose|configured|enabled|set|exported|sent|exports?|writes?)\\s+(?:(?:the|an?|its|my|our|explicit|original|default|exporter|over|via|through|using|to|with|for|as)\\s+){0,5}(?:otlp|otel)(?![\\w-])",

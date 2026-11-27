@@ -174,3 +174,19 @@ def test_worker_forwarding_is_resolved_at_creation(timing, expected, monkeypatch
     assert main(["record-help", q + timing]) == 0
     output = capsys.readouterr().out
     assert expected in output and "old.jsonl" not in output
+
+
+@pytest.mark.parametrize("assignment,expected", [
+    ("BRIEFCASE_EXPORTER=memory", "memory exporter"), ("BRIEFCASE_AUTO=0", "disabled Node preload")
+])
+def test_current_shell_register_applies_command_overrides(assignment, expected, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    monkeypatch.setenv("BRIEFCASE_AUTO", "1")
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "console")
+    monkeypatch.setenv("NODE_OPTIONS", "--import=@briefcase-ai/auto/register")
+    question = "The original Node preload inherited the unchanged settings from this shell. "
+    assert main(["record-help", question + assignment + " node app.js"]) == 0
+    assert expected in capsys.readouterr().out

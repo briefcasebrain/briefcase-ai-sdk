@@ -50,6 +50,7 @@ def _source_text(table, text):
     """Opaque values can correlate observations. Their spelling cannot select a source."""
     spans = {(match.start(1), match.end(1)) for pattern in table["opaqueBindings"]
              for match in re.finditer(pattern, text, re.I)}
+    file_spans = []
     for quoted in re.finditer(table["quoteSpans"], text):
         index = quoted.lastindex
         launch_literal = (re.search(table["launchLiteralContext"], text[:quoted.start()], re.I)
@@ -59,6 +60,8 @@ def _source_text(table, text):
             and re.fullmatch(table["sourceLiteralValue"], quoted.group(index), re.I)
         ):
             spans.add(quoted.span(index))
+        elif quoted.group(index).lower().endswith(".jsonl") and "://" not in quoted.group(index):
+            file_spans.append(quoted.span(index))
     for name in table["opaqueRoles"]:
         for tier in table["entities"][name]["tiers"]:
             for template in tier["patterns"]:
@@ -75,6 +78,8 @@ def _source_text(table, text):
     chars = list(text)
     for start, end in spans:
         chars[start:end] = "_" * (end - start)
+    for start, end in file_spans:
+        chars[start:end - 6] = "_" * (end - start - 6)
     return "".join(chars)
 
 
@@ -160,15 +165,17 @@ def _select(table: Dict[str, Any], facts: Set[str]) -> str:
     return table["defaultAction"]
 
 
-def _node_register(inline, arguments):
+def _node_register(inline, arguments, *, options=False):
     """Resolve package specifiers in Node runtime options; do not execute or expand arguments."""
     position = 0
     pending = ""
     state = ""
-    while token := re.match(inline["argument"], arguments[position:]):
+    while token := re.match(inline["optionsArgument" if options else "argument"], arguments[position:]):
         position += token.end()
         value = "".join(part.group(part.lastindex or 0)
-                        for part in re.finditer(inline["argumentPart"], token.group(1)))
+                        for part in re.finditer(inline["optionsPart" if options else "argumentPart"], token.group(1)))
+        if options:
+            value = re.sub(r'\\(["\\])', r"\1", value)
         if pending:
             flag, operand, pending = pending, value, ""
         else:
@@ -180,7 +187,11 @@ def _node_register(inline, arguments):
             if not equal:
                 pending = flag
                 continue
+        if flag in inline["loaderFlags"] and operand in inline["registerModules"] and not state:
+            state = "loader"
         if flag in inline["preloadFlags"]:
+            if options and operand.strip("\x27") in inline["registerModules"] and operand.startswith("\x27"):
+                return "unexported"
             if operand.startswith(inline["package"] + "/") and operand not in inline["packageExports"]:
                 return "unexported"
             if operand in inline["registerModules"]:
@@ -194,14 +205,22 @@ def _command_register(inline, match):
     for assignment in re.finditer(inline["assignment"], match.group(1)):
         if assignment.group(1) == "NODE_OPTIONS":
             raw = next((v for v in assignment.groups()[1:] if v is not None), "")
-            options = _node_register(inline, " " + raw)
+            options = _node_register(inline, " " + raw, options=True)
     if "unexported" in (argv, options):
         return "unexported"
-    return "argv" if argv else ("options" if options else "")
+    if argv == "register" or options == "register":
+        return "argv" if argv == "register" else "options"
+    return "loader" if "loader" in (argv, options) else ""
 
 
 def _original_commands(table: Dict[str, Any], text: str) -> str:
     """Keep an original launch and its arguments, without attributing later shell commands to it."""
+    def wrapper(match):
+        destination = "BRIEFCASE_EXPORTER=" + match.group(1) + " " if match.group(1) else ""
+        return "BRIEFCASE_AUTO=1 " + destination
+
+    text = re.sub(table["inlineNode"]["execWrapper"], wrapper, text)
+    inherited_register = _shell_matches(table, text)
     lines = []
     fence = ""
     exclude = False
@@ -252,7 +271,7 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
         else:
             command = re.search(table["inlineNode"]["command"], parts[index])
             if command and (not re.fullmatch(table["commandContext"], parts[index][:command.start()], re.I)
-                            or not _command_register(table["inlineNode"], command)):
+                            or not (_command_register(table["inlineNode"], command) or inherited_register)):
                 parts[index] = parts[index][:command.start()]
     return "".join(parts)
 
@@ -275,13 +294,13 @@ def _shell_matches(table: Dict[str, Any], launch: str) -> bool:
     )
 
 
-def _launch_commands(table, source):
+def _launch_commands(table, source, inherited_register=False):
     """Accept commands only from evidence already projected to original source roles."""
     inline = table["inlineNode"]
     return [
         match for clause in re.split(table["split"], _scoped(table, source), flags=re.I)
         for match in re.finditer(inline["command"], clause)
-        if _command_register(inline, match)
+        if (_command_register(inline, match) or inherited_register)
         and re.fullmatch(table["commandContext"], clause[:match.start()], re.I)
     ]
 
@@ -365,7 +384,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             previous_read = file_read
     inline_path = None
     inline = table["inlineNode"]
-    commands = _launch_commands(table, source_question)
+    commands = _launch_commands(table, source_question, (inherited or {}).get("REGISTER_FROM_NODE_OPTIONS"))
     selected = None
     inherited_preload = inherited is not None and bool(re.search(inline["preloadSource"], evidence, re.I))
     if len(commands) == 1 or (not commands and inherited_preload):
@@ -377,7 +396,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 continue
             raw = next((v for v in match.groups()[1:] if v is not None), "")
             if key == "NODE_OPTIONS":
-                settings["REGISTER_FROM_NODE_OPTIONS"] = _node_register(inline, " " + raw)
+                settings["REGISTER_FROM_NODE_OPTIONS"] = _node_register(inline, " " + raw, options=True)
             elif key in ("BRIEFCASE_EXPORTER", "BRIEFCASE_AUTO") or key in inline["endpoints"]:
                 settings[key] = raw.strip()
             else:
@@ -387,6 +406,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             settings = {**inherited, **settings}
         launch_kind = _command_register(inline, commands[0]) if commands else ""
         option_kind = settings.pop("REGISTER_FROM_NODE_OPTIONS", "")
+        if "loader" in (launch_kind, option_kind) and not ({launch_kind, option_kind} & {"argv", "register"}):
+            facts.add("loaderOnly")
         if "unexported" in (launch_kind, option_kind):
             facts.add("preloadImportError")
         explicit_preload = launch_kind == "argv" or re.search(inline["explicitPreload"], evidence, re.I)
@@ -409,6 +430,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             f"{key}={value}" for key, value in settings.items() if "\n" not in value and "\r" not in value
         )
         selected = next((rule for rule in inline["rules"] if _matches(rule, lines)), None)
+        if "loaderOnly" in facts:
+            selected = None
         if selected:
             facts.add(selected["fact"])
             if selected["fact"] == "inlineFile":
@@ -434,13 +457,15 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 if value.endswith(".jsonl") and "://" not in value:
                     kind, path = "inlineFile", value
                 elif value.lower().startswith(("http://", "https://")):
-                    kind = "inlineHTTP" if _node_endpoint(value, allow_insecure=False) else "inlineStartup"
+                    python = re.search(table["runtimeSource"]["Python"], clause, re.I)
+                    accepted = _http_destination(value) if python else _node_endpoint(value, allow_insecure=False)
+                    kind = "inlineHTTP" if accepted else ("invalidPythonWeb" if python else "inlineStartup")
             elif instance:
                 kind = selection["constructors"].get(instance.group(1), "unknownWorkerExporter")
-                value = instance.group(2) or instance.group(3)
+                value = next((part for part in instance.groups()[1:] if part is not None), None)
                 if kind == "inlineFile":
                     path = value
-                elif kind in ("inlineHTTP", "inlineOTLP") and value:
+                elif kind in ("inlineHTTP", "inlineOTLP") and value is not None:
                     insecure = re.search(selection["insecureOption"], clause[instance.end():])
                     if not _node_endpoint(value, allow_insecure=bool(insecure)):
                         kind = "inlineStartup"
@@ -450,6 +475,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 continue
             choices.add((kind, path))
     if choices:
+        facts.discard("loaderOnly")
         facts.difference_update(("workerUnknown", "workerForward"))
         facts.difference_update(rule["fact"] for rule in inline["rules"])
         kind, inline_path = next(iter(choices)) if len(choices) == 1 else ("inlineUnknown", None)
@@ -492,7 +518,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         safe_path = key in ("ask_exporter", "ask_path") and _matches(
             table["replies"]["ask_path"][0], reply_source.strip()
         )
-        launch_reply = _original_commands(table, _source_text(table, reply_source))
+        launch_input = re.sub(table["sensitiveInput"]["credentialBinding"], " ", answer, flags=re.I)
+        launch_reply = _original_commands(table, _source_text(table, launch_input))
         launches = _launch_commands(table, launch_reply) if key in ("ask_exporter", "ask_protocol") else []
         safe_launch = len(launches) == 1
         unsafe_reply = ((_sensitive(table, question) and not (safe_choice or safe_path or safe_launch))
@@ -500,7 +527,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         if safe_launch and not unsafe_reply:
             # Reuse the first-turn routing path with the accepted original launch as the clarification.
             # The combined session has no pending answer, so this cannot trigger another clarification.
-            choice, text = route(table, question + "\n" + launches[0].string, shell=shell, inherited=inherited,
+            choice, text = route(table, question + "\n" + launch_reply, shell=shell, inherited=inherited,
                                  confirmation=confirmation, privacy_notes=(*privacy_notes, answer))
             if table["actions"][choice]["kind"] == "ask":
                 choice = table["fallback"]
@@ -602,7 +629,11 @@ def _node_endpoint(endpoint: str, *, allow_insecure: bool = True) -> bool:
         else:
             if any(ord(char) <= 32 or ord(char) == 127 or char in "#%/:<>?@[\\]^|" for char in host):
                 return False
-            normalized = _node_ipv4(host.encode("idna").decode("ascii"))
+            ascii_host = host.encode("idna").decode("ascii")
+            for label in ascii_host.split("."):
+                if label.startswith("xn--"):
+                    label.encode("ascii").decode("idna")
+            normalized = _node_ipv4(ascii_host)
             if normalized is None:
                 return False
     except (UnicodeError, ValueError):
@@ -742,7 +773,7 @@ def _guide_session(args) -> int:
         auto_flag = os.environ.get("BRIEFCASE_AUTO", "").strip().lower()
         if auto_flag in ("0", "false", "1", "true"):
             inherited["BRIEFCASE_AUTO"] = auto_flag
-        options = _node_register(table["inlineNode"], " " + os.environ.get("NODE_OPTIONS", ""))
+        options = _node_register(table["inlineNode"], " " + os.environ.get("NODE_OPTIONS", ""), options=True)
         if options:
             inherited["REGISTER_FROM_NODE_OPTIONS"] = options
         for key in ("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"):

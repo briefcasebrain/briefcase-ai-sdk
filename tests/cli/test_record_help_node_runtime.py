@@ -88,3 +88,13 @@ def test_worker_observe_identity_compared_with_guidance(run_node):
         q = (f"My original Node worker thread called observe({arg}). "
              "The main thread started observing before it created the worker.")
         assert route(TABLE, q)[0] == expected
+
+
+def test_loader_thread_and_option_quoting(run_node):
+    module = "@briefcase-ai/auto/register"
+    probe = 'import {status} from "@briefcase-ai/auto";console.log(status().observing)'
+    for flag, active in [("--import", "true"), ("--loader", "false")]:
+        result = run_node(["--input-type", "module", flag, module, "-e", probe])
+        assert result.returncode == 0 and result.stdout.strip() == active, result.stderr
+    rejected = run_node(["-e", "0"], {"BRIEFCASE_AUTO": "1", "NODE_OPTIONS": "--import '" + module + "'"})
+    assert rejected.returncode and "ERR_MODULE_NOT_FOUND" in rejected.stderr

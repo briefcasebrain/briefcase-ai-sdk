@@ -5530,5 +5530,119 @@
       "stderr"
     ],
     "answer": "console"
+  },
+  {
+    "name": "Quoted destination containing command",
+    "question": "My JSONL exporter wrote to \"x. BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js end.jsonl\". Which exporter did my original process use?",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ]
+  },
+  {
+    "name": "Documentation heading then command",
+    "question": "The docs show this command:\nBRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Complete launch reply with subsequent explicit override",
+    "question": "Which exporter did my original process use?",
+    "expected": "node_console",
+    "includes": [
+      "retained stderr"
+    ],
+    "answer": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js. Before recording the decision, the application called observe(\"console\")."
+  },
+  {
+    "name": "Private URL launch as clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "receiver",
+    "includes": [
+      "HTTP receiver"
+    ],
+    "answer": "BRIEFCASE_EXPORTER=https://collector.example/ingest?region=us node --import @briefcase-ai/auto/register app.js"
+  },
+  {
+    "name": "Input type operand before import",
+    "question": "BRIEFCASE_EXPORTER=memory node --input-type module --import @briefcase-ai/auto/register -e \"0\"",
+    "expected": "memory_only",
+    "includes": [
+      "memory exporter"
+    ]
+  },
+  {
+    "name": "Loader thread does not instrument app",
+    "question": "BRIEFCASE_EXPORTER=memory node --loader @briefcase-ai/auto/register -e \"0\"",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Single quotes literal in Node options",
+    "question": "BRIEFCASE_AUTO=1 BRIEFCASE_EXPORTER=memory NODE_OPTIONS=\"--import '@briefcase-ai/auto/register'\" node app.js",
+    "expected": "preload_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Exec wrapper with registered Node",
+    "question": "NODE_OPTIONS=--import=@briefcase-ai/auto/register briefcase-ai exec --to memory -- node app.js",
+    "expected": "memory_only",
+    "includes": [
+      "memory exporter"
+    ]
+  },
+  {
+    "name": "Explicit Python rejects abbreviated IPv4",
+    "question": "Before recording the decision, the original Python application called observe(\"http://127.1/events\").",
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ]
+  },
+  {
+    "name": "Explicit Python accepts numeric domain",
+    "question": "Before recording the decision, the original Python application called observe(\"https://999.999.999.999./events\").",
+    "expected": "receiver",
+    "includes": [
+      "HTTP receiver"
+    ]
+  },
+  {
+    "name": "Explicit Node rejects empty constructor",
+    "question": "Before recording the decision, the original Node application called observe(new HttpExporter(\"\")).",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Explicit Node rejects direct HTTP",
+    "question": "Before recording the decision, the original Node application called observe(new HttpExporter(\"http://remote.invalid/events\")).",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Exclusion follows stderr observation",
+    "question": "My original Node job used the console exporter. The application printed its reply to stderr, not stdout. I want the application reply text.",
+    "expected": "reply_stderr",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Invalid encoded host before capture",
+    "question": "Before recording the decision, the original Node application called observe(\"https://xn--a.example/events\").",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
   }
 ]
