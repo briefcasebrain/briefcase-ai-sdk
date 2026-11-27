@@ -9,9 +9,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [5.1.0] - 2026-11-26
 
 ### Added
-- Use `briefcase-ai record-help` to find a decision using evidence from the
-  original run. It accepts a question and one clarification locally. `--static`
-  opens the complete offline guide.
+- Use `briefcase-ai record-help` to choose the next check for a missing decision.
+  If you have already checked the original run, you can report which source you
+  inspected and whether it matched. A collector match confirms receipt. To
+  confirm storage, check the downstream store. The command runs locally, and
+  `--static` opens the complete offline guide.
 
 ### Changed
 - `briefcase-ai status` follows the path chosen during setup. Use `--all` for
