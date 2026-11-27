@@ -9,25 +9,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [6.0.0] - 2026-11-27
 
 ### Added
-- Use `briefcase-ai record-help` to choose the next check for a missing decision.
-  Report who performed the lookup, whether the source and identifier belonged
-  to the original run, and what the lookup returned. A source-wide absence
-  requires a complete search. A collector match confirms receipt. To
-  confirm storage, check the downstream store. The command runs locally and
-  refers to sources by role, such as the JSONL file from your original launch.
-  Your identifiers and destination names stay out of its replies. Use
-  `--static` for the complete offline guide.
+
+- Run `briefcase-ai record-help` to choose where to check for a missing decision. You can report a lookup you performed at the intended source for the original decision ID or unique marker. Report no match only after a complete search. A matching collector entry confirms receipt. To check storage, look for a match in the downstream store. The command runs locally and refers to supplied names and identifiers without repeating them. Use `briefcase-ai record-help --static` for the offline guide.
 
 ### Changed
-- **Breaking:** Briefcase AI operates the licensed engine as a managed service.
-  The SDK removes `briefcase-ai engine install`, `engine up` and `engine
-  upgrade`, including offline bundle loading. For a legacy deployment, back up
-  data and confirm managed access before shutdown. Use `engine down --dry-run`
-  and `engine uninstall --dry-run` to preview cleanup. Ordinary removal retains
-  volumes and secrets. Free capture, storage, replay and the local receiver
-  remain available. [Migration guide](docs/features/engine.md)
-- `briefcase-ai status` follows the path chosen during setup. Use `--all` for
-  the full inventory or `--json` for the existing machine-readable report.
+
+- **Breaking change.** Briefcase AI now operates Engine as a hosted service. The SDK removes `briefcase-ai engine install`, `briefcase-ai engine up` and `briefcase-ai engine upgrade`, including offline installation. For an existing installation, back up the data you need and verify hosted access before stopping Engine. Use `briefcase-ai engine down --dry-run` and `briefcase-ai engine uninstall --dry-run` to preview cleanup. Standard removal retains volumes and secrets. SDK capture, storage, replay and the local receiver remain available. [Migration guide](docs/features/engine.md)
+- `briefcase-ai status` follows the path you selected during setup. Use `--all` for the full inventory or `--json` for machine-readable output.
 
 ## [5.0.0] - 2026-11-25
 
