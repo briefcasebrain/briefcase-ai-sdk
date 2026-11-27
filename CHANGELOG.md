@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [5.1.0] - 2026-11-26
+## [5.1.0] - 2026-11-27
 
 ### Added
 - Use `briefcase-ai record-help` to choose the next check for a missing decision.
