@@ -52,7 +52,9 @@ def _source_text(table, text):
              for match in re.finditer(pattern, text, re.I)}
     for quoted in re.finditer(table["quoteSpans"], text):
         index = quoted.lastindex
-        if not (re.search(table["sourceLiteralContext"], text[:quoted.start()], re.I)
+        launch_literal = (re.search(table["launchLiteralContext"], text[:quoted.start()], re.I)
+                          and re.fullmatch(table["launchLiteralValue"], quoted.group(index), re.I))
+        if not launch_literal and not (re.search(table["sourceLiteralContext"], text[:quoted.start()], re.I)
                 and re.fullmatch(table["sourceLiteralValue"], quoted.group(index), re.I)):
             spans.add(quoted.span(index))
     for name in table["opaqueRoles"]:
@@ -256,6 +258,17 @@ def _shell_matches(table: Dict[str, Any], launch: str) -> bool:
     )
 
 
+def _launch_commands(table, source):
+    """Accept commands only from evidence already projected to original source roles."""
+    inline = table["inlineNode"]
+    return [
+        match for clause in re.split(table["split"], _scoped(table, source), flags=re.I)
+        for match in re.finditer(inline["command"], clause)
+        if _node_preloaded(inline, clause[match.end():])
+        and re.fullmatch(table["commandContext"], clause[:match.start()], re.I)
+    ]
+
+
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
           confirmation: Optional[Tuple[str, str]] = None, privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
@@ -290,6 +303,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             value = re.sub(change["pattern"], change["replacement"], value, flags=re.I)
         return value.strip()
 
+    source_question = _original_commands(table, _source_text(table, question))
     question = _original_commands(table, question)
     evidence = preprocess(question)
     disowned = {rule["fact"] for rule in table["disownedObservations"] if re.search(rule["pattern"], evidence, re.I)}
@@ -308,7 +322,6 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
 
         evidence = re.sub(marker["token"], hide_token, evidence)
     facts = _collect_facts(table, evidence)
-    source_question = _source_text(table, question)
     if source_question != question:
         # Normalize URLs and filenames only after opaque argument spans have been removed.
         source = preprocess(source_question, private=_sensitive(table, question))
@@ -335,12 +348,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             previous_read = file_read
     inline_path = None
     inline = table["inlineNode"]
-    commands = [
-        match for clause in re.split(table["split"], _scoped(table, question), flags=re.I)
-        for match in re.finditer(inline["command"], clause)
-        if _node_preloaded(inline, clause[match.end():])
-        and re.fullmatch(table["commandContext"], clause[:match.start()], re.I)
-    ]
+    commands = _launch_commands(table, source_question)
     selected = None
     inherited_preload = inherited is not None and bool(re.search(inline["preloadSource"], evidence, re.I))
     if len(commands) == 1 or (not commands and inherited_preload):
@@ -446,8 +454,20 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         safe_path = key in ("ask_exporter", "ask_path") and _matches(
             table["replies"]["ask_path"][0], reply_source.strip()
         )
-        unsafe_reply = ((_sensitive(table, question) and not (safe_choice or safe_path))
+        launch_reply = _original_commands(table, _source_text(table, reply_source))
+        launches = _launch_commands(table, launch_reply) if key in ("ask_exporter", "ask_protocol") else []
+        safe_launch = len(launches) == 1
+        unsafe_reply = ((_sensitive(table, question) and not (safe_choice or safe_path or safe_launch))
                         or any(value in reply_source for value in raw_private))
+        if safe_launch and not unsafe_reply:
+            # Reuse the first-turn routing path with the accepted original launch as the clarification.
+            # The combined session has no pending answer, so this cannot trigger another clarification.
+            choice, text = route(table, question + "\n" + launches[0].string, shell=shell, inherited=inherited,
+                                 confirmation=confirmation, privacy_notes=(*privacy_notes, answer))
+            if table["actions"][choice]["kind"] == "ask":
+                choice = table["fallback"]
+                text = table["actions"][choice]["text"]
+            return choice, text
         reply = "" if unsafe_reply else _scoped(table, preprocess(reply_source))
         transitions = table["replies"][key]
         valid = next((step for step in transitions if _matches(step, reply) and
@@ -473,6 +493,11 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             unresolved_path = key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value"))
             if table["actions"][key]["kind"] == "ask" or unresolved_path:
                 key = table["fallback"]
+            if key == "reply":
+                facts.update(_collect_facts(table, _source_text(table, reply_source))
+                             & {"replyOnStdout", "replyOnStderr"})
+    if key == "reply" and "replyOnStderr" in facts:
+        key = "reply_streams" if "replyOnStdout" in facts else "reply_stderr"
     if confirmation:
         source, result = confirmation
         key = table["confirmation"]["outcomes"].get(source, {}).get(result, key)
@@ -621,7 +646,7 @@ def _guide_session(args) -> int:
     if args.static or (not question and not confirmation):
         print(table["guide"])
         return 0
-    launch = _scoped(table, _original_commands(table, question))
+    launch = _scoped(table, _original_commands(table, _source_text(table, question)))
     launch_clauses = [clause for clause in re.split(table["split"], launch, flags=re.I)
                       if not (re.search(table["runtimeInspection"], clause, re.I)
                               or re.search(table["runtimeDenied"], clause, re.I))]

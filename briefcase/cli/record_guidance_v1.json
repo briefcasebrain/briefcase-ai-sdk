@@ -219,6 +219,14 @@
     "worker_timing": {
       "kind": "action",
       "text": "Check whether the main thread started observing before it created the worker. If it did, use the main thread's exporter. Otherwise check the worker's own capture and exporter settings."
+    },
+    "reply_stderr": {
+      "kind": "action",
+      "text": "Read retained stderr for the application's printed reply text. If that stream was not kept, check the application's retained response or log."
+    },
+    "reply_streams": {
+      "kind": "action",
+      "text": "Inspect the original application's retained stdout and stderr for the reply text. Compare the output with the original invocation."
     }
   },
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
@@ -244,7 +252,7 @@
       "\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|moved|reconfigured|replaced|overrode|unset|reset)\\b[^.!?;\\n]{0,65}\\b(?:exporter|configuration|settings?|environment|variables?|destination)s?\\b"
     ]
   },
-  "revision": 19,
+  "revision": 20,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -922,6 +930,24 @@
       "scope": "text",
       "all": [
         "\\bworker(?: thread)?\\b\\s+(?:was )?(?:(?:already|first) )?(?:created|spawned|started)\\s+(?:first|before (?:the )?main thread)\\b|\\b(?:created|spawned|started) the worker before (?:the )?main thread\\b"
+      ]
+    },
+    "replyOnStderr": {
+      "scope": "clause",
+      "all": [
+        "\\b(?:printed|wrote|writes|emitted|sent|logged)\\s+(?:(?:its|the|my|our|original|application|app|reply|response|text|message)\\s+){0,5}(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:directly\\s+)?(?:to|on|via)\\s+(?:its\\s+|the\\s+)?(?:stderr|standard error)\\b|\\b(?:application|app)\\s+(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:(?:was|is)\\s+)?(?:printed|written|sent|emitted|logged)\\s+(?:to|on|via)\\s+(?:stderr|standard error)\\b"
+      ],
+      "none": [
+        "\\b(?:not|never|might|perhaps|maybe|whether|would|could|if|hypothetical|example)\\b"
+      ]
+    },
+    "replyOnStdout": {
+      "scope": "clause",
+      "all": [
+        "\\b(?:printed|wrote|writes|emitted|sent|logged)\\s+(?:(?:its|the|my|our|original|application|app|reply|response|text|message)\\s+){0,5}(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:directly\\s+)?(?:to|on|via)\\s+(?:its\\s+|the\\s+)?(?:stdout|standard output)\\b|\\b(?:application|app)\\s+(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:(?:was|is)\\s+)?(?:printed|written|sent|emitted|logged)\\s+(?:to|on|via)\\s+(?:stdout|standard output)\\b"
+      ],
+      "none": [
+        "\\b(?:not|never|might|perhaps|maybe|whether|would|could|if|hypothetical|example)\\b"
       ]
     }
   },
@@ -2763,7 +2789,7 @@
     "privateJobMarker",
     "privateFileWitness"
   ],
-  "quoteSpans": "(?<![\\w])(?:\"([^\"\\n]*)\"|'([^'\\n]*)'|“([^”\\n]*)”|‘([^’\\n]*)’)",
+  "quoteSpans": "(?<![\\w])(?:\"((?:\\\\.|[^\"\\\\])*)\"|'((?:\\\\.|[^'\\\\])*)'|“([^”]*)”|‘([^’]*)’)",
   "sourceLiteralContext": "(?:observe\\(\\s*|httpexporter\\(\\s*|(?:\\bBRIEFCASE_EXPORTER|\\bOTEL_EXPORTER_OTLP_(?:TRACES_)?ENDPOINT)\\s*=\\s*|(?:exporter|path|file|jsonl|stdout|stderr|saved|opened|reopened|scanned|read|wrote|redirected|writes)\\s+(?:(?:as|was|is|to|from|out of|at|in|the|original|file)\\s+){0,5}|(?:^|\\s)\\d?>>?\\s*)$",
   "sourceLiteralValue": "^(?:[^\"'\\n]+\\.jsonl|memory|console|otlp|otel|https?://[^\\s\"'\\n]+)$",
   "fileRoleBefore": "(?:\\b(?:BRIEFCASE_EXPORTER\\s*=|observe\\(\\s*)|\\b(?:read|opened|reopened|checked|scanned|inspected|queried|searched|examined|parsed|appended|exported|wrote|writes|writing|used|uses|selected|selects|chose|set|configured|exporter|export|jsonl|original file|export file|original path|export path|entries|rows?|decisions?|records?|tickets?|attempts?|results?|matches|copies|lines|scan|lookup)\\b(?:\\s+(?:up|of|out|the|its|my|our|an?|original|source|export|exporter|file|path|data|local|same|multiple|different|both|two|unique|identical|decision[s]?|row[s]?|record[s]?|attempt[s]?|ticket[s]?|text|request|body|value|appears?|twice|are|is|was|in|to|at|from|into|as|for|with)){0,9}\\s*[:=]?\\s+)[\"'`“‘]?\\s*$",
@@ -2777,5 +2803,7 @@
     "workerActor": "\\b(?:my |our |the )?(?:original |actual )?(?:node )?worker(?: thread)?\\s+(?:(?:explicitly|directly|then)\\s+)?(?:called|calls|used|uses|invoked)\\s+observe\\("
   },
   "fenceComment": "^\\s*(?:#(?:\\s|$)|<!--[^\\n]*-->\\s*$)",
-  "sensitiveAsideSplit": ",\\s*(?=(?:(?:my|the|our|a)\\s+)?(?:[\\w-]+\\s+){0,3}(?:token|password|credential|secret|api key)\\b)"
+  "sensitiveAsideSplit": ",\\s*(?=(?:(?:my|the|our|a)\\s+)?(?:[\\w-]+\\s+){0,3}(?:token|password|credential|secret|api key)\\b)",
+  "launchLiteralContext": "(?:\\b(?:BRIEFCASE_AUTO|OTEL_EXPORTER_OTLP_(?:TRACES_)?PROTOCOL)\\s*=|(?:--import|--require|-r|--loader|--experimental-loader)(?:\\s+|=))\\s*$",
+  "launchLiteralValue": "^\\s*(?:0|1|true|false|grpc|http/json|http/protobuf|@briefcase-ai/auto/register(?:\\.js)?)\\s*$"
 }
