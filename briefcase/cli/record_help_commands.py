@@ -769,11 +769,6 @@ def _confirmation_conflict(table, source, result, turns, action, facts):
             named = {key for key, pattern in spec["sources"].items() if re.search(pattern, source_scope, re.I)}
             clause = source_scope
             inspected = _report_files(table, source_scope, quoted_values) if checked else set()
-            if checked and qualified and "jsonl" in named:
-                if inspected and original_files:
-                    checks["jsonl"].correct_file = inspected == original_files and len(inspected) == 1
-                elif re.search(spec["originalFile"], clause, re.I):
-                    checks["jsonl"].correct_file = True
             if named and re.search(spec["unchecked"], clause, re.I):
                 if inspected and original_files and inspected.isdisjoint(original_files):
                     named.discard("jsonl")
@@ -783,6 +778,11 @@ def _confirmation_conflict(table, source, result, turns, action, facts):
                     checks[target].original_target = False
                     checks[target].outcome = None
                 continue
+            if checked and qualified and "jsonl" in named:
+                if inspected and original_files:
+                    checks["jsonl"].correct_file = inspected == original_files and len(inspected) == 1
+                elif re.search(spec["originalFile"], clause, re.I):
+                    checks["jsonl"].correct_file = True
             if checked and qualified and named:
                 first = min(re.search(spec["sources"][key], source_scope, re.I).start() for key in named)
                 if re.search(spec["exclusiveSource"], clause[:first], re.I):
