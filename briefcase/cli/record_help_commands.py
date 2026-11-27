@@ -1186,7 +1186,9 @@ def _located_results(table, reports, quoted):
                 table, clause, roles["lookupIdentifier"]
             )
             disowned = re.search(spec["reportedForeign"], scope, re.I) and re.search(spec["foreign"], scope, re.I)
-            neutral = (acquisition or disowned or _context_statement(table, clause)
+            locator = re.fullmatch(table["fileMentions"], clause.strip(), re.I)
+            neutral = (acquisition or disowned or locator or _context_statement(table, clause)
+                       or re.fullmatch(language["sourceQuestion"], scope.strip(), re.I)
                        or re.fullmatch(language["neutralSource"], scope.strip(), re.I)
                        or re.fullmatch(spec["reportIntent"], scope.strip(), re.I))
             negative = bool(re.search(language["negative"], scope, re.I))

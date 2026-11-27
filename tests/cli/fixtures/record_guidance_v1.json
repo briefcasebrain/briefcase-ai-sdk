@@ -43777,5 +43777,413 @@
     "includes": [
       "You reported no ma"
     ]
+  },
+  {
+    "name": "Pure source question and independent original observation 0 jsonl matched",
+    "question": "The original process used audit.jsonl. What can I verify from the original JSONL file?",
+    "answer": null,
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 0 jsonl no-match",
+    "question": "The original process used audit.jsonl. What can I verify from the original JSONL file?",
+    "answer": null,
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 0 receiver matched",
+    "question": "The original process used audit.jsonl. What can I verify from the original JSONL file?",
+    "answer": null,
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 0 receiver no-match",
+    "question": "The original process used audit.jsonl. What can I verify from the original JSONL file?",
+    "answer": null,
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 0 storage matched",
+    "question": "The original process used audit.jsonl. What can I verify from the original JSONL file?",
+    "answer": null,
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 0 storage no-match",
+    "question": "The original process used audit.jsonl. What can I verify from the original JSONL file?",
+    "answer": null,
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 1 jsonl matched",
+    "question": "Where is the JSONL for decision ID keep-431?",
+    "answer": "cedar.jsonl",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 1 jsonl no-match",
+    "question": "Where is the JSONL for decision ID keep-431?",
+    "answer": "cedar.jsonl",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 1 receiver matched",
+    "question": "Where is the JSONL for decision ID keep-431?",
+    "answer": "cedar.jsonl",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 1 receiver no-match",
+    "question": "Where is the JSONL for decision ID keep-431?",
+    "answer": "cedar.jsonl",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 1 storage matched",
+    "question": "Where is the JSONL for decision ID keep-431?",
+    "answer": "cedar.jsonl",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 1 storage no-match",
+    "question": "Where is the JSONL for decision ID keep-431?",
+    "answer": "cedar.jsonl",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 2 jsonl matched",
+    "question": "What can I establish from the original receiver log?",
+    "answer": null,
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 2 jsonl no-match",
+    "question": "What can I establish from the original receiver log?",
+    "answer": null,
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 2 receiver matched",
+    "question": "What can I establish from the original receiver log?",
+    "answer": null,
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 2 receiver no-match",
+    "question": "What can I establish from the original receiver log?",
+    "answer": null,
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 2 storage matched",
+    "question": "What can I establish from the original receiver log?",
+    "answer": null,
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 2 storage no-match",
+    "question": "What can I establish from the original receiver log?",
+    "answer": null,
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 3 jsonl matched",
+    "question": "Which downstream store should I search?",
+    "answer": null,
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 3 jsonl no-match",
+    "question": "Which downstream store should I search?",
+    "answer": null,
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 3 receiver matched",
+    "question": "Which downstream store should I search?",
+    "answer": null,
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 3 receiver no-match",
+    "question": "Which downstream store should I search?",
+    "answer": null,
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 3 storage matched",
+    "question": "Which downstream store should I search?",
+    "answer": null,
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Pure source question and independent original observation 3 storage no-match",
+    "question": "Which downstream store should I search?",
+    "answer": null,
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
   }
 ]
