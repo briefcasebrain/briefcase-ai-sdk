@@ -155,3 +155,20 @@ def test_original_node_transport_and_preload_context(question, env, expected, mo
         monkeypatch.setenv(key, value)
     assert main(["record-help", question]) == 0
     assert expected in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("timing,expected", [
+    ("I do not know whether the main thread was observing when the worker was created.", "Check whether the main thread"),
+    ("The worker thread was created first. The main thread started observing before the worker finished.", "original JSONL file"),
+    ("The main thread started observing before it created the worker.", "main thread's exporter"),
+])
+def test_worker_forwarding_is_resolved_at_creation(timing, expected, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "old.jsonl")
+    q = "The original Node preload inherited the unchanged settings from this shell. It was a worker thread. "
+    assert main(["record-help", q + timing]) == 0
+    output = capsys.readouterr().out
+    assert expected in output and "old.jsonl" not in output

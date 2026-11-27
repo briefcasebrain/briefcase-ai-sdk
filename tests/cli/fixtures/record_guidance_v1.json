@@ -4602,5 +4602,381 @@
       "apricot",
       "audit.jsonl"
     ]
+  },
+  {
+    "name": "U11 observed original receiver entry",
+    "question": "A receiver log entry matches our original decision ID recv-428. We have not queried downstream storage. What does that verify?",
+    "expected": "storage",
+    "includes": [
+      "Query downstream storage"
+    ],
+    "omits": [
+      "recv-428"
+    ]
+  },
+  {
+    "name": "U11 reader confirms receiver only",
+    "question": "A receiver log entry matches our original decision ID recv-428. We have not queried downstream storage. What does that verify?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed"
+    ],
+    "omits": [
+      "recv-428"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Observed original collector span",
+    "question": "The collector span corresponds to my original trace ID recv-428. Storage has not been checked.",
+    "expected": "storage",
+    "includes": [
+      "separate readback"
+    ],
+    "omits": [
+      "recv-428"
+    ]
+  },
+  {
+    "name": "Observed original receiver payload",
+    "question": "The receiver payload agrees with my original trace ID recv-428. Storage has not been checked.",
+    "expected": "storage",
+    "includes": [
+      "separate readback"
+    ],
+    "omits": [
+      "recv-428"
+    ]
+  },
+  {
+    "name": "Unverified receiver comparison might match",
+    "question": "A receiver log entry might match our original decision ID recv-428. We have not queried downstream storage. What does that verify?",
+    "expected": "receipt_unknown",
+    "includes": [
+      "unconfirmed",
+      "storage separately"
+    ],
+    "omits": [
+      "recv-428"
+    ]
+  },
+  {
+    "name": "Unverified receiver comparison does not match",
+    "question": "A receiver log entry does not match our original decision ID recv-428. We have not queried downstream storage. What does that verify?",
+    "expected": "receipt_unknown",
+    "includes": [
+      "unconfirmed",
+      "storage separately"
+    ],
+    "omits": [
+      "recv-428"
+    ]
+  },
+  {
+    "name": "Unverified receiver comparison matches",
+    "question": "A receiver log entry matches our original decision ID recv-428, but that entry belongs to another run. We have not queried downstream storage. What does that verify?",
+    "expected": "receipt_unknown",
+    "includes": [
+      "unconfirmed",
+      "storage separately"
+    ],
+    "omits": [
+      "recv-428"
+    ]
+  },
+  {
+    "name": "Incidental artifact Workspace:audit.jsonl",
+    "question": "Workspace: audit.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Incidental artifact Workspace:audit.txt",
+    "question": "Workspace: audit.txt. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.txt"
+    ]
+  },
+  {
+    "name": "Incidental artifact Agent:audit.jsonl",
+    "question": "Agent: audit.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Incidental artifact Agent:audit.txt",
+    "question": "Agent: audit.txt. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.txt"
+    ]
+  },
+  {
+    "name": "Incidental artifact Available file:audit.jsonl",
+    "question": "Available file: audit.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Incidental artifact Available file:audit.txt",
+    "question": "Available file: audit.txt. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.txt"
+    ]
+  },
+  {
+    "name": "Incidental artifact Available path:audit.jsonl",
+    "question": "Available path: audit.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Incidental artifact Available path:audit.txt",
+    "question": "Available path: audit.txt. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.txt"
+    ]
+  },
+  {
+    "name": "Incidental artifact Attachment:audit.jsonl",
+    "question": "Attachment: audit.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Incidental artifact Attachment:audit.txt",
+    "question": "Attachment: audit.txt. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.txt"
+    ]
+  },
+  {
+    "name": "Incidental artifact audit.jsonl",
+    "question": " audit.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Incidental artifact audit.txt",
+    "question": " audit.txt. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ],
+    "omits": [
+      "audit.txt"
+    ]
+  },
+  {
+    "name": "Stream role masks complete target saved stdout to the file",
+    "question": "The original run used the console exporter and saved stdout to the file replies.jsonl.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "replies.jsonl"
+    ]
+  },
+  {
+    "name": "Stream role masks complete target archived standard output in the log",
+    "question": "The original run used the console exporter and archived standard output in the log replies.jsonl.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "replies.jsonl"
+    ]
+  },
+  {
+    "name": "Stream role masks complete target redirected stderr to the path",
+    "question": "The original run used the console exporter and redirected stderr to the path replies.jsonl.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "replies.jsonl"
+    ]
+  },
+  {
+    "name": "Fenced command in example sh",
+    "question": "My original run used the console exporter. For example:\n```sh\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js\n```",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Fenced command in example shell",
+    "question": "My original run used the console exporter. For example:\n````shell\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js\n````",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Fenced command in example bash",
+    "question": "My original run used the console exporter. For example:\n~~~bash\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js\n~~~",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Negative transport pair OTLP spans",
+    "question": "My original run used neither OTLP spans nor HTTP batches. It used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Negative transport pair HTTP requests",
+    "question": "My original run used neither HTTP requests nor OTLP spans. It used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Negative transport pair OTLP exporter",
+    "question": "My original run used neither OTLP exporter nor HTTP destination. It used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Credential aside in clarification console. My CI job token was apricot.",
+    "question": "My CI job token was apricot. Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "answer": "console. My CI job token was apricot.",
+    "omits": [
+      "apricot",
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Credential aside in clarification audit.jsonl. My CI job token was apricot.",
+    "question": "My CI job token was apricot. Which exporter did my original process use?",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ],
+    "answer": "audit.jsonl. My CI job token was apricot.",
+    "omits": [
+      "apricot",
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Credential aside in clarification probably console. My CI job token was apricot.",
+    "question": "My CI job token was apricot. Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "static guide"
+    ],
+    "answer": "probably console. My CI job token was apricot.",
+    "omits": [
+      "apricot",
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Before capture application selection console",
+    "question": "BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js. Before recording the decision, the application called observe(\"console\").",
+    "expected": "node_console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Before capture application selection memory",
+    "question": "BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js. Before recording the decision, the application called observe(\"memory\").",
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ]
+  },
+  {
+    "name": "Before capture application selection run.jsonl",
+    "question": "BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js. Before recording the decision, the application called observe(\"run.jsonl\").",
+    "expected": "node_file",
+    "includes": [
+      "original JSONL file"
+    ]
+  },
+  {
+    "name": "Worker creation predates observation",
+    "question": "My original run used the console exporter. The worker thread was created first. The main thread started observing before the worker finished.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Direct Node initialization rejects malformed IPv4",
+    "question": "My original Node job called observe(\"https://999.999.999.999\").",
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ]
   }
 ]

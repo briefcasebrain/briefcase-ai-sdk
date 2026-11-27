@@ -62,6 +62,12 @@ def _source_text(table, text):
                 for found in re.finditer(pattern, text, re.I):
                     if not any(re.search(reject, found.group(1), re.I) for reject in table["entities"][name]["reject"]):
                         spans.add(found.span(1))
+    for path in re.finditer(table["fileMentions"], text, re.I):
+        start, end = path.span()
+        clause = re.split(table["split"], text[:start], flags=re.I)[-1]
+        if not (re.search(table["fileRoleBefore"], clause, re.I)
+                or re.search(table["fileRoleAfter"], text[end:], re.I)):
+            spans.add((start, end))
     chars = list(text)
     for start, end in spans:
         chars[start:end] = "_" * (end - start)
@@ -152,6 +158,22 @@ def _select(table: Dict[str, Any], facts: Set[str]) -> str:
 
 def _original_commands(table: Dict[str, Any], text: str) -> str:
     """Keep an original launch and its arguments, without attributing later shell commands to it."""
+    lines = []
+    fence = ""
+    exclude = False
+    for line in text.splitlines():
+        marker = re.fullmatch(table["fenceBoundary"], line)
+        if marker:
+            delimiter = marker.group(1)
+            if not fence:
+                fence = delimiter
+                exclude = bool(lines and re.search(table["nonOriginalCommand"], lines[-1], re.I))
+            elif delimiter.startswith(fence):
+                fence, exclude = "", False
+            continue
+        if not exclude:
+            lines.append(line)
+    text = "\n".join(lines)
     parts = re.split(f"({table['commandClauseSplit']})", text, flags=re.I)
     example_next = False
     for index in range(0, len(parts), 2):
@@ -212,7 +234,9 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             url = match.group(1)
             if re.search(table["uncertainExplicitUrl"], url, re.I):
                 return " explicit unverified web exporter "
-            return " explicit valid web exporter " if _http_destination(url) else " explicit rejected web exporter "
+            node = re.search(table["runtimeSource"]["Node"], value, re.I)
+            valid = _http_destination(url) and (not node or _node_endpoint(url))
+            return " explicit valid web exporter " if valid else " explicit rejected web exporter "
 
         for direct in table["explicitUrls"]:
             value = re.sub(direct["pattern"], web_label, value, flags=re.I)
@@ -322,6 +346,27 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 inline_path = None if _sensitive(table, question) else settings["BRIEFCASE_EXPORTER"]
     elif commands:
         facts.add("inlineUnknown")
+    if inherited_preload and re.search(r"\bworker thread\b", evidence, re.I):
+        if not facts.intersection(("workerForward", "workerCreatedFirst")):
+            facts.add("workerUnknown")
+    selection = table["applicationSelection"]
+    choices = set()
+    for clause in re.split(table["split"], _scoped(table, question), flags=re.I):
+        if (re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
+                and not re.search(selection["none"], clause, re.I)):
+            choices.update(next(value for value in match.groups() if value is not None)
+                           for match in re.finditer(selection["value"], clause, re.I))
+    if choices:
+        facts.difference_update(rule["fact"] for rule in inline["rules"])
+        inline_path = None
+        choice = next(iter(choices)) if len(choices) == 1 else ""
+        kind = {"memory": "inlineMemory", "console": "inlineConsole"}.get(choice, "inlineUnknown")
+        if choice.endswith(".jsonl") and "://" not in choice:
+            kind, inline_path = "inlineFile", choice
+        elif choice.lower().startswith(("http://", "https://")):
+            kind = ("inlineHTTP" if _http_destination(choice) and _node_endpoint(choice) else "inlineStartup")
+        facts.add(kind)
+        selected = {"fact": kind}
     files = {next(value for value in match.groups() if value is not None)
              for match in re.finditer(table["fileMentions"], evidence, re.I)}
     if len(files) > 1:
@@ -349,15 +394,15 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         key = "ask_path"
     action = table["actions"][key]
     if action["kind"] == "ask" and answer is not None:
-        safe_choice = key in ("ask_exporter", "ask_protocol") and any(
-            re.fullmatch(pattern, answer.strip(), re.I) for pattern in table["exporterReplies"].values())
-        safe_path = key in ("ask_exporter", "ask_path") and _matches(table["replies"]["ask_path"][0], answer.strip())
-        unsafe_reply = ((_sensitive(table, question) and not (safe_choice or safe_path))
-                        or any(value in answer for value in raw_private))
         reply_source = answer
         if _sensitive(table, answer) or re.search(table["privateWebAddress"], answer, re.I):
             reply_source = "\n".join(c for c in re.split(table["split"], answer, flags=re.I)
                                      if not (_sensitive(table, c) or re.search(table["privateWebAddress"], c, re.I)))
+        safe_choice = key in ("ask_exporter", "ask_protocol") and any(
+            re.fullmatch(pattern, reply_source.strip(), re.I) for pattern in table["exporterReplies"].values())
+        safe_path = key in ("ask_exporter", "ask_path") and _matches(table["replies"]["ask_path"][0], reply_source.strip())
+        unsafe_reply = ((_sensitive(table, question) and not (safe_choice or safe_path))
+                        or any(value in reply_source for value in raw_private))
         reply = "" if unsafe_reply else _scoped(table, preprocess(reply_source))
         transitions = table["replies"][key]
         valid = next((step for step in transitions if _matches(step, reply) and
