@@ -13,8 +13,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   If you have already checked the original run, you can report which source you
   inspected and whether it matched. A collector match confirms receipt. To
   confirm storage, check the downstream store. The command runs locally and
-  keeps your IDs, markers and tickets out of its replies. Use `--static` for
-  the complete offline guide.
+  refers to sources by role, such as the JSONL file from your original launch.
+  Your identifiers and destination names stay out of its replies. Use
+  `--static` for the complete offline guide.
 
 ### Changed
 - `briefcase-ai status` follows the path chosen during setup. Use `--all` for
