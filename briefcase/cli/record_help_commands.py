@@ -743,7 +743,13 @@ def _guide_session(args) -> int:
         line = _line(prompt, True)
         turns.append(line)
         if _confirmation(table, line):
-            turns.append(_line("Press Enter to finish this source and result: ", True))
+            end_key = "Ctrl+Z, then Enter" if os.name == "nt" else "Ctrl+D"
+            print(f"Press {end_key} on an empty line to finish this report: ", end="", flush=True)
+            # A blank line can occur inside a paste. Only EOF delimits the full report.
+            for remainder in sys.stdin:
+                if remainder.strip():
+                    turns.append(remainder.strip())
+                    break
         return _session(table, args, turns)
 
     if not sys.stdin.isatty():
