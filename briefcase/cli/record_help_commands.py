@@ -707,6 +707,14 @@ def _guide_session(args) -> int:
     table = json.loads(_TABLE.read_text(encoding="utf-8"))
     interactive = _ux.is_interactive() and sys.stdin.isatty()
     turns: List[str] = []
+
+    def read_turn(prompt: str):
+        line = _line(prompt, True)
+        turns.append(line)
+        if _confirmation(table, line):
+            turns.append(_line("Press Enter to finish this source and result: ", True))
+        return _session(table, args, turns)
+
     if not sys.stdin.isatty():
         try:
             turns = sys.stdin.read().splitlines()
@@ -714,12 +722,9 @@ def _guide_session(args) -> int:
             pass
     question, answer, confirmation = _session(table, args, turns)
     if not args.static and interactive and not question and not confirmation:
-        turns.append(_line("What are you trying to find, and what do you know about the original run? ", True))
-        question, answer, confirmation = _session(table, args, turns)
-        if confirmation:
-            # The opening response is already a report. Finish the session before rendering an outcome.
-            turns.append(_line("Press Enter to finish this source and result: ", True))
-            question, answer, confirmation = _session(table, args, turns)
+        question, answer, confirmation = read_turn(
+            "What are you trying to find, and what do you know about the original run? "
+        )
     if args.static or (not question and not confirmation):
         print(table["guide"])
         return 0
@@ -756,15 +761,13 @@ def _guide_session(args) -> int:
         if answer is None:
             if not interactive:
                 return 0
-            turns.append(_line("Answer (or unknown): ", True))
-            question, answer, confirmation = _session(table, args, turns)
+            question, answer, confirmation = read_turn("Answer (or unknown): ")
     key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
     prompted = not confirmation and interactive and key in table["confirmation"]["next"]
     if prompted:
         print(text, flush=True)
         print(table["confirmation"]["instruction"])
-        turns.append(_line("Optional source and result (Enter to skip): ", True))
-        question, answer, confirmation = _session(table, args, turns)
+        question, answer, confirmation = read_turn("Optional source and result (Enter to skip): ")
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
     if not prompted or confirmation:
         print(text)

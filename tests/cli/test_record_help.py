@@ -313,6 +313,23 @@ def test_flags_and_pipe_cannot_disagree_on_clarification(monkeypatch, capsys, fi
     assert capture.out == "" and capture.err == "Supply one clarification answer, once.\n"
 
 
+@pytest.mark.parametrize("second", ["receiver matched", "storage no-match"])
+@pytest.mark.parametrize("question", ["My original run used OTLP.", "Which exporter did my original process use?"])
+def test_terminal_rejects_pasted_second_report(monkeypatch, capsys, question, second):
+    from io import StringIO
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    terminal = StringIO(f"receiver matched\n{second}\n")
+    monkeypatch.setattr(terminal, "isatty", lambda: True)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: True)
+    monkeypatch.setattr("sys.stdin", terminal)
+    assert main(["record-help", question]) == 2
+    capture = capsys.readouterr()
+    assert "Reader-confirmed" not in capture.out
+    assert "once" in capture.err
+
+
 @pytest.mark.parametrize("pair", ["receiver matched", "receiver no-match", ""])
 def test_terminal_investigation_precedes_optional_outcome(monkeypatch, capsys, pair):
     from io import StringIO
