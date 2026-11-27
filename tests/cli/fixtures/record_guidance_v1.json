@@ -1502,5 +1502,229 @@
     "includes": [
       "original process"
     ]
+  },
+  {
+    "name": "G01",
+    "question": "We retried the same ticket twice. The two records in attempts.jsonl have different IDs. My original decision ID is op-729. Which record should I use?",
+    "expected": "jsonl",
+    "includes": [
+      "attempts.jsonl",
+      "op-729"
+    ]
+  },
+  {
+    "name": "G02 initial",
+    "question": "We reused the same ticket on two runs and both appended to match.jsonl. How can I identify my original invocation?",
+    "expected": "ask_id",
+    "includes": []
+  },
+  {
+    "name": "G02",
+    "question": "We reused the same ticket on two runs and both appended to match.jsonl. How can I identify my original invocation?",
+    "expected": "jsonl",
+    "includes": [
+      "match.jsonl",
+      "tag-43"
+    ],
+    "answer": "My original decision ID was tag-43."
+  },
+  {
+    "name": "G03",
+    "question": "I ran the unmodified Python quickstart first_decision.py and retained its stdout as output.txt. Where is its printed decision after the process exits?",
+    "expected": "memory",
+    "includes": [
+      "output.txt"
+    ]
+  },
+  {
+    "name": "G04 initial",
+    "question": "We have both the Python quickstart and a separate worker that sets the console exporter. We retained stdout in work.out and stderr in work.err. Which should I inspect?",
+    "expected": "ask_program",
+    "includes": []
+  },
+  {
+    "name": "G04",
+    "question": "We have both the Python quickstart and a separate worker that sets the console exporter. We retained stdout in work.out and stderr in work.err. Which should I inspect?",
+    "expected": "console",
+    "includes": [
+      "work.err"
+    ],
+    "answer": "The launch log says we ran the worker with the explicit console exporter."
+  },
+  {
+    "name": "G05",
+    "question": "Our hosted dashboard run was submitted to agent support in workspace shore. The original run ID is host-892. How can I check it?",
+    "expected": "hosted",
+    "includes": [
+      "support",
+      "shore",
+      "host-892"
+    ]
+  },
+  {
+    "name": "G06 initial",
+    "question": "We ran a local SDK example and a hosted submission for the same ticket. Where can I look up my run?",
+    "expected": "ask_run",
+    "includes": []
+  },
+  {
+    "name": "G06",
+    "question": "We ran a local SDK example and a hosted submission for the same ticket. Where can I look up my run?",
+    "expected": "hosted",
+    "includes": [
+      "mineral",
+      "job-357"
+    ],
+    "answer": "It was the hosted submission, workspace mineral, run ID job-357."
+  },
+  {
+    "name": "G07",
+    "question": "I want the application reply text from the Node demo. The launcher saved stdout to result.out, and the console decision metadata is in result.err. Which one should I read?",
+    "expected": "reply",
+    "includes": [
+      "result.out"
+    ]
+  },
+  {
+    "name": "G08 initial",
+    "question": "We kept the Node demo output in two files: stdout in node.out and the console decision on stderr in node.err. Which file is the result?",
+    "expected": "ask_subject",
+    "includes": []
+  },
+  {
+    "name": "G08",
+    "question": "We kept the Node demo output in two files: stdout in node.out and the console decision on stderr in node.err. Which file is the result?",
+    "expected": "node_console",
+    "includes": [
+      "node.err"
+    ],
+    "answer": "I need the decision metadata, including token usage."
+  },
+  {
+    "name": "G09",
+    "question": "I reopened batch.jsonl in a separate process and searched for the original unique marker acorn-901. No matching record was found; only acorn-801 from the previous run was present. Does this verify my original?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "batch.jsonl",
+      "acorn-901"
+    ]
+  },
+  {
+    "name": "G10",
+    "question": "The original process explicitly used the console exporter. Its launch command was python classify.py 2>classify.err and that stream is retained. Where do I verify the decision?",
+    "expected": "console",
+    "includes": [
+      "classify.err"
+    ]
+  },
+  {
+    "name": "G11",
+    "question": "The receiver log has a matching entry for the original decision ID ship-68. We have not queried the downstream store. Does the receiver entry establish persistence?",
+    "expected": "storage",
+    "includes": [
+      "ship-68"
+    ]
+  },
+  {
+    "name": "G12",
+    "question": "A downstream storage query by the original decision ID arch-218 returned exactly the matching record after the process exited. What has been verified?",
+    "expected": "stored",
+    "includes": [
+      "arch-218"
+    ]
+  },
+  {
+    "name": "Denied claim about matched receiver",
+    "question": "The claim that the receiver received trace ID group-42 is false. My original trace ID was group-42.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "group-42",
+      "unconfirmed"
+    ]
+  },
+  {
+    "name": "Denied claim about matched database",
+    "question": "I deny that the database returned the row with ID group-42. My original trace ID was group-42.",
+    "expected": "query_storage",
+    "includes": [
+      "group-42",
+      "downstream readback"
+    ]
+  },
+  {
+    "name": "Denied shell identity",
+    "question": "My original Python job inherited unchanged settings. It did not run in this shell.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "laptop.jsonl"
+  },
+  {
+    "name": "Unsupported file conjecture",
+    "question": "Where is the JSONL for marker run-903?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "I can't verify old.jsonl"
+  },
+  {
+    "name": "Declared Node endpoint rejected",
+    "question": "My original Node job called observe(\"http://receiver.example/decisions\").",
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ]
+  },
+  {
+    "name": "Explicit loopback HTTP",
+    "question": "Node used observe(\"http://127.0.0.1:4318/decisions\").",
+    "expected": "receiver",
+    "includes": [
+      "receiver"
+    ]
+  },
+  {
+    "name": "Insecure explicit URL with private input",
+    "question": "Node used observe(\"http://receiver.example/decisions\"). My API token is fake-712.",
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ]
+  },
+  {
+    "name": "Confirmed Python fallback",
+    "question": "My original Python script configured OTLP. Its launch warning said: Falling back to the console exporter. I retained app.err.",
+    "expected": "runtime_console",
+    "includes": [
+      "app.err",
+      "fallback"
+    ]
+  },
+  {
+    "name": "Original exporter after private unrelated program",
+    "question": "My original run used the console exporter. Another process used OTLP with an API token.",
+    "expected": "console",
+    "includes": [
+      "stderr"
+    ]
+  },
+  {
+    "name": "Exact launch file assignment after clarification",
+    "question": "Node inherited its unchanged exporter configuration. stderr is retained but the original exporter is unknown.",
+    "expected": "node_file",
+    "includes": [
+      "report.jsonl"
+    ],
+    "answer": "The launch shell set BRIEFCASE_EXPORTER=report.jsonl."
+  },
+  {
+    "name": "Check noncanonical numeric loopback against launch",
+    "question": "The original program selected observe('http://127.1/records').",
+    "expected": "check_launch",
+    "includes": [
+      "launch configuration"
+    ]
   }
 ]

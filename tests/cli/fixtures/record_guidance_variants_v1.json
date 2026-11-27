@@ -360,5 +360,123 @@
       "counts.log",
       "token_usage"
     ]
+  },
+  {
+    "name": "Challenged claim of same-ID receipt",
+    "question": "My original trace ID is source-93. The {description} that the receiver recorded trace ID source-93 {denial}.",
+    "variants": {
+      "description": [
+        "claim",
+        "statement",
+        "assertion",
+        "report"
+      ],
+      "denial": [
+        "is false",
+        "was disputed",
+        "was retracted",
+        "is unsubstantiated"
+      ]
+    },
+    "expected": "receipt_unknown",
+    "includes": [
+      "source-93",
+      "unconfirmed"
+    ]
+  },
+  {
+    "name": "Challenged claim of same-ID storage",
+    "question": "My decision ID is source-93. The {description} that the database returned the row with ID source-93 {denial}.",
+    "variants": {
+      "description": [
+        "claim",
+        "statement",
+        "assertion",
+        "report"
+      ],
+      "denial": [
+        "is false",
+        "was denied",
+        "was retracted",
+        "is unsubstantiated"
+      ]
+    },
+    "expected": "query_storage",
+    "includes": [
+      "source-93",
+      "readback"
+    ]
+  },
+  {
+    "name": "Unconfirmed path phrased as free prose",
+    "question": "Which JSONL path holds marker run-93?",
+    "answer": "{prose} old.jsonl",
+    "variants": {
+      "prose": [
+        "I can\u2019t verify",
+        "I cannot vouch for",
+        "I searched",
+        "Someone suggested",
+        "There might have been",
+        "I have a note that mentions"
+      ]
+    },
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ]
+  },
+  {
+    "name": "Confirmed path value forms",
+    "question": "Which JSONL path holds marker run-93?",
+    "answer": "{form}",
+    "variants": {
+      "form": [
+        "audit/replies.jsonl",
+        "\"audit/replies.jsonl\"",
+        "'audit/replies.jsonl'",
+        "The path was audit/replies.jsonl.",
+        "File path: audit/replies.jsonl",
+        "The original exporter used audit/replies.jsonl."
+      ]
+    },
+    "expected": "jsonl",
+    "includes": [
+      "audit/replies.jsonl",
+      "run-93"
+    ]
+  },
+  {
+    "name": "Direct non-loopback URL refused",
+    "question": "My Node process used observe({url}). Check the original destination.",
+    "variants": {
+      "url": [
+        "'http://example.invalid/log'",
+        "\"http://example.invalid/log\"",
+        "'http://192.0.2.8:8080/log'",
+        "\"http://192.0.2.8:8080/log\""
+      ]
+    },
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ]
+  },
+  {
+    "name": "Positive observed console fallback",
+    "question": "Python selected OTLP for ordinary export. The actual initialization log says it {verb} the console exporter. stderr went to saved.err.",
+    "variants": {
+      "verb": [
+        "fell back to",
+        "switched to",
+        "reverted to",
+        "defaulted to"
+      ]
+    },
+    "expected": "runtime_console",
+    "includes": [
+      "saved.err",
+      "console"
+    ]
   }
 ]

@@ -16,6 +16,8 @@ import pytest
     "--clientSecret demo-712",
     "--http-authorization-header demo-712",
     "My API token is demo-712",
+    "My session token is demo-712",
+    "My personal token is demo-712",
     "The bearer credential we used was demo-712",
     "The HTTP password in the launch configuration was demo-712",
     "My provider API key is demo-712",
@@ -30,3 +32,16 @@ def test_credentials_are_never_used_as_correlation(credential, monkeypatch, caps
     result = captured.out + captured.err
     assert "receiver" in result.lower()
     assert not any(value in result for value in ("demo-712", "secondary-906", "example.invalid"))
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_private_input_preserves_original_process_scope(reverse, monkeypatch, capsys):
+    from briefcase.cli.__main__ import main
+
+    clauses = ["My original run used the console exporter", "Another process used OTLP with an API token"]
+    if reverse:
+        clauses.reverse()
+    monkeypatch.setattr("sys.stdin", StringIO(". ".join(clauses) + "\n"))
+    assert main(["record-help"]) == 0
+    result = capsys.readouterr().out
+    assert "stderr" in result and "collector" not in result

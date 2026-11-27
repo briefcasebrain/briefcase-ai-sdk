@@ -105,6 +105,22 @@ def _select(table: Dict[str, Any], facts: Set[str]) -> str:
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           shell: Optional[str] = None) -> Tuple[str, str]:
     def preprocess(value: str) -> str:
+        sensitive = table["sensitiveInput"]
+        private = bool(re.search(sensitive["pattern"], value, re.I))
+
+        def web_label(match: re.Match[str]) -> str:
+            url = match.group(1)
+            if re.search(table["uncertainExplicitUrl"], url, re.I):
+                return " explicit unverified web exporter "
+            return " explicit valid web exporter " if _http_destination(url) else " explicit rejected web exporter "
+
+        for direct in table["explicitUrls"]:
+            value = re.sub(direct["pattern"], web_label, value, flags=re.I)
+        if private:
+            clauses = re.split(table["split"], value, flags=re.I)
+            relevant = " ".join(c for c in clauses if not _matches(table["excludeClauses"], c))
+            return next((item["replacement"] for item in sensitive["destinations"]
+                         if re.search(item["pattern"], relevant, re.I)), "unknown original configuration")
         for change in table["preprocess"]:
             value = re.sub(change["pattern"], change["replacement"], value, flags=re.I)
         return value.strip()
