@@ -417,3 +417,47 @@ def test_original_execution_evidence_is_position_independent(case):
     original = case["question"]
     actual = route(TABLE, "Which exporter did my original process use?", answer=original)
     assert actual == route(TABLE, original)
+
+
+@pytest.mark.parametrize("source", ["jsonl", "receiver", "storage"])
+@pytest.mark.parametrize("result", ["matched", "no-match", "unverified"])
+@pytest.mark.parametrize("channel", ["flags", "pipe", "terminal"])
+def test_foreign_observation_cannot_confirm_original(source, result, channel, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    # Keeping the contrary observation in a separate turn exercises the session decoder.
+    first = "Where is the JSONL for the original decision?"
+    followup = f"local-file.jsonl. The {source} result I am reporting is for a different run."
+    args = ["record-help", first]
+    if channel == "flags":
+        args.extend(["--answer", followup, "--source", source, "--result", result])
+        turns = ""
+    elif channel == "terminal":
+        args.extend(["--answer", "local-file.jsonl"])
+        args[1] += f" The {source} result I am reporting is for a different run."
+        turns = f"{source} {result}\n"
+    else:
+        turns = followup + f"\n{source} {result}\n"
+    stream = StringIO(turns)
+    monkeypatch.setattr(stream, "isatty", lambda: channel == "terminal")
+    monkeypatch.setattr(_ux, "is_interactive", lambda: channel == "terminal")
+    monkeypatch.setattr("sys.stdin", stream)
+    assert main(args) == 0
+    emitted = capsys.readouterr()
+    assert "different run cannot establish" in emitted.out
+    assert "Reader-confirmed" not in emitted.out + emitted.err
+
+
+def test_chained_sqlite_precedes_jsonl_extension_in_public_resolver(monkeypatch):
+    from unittest.mock import Mock
+    from briefcase import _observe
+    from briefcase.exporters import chained
+
+    factory = Mock()
+    monkeypatch.setattr(chained, "ChainedSqliteExporter", factory)
+    assert _observe._resolve_exporter("chain:records.jsonl") is factory.return_value
+    factory.assert_called_once_with("records.jsonl")
+    statement = 'Before recording the decision, the original Python application called observe("chain:records.jsonl").'
+    assert route(TABLE, statement)[0] == "chain_store"

@@ -7590,5 +7590,1117 @@
       "memory exporter"
     ],
     "answer": "Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\", headers={})."
+  },
+  {
+    "name": "Source attribution and readback jsonl matched 0",
+    "question": "Where did my original decision go? The JSONL result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl matched 1",
+    "question": "Where did my original decision go?",
+    "answer": "The JSONL result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl matched 2",
+    "question": "I independently rechecked JSONL for the original decision ID and returned the matching record.",
+    "answer": "The JSONL result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl matched 3",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "I independently rechecked JSONL for the original decision ID and returned the matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl matched 4",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "I independently rechecked JSONL for the original decision ID and returned no matching records.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result confli"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl matched 5",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "The original decision ID was known.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl matched 6",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "I checked receiver for the original decision ID.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl matched 7",
+    "question": "The result I am reporting was for another run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl matched 8",
+    "question": "The receiver result I am reporting is for another run.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl no-match 0",
+    "question": "Where did my original decision go? The JSONL result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl no-match 1",
+    "question": "Where did my original decision go?",
+    "answer": "The JSONL result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl no-match 2",
+    "question": "I independently rechecked JSONL for the original decision ID and returned the matching record.",
+    "answer": "The JSONL result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl no-match 3",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "I independently rechecked JSONL for the original decision ID and returned the matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result confli"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl no-match 4",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "I independently rechecked JSONL for the original decision ID and returned no matching records.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl no-match 5",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "The original decision ID was known.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl no-match 6",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "I checked receiver for the original decision ID.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl no-match 7",
+    "question": "The result I am reporting was for another run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl no-match 8",
+    "question": "The receiver result I am reporting is for another run.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl unverified 0",
+    "question": "Where did my original decision go? The JSONL result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl unverified 1",
+    "question": "Where did my original decision go?",
+    "answer": "The JSONL result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl unverified 2",
+    "question": "I independently rechecked JSONL for the original decision ID and returned the matching record.",
+    "answer": "The JSONL result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl unverified 3",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "I independently rechecked JSONL for the original decision ID and returned the matching record.",
+    "expected": "confirmed_jsonl_unverified",
+    "includes": [
+      "The original JSONL record "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl unverified 4",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "I independently rechecked JSONL for the original decision ID and returned no matching records.",
+    "expected": "confirmed_jsonl_unverified",
+    "includes": [
+      "The original JSONL record "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl unverified 5",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "The original decision ID was known.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl unverified 6",
+    "question": "The JSONL result I am reporting is for a different run.",
+    "answer": "I checked receiver for the original decision ID.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl unverified 7",
+    "question": "The result I am reporting was for another run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback jsonl unverified 8",
+    "question": "The receiver result I am reporting is for another run.",
+    "expected": "confirmed_jsonl_unverified",
+    "includes": [
+      "The original JSONL record "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver matched 0",
+    "question": "Where did my original decision go? The receiver result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver matched 1",
+    "question": "Where did my original decision go?",
+    "answer": "The receiver result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver matched 2",
+    "question": "I independently rechecked receiver for the original decision ID and returned the matching record.",
+    "answer": "The receiver result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver matched 3",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "I independently rechecked receiver for the original decision ID and returned the matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt f"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver matched 4",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "I independently rechecked receiver for the original decision ID and returned no matching records.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result confli"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver matched 5",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "The original decision ID was known.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver matched 6",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "I checked JSONL for the original decision ID.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver matched 7",
+    "question": "The result I am reporting was for another run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver matched 8",
+    "question": "The JSONL result I am reporting is for another run.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt f"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver no-match 0",
+    "question": "Where did my original decision go? The receiver result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver no-match 1",
+    "question": "Where did my original decision go?",
+    "answer": "The receiver result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver no-match 2",
+    "question": "I independently rechecked receiver for the original decision ID and returned the matching record.",
+    "answer": "The receiver result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver no-match 3",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "I independently rechecked receiver for the original decision ID and returned the matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result confli"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver no-match 4",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "I independently rechecked receiver for the original decision ID and returned no matching records.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver no-match 5",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "The original decision ID was known.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver no-match 6",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "I checked JSONL for the original decision ID.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver no-match 7",
+    "question": "The result I am reporting was for another run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver no-match 8",
+    "question": "The JSONL result I am reporting is for another run.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver unverified 0",
+    "question": "Where did my original decision go? The receiver result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver unverified 1",
+    "question": "Where did my original decision go?",
+    "answer": "The receiver result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver unverified 2",
+    "question": "I independently rechecked receiver for the original decision ID and returned the matching record.",
+    "answer": "The receiver result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver unverified 3",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "I independently rechecked receiver for the original decision ID and returned the matching record.",
+    "expected": "confirmed_receiver_unverified",
+    "includes": [
+      "Receipt remains unverified"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver unverified 4",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "I independently rechecked receiver for the original decision ID and returned no matching records.",
+    "expected": "confirmed_receiver_unverified",
+    "includes": [
+      "Receipt remains unverified"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver unverified 5",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "The original decision ID was known.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver unverified 6",
+    "question": "The receiver result I am reporting is for a different run.",
+    "answer": "I checked JSONL for the original decision ID.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver unverified 7",
+    "question": "The result I am reporting was for another run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback receiver unverified 8",
+    "question": "The JSONL result I am reporting is for another run.",
+    "expected": "confirmed_receiver_unverified",
+    "includes": [
+      "Receipt remains unverified"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage matched 0",
+    "question": "Where did my original decision go? The storage result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage matched 1",
+    "question": "Where did my original decision go?",
+    "answer": "The storage result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage matched 2",
+    "question": "I independently rechecked storage for the original decision ID and returned the matching record.",
+    "answer": "The storage result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage matched 3",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "I independently rechecked storage for the original decision ID and returned the matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persisten"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage matched 4",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "I independently rechecked storage for the original decision ID and returned no matching records.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result confli"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage matched 5",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "The original decision ID was known.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage matched 6",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "I checked JSONL for the original decision ID.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage matched 7",
+    "question": "The result I am reporting was for another run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage matched 8",
+    "question": "The JSONL result I am reporting is for another run.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persisten"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage no-match 0",
+    "question": "Where did my original decision go? The storage result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage no-match 1",
+    "question": "Where did my original decision go?",
+    "answer": "The storage result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage no-match 2",
+    "question": "I independently rechecked storage for the original decision ID and returned the matching record.",
+    "answer": "The storage result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage no-match 3",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "I independently rechecked storage for the original decision ID and returned the matching record.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result confli"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage no-match 4",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "I independently rechecked storage for the original decision ID and returned no matching records.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage no-match 5",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "The original decision ID was known.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage no-match 6",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "I checked JSONL for the original decision ID.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage no-match 7",
+    "question": "The result I am reporting was for another run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage no-match 8",
+    "question": "The JSONL result I am reporting is for another run.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage unverified 0",
+    "question": "Where did my original decision go? The storage result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage unverified 1",
+    "question": "Where did my original decision go?",
+    "answer": "The storage result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage unverified 2",
+    "question": "I independently rechecked storage for the original decision ID and returned the matching record.",
+    "answer": "The storage result I am reporting is for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage unverified 3",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "I independently rechecked storage for the original decision ID and returned the matching record.",
+    "expected": "confirmed_storage_unverified",
+    "includes": [
+      "Downstream persistence rem"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage unverified 4",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "I independently rechecked storage for the original decision ID and returned no matching records.",
+    "expected": "confirmed_storage_unverified",
+    "includes": [
+      "Downstream persistence rem"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage unverified 5",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "The original decision ID was known.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage unverified 6",
+    "question": "The storage result I am reporting is for a different run.",
+    "answer": "I checked JSONL for the original decision ID.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage unverified 7",
+    "question": "The result I am reporting was for another run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback storage unverified 8",
+    "question": "The JSONL result I am reporting is for another run.",
+    "expected": "confirmed_storage_unverified",
+    "includes": [
+      "Downstream persistence rem"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "unverified"
+    }
+  },
+  {
+    "name": "Source attribution and readback Passive chronology",
+    "question": "briefcase-ai exec --to console -- python app.py. The original Python application called briefcase.observe(\"memory\") before the decision was recorded.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Source attribution and readback Passive denial",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nThat command was never run.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the ori"
+    ]
+  },
+  {
+    "name": "Source attribution and readback Chained SQLite with JSONL suffix",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(\"chain:records.jsonl\").",
+    "expected": "chain_store",
+    "includes": [
+      "Open the original chained "
+    ]
+  },
+  {
+    "name": "Source attribution and readback Unmapped plugin with JSONL target",
+    "question": "briefcase-ai exec --to console -- python app.py. Before recording the decision, the original Python application called briefcase.observe(\"custom:records.jsonl\").",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launc"
+    ]
+  },
+  {
+    "name": "Source attribution and readback Reserved invalid wrapper before explicit capture",
+    "question": "briefcase-ai exec --to MEMORY -- python app.py. Before recording the decision, the original Python application called briefcase.observe(\"memory\").",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefca"
+    ]
+  },
+  {
+    "name": "Source attribution and readback W01 original ID and repeated ticket",
+    "question": "The ticket appears in records from two invocations in dispatch.jsonl. I kept the original decision ID cedar-217. Which record should I use?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL fi"
+    ]
+  },
+  {
+    "name": "Source attribution and readback W12 independent readback",
+    "question": "After exit we independently read downstream storage and got the full decision matching the original ID cairn-673. What does this confirm?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned dow"
+    ]
+  },
+  {
+    "name": "Source attribution and readback W12 explicit report",
+    "question": "After exit we independently read downstream storage and got the full decision matching the original ID cairn-673. What does this confirm?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persisten"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source attribution and readback artifact and exporter console",
+    "question": "Where did my original decision go?",
+    "answer": "The local SDK decision. The original exporter was console.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr fo"
+    ]
+  },
+  {
+    "name": "Source attribution and readback artifact and exporter memory",
+    "question": "Where did my original decision go?",
+    "answer": "The local SDK decision. The original exporter was memory.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
   }
 ]

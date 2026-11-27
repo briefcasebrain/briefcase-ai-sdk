@@ -80,6 +80,9 @@ def _source_text(table, text):
     for start, end in spans:
         chars[start:end] = "_" * (end - start)
     for start, end in file_spans:
+        qualifier = re.match(r"[a-zA-Z][a-zA-Z0-9_.-]*:", text[start:end])
+        if qualifier:
+            start += qualifier.end()
         chars[start:end - 6] = "_" * (end - start - 6)
     return "".join(chars)
 
@@ -333,6 +336,10 @@ def _python_choice(table, clause):
             return ("pythonConsole" if value == "console" else "inlineMemory", None)
         if value.lower().startswith(("http://", "https://")):
             return ("inlineHTTP" if _http_destination(value) else "invalidPythonWeb", None)
+        if value.startswith("chain:") and value[6:].strip():
+            return "chainStore", None
+        if re.match(r"^[A-Za-z][A-Za-z0-9_.-]+:", value):
+            return unknown
         return ("pythonFile", value) if value.endswith(".jsonl") else unknown
     if not isinstance(target, ast.Call) or len(target.args) > 1:
         return unknown
@@ -533,6 +540,9 @@ def _execution_evidence(table, source, inherited=None):
             endpoint = next((settings[k].strip() for k in inline["endpoints"] if settings.get(k, "").strip()), "")
             protocol = (settings.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL")
                         or settings.get("OTEL_EXPORTER_OTLP_PROTOCOL") or "").strip().lower()
+            reserved = choice.lower() in table["wrapperReserved"]
+            if reserved and choice not in ("memory", "console") and choice.lower() not in ("otlp", "otel"):
+                wrapper_facts.add("wrapperRejected")
             otlp = choice.lower() in ("otel", "otlp") or (not choice and bool(endpoint))
             if otlp and ((protocol and protocol not in inline["wrapperProtocols"])
                          or (endpoint and not _http_destination(endpoint, allow_insecure=True))):
@@ -553,6 +563,10 @@ def _execution_evidence(table, source, inherited=None):
                     kind = "disabled" if disabled else "inlineOTLP"
                 elif direct_url:
                     kind = "inlineHTTP" if _http_destination(choice) else "invalidPythonWeb"
+                elif choice.startswith("chain:") and choice[6:].strip():
+                    kind = "chainStore"
+                elif re.match(r"^[A-Za-z][A-Za-z0-9_.-]+:", choice):
+                    kind = "inlineUnknown"
                 elif choice.endswith(".jsonl"):
                     kind = "pythonFile"
                 wrapper_choices.add((kind or "inlineUnknown", choice if kind == "pythonFile" else None))
@@ -641,9 +655,55 @@ def _execution_evidence(table, source, inherited=None):
     return commands, choices or wrapper_choices, wrapper_facts
 
 
+def _confirmation_conflict(table, source, result, turns):
+    """Bind an observation to its source and target before interpreting a structured outcome."""
+    spec = table["confirmation"]["attribution"]
+    denied = set()
+    corrected = {}
+    active = set()
+    for turn in turns:
+        # Quoted application data can contain arbitrary prose. It cannot attribute an observation.
+        text = re.sub(table["quoteSpans"], " ", turn or "")
+        for clause in re.split(spec["split"], text, flags=re.I):
+            named = {key for key, pattern in spec["sources"].items() if re.search(pattern, clause, re.I)}
+            if named and re.search(spec["observation"], clause, re.I):
+                active = named
+            if not re.search(spec["observation"], clause, re.I):
+                continue
+            targets = named or active or set(spec["sources"])
+            if not named and re.search(spec["runlessReport"], clause, re.I):
+                targets = set(spec["sources"])
+            attribution = re.sub(spec["notForeign"], "", clause, flags=re.I)
+            if re.search(spec["foreign"], attribution, re.I):
+                denied.update(targets)
+                for target in targets:
+                    corrected.pop(target, None)
+            elif (not re.search(spec["uncertain"], clause, re.I) and re.search(spec["original"], clause, re.I)
+                  and (re.search(spec["identifiesOriginal"], clause, re.I)
+                       or re.search(spec["checked"], clause, re.I))):
+                if named or re.search(spec["reportRef"], clause, re.I):
+                    for target in targets & (denied | corrected.keys()):
+                        observed = ("no-match" if re.search(spec["miss"], clause, re.I)
+                                    else "matched" if re.search(spec["match"], clause, re.I) else None)
+                        corrected[target] = observed
+                    denied.difference_update(targets)
+    if source in denied:
+        return "confirmation_other_run"
+    if corrected.get(source) and result != "unverified" and result != corrected[source]:
+        return "confirmation_inconsistent"
+    return None
+
+
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
           confirmation: Optional[Tuple[str, str]] = None, privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
+    if confirmation:
+        source, result = confirmation
+        outcome = table["confirmation"]["outcomes"].get(source, {}).get(result)
+        if outcome:
+            outcome = _confirmation_conflict(table, source, result, (question, answer)) or outcome
+            return outcome, table["actions"][outcome]["text"]
+
     def preprocess(value: str, private: Optional[bool] = None) -> str:
         sensitive = table["sensitiveInput"]
         if private is None:
@@ -820,6 +880,12 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             aside = re.sub(table["sensitiveAsideSplit"], "\n", answer, flags=re.I)
             reply_source = "\n".join(c for c in re.split(table["split"], aside, flags=re.I)
                                      if not (_sensitive(table, c) or re.search(table["privateWebAddress"], c, re.I)))
+        if key in ("ask_path", "ask_exporter"):
+            path_lines = [line.strip() for line in reply_source.splitlines() if line.strip()]
+            if len(path_lines) > 1 and _matches(table["replies"]["ask_path"][0], path_lines[0]) and all(
+                re.search(table["confirmation"]["attribution"]["foreign"], line, re.I) for line in path_lines[1:]
+            ):
+                reply_source = path_lines[0]
         safe_choice = key in ("ask_exporter", "ask_protocol") and any(
             re.fullmatch(pattern, reply_source.strip(), re.I) for pattern in table["exporterReplies"].values())
         safe_path = key in ("ask_exporter", "ask_path") and _matches(
@@ -882,6 +948,13 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 shell_path = None
             entities.update(reply_entities)
             evidence = contextual_reply + "\n" + evidence
+            if key in ("ask_subject", "ask_run") and not valid.get("action"):
+                facts.update(_collect_facts(table, _scoped(table, preprocess(projected))))
+                facts.update(preflight)
+                if len(launches) == 1 or calls:
+                    combined, text = route(table, question + "\n" + launch_reply, shell=shell, inherited=inherited)
+                    if table["actions"][combined]["kind"] != "ask":
+                        return combined, text
             facts.difference_update(valid.get("drop", []))
             facts.update(valid.get("add", []))
             key = valid.get("action") or _select(table, facts)
@@ -893,9 +966,6 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                              & {"replyOnStdout", "replyOnStderr"})
     if key == "reply" and "replyOnStderr" in facts:
         key = "reply_streams" if "replyOnStdout" in facts else "reply_stderr"
-    if confirmation:
-        source, result = confirmation
-        key = table["confirmation"]["outcomes"].get(source, {}).get(result, key)
     return key, table["actions"][key]["text"]
 
 
