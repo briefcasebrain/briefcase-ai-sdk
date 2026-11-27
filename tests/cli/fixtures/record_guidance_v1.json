@@ -5061,9 +5061,9 @@
   {
     "name": "Ordered Node options --import=some-other-module --no-warnings --import=\"@briefcase-ai/auto/register.js\"",
     "question": "BRIEFCASE_AUTO=0 BRIEFCASE_EXPORTER=audit.jsonl node --import=some-other-module --no-warnings --import=\"@briefcase-ai/auto/register.js\" app.js",
-    "expected": "inactive_preload",
+    "expected": "preload_startup",
     "includes": [
-      "disabled Node preload"
+      "package import error"
     ]
   },
   {
@@ -5353,5 +5353,182 @@
     "omits": [
       "retained stdout"
     ]
+  },
+  {
+    "name": "Unexported preload subpath --import",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register.js -e \"0\"",
+    "expected": "preload_startup",
+    "includes": [
+      "package import error"
+    ]
+  },
+  {
+    "name": "Unexported preload subpath --require",
+    "question": "BRIEFCASE_EXPORTER=memory node --require @briefcase-ai/auto/register.js -e \"0\"",
+    "expected": "preload_startup",
+    "includes": [
+      "package import error"
+    ]
+  },
+  {
+    "name": "Unexported preload subpath -r",
+    "question": "BRIEFCASE_EXPORTER=memory node -r @briefcase-ai/auto/register.js -e \"0\"",
+    "expected": "preload_startup",
+    "includes": [
+      "package import error"
+    ]
+  },
+  {
+    "name": "Preload option after eval -e \"0\"",
+    "question": "BRIEFCASE_EXPORTER=memory node -e \"0\" --import @briefcase-ai/auto/register",
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ]
+  },
+  {
+    "name": "Preload option after eval --eval=\"0\"",
+    "question": "BRIEFCASE_EXPORTER=memory node --eval=\"0\" --import @briefcase-ai/auto/register",
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ]
+  },
+  {
+    "name": "Preload option after eval --print \"0\"",
+    "question": "BRIEFCASE_EXPORTER=memory node --print \"0\" --import @briefcase-ai/auto/register",
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ]
+  },
+  {
+    "name": "Literal Node options activation 0",
+    "question": "BRIEFCASE_EXPORTER=memory BRIEFCASE_AUTO=0 NODE_OPTIONS=\"--import @briefcase-ai/auto/register\" node app.js",
+    "expected": "inactive_preload",
+    "includes": [
+      "disabled Node preload"
+    ]
+  },
+  {
+    "name": "Literal Node options activation 1",
+    "question": "BRIEFCASE_EXPORTER=memory BRIEFCASE_AUTO=1 NODE_OPTIONS=\"--import @briefcase-ai/auto/register\" node app.js",
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ]
+  },
+  {
+    "name": "Explicit worker argument new MemoryExporter()",
+    "question": "My original Node worker thread called observe(new MemoryExporter()). The main thread was already observing before it created the worker.",
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ]
+  },
+  {
+    "name": "Explicit worker argument new ConsoleExporter()",
+    "question": "My original Node worker thread called observe(new ConsoleExporter()). The main thread was already observing before it created the worker.",
+    "expected": "node_console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Explicit worker argument customExporter",
+    "question": "My original Node worker thread called observe(customExporter). The main thread was already observing before it created the worker.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Explicit worker argument undefined",
+    "question": "My original Node worker thread called observe(undefined). The main thread was already observing before it created the worker.",
+    "expected": "worker_forward",
+    "includes": [
+      "main thread's exporter"
+    ]
+  },
+  {
+    "name": "Explicit worker argument ",
+    "question": "My original Node worker thread called observe(). The main thread was already observing before it created the worker.",
+    "expected": "worker_forward",
+    "includes": [
+      "main thread's exporter"
+    ]
+  },
+  {
+    "name": "Direct Node host classification https://collector.example/ingest?region=us",
+    "question": "BRIEFCASE_EXPORTER=https://collector.example/ingest?region=us node --import @briefcase-ai/auto/register app.js",
+    "expected": "receiver",
+    "includes": [
+      "HTTP receiver"
+    ]
+  },
+  {
+    "name": "Direct Node host classification https://bad%2Fhost/events",
+    "question": "BRIEFCASE_EXPORTER=https://bad%2Fhost/events node --import @briefcase-ai/auto/register app.js",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Direct Node host classification https://%65xample.invalid/log?a=b",
+    "question": "BRIEFCASE_EXPORTER=https://%65xample.invalid/log?a=b node --import @briefcase-ai/auto/register app.js",
+    "expected": "receiver",
+    "includes": [
+      "HTTP receiver"
+    ]
+  },
+  {
+    "name": "Direct Node host classification http://127.1:4318/recs",
+    "question": "BRIEFCASE_EXPORTER=http://127.1:4318/recs node --import @briefcase-ai/auto/register app.js",
+    "expected": "receiver",
+    "includes": [
+      "HTTP receiver"
+    ]
+  },
+  {
+    "name": "Invalid percent-encoded before capture Node HTTP",
+    "question": "Before recording the decision, the original Node application called observe(\"https://bad%2Fhost/events\").",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Worker transport instance or confirmed destination receiver",
+    "question": "My original Node worker thread called observe(new HttpExporter(\"https://example.invalid/x\")). The main thread started observing before it created the worker.",
+    "expected": "receiver",
+    "includes": [
+      "HTTP receiver"
+    ]
+  },
+  {
+    "name": "Worker transport instance or confirmed destination node_startup",
+    "question": "My original Node worker thread called observe(new OtlpHttpExporter(\"http://example.invalid/x\")). The main thread started observing before it created the worker.",
+    "expected": "node_startup",
+    "includes": [
+      "startup diagnostic"
+    ]
+  },
+  {
+    "name": "Worker transport instance or confirmed destination otlp",
+    "question": "My original Node worker thread called observe(new OtlpHttpExporter(\"http://example.invalid/x\",{allowInsecure:true})). The main thread started observing before it created the worker.",
+    "expected": "otlp",
+    "includes": [
+      "OTLP"
+    ]
+  },
+  {
+    "name": "Worker transport instance or confirmed destination node_console",
+    "question": "My original Node worker thread called observe(sink). The main thread started observing before it created the worker.",
+    "expected": "node_console",
+    "includes": [
+      "stderr"
+    ],
+    "answer": "console"
   }
 ]

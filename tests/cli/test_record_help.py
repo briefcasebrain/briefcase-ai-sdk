@@ -374,7 +374,7 @@ def test_preload_activation_from_node_options(monkeypatch, capsys, flag, command
 
 @pytest.mark.parametrize("arguments,expected", [
     ("--no-warnings --import @briefcase-ai/auto/register script.js", True),
-    ("--conditions development --require @briefcase-ai/auto/register.js script.js", True),
+    ("--conditions development --require @briefcase-ai/auto/register.js script.js", False),
     ("--title '--import @briefcase-ai/auto/register' script.js", False),
     ("--no-warnings script.js --import @briefcase-ai/auto/register", False),
     ("-- --import @briefcase-ai/auto/register", False),
@@ -382,6 +382,6 @@ def test_preload_activation_from_node_options(monkeypatch, capsys, flag, command
     ("--import '@briefcase-ai/auto/reg\"ister'", False),
 ])
 def test_only_runtime_options_activate_the_original_preload(arguments, expected):
-    from briefcase.cli.record_help_commands import _node_preloaded
+    from briefcase.cli.record_help_commands import _node_register
 
-    assert _node_preloaded(TABLE["inlineNode"], " " + arguments) is expected
+    assert (_node_register(TABLE["inlineNode"], " " + arguments) == "register") is expected

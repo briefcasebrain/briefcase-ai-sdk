@@ -160,29 +160,44 @@ def _select(table: Dict[str, Any], facts: Set[str]) -> str:
     return table["defaultAction"]
 
 
-def _node_preloaded(inline, arguments):
-    """Read runtime options only. Tokens following the script belong to the application."""
+def _node_register(inline, arguments):
+    """Resolve package specifiers in Node runtime options; do not execute or expand arguments."""
     position = 0
     pending = ""
+    state = ""
     while token := re.match(inline["argument"], arguments[position:]):
         position += token.end()
         value = "".join(part.group(part.lastindex or 0)
                         for part in re.finditer(inline["argumentPart"], token.group(1)))
         if pending:
-            if pending in inline["preloadFlags"] and value in inline["registerModules"]:
-                return True
-            pending = ""
-        elif not value.startswith("-") or value in ("-", "--", "--eval", "-e", "--print", "-p"):
-            break
+            flag, operand, pending = pending, value, ""
         else:
+            if not value.startswith("-") or value in ("-", "--"):
+                break
             flag, equal, operand = value.partition("=")
-            if flag in inline["preloadFlags"] or flag in inline["valueFlags"]:
-                if equal:
-                    if flag in inline["preloadFlags"] and operand in inline["registerModules"]:
-                        return True
-                else:
-                    pending = flag
-    return False
+            if flag not in inline["preloadFlags"] and flag not in inline["valueFlags"]:
+                continue
+            if not equal:
+                pending = flag
+                continue
+        if flag in inline["preloadFlags"]:
+            if operand.startswith(inline["package"] + "/") and operand not in inline["packageExports"]:
+                return "unexported"
+            if operand in inline["registerModules"]:
+                state = "register"
+    return state
+
+
+def _command_register(inline, match):
+    argv = _node_register(inline, match.string[match.end():])
+    options = ""
+    for assignment in re.finditer(inline["assignment"], match.group(1)):
+        if assignment.group(1) == "NODE_OPTIONS":
+            raw = next((v for v in assignment.groups()[1:] if v is not None), "")
+            options = _node_register(inline, " " + raw)
+    if "unexported" in (argv, options):
+        return "unexported"
+    return "argv" if argv else ("options" if options else "")
 
 
 def _original_commands(table: Dict[str, Any], text: str) -> str:
@@ -237,7 +252,7 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
         else:
             command = re.search(table["inlineNode"]["command"], parts[index])
             if command and (not re.fullmatch(table["commandContext"], parts[index][:command.start()], re.I)
-                            or not _node_preloaded(table["inlineNode"], parts[index][command.end():])):
+                            or not _command_register(table["inlineNode"], command)):
                 parts[index] = parts[index][:command.start()]
     return "".join(parts)
 
@@ -266,7 +281,7 @@ def _launch_commands(table, source):
     return [
         match for clause in re.split(table["split"], _scoped(table, source), flags=re.I)
         for match in re.finditer(inline["command"], clause)
-        if _node_preloaded(inline, clause[match.end():])
+        if _command_register(inline, match)
         and re.fullmatch(table["commandContext"], clause[:match.start()], re.I)
     ]
 
@@ -288,7 +303,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             if re.search(table["uncertainExplicitUrl"], url, re.I):
                 return " explicit unverified web exporter "
             node = re.search(table["runtimeSource"]["Node"], value, re.I)
-            valid = _http_destination(url) and (not node or _node_endpoint(url))
+            valid = _node_endpoint(url, allow_insecure=False) if node else _http_destination(url)
             return " explicit valid web exporter " if valid else " explicit rejected web exporter "
 
         for direct in table["explicitUrls"]:
@@ -361,27 +376,31 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             if key not in inline["keys"]:
                 continue
             raw = next((v for v in match.groups()[1:] if v is not None), "")
-            if key in ("BRIEFCASE_EXPORTER", "BRIEFCASE_AUTO") or key in inline["endpoints"]:
+            if key == "NODE_OPTIONS":
+                settings["REGISTER_FROM_NODE_OPTIONS"] = _node_register(inline, " " + raw)
+            elif key in ("BRIEFCASE_EXPORTER", "BRIEFCASE_AUTO") or key in inline["endpoints"]:
                 settings[key] = raw.strip()
             else:
                 # Node selects the first nonempty raw protocol before trimming it.
                 settings[key] = "grpc" if raw.strip().lower() == "grpc" else ("http/json" if raw else "")
         if inherited is not None:
             settings = {**inherited, **settings}
-        explicit_preload = commands or re.search(inline["explicitPreload"], evidence, re.I)
-        from_options = not explicit_preload and (settings.pop("REGISTER_FROM_NODE_OPTIONS", "") == "yes"
+        launch_kind = _command_register(inline, commands[0]) if commands else ""
+        option_kind = settings.pop("REGISTER_FROM_NODE_OPTIONS", "")
+        if "unexported" in (launch_kind, option_kind):
+            facts.add("preloadImportError")
+        explicit_preload = launch_kind == "argv" or re.search(inline["explicitPreload"], evidence, re.I)
+        from_options = not explicit_preload and (option_kind == "register"
                                                  or re.search(inline["nodeOptionsOnly"], evidence, re.I))
         if from_options and settings.get("BRIEFCASE_AUTO", "").lower() not in ("1", "true"):
             settings["BRIEFCASE_AUTO"] = "0"
         choice = settings.get("BRIEFCASE_EXPORTER", "")
         if choice.lower().startswith(("http://", "https://")):
-            safe_direct = (re.fullmatch(inline["endpointSyntax"], choice, re.I)
-                           and _node_endpoint(choice) and _http_destination(choice))
+            safe_direct = _node_endpoint(choice, allow_insecure=False)
             settings["DIRECT_WEB"] = "valid" if safe_direct else "unverified"
         endpoint = next((settings[k].strip() for k in inline["endpoints"] if settings.get(k, "").strip()), "")
         if endpoint:
-            supported = re.fullmatch(inline["endpointSyntax"], endpoint, re.I)
-            settings["EFFECTIVE_ENDPOINT"] = ("valid" if supported and _node_endpoint(endpoint) else "unknown")
+            settings["EFFECTIVE_ENDPOINT"] = "valid" if _node_endpoint(endpoint) else "unknown"
             if not settings.get("BRIEFCASE_EXPORTER"):
                 settings["BRIEFCASE_EXPORTER"] = "otlp"
         elif "BRIEFCASE_EXPORTER" in settings and not settings["BRIEFCASE_EXPORTER"]:
@@ -400,23 +419,40 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         if not facts.intersection(("workerForward", "workerCreatedFirst")):
             facts.add("workerUnknown")
     selection = table["applicationSelection"]
-    choices: Set[str] = set()
+    choices: Set[Tuple[str, Optional[str]]] = set()
     for clause in re.split(table["split"], _scoped(table, source_question), flags=re.I):
         worker_call = re.search(selection["workerActor"], clause, re.I)
         before_capture = re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
-        if (worker_call or before_capture) and not re.search(selection["none"], clause, re.I):
-            choices.update(next(value for value in match.groups() if value is not None)
-                           for match in re.finditer(selection["value"], clause, re.I))
+        assertion = re.sub(table["quoteSpans"], " ", clause)
+        if (worker_call or before_capture) and not re.search(selection["none"], assertion, re.I):
+            literal = re.search(selection["value"], clause, re.I)
+            instance = re.search(selection["instance"], clause, re.I)
+            path = None
+            if literal:
+                value = next(x for x in literal.groups() if x is not None)
+                kind = {"memory": "inlineMemory", "console": "inlineConsole"}.get(value, "inlineUnknown")
+                if value.endswith(".jsonl") and "://" not in value:
+                    kind, path = "inlineFile", value
+                elif value.lower().startswith(("http://", "https://")):
+                    kind = "inlineHTTP" if _node_endpoint(value, allow_insecure=False) else "inlineStartup"
+            elif instance:
+                kind = selection["constructors"].get(instance.group(1), "unknownWorkerExporter")
+                value = instance.group(2) or instance.group(3)
+                if kind == "inlineFile":
+                    path = value
+                elif kind in ("inlineHTTP", "inlineOTLP") and value:
+                    insecure = re.search(selection["insecureOption"], clause[instance.end():])
+                    if not _node_endpoint(value, allow_insecure=bool(insecure)):
+                        kind = "inlineStartup"
+            elif worker_call and re.search(selection["argument"], clause, re.I):
+                kind = "unknownWorkerExporter"
+            else:
+                continue
+            choices.add((kind, path))
     if choices:
         facts.difference_update(("workerUnknown", "workerForward"))
         facts.difference_update(rule["fact"] for rule in inline["rules"])
-        inline_path = None
-        choice = next(iter(choices)) if len(choices) == 1 else ""
-        kind = {"memory": "inlineMemory", "console": "inlineConsole"}.get(choice, "inlineUnknown")
-        if choice.endswith(".jsonl") and "://" not in choice:
-            kind, inline_path = "inlineFile", choice
-        elif choice.lower().startswith(("http://", "https://")):
-            kind = ("inlineHTTP" if _http_destination(choice) and _node_endpoint(choice) else "inlineStartup")
+        kind, inline_path = next(iter(choices)) if len(choices) == 1 else ("inlineUnknown", None)
         facts.add(kind)
         selected = {"fact": kind}
     files = {next(value for value in match.groups() if value is not None)
@@ -521,20 +557,58 @@ def _http_destination(url: str, *, allow_insecure: bool = False) -> bool:
             and (parts.scheme == "https" or allow_insecure or _is_loopback_host(parts.hostname or "")))
 
 
-def _node_endpoint(endpoint: str) -> bool:
-    """Accept canonical HTTP destinations; defer unusual WHATWG URL forms to the startup log."""
+def _node_ipv4(host: str) -> Optional[str]:
+    """The WHATWG IPv4 host grammar accepts one to four decimal, octal or hexadecimal parts."""
     from ipaddress import IPv4Address
-    from urllib.parse import urlsplit
 
-    if not _http_destination(endpoint, allow_insecure=True):
-        return False
-    host = (urlsplit(endpoint).hostname or "").removesuffix(".")
-    if host.rsplit(".", 1)[-1].isdigit():
-        try:
-            return str(IPv4Address(host)) == host
-        except ValueError:
+    labels = host.removesuffix(".").split(".")
+    if not re.fullmatch(r"(?:[0-9]+|0[xX][0-9a-fA-F]*)", labels[-1]):
+        return host
+    if len(labels) > 4:
+        return None
+    numbers = []
+    for label in labels:
+        if not re.fullmatch(r"(?:0[xX][0-9a-fA-F]*|0[0-7]*|[1-9][0-9]*)", label):
+            return None
+        base = 16 if label.lower().startswith("0x") else (8 if label.startswith("0") else 10)
+        digits = label[2:] if base == 16 else label
+        # A URL cannot represent an IPv4 part larger than 32 bits.
+        if len(digits.lstrip("0")) > 12:
+            return None
+        numbers.append(int(digits.lstrip("0") or "0", base))
+    if any(value > 255 for value in numbers[:-1]) or numbers[-1] >= 256 ** (5 - len(numbers)):
+        return None
+    value = numbers[-1] + sum(number << (8 * (3 - i)) for i, number in enumerate(numbers[:-1]))
+    return str(IPv4Address(value))
+
+
+def _node_endpoint(endpoint: str, *, allow_insecure: bool = True) -> bool:
+    """Classify the reported HTTP transport using its normalized host, independently of the URL path/query."""
+    from ipaddress import IPv6Address
+    from urllib.parse import unquote, urlsplit
+
+    value = endpoint.strip().replace("\t", "").replace("\r", "").replace("\n", "")
+    try:
+        parts = urlsplit(value.replace("\\", "/"))
+        if parts.scheme not in ("http", "https") or not parts.hostname:
             return False
-    return True
+        _ = parts.port  # Validate port syntax and range without resolving the name.
+        host = unquote(parts.hostname, errors="strict").lower()
+        normalized: Optional[str]
+        if ":" in parts.hostname:
+            if "%" in parts.hostname:
+                return False
+            normalized = str(IPv6Address(host))
+        else:
+            if any(ord(char) <= 32 or ord(char) == 127 or char in "#%/:<>?@[\\]^|" for char in host):
+                return False
+            normalized = _node_ipv4(host.encode("idna").decode("ascii"))
+            if normalized is None:
+                return False
+    except (UnicodeError, ValueError):
+        return False
+    loopback = normalized in ("localhost", "::1") or bool(re.fullmatch(r"127(?:\.[0-9]{1,3}){3}", normalized))
+    return parts.scheme == "https" or allow_insecure or loopback
 
 
 def _shell_exporter(question: str = "") -> str:
@@ -546,7 +620,8 @@ def _shell_exporter(question: str = "") -> str:
     if node and re.search(r"\bworker[_ ]threads?\b", question, re.I):
         return "check-launch-config"
     if value.lower().startswith(("http://", "https://")):
-        return "HTTP" if _http_destination(value) else "check-launch-config"
+        direct = _node_endpoint(value, allow_insecure=False) if node and not python else _http_destination(value)
+        return "HTTP" if direct else "check-launch-config"
     if value and value.lower() not in ("otel", "otlp"):
         if value in ("memory", "console"):
             return value
@@ -562,7 +637,7 @@ def _shell_exporter(question: str = "") -> str:
     protocol = (env.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL") or env.get("OTEL_EXPORTER_OTLP_PROTOCOL") or "")
     node_target = "console" if protocol.strip().lower() == "grpc" else "otlp"
     endpoint = next((env[key].strip() for key in endpoints if env.get(key, "").strip()), "")
-    if node_target == "otlp" and endpoint and not _http_destination(endpoint, allow_insecure=True):
+    if node_target == "otlp" and endpoint and not _node_endpoint(endpoint):
         node_target = "check-launch-config"
     if node and not python:
         return node_target
@@ -662,8 +737,9 @@ def _guide_session(args) -> int:
         auto_flag = os.environ.get("BRIEFCASE_AUTO", "").strip().lower()
         if auto_flag in ("0", "false", "1", "true"):
             inherited["BRIEFCASE_AUTO"] = auto_flag
-        if _node_preloaded(table["inlineNode"], " " + os.environ.get("NODE_OPTIONS", "")):
-            inherited["REGISTER_FROM_NODE_OPTIONS"] = "yes"
+        options = _node_register(table["inlineNode"], " " + os.environ.get("NODE_OPTIONS", ""))
+        if options:
+            inherited["REGISTER_FROM_NODE_OPTIONS"] = options
         for key in ("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"):
             protocol = os.environ.get(key, "")
             if protocol:

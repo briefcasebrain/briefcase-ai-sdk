@@ -227,6 +227,10 @@
     "reply_streams": {
       "kind": "action",
       "text": "Inspect the original application's retained stdout and stderr for the reply text. Compare the output with the original invocation."
+    },
+    "preload_startup": {
+      "kind": "action",
+      "text": "Check the original Node startup diagnostic for a package import error. Verify that the launch requested a public package export before checking for decisions from the preload."
     }
   },
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
@@ -252,7 +256,7 @@
       "\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|moved|reconfigured|replaced|overrode|unset|reset)\\b[^.!?;\\n]{0,65}\\b(?:exporter|configuration|settings?|environment|variables?|destination)s?\\b"
     ]
   },
-  "revision": 20,
+  "revision": 21,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -956,6 +960,18 @@
       "action": "reply",
       "all": [
         "wantReply"
+      ]
+    },
+    {
+      "action": "preload_startup",
+      "all": [
+        "preloadImportError"
+      ]
+    },
+    {
+      "action": "ask_exporter",
+      "all": [
+        "unknownWorkerExporter"
       ]
     },
     {
@@ -1958,7 +1974,8 @@
           "genericResult",
           "jsonl",
           "remoteLaunch",
-          "uncertainPrivateDestination"
+          "uncertainPrivateDestination",
+          "unknownWorkerExporter"
         ]
       },
       {
@@ -1977,7 +1994,8 @@
           "shellClue",
           "alternateScript",
           "remoteLaunch",
-          "uncertainPrivateDestination"
+          "uncertainPrivateDestination",
+          "unknownWorkerExporter"
         ],
         "affirmative": "console"
       },
@@ -2597,13 +2615,13 @@
       "OTEL_EXPORTER_OTLP_PROTOCOL",
       "BRIEFCASE_AUTO",
       "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-      "OTEL_EXPORTER_OTLP_ENDPOINT"
+      "OTEL_EXPORTER_OTLP_ENDPOINT",
+      "NODE_OPTIONS"
     ],
     "endpoints": [
       "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
       "OTEL_EXPORTER_OTLP_ENDPOINT"
     ],
-    "endpointSyntax": "^https?://(?:[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*|(?:[0-9]{1,3}\\.){3}[0-9]{1,3}|\\[[a-f0-9:]+\\])(?::[0-9]{1,5})?(?:/[a-z0-9/_.~%:+-]*)?$",
     "preloadSource": "\\b(?:node (?:auto[- ]?)?preload|original preload)\\b[^.;!?\\n]{0,45}\\b(?:inherited|ran|launched|used)\\b",
     "nodeOptionsOnly": "\\b(?:node_options\\s*=|(?:only|solely|loaded|inherited) (?:from |through |via |in )*node_options)\\b",
     "explicitPreload": "\\b(?:the |my |our |original )?(?:node )?preload\\s+(?:(?:was|is) )?(?:also )?(?:passed|loaded|supplied|specified|included|given) (?:directly |explicitly )?(?:on|via|through|in) (?:the |its |my |our |original )?(?:command line|execargv)\\b",
@@ -2624,13 +2642,23 @@
       "--title",
       "--max-old-space-size",
       "--redirect-warnings",
-      "--diagnostic-dir"
+      "--diagnostic-dir",
+      "--eval",
+      "-e",
+      "--print",
+      "-p"
     ],
     "registerModules": [
-      "@briefcase-ai/auto/register",
-      "@briefcase-ai/auto/register.js"
+      "@briefcase-ai/auto/register"
     ],
-    "argumentPart": "[^\\s\"';&|`]+|\"([^\"\\n]*)\"|'([^'\\n]*)'"
+    "argumentPart": "[^\\s\"';&|`]+|\"([^\"\\n]*)\"|'([^'\\n]*)'",
+    "package": "@briefcase-ai/auto",
+    "packageExports": [
+      "@briefcase-ai/auto",
+      "@briefcase-ai/auto/register",
+      "@briefcase-ai/auto/esbuild",
+      "@briefcase-ai/auto/package.json"
+    ]
   },
   "privateJobMarker": {
     "declaration": "\\bjob token\\s+(?:(?:is|was|of)\\s+)?[\"\\x27`]?([\\w-]+(?:[.:/@+%-][\\w:-]+)*)[\"\\x27`]?\\s+(?:was|is)\\s+unique to (?:this|my|our|that|the original) (?:invocation|job|run|attempt|call)\\b",
@@ -2790,7 +2818,7 @@
     "privateFileWitness"
   ],
   "quoteSpans": "(?<![\\w])(?:\"((?:\\\\.|[^\"\\\\])*)\"|'((?:\\\\.|[^'\\\\])*)'|“([^”]*)”|‘([^’]*)’)",
-  "sourceLiteralContext": "(?:observe\\(\\s*|httpexporter\\(\\s*|(?:\\bBRIEFCASE_EXPORTER|\\bOTEL_EXPORTER_OTLP_(?:TRACES_)?ENDPOINT)\\s*=\\s*|(?:exporter|path|file|jsonl|stdout|stderr|saved|opened|reopened|scanned|read|wrote|redirected|writes)\\s+(?:(?:as|was|is|to|from|out of|at|in|the|original|file)\\s+){0,5}|(?:^|\\s)\\d?>>?\\s*)$",
+  "sourceLiteralContext": "(?:observe\\(\\s*|(?:http|jsonlfile|otlphttp)exporter\\(\\s*|(?:\\bBRIEFCASE_EXPORTER|\\bOTEL_EXPORTER_OTLP_(?:TRACES_)?ENDPOINT)\\s*=\\s*|(?:exporter|path|file|jsonl|stdout|stderr|saved|opened|reopened|scanned|read|wrote|redirected|writes)\\s+(?:(?:as|was|is|to|from|out of|at|in|the|original|file)\\s+){0,5}|(?:^|\\s)\\d?>>?\\s*)$",
   "sourceLiteralValue": "^(?:[^\"'\\n]+\\.jsonl|memory|console|otlp|otel|https?://[^\\s\"'\\n]+)$",
   "fileRoleBefore": "(?:\\b(?:BRIEFCASE_EXPORTER\\s*=|observe\\(\\s*)|\\b(?:read|opened|reopened|checked|scanned|inspected|queried|searched|examined|parsed|appended|exported|wrote|writes|writing|used|uses|selected|selects|chose|set|configured|exporter|export|jsonl|original file|export file|original path|export path|entries|rows?|decisions?|records?|tickets?|attempts?|results?|matches|copies|lines|scan|lookup)\\b(?:\\s+(?:up|of|out|the|its|my|our|an?|original|source|export|exporter|file|path|data|local|same|multiple|different|both|two|unique|identical|decision[s]?|row[s]?|record[s]?|attempt[s]?|ticket[s]?|text|request|body|value|appears?|twice|are|is|was|in|to|at|from|into|as|for|with)){0,9}\\s*[:=]?\\s+)[\"'`“‘]?\\s*$",
   "fileRoleAfter": "^[\"'`”’]?\\s+(?:(?:has|holds?|contains?|lists?|includes?|shows?|had)\\b[^.;!?\\n]{0,40}\\b(?:rows?|records?|decisions?|entries|tickets?|attempts?)\\b|(?:was|is) (?:the |my |our )?(?:exporter|file export|original destination))|^[\"'`”’]?[,;]?\\s+(?:(?:i|we)\\s+(?:saw|found|counted|read)\\s+)?(?:two|multiple|several|both)\\s+(?:decision\\s+)?(?:records?|decisions?|entries|rows?|tickets?)\\b",
@@ -2800,10 +2828,20 @@
     "actor": "\\b(?:application|app|script|program|source|process)\\s+(?:(?:explicitly|actually|then)\\s+)?(?:called|calls|used|uses|selected|set|invoked)\\s+observe\\(",
     "none": "\\b(?:not|never|unknown|unsure|maybe|possibly|might|would|could|example|if|whether|another|different|unrelated)\\b",
     "value": "\\bobserve\\(\\s*(?:\"([^\"\\n]+)\"|'([^'\\n]+)')\\s*(?=,|\\))",
-    "workerActor": "\\b(?:my |our |the )?(?:original |actual )?(?:node )?worker(?: thread)?\\s+(?:(?:explicitly|directly|then)\\s+)?(?:called|calls|used|uses|invoked)\\s+observe\\("
+    "workerActor": "\\b(?:my |our |the )?(?:original |actual )?(?:node )?worker(?: thread)?\\s+(?:(?:explicitly|directly|then)\\s+)?(?:called|calls|used|uses|invoked)\\s+observe\\(",
+    "instance": "\\bobserve\\(\\s*new\\s+([A-Za-z_$][\\w$]*)\\s*\\(\\s*(?:\"([^\"\\n]*)\"|'([^'\\n]*)')?",
+    "argument": "\\bobserve\\(\\s*(?!undefined\\s*[,)]|\\s*\\))\\S",
+    "constructors": {
+      "MemoryExporter": "inlineMemory",
+      "ConsoleExporter": "inlineConsole",
+      "JsonlFileExporter": "inlineFile",
+      "HttpExporter": "inlineHTTP",
+      "OtlpHttpExporter": "inlineOTLP"
+    },
+    "insecureOption": "^\\s*,\\s*\\{[^{}]*?\\ballowInsecure\\s*:\\s*true\\b[^{}]*\\}\\s*\\)"
   },
   "fenceComment": "^\\s*(?:#(?:\\s|$)|<!--[^\\n]*-->\\s*$)",
   "sensitiveAsideSplit": ",\\s*(?=(?:(?:my|the|our|a)\\s+)?(?:[\\w-]+\\s+){0,3}(?:token|password|credential|secret|api key)\\b)",
-  "launchLiteralContext": "(?:\\b(?:BRIEFCASE_AUTO|OTEL_EXPORTER_OTLP_(?:TRACES_)?PROTOCOL)\\s*=|(?:--import|--require|-r|--loader|--experimental-loader)(?:\\s+|=))\\s*$",
-  "launchLiteralValue": "^\\s*(?:0|1|true|false|grpc|http/json|http/protobuf|@briefcase-ai/auto/register(?:\\.js)?)\\s*$"
+  "launchLiteralContext": "(?:\\b(?:BRIEFCASE_AUTO|NODE_OPTIONS|OTEL_EXPORTER_OTLP_(?:TRACES_)?PROTOCOL)\\s*=|(?:--import|--require|-r|--loader|--experimental-loader)(?:\\s+|=))\\s*$",
+  "launchLiteralValue": "^\\s*(?:(?:(?:--[\\w-]+|-r)(?:\\s+|=)[^\\n]*)|0|1|true|false|grpc|http/json|http/protobuf|@briefcase-ai/auto/register(?:\\.js)?)\\s*$"
 }
