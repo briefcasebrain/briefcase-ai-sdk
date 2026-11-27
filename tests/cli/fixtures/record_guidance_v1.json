@@ -32587,5 +32587,1771 @@
     "includes": [
       "Check which source you searched and"
     ]
+  },
+  {
+    "name": "Scoped claim composition AK02 first",
+    "question": "I retried a job using the same ticket, leaving two rows with the same ticket text in our original JSONL file. What do I need to identify the first run?",
+    "expected": "ask_id",
+    "includes": [
+      "Do you have the original d"
+    ]
+  },
+  {
+    "name": "Scoped claim composition AK02 answer",
+    "question": "I retried a job using the same ticket, leaving two rows with the same ticket text in our original JSONL file. What do I need to identify the first run?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decis"
+    ],
+    "answer": "I kept the first invocation’s original decision ID, laurel-472."
+  },
+  {
+    "name": "Scoped claim composition AK08 first",
+    "question": "Our Node demo ran with a console exporter. We kept the stdout application reply and the stderr SDK decision. Which stream do I need to inspect?",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for the ap"
+    ]
+  },
+  {
+    "name": "Scoped claim composition AK08 answer",
+    "question": "Our Node demo ran with a console exporter. We kept the stdout application reply and the stderr SDK decision. Which stream do I need to inspect?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr fo"
+    ],
+    "answer": "I want the SDK decision metadata containing total token usage."
+  },
+  {
+    "name": "Scoped claim composition AK09 first",
+    "question": "I personally reopened the original configured JSONL file stamplake.jsonl after the writer exited, using its original working directory. Every line parsed. I checked all rows for my original invocation’s unique marker heron-284: zero matches. What does that establish?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in t"
+    ]
+  },
+  {
+    "name": "Scoped claim composition AK09 supported observation",
+    "question": "I personally reopened the original configured JSONL file stamplake.jsonl after the writer exited, using its original working directory. Every line parsed. I checked all rows for my original invocation’s unique marker heron-284: zero matches. What does that establish?",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match afte"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition AK09 contradictory observation",
+    "question": "I personally reopened the original configured JSONL file stamplake.jsonl after the writer exited, using its original working directory. Every line parsed. I checked all rows for my original invocation’s unique marker heron-284: zero matches. What does that establish?",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition AK11 first",
+    "question": "I personally inspected the original configured receiver for the decision ID aspen-509 from my launch receipt and found its matching incoming record. Downstream storage has not been queried. What evidence do I have for this run?",
+    "expected": "storage",
+    "includes": [
+      "A receiver entry that matc"
+    ]
+  },
+  {
+    "name": "Scoped claim composition AK11 supported observation",
+    "question": "I personally inspected the original configured receiver for the decision ID aspen-509 from my launch receipt and found its matching incoming record. Downstream storage has not been queried. What evidence do I have for this run?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching en"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition AK11 contradictory observation",
+    "question": "I personally inspected the original configured receiver for the decision ID aspen-509 from my launch receipt and found its matching incoming record. Downstream storage has not been queried. What evidence do I have for this run?",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition AK12 first",
+    "question": "I personally queried downstream storage after the writer closed. I verified the store against the original deployment settings and searched using original decision ID tor-613 from my receipt. The full matching decision was returned. What has been verified?",
+    "expected": "stored",
+    "includes": [
+      "Compare the returned recor"
+    ]
+  },
+  {
+    "name": "Scoped claim composition AK12 supported observation",
+    "question": "I personally queried downstream storage after the writer closed. I verified the store against the original deployment settings and searched using original decision ID tor-613 from my receipt. The full matching decision was returned. What has been verified?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching re"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition AK12 contradictory observation",
+    "question": "I personally queried downstream storage after the writer closed. I verified the store against the original deployment settings and searched using original decision ID tor-613 from my receipt. The full matching decision was returned. What has been verified?",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 0 direct",
+    "question": "I queried the original JSONL file for the original decision ID. The query returned a record and I compared its ID against the receipt for a different invocation.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 0 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a record and I compared its ID against the receipt for a different invocation.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 1 direct",
+    "question": "I queried the original JSONL file for the original decision ID. The query returned a matching record and I compared its ID against the receipt for another job.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 1 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a matching record and I compared its ID against the receipt for another job.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 2 direct",
+    "question": "I queried the original JSONL file for the original decision ID. Only the receiver returned a matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 2 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "Only the receiver returned a matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 3 direct",
+    "question": "I queried the original JSONL file for the original decision ID. Only my colleague queried the original JSONL file.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 3 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "Only my colleague queried the original JSONL file.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 4 direct",
+    "question": "I queried the original JSONL file for the original decision ID. Only an identifier was returned.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 4 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "Only an identifier was returned.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 5 direct",
+    "question": "I queried the original JSONL file for the original decision ID. A truncated checksum was retrieved.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 5 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "A truncated checksum was retrieved.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 6 direct",
+    "question": "I queried the original JSONL file for the original decision ID. My original decision ID was finch-282 and I fabricated the only returned row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 6 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My original decision ID was finch-282 and I fabricated the only returned row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 7 direct",
+    "question": "I queried the original JSONL file for the original decision ID. The query returned one matching record. It also returned one matching record.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identifi"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 7 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identifi"
+    ],
+    "answer": "The query returned one matching record. It also returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 8 direct",
+    "question": "I queried the original JSONL file for the original decision ID. I skipped the most recent page.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 8 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still"
+    ],
+    "answer": "I skipped the most recent page.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 9 direct",
+    "question": "I queried the original JSONL file for the original decision ID. My query has never successfully completed.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 9 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "My query has never successfully completed.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 10 direct",
+    "question": "I queried the original JSONL file for the original decision ID. A full matching record was returned.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 10 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching "
+    ],
+    "answer": "A full matching record was returned.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 11 direct",
+    "question": "I queried the original JSONL file for the original decision ID. A full matching record was returned.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 11 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "A full matching record was returned.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 12 direct",
+    "question": "I queried the original JSONL file for the original decision ID. The query returned a complete record and I compared its identifier against the receipt for the original invocation.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 12 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching "
+    ],
+    "answer": "The query returned a complete record and I compared its identifier against the receipt for the original invocation.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 13 direct",
+    "question": "I queried the original JSONL file for the original decision ID. The query returned one matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition jsonl 13 clarified",
+    "question": "I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching "
+    ],
+    "answer": "The query returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 0 direct",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record and I compared its ID against the receipt for a different invocation.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "The result is for a differ"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 0 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a record and I compared its ID against the receipt for a different invocation.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 1 direct",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a matching record and I compared its ID against the receipt for another job.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 1 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a matching record and I compared its ID against the receipt for another job.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 2 direct",
+    "question": "I queried the intended downstream store for the original decision ID. Only the receiver returned a matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 2 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "Only the receiver returned a matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 3 direct",
+    "question": "I queried the intended downstream store for the original decision ID. Only my colleague queried the intended downstream store.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 3 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "Only my colleague queried the intended downstream store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 4 direct",
+    "question": "I queried the intended downstream store for the original decision ID. Only an identifier was returned.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 4 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "Only an identifier was returned.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 5 direct",
+    "question": "I queried the intended downstream store for the original decision ID. A truncated checksum was retrieved.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 5 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "A truncated checksum was retrieved.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 6 direct",
+    "question": "I queried the intended downstream store for the original decision ID. My original decision ID was finch-282 and I fabricated the only returned row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 6 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My original decision ID was finch-282 and I fabricated the only returned row.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 7 direct",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned one matching record. It also returned one matching record.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identifi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 7 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identifi"
+    ],
+    "answer": "The query returned one matching record. It also returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 8 direct",
+    "question": "I queried the intended downstream store for the original decision ID. I skipped the most recent page.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 8 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still"
+    ],
+    "answer": "I skipped the most recent page.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 9 direct",
+    "question": "I queried the intended downstream store for the original decision ID. My query has never successfully completed.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 9 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "My query has never successfully completed.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 10 direct",
+    "question": "I queried the intended downstream store for the original decision ID. A full matching record was returned.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching re"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 10 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching re"
+    ],
+    "answer": "A full matching record was returned.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 11 direct",
+    "question": "I queried the intended downstream store for the original decision ID. A full matching record was returned.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 11 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "A full matching record was returned.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 12 direct",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a complete record and I compared its identifier against the receipt for the original invocation.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching re"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 12 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching re"
+    ],
+    "answer": "The query returned a complete record and I compared its identifier against the receipt for the original invocation.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 13 direct",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned one matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching re"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition storage 13 clarified",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching re"
+    ],
+    "answer": "The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 0 direct",
+    "question": "I queried the intended receiver for the original decision ID. The query returned a record and I compared its ID against the receipt for a different invocation.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 0 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a record and I compared its ID against the receipt for a different invocation.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 1 direct",
+    "question": "I queried the intended receiver for the original decision ID. The query returned a matching record and I compared its ID against the receipt for another job.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 1 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a matching record and I compared its ID against the receipt for another job.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 2 direct",
+    "question": "I queried the intended receiver for the original decision ID. Only the store returned a matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 2 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "Only the store returned a matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 3 direct",
+    "question": "I queried the intended receiver for the original decision ID. Only my colleague queried the intended receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 3 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "Only my colleague queried the intended receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 4 direct",
+    "question": "I queried the intended receiver for the original decision ID. Only an identifier was returned.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 4 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "Only an identifier was returned.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 5 direct",
+    "question": "I queried the intended receiver for the original decision ID. A truncated checksum was retrieved.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 5 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "A truncated checksum was retrieved.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 6 direct",
+    "question": "I queried the intended receiver for the original decision ID. My original decision ID was finch-282 and I fabricated the only returned row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 6 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My original decision ID was finch-282 and I fabricated the only returned row.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 7 direct",
+    "question": "I queried the intended receiver for the original decision ID. The query returned one matching record. It also returned one matching record.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identifi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 7 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identifi"
+    ],
+    "answer": "The query returned one matching record. It also returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 8 direct",
+    "question": "I queried the intended receiver for the original decision ID. I skipped the most recent page.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 8 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still"
+    ],
+    "answer": "I skipped the most recent page.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 9 direct",
+    "question": "I queried the intended receiver for the original decision ID. My query has never successfully completed.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 9 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "My query has never successfully completed.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 10 direct",
+    "question": "I queried the intended receiver for the original decision ID. A full matching record was returned.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching en"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 10 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching en"
+    ],
+    "answer": "A full matching record was returned.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 11 direct",
+    "question": "I queried the intended receiver for the original decision ID. A full matching record was returned.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 11 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "A full matching record was returned.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 12 direct",
+    "question": "I queried the intended receiver for the original decision ID. The query returned a complete record and I compared its identifier against the receipt for the original invocation.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching en"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 12 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching en"
+    ],
+    "answer": "The query returned a complete record and I compared its identifier against the receipt for the original invocation.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 13 direct",
+    "question": "I queried the intended receiver for the original decision ID. The query returned one matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching en"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition receiver 13 clarified",
+    "question": "I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching en"
+    ],
+    "answer": "The query returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition review route 0",
+    "question": "Yesterday I ran the published Node demo with default capture and console destination. I want the token count.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr fo"
+    ]
+  },
+  {
+    "name": "Scoped claim composition review route 1",
+    "question": "Before recording the decision, the original Python application called observe(\"chain::memory:\"). The process has exited. Where can I find its decision?",
+    "expected": "memory_lost",
+    "includes": [
+      "If the original process is"
+    ]
+  },
+  {
+    "name": "Scoped claim composition review route 2",
+    "question": "briefcase-ai exec --to console -- python app.py. Both streams were retained. I need the application output on stdout.",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for t"
+    ]
+  },
+  {
+    "name": "Scoped claim composition pending correlation first run",
+    "question": "I retried a job using the same ticket, leaving two rows with the same ticket text in our original JSONL file. What do I need to identify the first run?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decis"
+    ],
+    "answer": "I retained our first run’s original decision ID, seeded-937."
+  },
+  {
+    "name": "Scoped claim composition uncertain correlation first run",
+    "question": "I retried a job using the same ticket, leaving two rows with the same ticket text in our original JSONL file. What do I need to identify the first run?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below"
+    ],
+    "answer": "I might have the first run’s original decision ID, seeded-937."
+  },
+  {
+    "name": "Scoped claim composition pending correlation original call",
+    "question": "I retried a job using the same ticket, leaving two rows with the same ticket text in our original JSONL file. What do I need to identify the first run?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decis"
+    ],
+    "answer": "I retained our original call’s original decision ID, seeded-937."
+  },
+  {
+    "name": "Scoped claim composition uncertain correlation original call",
+    "question": "I retried a job using the same ticket, leaving two rows with the same ticket text in our original JSONL file. What do I need to identify the first run?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below"
+    ],
+    "answer": "I might have the original call’s original decision ID, seeded-937."
+  },
+  {
+    "name": "Scoped claim composition pending correlation initial attempt",
+    "question": "I retried a job using the same ticket, leaving two rows with the same ticket text in our original JSONL file. What do I need to identify the first run?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decis"
+    ],
+    "answer": "I retained our initial attempt’s original decision ID, seeded-937."
+  },
+  {
+    "name": "Scoped claim composition uncertain correlation initial attempt",
+    "question": "I retried a job using the same ticket, leaving two rows with the same ticket text in our original JSONL file. What do I need to identify the first run?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below"
+    ],
+    "answer": "I might have the initial attempt’s original decision ID, seeded-937."
+  },
+  {
+    "name": "Scoped claim composition stream choice False",
+    "question": "Our Node demo used a console exporter. We retained the stdout application reply and the stderr SDK decision. Which stream should I inspect?",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for the ap"
+    ]
+  },
+  {
+    "name": "Scoped claim composition metadata selection False",
+    "question": "Our Node demo used a console exporter. We retained the stdout application reply and the stderr SDK decision. Which stream should I inspect?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr fo"
+    ],
+    "answer": "I want the SDK metadata."
+  },
+  {
+    "name": "Scoped claim composition reply selection False",
+    "question": "Our Node demo used a console exporter. We retained the stdout application reply and the stderr SDK decision. Which stream should I inspect?",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for t"
+    ],
+    "answer": "I need the application reply."
+  },
+  {
+    "name": "Scoped claim composition stream choice True",
+    "question": "Our Node demo used a console exporter. the stderr SDK decision and We retained the stdout application reply. Which stream should I inspect?",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for the ap"
+    ]
+  },
+  {
+    "name": "Scoped claim composition metadata selection True",
+    "question": "Our Node demo used a console exporter. the stderr SDK decision and We retained the stdout application reply. Which stream should I inspect?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr fo"
+    ],
+    "answer": "I want the SDK metadata."
+  },
+  {
+    "name": "Scoped claim composition reply selection True",
+    "question": "Our Node demo used a console exporter. the stderr SDK decision and We retained the stdout application reply. Which stream should I inspect?",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for t"
+    ],
+    "answer": "I need the application reply."
+  },
+  {
+    "name": "Scoped claim composition file accounting linematched",
+    "question": "I opened the original JSONL file. Every line parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition file accounting lineno-match",
+    "question": "I opened the original JSONL file. Every line parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match afte"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition file accounting rowmatched",
+    "question": "I opened the original JSONL file. Every row parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition file accounting rowno-match",
+    "question": "I opened the original JSONL file. Every row parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match afte"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition file accounting recordmatched",
+    "question": "I opened the original JSONL file. Every record parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Scoped claim composition file accounting recordno-match",
+    "question": "I opened the original JSONL file. Every record parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match afte"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
   }
 ]

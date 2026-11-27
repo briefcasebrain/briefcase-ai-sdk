@@ -170,7 +170,8 @@ def _receiver_readback(spec, clauses):
                   or re.match(spec["receiverReference"], clause, re.I))
         entry = not invalid and (_matches(spec["receiverRecord"], clause) or (identity and record))
         original_query = inspected and re.search(spec["receiverQueryTarget"], clause, re.I)
-        same_result = not invalid and record and _matches(spec["matchingResult"], clause)
+        matching = _matches(spec["matchingResult"], clause) or re.search(spec["matchingIncoming"], clause, re.I)
+        same_result = not invalid and record and matching
         roles.append((inspected, original_query, entry, same_result))
     for index, (inspected, original_query, _, _) in enumerate(roles):
         if not inspected:
@@ -601,7 +602,7 @@ def _python_choice(table, clause):
         if value.lower().startswith(("http://", "https://")):
             return ("inlineHTTP" if _http_destination(value) else "invalidPythonWeb", None)
         if value.startswith("chain:") and value[6:].strip():
-            return "chainStore", None
+            return ("chainMemory" if value[6:] == ":memory:" else "chainStore"), None
         if re.match(r"^[A-Za-z][A-Za-z0-9_.-]+:", value):
             return unknown
         return ("pythonFile", value) if value.endswith(".jsonl") else unknown
@@ -845,7 +846,7 @@ def _execution_evidence(table, source, inherited=None, guide_origin=None):
                 elif direct_url:
                     kind = "inlineHTTP" if _http_destination(choice) else "invalidPythonWeb"
                 elif choice.startswith("chain:") and choice[6:].strip():
-                    kind = "chainStore"
+                    kind = "chainMemory" if choice[6:] == ":memory:" else "chainStore"
                 elif re.match(r"^[A-Za-z][A-Za-z0-9_.-]+:", choice):
                     kind = "inlineUnknown"
                 elif choice.endswith(".jsonl"):
@@ -1059,7 +1060,18 @@ def _report_clauses(table, turns):
         text = re.sub(table["quoteSpans"], lambda match: alias(match.group(match.lastindex)), turn or "")
         text = re.sub(spec["reportURL"], url_alias, text, flags=re.I)
         text = re.sub(spec["identifierField"], lambda match: match.group(1) + " ID", text, flags=re.I)
-        reports.append(re.split(spec["split"], text, flags=re.I))
+        clauses = re.split(spec["split"], text, flags=re.I)
+        clauses = [part for clause in clauses for part in (
+            re.split(spec["reportCoordination"], clause, flags=re.I)
+            if re.search(spec["declaredIdentifier"], clause, re.I) else [clause]
+        )]
+        for index, clause in enumerate(clauses):
+            for production in spec["reportProductions"]:
+                parsed = re.fullmatch(production["pattern"], clause, re.I)
+                if parsed:
+                    clauses[index] = re.sub(r"\$(\d+)", lambda m: parsed[int(m[1])], production["canonical"])
+                    break
+        reports.append(clauses)
     return reports, quoted_values
 
 
@@ -1120,7 +1132,10 @@ def _returned_result(spec, clause, roles):
     if not head:
         return None
     fragments = tuple(spec["continuationGrammar"].items())
-    body = re.split(grammar["compare"], clause[head.end():].strip(), flags=re.I)[0]
+    operands = re.split(grammar["compare"], clause[head.end():].strip(), maxsplit=1, flags=re.I)
+    if len(operands) == 2 and not re.search(grammar["comparisonComplete"], operands[1], re.I):
+        return "unknown"
+    body = operands[0]
     if re.fullmatch(grammar["attributeHead"], head.group(), re.I) and any(
         token.fullmatch(body) for token in _continuation_patterns(fragments, tuple(grammar["identityAttribute"]))
     ):
@@ -1279,11 +1294,15 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 for target in active:
                     if "externalEvidence" in meaning or (named and target not in named):
                         attempts[current[target]].foreign_reader_only = True
+            exclusive_subject = re.match(spec["exclusiveSubject"], source_scope, re.I)
+            if exclusive_subject and named and not other_reader:
+                for other in set(origin) - named:
+                    attempts[origin[other]].unchecked = True
             if other_reader:
                 foreign_context = named or active or set(origin)
                 for target in foreign_context:
                     prior = attempts[origin[target]]
-                    if not prior.original_target or (not checked and prior.outcome is None):
+                    if exclusive_subject or not prior.original_target or (not checked and prior.outcome is None):
                         prior.foreign_reader_only = True
                 continue
             # Once a source is under inspection, a follow-on statement about it
@@ -1328,6 +1347,10 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         current[name] = event[name]
                 latest[name] = event[name]
             checks = {name: attempts[key] for name, key in event.items()}
+            if sought and re.search(spec["receiptBindsTarget"], source_scope, re.I) and (
+                not original_ids or sought == original_ids
+            ):
+                original = True
             inquiry = (re.search(spec["questionLead"], source_scope, re.I)
                        and all(re.fullmatch(spec["neutralQuestionWords"], word, re.I)
                                for word in re.findall(r"[\w-]+", source_scope)))
@@ -1342,6 +1365,9 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 linked = re.split(spec["coordinateDetail"], source_scope, flags=re.I)[1:]
                 target = re.search(spec["lookupSuffixAnchor"], source_scope[checked.end():], re.I)
                 trailing = source_scope[checked.end() + target.end():].strip(" ,") if target else ""
+                tail_parts = re.split(spec["coordinateDetail"], trailing, maxsplit=1, flags=re.I)
+                if len(tail_parts) == 2 and re.fullmatch(spec["neutralLookupTail"], tail_parts[0], re.I):
+                    trailing = tail_parts[1]
                 if trailing and not re.fullmatch(spec["neutralLookupTail"], trailing, re.I):
                     detail = re.sub(r"^(?:and|then)\s+", "", trailing, flags=re.I)
                     if not _permitted_continuation(spec, detail):
@@ -1385,11 +1411,15 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     elif returned == "neutral":
                         check.returned_unbound = True
                     elif returned in ("match", "miss"):
+                        if returned == "match" and check.outcome == "matched" and re.match(
+                            spec["additionalResult"], result_clause, re.I
+                        ):
+                            check.ambiguous = True
                         check.outcome = "matched" if returned == "match" else "no-match"
                         check.returned_unbound = False
                     if returned == "miss":
                         meaning.add("differentTarget")
-            if re.search(spec["resultOperand"]["comparison"], source_scope, re.I):
+            if re.search(spec["resultOperand"]["comparisonComplete"], source_scope, re.I):
                 for name in named or active:
                     checks[name].returned_unbound = False
             if checked:
