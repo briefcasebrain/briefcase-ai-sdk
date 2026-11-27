@@ -42757,5 +42757,1025 @@
     "includes": [
       "You reported a matching e"
     ]
+  },
+  {
+    "name": "Foreign absence storage receiver 0 0",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "answer": "The original receiver was the only source that returned zero records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage receiver 0 1",
+    "question": "The original receiver was the only source that returned zero records.",
+    "answer": "I searched the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage receiver 1 0",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "answer": "I found the original ID everywhere except in the original receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage receiver 1 1",
+    "question": "I found the original ID everywhere except in the original receiver.",
+    "answer": "I searched the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage receiver 2 0",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "answer": "Zero matches came back from the original receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage receiver 2 1",
+    "question": "Zero matches came back from the original receiver.",
+    "answer": "I searched the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage receiver 3 0",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "answer": "The original receiver had an unspecified disposition.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Foreign absence storage receiver 3 1",
+    "question": "The original receiver had an unspecified disposition.",
+    "answer": "I searched the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive storage receiver 0",
+    "question": "I searched the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "answer": "I searched the original receiver for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive storage receiver 1",
+    "question": "I searched the original receiver for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I searched the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Foreign absence storage jsonl 0 0",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "answer": "The original JSONL file was the only source that returned zero records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage jsonl 0 1",
+    "question": "The original JSONL file was the only source that returned zero records.",
+    "answer": "I searched the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage jsonl 1 0",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "answer": "I found the original ID everywhere except in the original JSONL file.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage jsonl 1 1",
+    "question": "I found the original ID everywhere except in the original JSONL file.",
+    "answer": "I searched the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage jsonl 2 0",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "answer": "Zero matches came back from the original JSONL file.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage jsonl 2 1",
+    "question": "Zero matches came back from the original JSONL file.",
+    "answer": "I searched the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence storage jsonl 3 0",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "answer": "The original JSONL file had an unspecified disposition.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Foreign absence storage jsonl 3 1",
+    "question": "The original JSONL file had an unspecified disposition.",
+    "answer": "I searched the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive storage jsonl 0",
+    "question": "I searched the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "answer": "I searched the original JSONL file for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive storage jsonl 1",
+    "question": "I searched the original JSONL file for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I searched the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver storage 0 0",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The intended downstream store was the only source that returned zero records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver storage 0 1",
+    "question": "The intended downstream store was the only source that returned zero records.",
+    "answer": "I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver storage 1 0",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "I found the original ID everywhere except in the intended downstream store.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver storage 1 1",
+    "question": "I found the original ID everywhere except in the intended downstream store.",
+    "answer": "I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver storage 2 0",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "Zero matches came back from the intended downstream store.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver storage 2 1",
+    "question": "Zero matches came back from the intended downstream store.",
+    "answer": "I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver storage 3 0",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The intended downstream store had an unspecified disposition.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver storage 3 1",
+    "question": "The intended downstream store had an unspecified disposition.",
+    "answer": "I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive receiver storage 0",
+    "question": "I searched the original receiver for the original decision ID. The query returned zero matching records.",
+    "answer": "I searched the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive receiver storage 1",
+    "question": "I searched the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I searched the original receiver for the original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver jsonl 0 0",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The original JSONL file was the only source that returned zero records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver jsonl 0 1",
+    "question": "The original JSONL file was the only source that returned zero records.",
+    "answer": "I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver jsonl 1 0",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "I found the original ID everywhere except in the original JSONL file.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver jsonl 1 1",
+    "question": "I found the original ID everywhere except in the original JSONL file.",
+    "answer": "I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver jsonl 2 0",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "Zero matches came back from the original JSONL file.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver jsonl 2 1",
+    "question": "Zero matches came back from the original JSONL file.",
+    "answer": "I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver jsonl 3 0",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The original JSONL file had an unspecified disposition.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Foreign absence receiver jsonl 3 1",
+    "question": "The original JSONL file had an unspecified disposition.",
+    "answer": "I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive receiver jsonl 0",
+    "question": "I searched the original receiver for the original decision ID. The query returned zero matching records.",
+    "answer": "I searched the original JSONL file for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive receiver jsonl 1",
+    "question": "I searched the original JSONL file for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I searched the original receiver for the original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl storage 0 0",
+    "question": "I searched the original JSONL file for the original decision ID.",
+    "answer": "The intended downstream store was the only source that returned zero records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl storage 0 1",
+    "question": "The intended downstream store was the only source that returned zero records.",
+    "answer": "I searched the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl storage 1 0",
+    "question": "I searched the original JSONL file for the original decision ID.",
+    "answer": "I found the original ID everywhere except in the intended downstream store.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl storage 1 1",
+    "question": "I found the original ID everywhere except in the intended downstream store.",
+    "answer": "I searched the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl storage 2 0",
+    "question": "I searched the original JSONL file for the original decision ID.",
+    "answer": "Zero matches came back from the intended downstream store.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl storage 2 1",
+    "question": "Zero matches came back from the intended downstream store.",
+    "answer": "I searched the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl storage 3 0",
+    "question": "I searched the original JSONL file for the original decision ID.",
+    "answer": "The intended downstream store had an unspecified disposition.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl storage 3 1",
+    "question": "The intended downstream store had an unspecified disposition.",
+    "answer": "I searched the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive jsonl storage 0",
+    "question": "I searched the original JSONL file for the original decision ID. The query returned zero matching records.",
+    "answer": "I searched the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive jsonl storage 1",
+    "question": "I searched the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I searched the original JSONL file for the original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl receiver 0 0",
+    "question": "I searched the original JSONL file for the original decision ID.",
+    "answer": "The original receiver was the only source that returned zero records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl receiver 0 1",
+    "question": "The original receiver was the only source that returned zero records.",
+    "answer": "I searched the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl receiver 1 0",
+    "question": "I searched the original JSONL file for the original decision ID.",
+    "answer": "I found the original ID everywhere except in the original receiver.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl receiver 1 1",
+    "question": "I found the original ID everywhere except in the original receiver.",
+    "answer": "I searched the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl receiver 2 0",
+    "question": "I searched the original JSONL file for the original decision ID.",
+    "answer": "Zero matches came back from the original receiver.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl receiver 2 1",
+    "question": "Zero matches came back from the original receiver.",
+    "answer": "I searched the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl receiver 3 0",
+    "question": "I searched the original JSONL file for the original decision ID.",
+    "answer": "The original receiver had an unspecified disposition.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Foreign absence jsonl receiver 3 1",
+    "question": "The original receiver had an unspecified disposition.",
+    "answer": "I searched the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive jsonl receiver 0",
+    "question": "I searched the original JSONL file for the original decision ID. The query returned zero matching records.",
+    "answer": "I searched the original receiver for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
+  },
+  {
+    "name": "Independently observed absence and positive jsonl receiver 1",
+    "question": "I searched the original receiver for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I searched the original JSONL file for the original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ]
   }
 ]

@@ -1169,7 +1169,12 @@ def _located_results(table, reports, quoted):
     """Associate a reported record with its location independently of the requested source."""
     spec = table["confirmation"]["attribution"]
     language = table["lookupLanguage"]["location"]
-    at, exclusive, linked, unresolved, completed = set(), set(), set(), set(), set()
+    # Both positive and negative observations belong to a source. An exclusive
+    # match at one source can coexist with a separately established miss at another.
+    at, unresolved = set(), set()
+    exclusive = {"matched": set(), "no-match": set()}
+    linked = {"matched": set(), "no-match": set()}
+    completed = {"matched": set(), "no-match": set()}
     owner = set()
     for report in reports:
         for clause in report:
@@ -1184,26 +1189,30 @@ def _located_results(table, reports, quoted):
             neutral = (acquisition or disowned or _context_statement(table, clause)
                        or re.fullmatch(language["neutralSource"], scope.strip(), re.I)
                        or re.fullmatch(spec["reportIntent"], scope.strip(), re.I))
+            negative = bool(re.search(language["negative"], scope, re.I))
+            polarity = "no-match" if negative else "matched"
+            restriction = re.sub(language["quantity"], " ", scope, flags=re.I)
             if named and not neutral:
-                # A competing source is material even when its predicate is outside the result grammar.
+                # An unclassified competing source cannot supply the selected source's observation.
                 unresolved.update(named)
-                if re.search(language["exclusive"], re.sub(language["quantity"], " ", scope, flags=re.I), re.I):
-                    exclusive.update(named)
-            if (re.search(language["exclude"], scope, re.I) or not re.search(language["object"], scope, re.I)
-                    or not re.search(language["result"], scope, re.I)):
+                if re.search(language["exclusive"], restriction, re.I):
+                    exclusive[polarity].update(named)
+            if re.search(language["exclude"], scope, re.I):
+                continue
+            if not negative and not (re.search(language["object"], scope, re.I)
+                                     and re.search(language["result"], scope, re.I)):
                 continue
             located = named or owner
             if len(located) != 1:
                 continue
             at.update(located)
             if re.search(language["completedRead"], scope, re.I):
-                completed.update(located)
+                completed[polarity].update(located)
             owner = located
-            if re.search(language["link"], scope, re.I):
-                linked.update(located)
-            restriction = re.sub(language["quantity"], " ", scope, flags=re.I)
+            if negative or re.search(language["link"], scope, re.I):
+                linked[polarity].update(located)
             if named and re.search(language["exclusive"], restriction, re.I):
-                exclusive.update(named)
+                exclusive[polarity].update(named)
     return at, exclusive, linked, unresolved, completed
 
 
@@ -1371,7 +1380,7 @@ def _context_statement(table, clause):
             and bool(re.fullmatch(r"[\w.:-]+" + spec["roleTail"], remaining, re.I)))
 
 
-def _confirmation_conflict(table, source, result, turns, action, facts, guide_origin):
+def _confirmation_conflict(table, source, result, turns, action, facts, guide_origin, eligible):
     """Bind an observation to its source and target before interpreting a structured outcome."""
     spec = table["confirmation"]["attribution"]
     active = set()
@@ -1837,12 +1846,13 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
         return "confirmation_unresolved_lookup" if conflict in (None, "ask_evidence") else conflict
     if needs_binding and not conflict and result != "unverified" and not accounted_result:
         conflict = "ask_evidence"
-    if result == "matched" and conflict in (None, "ask_evidence"):
+    if eligible and result in ("matched", "no-match") and conflict in (None, "ask_evidence"):
         located, exclusive, linked, unresolved, completed = _located_results(table, reports, quoted_values)
-        own_match = source in linked and (source in completed or (check.original_target and check.outcome == "matched"))
-        if exclusive - {source} or (located - {source} and not own_match):
+        own_result = source in linked[result] and (source in completed[result]
+                                                   or (check.original_target and check.outcome == result))
+        if exclusive[result] - {source} or (located - {source} and not own_result):
             return "confirmation_other_source"
-        if unresolved - {source} and not own_match:
+        if unresolved - {source} and not own_result:
             return "confirmation_unresolved_lookup"
     return conflict
 
@@ -1886,7 +1896,9 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 for turn in (question, answer or ""):
                     _source_text(table, turn, aliases)
                 origin.files = {original for path in origin.files for original in aliases.get(path, {path})}
-            conflict = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin)
+            missing = _observation_action(report)
+            conflict = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin,
+                                              eligible=not missing)
             if account and account.disputed and result != "unverified":
                 conflict = "confirmation_ambiguous"
             elif account and account.unknown_clause and account.result != "unknown" and result != "unverified":
@@ -1902,7 +1914,6 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 else:
                     agrees = (result == "matched") == (observed == "match")
                     conflict = None if agrees else "confirmation_inconsistent"
-            missing = _observation_action(report)
             disposition = ("needs_clarification" if conflict == "ask_evidence" and not missing
                            else "contradicts" if conflict or missing else "supports")
             reply = report.get("evidenceReply")
