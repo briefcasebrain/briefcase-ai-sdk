@@ -48,6 +48,13 @@ def _matches(rule: Dict[str, Any], evidence: str) -> bool:
             and not any(re.search(pattern, evidence, flags) for pattern in rule.get("none", [])))
 
 
+def _file_read_operand(table, before):
+    """The filename occupies the read verb's object span and is not a stream or a label."""
+    spec = table["lookupEvidence"]
+    return any(re.fullmatch(spec["operandWords"], before[verb.end():], re.I)
+               for verb in re.finditer(spec["fileVerb"], before, re.I))
+
+
 def _source_text(table, text, path_aliases=None):
     """Opaque values can correlate observations. Their spelling cannot select a source."""
     spans = {(match.start(1), match.end(1)) for pattern in table["opaqueBindings"]
@@ -94,7 +101,8 @@ def _source_text(table, text, path_aliases=None):
         clause = clauses[-1]
         continued = (len(clauses) > 1 and re.search(table["filePathContinuation"], clause, re.I)
                      and re.fullmatch(table["filePathAntecedent"], clauses[-2], re.I))
-        if not ((start, end) in wrapper_paths or continued or re.search(table["fileRoleBefore"], clause, re.I)
+        if not ((start, end) in wrapper_paths or continued or _file_read_operand(table, clause)
+                or re.search(table["fileRoleBefore"], clause, re.I)
                 or re.search(table["fileRoleAfter"], text[end:], re.I)):
             spans.add((start, end))
     chars = list(text)
@@ -115,16 +123,40 @@ def _positive_destinations(table, clauses):
             if any(re.search(pattern, clause, re.I) for clause in clauses for pattern in assertions)}
 
 
+def _lookup_evidence(table, evidence):
+    """Extract source, actor and action separately before asking whether a lookup still lacks information."""
+    spec = table["lookupEvidence"]
+    facts = set()
+    for clause in re.split(table["split"], evidence, flags=re.I):
+        if re.search(spec["denied"], clause, re.I) or re.search(spec["question"], clause, re.I):
+            continue
+        source = _source_text(table, clause)
+        roles = {name for name in ("originalActor", "emission", "idRole", "runtimeActor", "configure",
+                                   "consoleRole", "reader") if re.search(spec[name], source, re.I)}
+        if {"originalActor", "emission", "idRole"} <= roles:
+            identity = _entities(table, clause).get("correlation", {})
+            if identity.get("value"):
+                facts.update(("originalEmittedID", "hasID"))
+        if {"runtimeActor", "configure", "consoleRole"} <= roles and not re.search(spec["packageOnly"], source, re.I):
+            facts.update(("consoleInstalled", "console"))
+        if "reader" in roles and any(_file_read_operand(table, clause[:match.start()])
+                                     for match in re.finditer(table["fileMentions"], source, re.I)):
+            facts.add("readFileOperand")
+    return facts
+
+
 def _storage_lookup(table, evidence):
     """Relate a completed store query, the identifier searched and the returned full record."""
     spec = table["readbackPair"]
     attribution = table["confirmation"]["attribution"]
+    evidence_spec = table["lookupEvidence"]
     reports, quoted = _report_clauses(table, [evidence])
     statements = [_report_roles(attribution, clause, quoted) for clause in reports[0] if clause.strip()]
     originals = {value for roles, _ in statements for value in roles["declaredIdentifier"]}
     events = [(roles, scoped) for roles, scoped in statements
-              if not roles["declaredIdentifier"] or re.search(spec["query"], scoped, re.I)
-              or re.search(spec["returned"], scoped, re.I)]
+              if not re.search(evidence_spec["question"], scoped, re.I)
+              and (not roles["declaredIdentifier"] or re.search(spec["query"], scoped, re.I)
+                   or re.search(spec["returned"], scoped, re.I))]
     lookups = {}
     records = {}
     for index, (roles, scoped) in enumerate(events):
@@ -135,31 +167,43 @@ def _storage_lookup(table, evidence):
             continue
         if re.search(spec["denied"], clause, re.I) or re.search(spec["otherSource"], clause, re.I):
             continue
-        if re.search(spec["query"], clause, re.I) and re.search(spec["source"], clause, re.I):
+        read = (re.search(spec["query"], clause, re.I) or re.search(evidence_spec["reportedRead"], clause, re.I)
+                or (re.search(evidence_spec["reader"], clause, re.I)
+                    and re.search(evidence_spec["readEvent"], clause, re.I)
+                    and re.search(evidence_spec["independentReader"], clause, re.I)
+                    and re.search(evidence_spec["actualRead"], clause, re.I)))
+        if read and re.search(spec["source"], clause, re.I):
             target = set(roles["lookupIdentifier"])
             if target and originals:
                 lookups[index] = (target == originals and len(target) == 1, target)
             elif re.search(spec["original"], clause, re.I):
                 lookups[index] = (True, target or originals)
-        if re.search(spec["record"], clause, re.I) and re.search(spec["returned"], clause, re.I):
+            else:
+                lookups[index] = (None, target)
+        returned_record = (re.search(spec["returned"], clause, re.I)
+                           or re.search(evidence_spec["returnedContainer"], clause, re.I))
+        if re.search(spec["record"], clause, re.I) and returned_record:
             returned = set(roles["returnedIdentifier"])
-            if returned or re.search(spec["same"], clause, re.I):
-                records[index] = returned
+            original = bool(re.search(evidence_spec["originalRow"], clause, re.I))
+            if returned or original or re.search(spec["same"], clause, re.I):
+                records[index] = (returned, original)
     if lookups:
         latest = max(lookups)
         valid, target = lookups[latest]
-        if not valid:
+        if valid is False:
             return "differentStoreLookup"
-        for position, returned in records.items():
+        for position, (returned, original) in records.items():
             # Prefer the preceding lookup if a record sits between two separate reads.
             owner = next((i for i in (position, position - 1, position + 1) if i in lookups), None)
             if owner == latest:
-                if returned and not target:
+                if valid is None and not original:
                     continue
-                if returned and returned != target:
+                if returned and not target and not original:
+                    continue
+                if target and returned and returned != target:
                     return "storageIDMismatch"
                 return "linkedStoreReadback"
-        return "pendingStoreReadback"
+        return "pendingStoreReadback" if valid is not None else None
     return None
 
 
@@ -231,13 +275,26 @@ def _entities(table: Dict[str, Any], text: str) -> Dict[str, Dict[str, Any]]:
     return values
 
 
+def _complete_check(table, facts):
+    # Each source may have several possible checks. A source question still matters
+    # when the same evidence supports checks at two distinct destinations.
+    candidates = {}
+    for step in table["completeChecks"]:
+        if facts.issuperset(step["all"]) and facts.isdisjoint(step["none"]):
+            candidates.setdefault(step["source"], step["action"])
+    return next(iter(candidates.values())) if len(candidates) == 1 else None
+
+
 def _select(table: Dict[str, Any], facts: Set[str]) -> str:
     for decision in table["decisions"]:
         alternatives = decision.get("any", [])
         if (facts.issuperset(decision.get("all", [])) and facts.isdisjoint(decision.get("none", []))
                 and (not alternatives or not facts.isdisjoint(alternatives))):
-            return decision["action"]
-    return table["defaultAction"]
+            action = decision["action"]
+            if action in table["skipClarificationForCheck"]:
+                return _complete_check(table, facts) or action
+            return action
+    return _complete_check(table, facts) or table["defaultAction"]
 
 
 def _node_register(inline, arguments, *, options=False):
@@ -524,6 +581,10 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
         candidate = re.search(table["inlineNode"]["wrapperCommand"], clause) or re.search(
             table["inlineNode"]["command"], clause)
         prefix = clause[:candidate.start()] if candidate else ""
+        owner = table["launchOwner"]
+        if candidate and re.search(owner["other"], prefix, re.I) and re.search(owner["own"], prefix, re.I):
+            parts[index] = " original exporter unknown "
+            continue
         original = re.fullmatch(table["commandContext"], prefix, re.I) and re.search(
             table["launchAttribution"], prefix, re.I)
         if launch and example_next and not original:
@@ -753,6 +814,7 @@ class _SourceCheck:
     outcome: Optional[str] = None
     matching_rows: int = 0
     shared_identifier: bool = False
+    unresolved_lookup: bool = False
 
     def compare(self, source, result, action, facts):
         if self.foreign_target:
@@ -767,6 +829,8 @@ class _SourceCheck:
             return "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
         if action == "ask_id" or "unresolvedOriginal" in facts or self.shared_identifier:
             return "ask_id"
+        if self.unresolved_lookup:
+            return "confirmation_unresolved_lookup"
         if self.ambiguous:
             return "confirmation_ambiguous"
         if self.outcome and result != self.outcome:
@@ -816,17 +880,25 @@ def _report_clauses(table, turns):
     while any(prefix in (turn or "") for turn in turns):
         prefix += "q:"
 
-    def quoted_id(match):
-        value = match.group(match.lastindex)
+    def alias(value):
         if value not in quoted_ids:
-            alias = prefix + str(len(quoted_ids)) + (".jsonl" if value.lower().endswith(".jsonl") else "")
-            quoted_ids[value] = alias
-            quoted_values[alias] = value
+            local_file = value.lower().endswith(".jsonl") and "://" not in value
+            token = prefix + str(len(quoted_ids)) + (".jsonl" if local_file else "")
+            quoted_ids[value] = token
+            quoted_values[token] = value
         return quoted_ids[value]
 
-    separator = table["confirmation"]["attribution"]["split"]
-    reports = [re.split(separator, re.sub(table["quoteSpans"], quoted_id, turn or ""), flags=re.I)
-               for turn in turns]
+    def url_alias(match):
+        raw = match.group()
+        value = raw.rstrip(".,;!?")
+        return alias(value) + raw[len(value):]
+
+    spec = table["confirmation"]["attribution"]
+    reports = []
+    for turn in turns:
+        text = re.sub(table["quoteSpans"], lambda match: alias(match.group(match.lastindex)), turn or "")
+        text = re.sub(spec["reportURL"], url_alias, text, flags=re.I)
+        reports.append(re.split(spec["split"], text, flags=re.I))
     return reports, quoted_values
 
 
@@ -866,6 +938,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     """Bind an observation to its source and target before interpreting a structured outcome."""
     spec = table["confirmation"]["attribution"]
     active = set()
+    mentioned = set()
     original_marker = False
     disowned_report = set()
     launch_files = guide_origin.files
@@ -909,6 +982,17 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             subject = re.search(spec["outcomeTarget"], clause, re.I)
             if subject:
                 sought = {quoted_values.get(subject.group(1), subject.group(1))}
+            if named:
+                mentioned = named
+            unbound_source = False
+            if checked and not (named or active):
+                candidates = {kind for kind, instances in destinations.items() if instances}
+                if not candidates and re.search(spec["sourceReference"], clause, re.I):
+                    candidates = mentioned
+                if len(candidates) == 1:
+                    active = candidates
+                else:
+                    unbound_source = True
             event = dict(current)
             for name in named or active:
                 if checked or subject or re.search(spec["attempted"], clause, re.I):
@@ -920,11 +1004,28 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         current[name] = event[name]
                 latest[name] = event[name]
             checks = {name: attempts[key] for name, key in event.items()}
+            if unbound_source:
+                for kind in origin:
+                    attempts[origin[kind]].unresolved_lookup = True
             for name in named or active:
+                if checked and sought:
+                    checks[name].unresolved_lookup = not original and not bool(original_ids)
+                elif checked and original:
+                    checks[name].unresolved_lookup = False
+                wanted = destinations[name]
+                different_instance = inspected[name] and wanted and inspected[name].isdisjoint(wanted)
+                if checked and different_instance:
+                    checks[name].correct_instance = False
                 if shared_ids.intersection(event[name][2]) or (shared_unspecified and not unique_ids):
                     checks[name].shared_identifier = True
-            failed = re.search(spec["attempted"], clause, re.I) or re.search(spec["readFailed"], clause, re.I)
-            if failed or re.search(spec["unchecked"], clause, re.I):
+            failed = (re.search(spec["attempted"], clause, re.I) or re.search(spec["readFailed"], clause, re.I)
+                      or re.search(spec["readException"], clause) or re.search(spec["plannedRead"], clause, re.I))
+            uncertain_read = checked and (not qualified or re.search(spec["unclearSource"], clause, re.I)
+                                          or re.search(spec["unclearTarget"], clause, re.I))
+            if uncertain_read and not named and not active:
+                for possible in origin:
+                    attempts[origin[possible]].unchecked = True
+            if failed or uncertain_read or re.search(spec["unchecked"], clause, re.I):
                 blocked = named or active
                 active = set(blocked)
                 for target in blocked:
@@ -946,7 +1047,10 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     checks[target].matching_rows = 0
             if checked and qualified and named:
                 first = min(re.search(spec["sources"][key], source_scope, re.I).start() for key in named)
-                if re.search(spec["exclusiveSource"], clause[:first], re.I):
+                gap = clause[checked.end():first]
+                before = re.search(spec["exclusivePrefix"], clause[:checked.start()], re.I)
+                if ((before and re.fullmatch(spec["exclusiveGap"], gap, re.I))
+                        or re.fullmatch(spec["exclusiveSuffix"], gap, re.I)):
                     for target in checks.keys() - named:
                         attempts[origin[target]].unchecked = True
             if named and (checked or re.search(spec["observation"], clause, re.I)):
@@ -1105,6 +1209,7 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
         disowned = {rule["fact"] for rule in table["disownedObservations"] if re.search(rule["pattern"], source, re.I)}
         facts = (facts & set(table["rawFacts"])) | _collect_facts(table, _scoped(table, source))
     facts.update(disowned)
+    facts.update(_lookup_evidence(table, evidence))
     if ("storeQuestion" in facts or re.search(table["readbackPair"]["source"], source_question, re.I)):
         readback = _storage_lookup(table, question) if not _sensitive(table, question) else None
         if readback:
@@ -1231,6 +1336,19 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
     if key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value")):
         key = "ask_path"
     action = table["actions"][key]
+    if answer and (action["kind"] == "ask" or key == "query_storage") and not _sensitive(table, answer):
+        incoming = _lookup_evidence(table, answer)
+        combined = question + "\n" + answer
+        storage = (re.search(table["readbackPair"]["source"], combined, re.I)
+                   and _storage_lookup(table, combined) == "linkedStoreReadback")
+        if incoming or storage:
+            joined_origin = _GuideOrigin()
+            joined_key, joined = _next_step(table, combined, shell=shell, inherited=inherited,
+                                            guide_origin=joined_origin)
+            if _complete_check(table, joined) and table["actions"][joined_key]["kind"] != "ask":
+                if guide_origin is not None:
+                    guide_origin.files.update(joined_origin.files)
+                return joined_key, joined
     pending_lookup = None
     if "requiredFact" in action:
         # Keep the destination selected by the original evidence while filling the missing identifier.
@@ -1302,6 +1420,8 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
         contextual_reply = action["replyPrefix"] + reply
         reply_entities = _entities(table, contextual_reply)
         reply_id = reply_entities.get("correlation", {})
+        if key == "ask_id" and reply_id.get("value") and "originalEmittedID" in _lookup_evidence(table, reply):
+            reply_id.update({"fact": "hasID", "independent": True})
         repeated = not facts.isdisjoint(("sharedInput", "multiple"))
         shared_value = (entities.get("businessTicket") or entities.get("correlation") or {}).get("value")
         valid_id = key != "ask_id" or (reply_id.get("fact") == "hasID"
@@ -1320,6 +1440,10 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
         else:
             if key in ("ask_path", "ask_exporter"):
                 shell_path = None
+            if guide_origin is not None and key in ("ask_path", "ask_exporter") and safe_path:
+                path = reply_entities.get("path", {}).get("value")
+                if path:
+                    guide_origin.files = {path}
             if guide_origin is not None and key == "ask_id" and valid_id:
                 guide_origin.identifier = reply_id.get("value")
             entities.update(reply_entities)

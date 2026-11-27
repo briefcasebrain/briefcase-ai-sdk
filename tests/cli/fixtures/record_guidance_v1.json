@@ -15306,5 +15306,1184 @@
       "Open the original JSONL "
     ],
     "answer": "The decision ID on our original receipt is cobalt."
+  },
+  {
+    "name": "Composed source evidence AA01",
+    "question": "I found two rows with identical ticket text in auditlog.jsonl. My original invocation printed decision ID dale-427. How do I locate the corresponding record?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence AA09",
+    "question": "After exit I scanned all of daybook.jsonl from a separate process for the original unique marker cane-523. There was no matching row; every entry was from an older invocation. What can I verify from this file?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence AA10",
+    "question": "The worker installed a console exporter explicitly. I ran python stitch.py 2>service.err and retained the redirected stream. Where can I check the decision it exported?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence AA12",
+    "question": "I used a separate process to read downstream storage after the run ended. It returned a complete decision with the exact original decision ID bowl-483. Does this establish storage at that destination?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 0 0 False False",
+    "question": "My original invocation printed decision ID dawn-121. Two rows in records.jsonl have identical ticket text.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 0 0 False True",
+    "question": "My original invocation printed decision ID dawn-121. Two rows in records.jsonl have identical ticket text. What should I check?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 0 0 True False",
+    "question": "Two rows in records.jsonl have identical ticket text. My original invocation printed decision ID dawn-121.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 0 0 True True",
+    "question": "Two rows in records.jsonl have identical ticket text. My original invocation printed decision ID dawn-121. What should I check?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 0 1 False False",
+    "question": "My original invocation printed decision ID dawn-121. The same ticket appears twice in the exported file records.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 0 1 False True",
+    "question": "My original invocation printed decision ID dawn-121. The same ticket appears twice in the exported file records.jsonl. What should I check?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 0 1 True False",
+    "question": "The same ticket appears twice in the exported file records.jsonl. My original invocation printed decision ID dawn-121.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 0 1 True True",
+    "question": "The same ticket appears twice in the exported file records.jsonl. My original invocation printed decision ID dawn-121. What should I check?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 1 0 False False",
+    "question": "The original process emitted the decision ID ash-503. Two rows in records.jsonl have identical ticket text.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 1 0 False True",
+    "question": "The original process emitted the decision ID ash-503. Two rows in records.jsonl have identical ticket text. What should I check?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 1 0 True False",
+    "question": "Two rows in records.jsonl have identical ticket text. The original process emitted the decision ID ash-503.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 1 0 True True",
+    "question": "Two rows in records.jsonl have identical ticket text. The original process emitted the decision ID ash-503. What should I check?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 1 1 False False",
+    "question": "The original process emitted the decision ID ash-503. The same ticket appears twice in the exported file records.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 1 1 False True",
+    "question": "The original process emitted the decision ID ash-503. The same ticket appears twice in the exported file records.jsonl. What should I check?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 1 1 True False",
+    "question": "The same ticket appears twice in the exported file records.jsonl. The original process emitted the decision ID ash-503.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 0 1 1 True True",
+    "question": "The same ticket appears twice in the exported file records.jsonl. The original process emitted the decision ID ash-503. What should I check?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 0 0 False False",
+    "question": "Our worker explicitly installed the console exporter. I launched python work.py 2> capture.log and retained the stream.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 0 0 False True",
+    "question": "Our worker explicitly installed the console exporter. I launched python work.py 2> capture.log and retained the stream. What should I check?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 0 0 True False",
+    "question": "I launched python work.py 2> capture.log and retained the stream. Our worker explicitly installed the console exporter.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 0 0 True True",
+    "question": "I launched python work.py 2> capture.log and retained the stream. Our worker explicitly installed the console exporter. What should I check?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 0 1 False False",
+    "question": "Our worker explicitly installed the console exporter. We archived stderr for the original run.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 0 1 False True",
+    "question": "Our worker explicitly installed the console exporter. We archived stderr for the original run. What should I check?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 0 1 True False",
+    "question": "We archived stderr for the original run. Our worker explicitly installed the console exporter.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 0 1 True True",
+    "question": "We archived stderr for the original run. Our worker explicitly installed the console exporter. What should I check?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 1 0 False False",
+    "question": "The application configured a console exporter for my run. I launched python work.py 2> capture.log and retained the stream.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 1 0 False True",
+    "question": "The application configured a console exporter for my run. I launched python work.py 2> capture.log and retained the stream. What should I check?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 1 0 True False",
+    "question": "I launched python work.py 2> capture.log and retained the stream. The application configured a console exporter for my run.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 1 0 True True",
+    "question": "I launched python work.py 2> capture.log and retained the stream. The application configured a console exporter for my run. What should I check?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 1 1 False False",
+    "question": "The application configured a console exporter for my run. We archived stderr for the original run.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 1 1 False True",
+    "question": "The application configured a console exporter for my run. We archived stderr for the original run. What should I check?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 1 1 True False",
+    "question": "We archived stderr for the original run. The application configured a console exporter for my run.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 1 1 1 True True",
+    "question": "We archived stderr for the original run. The application configured a console exporter for my run. What should I check?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 0 0 False False",
+    "question": "I used an independent reader to read the downstream store after exit. The response contained a full decision bearing the original decision ID leaf-25.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 0 0 False True",
+    "question": "I used an independent reader to read the downstream store after exit. The response contained a full decision bearing the original decision ID leaf-25. What should I check?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 0 0 True False",
+    "question": "The response contained a full decision bearing the original decision ID leaf-25. I used an independent reader to read the downstream store after exit.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 0 0 True True",
+    "question": "The response contained a full decision bearing the original decision ID leaf-25. I used an independent reader to read the downstream store after exit. What should I check?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 0 1 False False",
+    "question": "I used an independent reader to read the downstream store after exit. That lookup returned a complete record with the exact original decision ID leaf-25.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 0 1 False True",
+    "question": "I used an independent reader to read the downstream store after exit. That lookup returned a complete record with the exact original decision ID leaf-25. What should I check?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 0 1 True False",
+    "question": "That lookup returned a complete record with the exact original decision ID leaf-25. I used an independent reader to read the downstream store after exit.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 0 1 True True",
+    "question": "That lookup returned a complete record with the exact original decision ID leaf-25. I used an independent reader to read the downstream store after exit. What should I check?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 1 0 False False",
+    "question": "A separate process queried the warehouse for the original decision ID. The response contained a full decision bearing the original decision ID leaf-25.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 1 0 False True",
+    "question": "A separate process queried the warehouse for the original decision ID. The response contained a full decision bearing the original decision ID leaf-25. What should I check?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 1 0 True False",
+    "question": "The response contained a full decision bearing the original decision ID leaf-25. A separate process queried the warehouse for the original decision ID.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 1 0 True True",
+    "question": "The response contained a full decision bearing the original decision ID leaf-25. A separate process queried the warehouse for the original decision ID. What should I check?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 1 1 False False",
+    "question": "A separate process queried the warehouse for the original decision ID. That lookup returned a complete record with the exact original decision ID leaf-25.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 1 1 False True",
+    "question": "A separate process queried the warehouse for the original decision ID. That lookup returned a complete record with the exact original decision ID leaf-25. What should I check?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 1 1 True False",
+    "question": "That lookup returned a complete record with the exact original decision ID leaf-25. A separate process queried the warehouse for the original decision ID.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 2 1 1 True True",
+    "question": "That lookup returned a complete record with the exact original decision ID leaf-25. A separate process queried the warehouse for the original decision ID. What should I check?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 0 0 False False",
+    "question": "I scanned all of records.jsonl for the original unique marker tulip-17. There was no matching record.",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 0 0 False True",
+    "question": "I scanned all of records.jsonl for the original unique marker tulip-17. There was no matching record. What should I check?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 0 0 True False",
+    "question": "There was no matching record. I scanned all of records.jsonl for the original unique marker tulip-17.",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 0 0 True True",
+    "question": "There was no matching record. I scanned all of records.jsonl for the original unique marker tulip-17. What should I check?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 0 1 False False",
+    "question": "I scanned all of records.jsonl for the original unique marker tulip-17. Only stale rows were present, and none matched.",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 0 1 False True",
+    "question": "I scanned all of records.jsonl for the original unique marker tulip-17. Only stale rows were present, and none matched. What should I check?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 0 1 True False",
+    "question": "Only stale rows were present, and none matched. I scanned all of records.jsonl for the original unique marker tulip-17.",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 0 1 True True",
+    "question": "Only stale rows were present, and none matched. I scanned all of records.jsonl for the original unique marker tulip-17. What should I check?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 1 0 False False",
+    "question": "I searched every row in records.jsonl for the original decision ID tulip-17. There was no matching record.",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 1 0 False True",
+    "question": "I searched every row in records.jsonl for the original decision ID tulip-17. There was no matching record. What should I check?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 1 0 True False",
+    "question": "There was no matching record. I searched every row in records.jsonl for the original decision ID tulip-17.",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 1 0 True True",
+    "question": "There was no matching record. I searched every row in records.jsonl for the original decision ID tulip-17. What should I check?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 1 1 False False",
+    "question": "I searched every row in records.jsonl for the original decision ID tulip-17. Only stale rows were present, and none matched.",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 1 1 False True",
+    "question": "I searched every row in records.jsonl for the original decision ID tulip-17. Only stale rows were present, and none matched. What should I check?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 1 1 True False",
+    "question": "Only stale rows were present, and none matched. I searched every row in records.jsonl for the original decision ID tulip-17.",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence composition 3 1 1 True True",
+    "question": "Only stale rows were present, and none matched. I searched every row in records.jsonl for the original decision ID tulip-17. What should I check?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "If the inspected rows in "
+    ]
+  },
+  {
+    "name": "Composed source evidence review 0",
+    "question": "The original exporter was memory. My teammate ran this yesterday for their own job: briefcase-ai exec --to elm.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a me"
+    ]
+  },
+  {
+    "name": "Composed source evidence review 1",
+    "question": "My original launch was briefcase-ai exec --to console -- python app.py. Before recording the decision, my Python worker called briefcase.setup(exporter=None).",
+    "expected": "config_off",
+    "includes": [
+      "The reported application "
+    ]
+  },
+  {
+    "name": "Composed source evidence review 2",
+    "question": "The original run used larch.jsonl. My original decision ID was case-A. I searched larch.jsonl for decision ID case-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisi"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence review 3",
+    "question": "The original run used a JSONL file. Its filename is unknown. I searched an unrelated file named cedar.jsonl for the original decision ID and found a matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected di"
+    ],
+    "answer": "larch.jsonl",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence review 4",
+    "question": "The original run used larch.jsonl. I opened the original file and got FileNotFoundError.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence review 5",
+    "question": "The original run used larch.jsonl. I only scanned the original file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence review 6",
+    "question": "The original run sent to receiver https://north.example.invalid. I searched receiver https://south.example.invalid for the original decision ID and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence cross turn Two entries in records.jsonl have identical ticket text. Which is mine?",
+    "question": "Two entries in records.jsonl have identical ticket text. Which is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ],
+    "answer": "My original invocation printed decision ID dawn-121."
+  },
+  {
+    "name": "Composed source evidence cross turn I launched python work.py 2> capture.log and retained the stream. Which exporter did the original worker use?",
+    "question": "I launched python work.py 2> capture.log and retained the stream. Which exporter did the original worker use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr f"
+    ],
+    "answer": "Our worker explicitly installed the console exporter."
+  },
+  {
+    "name": "Composed source evidence cross turn I used an independent reader to read downstream storage after exit. What does that establish?",
+    "question": "I used an independent reader to read downstream storage after exit. What does that establish?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned do"
+    ],
+    "answer": "The response contained a full decision bearing the original decision ID leaf-25."
+  },
+  {
+    "name": "Composed source evidence cross turn What does this prove?",
+    "question": "What does this prove?",
+    "expected": "scanned_missing",
+    "includes": [
+      "If your completed scan of"
+    ],
+    "answer": "I searched every row in records.jsonl for the original decision ID tulip-17. I found no matching record."
+  },
+  {
+    "name": "Composed source evidence negative A separate process plans to read downstream storage after exit. It would return the full row for the original ID.",
+    "question": "A separate process plans to read downstream storage after exit. It would return the full row for the original ID.",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you wan"
+    ]
+  },
+  {
+    "name": "Composed source evidence negative I read downstream storage. A complete row came back with the same ID, but I never learned which ID was searched.",
+    "question": "I read downstream storage. A complete row came back with the same ID, but I never learned which ID was searched.",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID"
+    ]
+  },
+  {
+    "name": "Composed source evidence negative Two rows in records.jsonl have identical tickets. My coworker printed decision ID fern-312 for another run. Which is mine?",
+    "question": "Two rows in records.jsonl have identical tickets. My coworker printed decision ID fern-312 for another run. Which is mine?",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID"
+    ]
+  },
+  {
+    "name": "Composed source evidence negative The worker installed a console exporter package. I launched python work.py 2> capture.log and retained the stream. Which exporter did it use?",
+    "question": "The worker installed a console exporter package. I launched python work.py 2> capture.log and retained the stream. Which exporter did it use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the or"
+    ]
+  },
+  {
+    "name": "Composed source evidence negative I scanned my stdout transcript for the original ID. The transcript mentions records.jsonl. I found no matching row.",
+    "question": "I scanned my stdout transcript for the original ID. The transcript mentions records.jsonl. I found no matching row.",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you wan"
+    ]
+  },
+  {
+    "name": "Composed source evidence exception jsonlmatched",
+    "question": "I opened the original file and got FileNotFoundError.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence future jsonlmatched",
+    "question": "I plan to inspect the original file.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence inclusive jsonlmatched",
+    "question": "I scanned the original file.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persiste"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence exclusive jsonlmatched",
+    "question": "I exclusively scanned the original file.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence exception jsonlno-match",
+    "question": "I opened the original file and got FileNotFoundError.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence future jsonlno-match",
+    "question": "I plan to inspect the original file.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence inclusive jsonlno-match",
+    "question": "I scanned the original file.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence exclusive jsonlno-match",
+    "question": "I exclusively scanned the original file.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence exception receivermatched",
+    "question": "I queried the original receiver and got ConnectionError.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence future receivermatched",
+    "question": "I plan to inspect the original receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence inclusive receivermatched",
+    "question": "I scanned the original receiver.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persiste"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence exclusive receivermatched",
+    "question": "I exclusively scanned the original receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence exception receiverno-match",
+    "question": "I queried the original receiver and got ConnectionError.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence future receiverno-match",
+    "question": "I plan to inspect the original receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence inclusive receiverno-match",
+    "question": "I scanned the original receiver.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence exclusive receiverno-match",
+    "question": "I exclusively scanned the original receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence exception storagematched",
+    "question": "I queried the original database and got TimeoutError.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence future storagematched",
+    "question": "I plan to inspect the original database.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence inclusive storagematched",
+    "question": "I scanned the original database.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence exclusive storagematched",
+    "question": "I exclusively scanned the original database.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence exception storageno-match",
+    "question": "I queried the original database and got TimeoutError.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence future storageno-match",
+    "question": "I plan to inspect the original database.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence inclusive storageno-match",
+    "question": "I scanned the original database.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence exclusive storageno-match",
+    "question": "I exclusively scanned the original database.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Composed source evidence slots jsonlTrueTrue",
+    "question": "The original run used red.events.jsonl. My original decision ID was lark-Q21. I searched red.events.jsonl for decision ID lark-Q21 and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match fo"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots jsonlTrueFalse",
+    "question": "The original run used red.events.jsonl. My original decision ID was lark-Q21. I searched blue.events.jsonl for decision ID lark-Q21 and found a matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected di"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots jsonlFalseTrue",
+    "question": "The original run used red.events.jsonl. My original decision ID was lark-Q21. I searched red.events.jsonl for decision ID dove-X71 and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisi"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots jsonlFalseFalse",
+    "question": "The original run used red.events.jsonl. My original decision ID was lark-Q21. I searched blue.events.jsonl for decision ID dove-X71 and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisi"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots receiverTrueTrue",
+    "question": "The original run sent to receiver https://red.example.invalid/a?dataset=alpha. My original decision ID was lark-Q21. I searched receiver https://red.example.invalid/a?dataset=alpha for decision ID lark-Q21 and found a matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots receiverTrueFalse",
+    "question": "The original run sent to receiver https://red.example.invalid/a?dataset=alpha. My original decision ID was lark-Q21. I searched receiver https://red.example.invalid/a?dataset=beta for decision ID lark-Q21 and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots receiverFalseTrue",
+    "question": "The original run sent to receiver https://red.example.invalid/a?dataset=alpha. My original decision ID was lark-Q21. I searched receiver https://red.example.invalid/a?dataset=alpha for decision ID dove-X71 and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots receiverFalseFalse",
+    "question": "The original run sent to receiver https://red.example.invalid/a?dataset=alpha. My original decision ID was lark-Q21. I searched receiver https://red.example.invalid/a?dataset=beta for decision ID dove-X71 and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots storageTrueTrue",
+    "question": "The original run used database https://red.example.invalid/a?dataset=alpha. My original decision ID was lark-Q21. I searched database https://red.example.invalid/a?dataset=alpha for decision ID lark-Q21 and found a matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persiste"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots storageTrueFalse",
+    "question": "The original run used database https://red.example.invalid/a?dataset=alpha. My original decision ID was lark-Q21. I searched database https://red.example.invalid/a?dataset=beta for decision ID lark-Q21 and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots storageFalseTrue",
+    "question": "The original run used database https://red.example.invalid/a?dataset=alpha. My original decision ID was lark-Q21. I searched database https://red.example.invalid/a?dataset=alpha for decision ID dove-X71 and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence slots storageFalseFalse",
+    "question": "The original run used database https://red.example.invalid/a?dataset=alpha. My original decision ID was lark-Q21. I searched database https://red.example.invalid/a?dataset=beta for decision ID dove-X71 and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence clarified The original exporter was JSONL. I searched a file named old.jsonl for the original decision ID and saw one matching row.",
+    "question": "The original exporter was JSONL. I searched a file named old.jsonl for the original decision ID and saw one matching row.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected di"
+    ],
+    "answer": "new.jsonl",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence clarified The original exporter was JSONL. I read an unrelated file named older.jsonl and found a matching record.",
+    "question": "The original exporter was JSONL. I read an unrelated file named older.jsonl and found a matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected di"
+    ],
+    "answer": "actual.jsonl",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Composed source evidence ownership colleague",
+    "question": "The original exporter was memory. My colleague ran this for their own test: briefcase-ai exec --to other.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a me"
+    ]
+  },
+  {
+    "name": "Composed source evidence ownership coworker",
+    "question": "The original exporter was memory. My coworker ran this for a different run: briefcase-ai exec --to other.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a me"
+    ]
+  },
+  {
+    "name": "Composed source evidence ownership teammate",
+    "question": "The original exporter was memory. My teammate ran this for their own job: briefcase-ai exec --to other.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a me"
+    ]
   }
 ]
