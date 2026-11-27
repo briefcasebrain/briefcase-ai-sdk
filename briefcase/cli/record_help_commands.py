@@ -25,8 +25,9 @@ def register(sub) -> None:
         description="Describe what you want to find and what you know about the original run. Pass a question "
                     "as an argument or pipe the question and any answer on separate lines. Input stays local.",
         epilog="To report a lookup in a terminal or pipe, put SOURCE RESULT READER SOURCE_MATCH TARGET_MATCH "
-               "[COVERAGE] on the last line. For a complete JSONL search with no match, "
-               "enter jsonl no-match me original original complete.",
+               "[COVERAGE] on one line. For a complete JSONL search with no match, enter jsonl no-match me "
+               "original original complete. If the command asks a follow-up about that lookup, add evidence "
+               "VALUE on a final line. Use yes, no or unsure for VALUE.",
     )
 
     def private_syntax_error(_message: str) -> None:
@@ -35,6 +36,8 @@ def register(sub) -> None:
     parser.error = private_syntax_error
     parser.add_argument("question", nargs="?", help="Question and known facts about the original run.")
     parser.add_argument("--answer", action="append", help="Answer to the guide's one clarification.")
+    parser.add_argument("--evidence-reply", action="append", metavar="{yes,no,unsure}",
+                        help="Answer to the follow-up about your reported lookup. Use only if the command asks.")
     parser.add_argument("--static", action="store_true", help="Print the complete offline guide.")
     parser.add_argument("--source", metavar="{jsonl,receiver,storage}", action="append",
                         help="Source inspected for the original decision ID or run-unique marker. Pair with --result.")
@@ -894,7 +897,9 @@ def _execution_evidence(table, source, inherited=None, guide_origin=None):
                     if candidate is not None:
                         python_choice = candidate
                     elif call.group().endswith("observe("):
-                        python_choice = None
+                        empty_environment = any(re.fullmatch(selection["noExporterEnvironment"], item, re.I)
+                                                for item in clauses)
+                        python_choice = ("pythonConsole", None) if empty_environment and not wrapper_choices else None
                 continue
             if len(calls) > 1:
                 clause = clause[:calls[0].start()] + clause[calls[-1].start():]
@@ -964,6 +969,8 @@ class _SourceCheck:
     foreign_reader_only: bool = False
     unaccounted: bool = False
     returned_unbound: bool = False
+    conflicting_results: bool = False
+    unlinked_record: bool = False
     unresolved_detail: bool = False
 
     def compare(self, source, result, action, facts):
@@ -983,10 +990,14 @@ class _SourceCheck:
             return "confirmation_unresolved_lookup"
         if self.partial and result == "no-match":
             return "confirmation_partial"
+        if self.conflicting_results:
+            return "confirmation_inconsistent"
         if self.ambiguous:
             return "confirmation_ambiguous"
         if self.outcome and result != self.outcome:
             return "confirmation_inconsistent"
+        if self.unlinked_record and self.returned_unbound and self.original_target and not self.unaccounted:
+            return "ask_evidence" if result == "matched" else "confirmation_unresolved_lookup"
         if self.unaccounted or self.returned_unbound:
             return "confirmation_unresolved_lookup"
         return None
@@ -1065,6 +1076,15 @@ def _report_clauses(table, turns):
             re.split(spec["reportCoordination"], clause, flags=re.I)
             if re.search(spec["declaredIdentifier"], clause, re.I) else [clause]
         )]
+        separated = []
+        for clause in clauses:
+            identity = re.search(spec["declaredIdentifier"], clause, re.I)
+            tail = re.match(spec["declarationTail"], clause[identity.end():], re.I) if identity else None
+            if identity and tail:
+                separated.extend([clause[:identity.end()], clause[identity.end() + tail.end():]])
+            else:
+                separated.append(clause)
+        clauses = separated
         for index, clause in enumerate(clauses):
             for production in spec["reportProductions"]:
                 parsed = re.fullmatch(production["pattern"], clause, re.I)
@@ -1145,9 +1165,17 @@ def _returned_result(spec, clause, roles):
         kind = next((name for name in ("miss", "match", "named", "neutral") if any(
             pattern.fullmatch(operand.strip()) for pattern in _continuation_patterns(fragments, tuple(grammar[name]))
         )), "unknown")
+        if kind == "neutral" and any(p.fullmatch(operand.strip()) for p in _continuation_patterns(
+            fragments, ("{{singular}}{{recordKind}}",)
+        )) and len(operands) == 1:
+            kind = "unlinked_record"
         if kind == "named" and not roles["returnedIdentifier"]:
             kind = "neutral"
         kinds.append(kind)
+    if kinds == ["unlinked_record"]:
+        return "unlinked_record"
+    if "unlinked_record" in kinds:
+        return "ambiguous"
     if "unknown" in kinds:
         return "unknown"
     if kinds.count("match") > 1:
@@ -1249,12 +1277,16 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     unbound_details = []
     inspected_sources = set()
     background_sources = set()
+    narrative_gap = False
     if "readDifferentPath" in facts:
         attempts[origin["jsonl"]].correct_instance = False
     for turn_index, clauses in enumerate(reports):
         if turn_index and not active and action in ("query_storage", "stored") and source == "storage":
             active = {source}
         for clause in clauses:
+            if re.fullmatch(spec["narrativeGap"], clause, re.I):
+                narrative_gap = True
+                continue
             roles, source_scope = _report_roles(spec, clause, quoted_values)
             # The writer's output and a retained ID describe the evidence used for
             # a lookup. Neither assertion reports that the reader inspected a row.
@@ -1302,7 +1334,10 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 foreign_context = named or active or set(origin)
                 for target in foreign_context:
                     prior = attempts[origin[target]]
-                    if exclusive_subject or not prior.original_target or (not checked and prior.outcome is None):
+                    excluded_reader = re.search(spec["readerExcluded"], source_scope, re.I)
+                    if exclusive_subject or excluded_reader or not prior.original_target or (
+                        not checked and prior.outcome is None
+                    ):
                         prior.foreign_reader_only = True
                 continue
             # Once a source is under inspection, a follow-on statement about it
@@ -1404,11 +1439,18 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     continue
                 for name in owners:
                     check = checks[name]
+                    if returned in ("match", "miss") and not checked and check.outcome:
+                        check.conflicting_results |= check.outcome != ("matched" if returned == "match" else "no-match")
+                    if (returned == "named" and check.outcome == "matched"
+                            and re.search(spec["returnAdditiveNamed"], result_clause, re.I)
+                            and original_ids.intersection(roles["returnedIdentifier"])):
+                        check.ambiguous = True
                     if returned == "ambiguous":
                         check.ambiguous = True
                     elif returned == "unknown":
                         check.unaccounted = True
-                    elif returned == "neutral":
+                    elif returned in ("neutral", "unlinked_record"):
+                        check.unlinked_record = returned == "unlinked_record"
                         check.returned_unbound = True
                     elif returned in ("match", "miss"):
                         if returned == "match" and check.outcome == "matched" and re.match(
@@ -1622,7 +1664,13 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             check.outcome = "matched"
         elif "storageIDMismatch" in facts:
             check.outcome = "no-match"
-    return check.compare(source, result, action, facts)
+    conflict = check.compare(source, result, action, facts)
+    if narrative_gap and any(not kinds or source in kinds for kinds, _ in unbound_details):
+        return conflict or "confirmation_unresolved_lookup"
+    accounted_result = check.original_target and check.outcome == result
+    if narrative_gap and not conflict and result != "unverified" and not accounted_result:
+        return "ask_evidence"
+    return conflict
 
 
 def _observation_action(report):
@@ -1659,7 +1707,20 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                     _source_text(table, turn, aliases)
                 origin.files = {original for path in origin.files for original in aliases.get(path, {path})}
             conflict = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin)
-            key = conflict or _observation_action(report) or outcome
+            missing = _observation_action(report)
+            disposition = ("needs_clarification" if conflict == "ask_evidence" and not missing
+                           else "contradicts" if conflict or missing else "supports")
+            reply = report.get("evidenceReply")
+            followup = table["confirmation"]["clarification"]
+            if reply is not None and (disposition != "needs_clarification" or reply not in followup["choices"]):
+                raise _SessionError("Invalid record-help arguments. See record-help --help.")
+            if disposition == "needs_clarification":
+                if reply is None:
+                    prompt = followup["match" if result == "matched" else "miss"]
+                    return "ask_evidence", prompt.format(source=followup["sources"][source])
+                key = outcome if reply == "yes" else "confirmation_unresolved_lookup"
+            else:
+                key = missing if conflict == "ask_evidence" else conflict or missing or outcome
     return key, table["actions"][key]["text"]
 
 
@@ -2157,6 +2218,13 @@ def _session(table, args, turns):
                     raise _SessionError("Choose one supported value for each observation field. See --help.")
                 pair[option] = values[0]
     lines = ([args.question] if args.question is not None else []) + [line for line in turns if line.strip()]
+    replies = list(getattr(args, "evidence_reply", None) or [])
+    for index, line in enumerate(list(lines)):
+        if re.match(r"^evidence(?:\s|$)", line, re.I):
+            if index != len(lines) - 1 or len(line.split()) != 2:
+                raise _SessionError("Invalid record-help arguments. See record-help --help.")
+            replies.append(line.split()[1])
+            lines.pop()
     reports = [(index, item) for index, line in enumerate(lines) if (item := _confirmation(table, line))]
     if ((answer and _confirmation(table, answer)) or
             (reports and (pair or len(reports) != 1 or reports[0][0] != len(lines) - 1))):
@@ -2164,6 +2232,11 @@ def _session(table, args, turns):
     if reports:
         pair = reports[0][1]
         lines.pop()
+    if replies:
+        choices = table["confirmation"]["clarification"]["choices"]
+        if args.static or not pair or len(replies) != 1 or replies[0] not in choices:
+            raise _SessionError("Invalid record-help arguments. See record-help --help.")
+        pair["evidenceReply"] = replies[0]
     if len(lines) > (1 if answer is not None else 2):
         raise _SessionError("Supply one clarification answer, once.")
     return (lines[0] if lines else ""), (answer if answer is not None else next(iter(lines[1:]), None)), pair
@@ -2220,18 +2293,20 @@ def _guide_session(args) -> int:
         if eof:
             return _session(table, args, turns)
         print(prompt, end="", flush=True)
-        raw = sys.stdin.readline()
-        if not raw:
+        for raw in sys.stdin:
+            line = raw.strip()
+            if line:
+                turns.append(line)
+                break
+        else:
             eof = True
-            return _session(table, args, turns)
-        line = raw.strip()
-        turns.append(line)
-        if _confirmation(table, line) or not line.strip():
+        return _session(table, args, turns)
+
+    def finish_report():
+        nonlocal eof
+        if interactive and not eof:
             print(f"Press {eof_hint} on an empty line to finish this report: ", end="", flush=True)
-            # A blank line can occur inside a paste. Only EOF delimits the full report.
-            for remainder in sys.stdin:
-                if remainder.strip():
-                    turns.append(remainder.strip())
+            turns.extend(line.strip() for line in sys.stdin if line.strip())
             eof = True
         return _session(table, args, turns)
 
@@ -2272,8 +2347,27 @@ def _guide_session(args) -> int:
                 previous_key = applied
             question, answer, confirmation = read_turn(f"Confirm what you found or end input ({eof_hint}): ")
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
-    if not prompted or confirmation or key != previous_key:
+    evidence_prompted = False
+    if interactive and confirmation and (turns or key == "ask_evidence"):
+        if key == "ask_evidence" and not eof:
+            print(text, flush=True)
+            evidence_prompted = True
+            print(table["confirmation"]["clarification"]["help"], flush=True)
+            raw = sys.stdin.readline()
+            if raw:
+                value = raw.strip()
+                if value in table["confirmation"]["clarification"]["choices"]:
+                    value = "evidence " + value
+                if value:
+                    turns.append(value)
+            else:
+                eof = True
+        question, answer, confirmation = finish_report()
+        key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
+    if (not prompted or confirmation or key != previous_key) and not (evidence_prompted and key == "ask_evidence"):
         print(text)
+        if key == "ask_evidence":
+            print(table["confirmation"]["clarification"]["help"])
     if not prompted and key in table["confirmation"]["next"]:
         print(table["confirmation"]["instruction"])
     if key == table["fallback"]:

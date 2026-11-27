@@ -16,7 +16,12 @@ def test_shared_record_guidance(case):
     confirmation = case.get("confirmation")
     action, text = route(TABLE, case["question"], case.get("answer"), case.get("shell"), confirmation=confirmation)
     assert action == case["expected"]
-    assert text == TABLE["actions"][action]["text"]
+    if action == "ask_evidence":
+        followup = TABLE["confirmation"]["clarification"]
+        outcome = "match" if confirmation["result"] == "matched" else "miss"
+        assert text == followup[outcome].format(source=followup["sources"][confirmation["source"]])
+    else:
+        assert text == TABLE["actions"][action]["text"]
     assert "{" not in text and "}" not in text
     for fragment in case["includes"]:
         assert fragment in text
@@ -594,3 +599,48 @@ def test_one_eof_finishes_optional_observation(monkeypatch, capsys, details):
     question = "I queried the intended downstream store for the original decision ID."
     assert main(["record-help", question]) == 0
     assert stream.ended and "You reported" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("terminal", [True, False])
+@pytest.mark.parametrize("reply", ["yes", "no", "unsure", None])
+def test_one_evidence_reply(terminal, reply, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    question = "I queried the intended downstream store for the original decision ID."
+    detail = "My written notes do not specify which identifier I searched."
+    lines = [question, detail, "storage matched me original original"]
+    if reply:
+        lines.append(reply if terminal else "evidence " + reply)
+    stream = StringIO("\n".join(lines) + "\n")
+    monkeypatch.setattr(stream, "isatty", lambda: terminal)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: terminal)
+    monkeypatch.setattr("sys.stdin", stream)
+    assert main(["record-help"]) == 0
+    output = capsys.readouterr().out
+    assert output.count("You reported") == int(reply == "yes")
+    if not reply or terminal:
+        assert output.count("Did you personally search the intended downstream store") == 1
+
+
+@pytest.mark.parametrize("reply,detail,tail,valid", [
+    ("yes", "My written notes do not specify which identifier I searched.", "", True),
+    ("no", "My written notes do not specify which identifier I searched.", "", True),
+    ("yes", "My colleague queried the store without me.", "", False),
+    ("yes", "The query returned a full matching record.", "", False),
+    ("yes", "My written notes do not specify which identifier I searched.", "evidence yes", False),
+    ("private-19", "My written notes do not specify which identifier I searched.", "", False),
+])
+def test_evidence_reply_flags_validate_entire_session(reply, detail, tail, valid, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    question = "I queried the intended downstream store for the original decision ID."
+    monkeypatch.setattr("sys.stdin", StringIO(tail))
+    args = ["record-help", question, "--answer", detail, "--source", "storage", "--result", "matched",
+            "--reader", "me", "--source-match", "original", "--target-match", "original", "--evidence-reply", reply]
+    assert main(args) == (0 if valid else 2)
+    output = capsys.readouterr()
+    assert output.out.count("You reported") == int(valid and reply == "yes")
+    assert "private-19" not in output.err + output.out

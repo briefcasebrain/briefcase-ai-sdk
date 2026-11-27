@@ -31724,9 +31724,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "confirmation_unresolved_lookup",
+    "expected": "ask_evidence",
     "includes": [
-      "Check which source you searched and"
+      "Did you personally search"
     ],
     "answer": "The query returned a row."
   },
@@ -31740,9 +31740,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "confirmation_unresolved_lookup",
+    "expected": "ask_evidence",
     "includes": [
-      "Check which source you searched and"
+      "Did you personally search"
     ]
   },
   {
@@ -31755,9 +31755,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "confirmation_unresolved_lookup",
+    "expected": "ask_evidence",
     "includes": [
-      "Check which source you searched and"
+      "Did you personally search"
     ]
   },
   {
@@ -32138,9 +32138,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "confirmation_unresolved_lookup",
+    "expected": "ask_evidence",
     "includes": [
-      "Check which source you searched and"
+      "Did you personally search"
     ],
     "answer": "The query returned a row."
   },
@@ -32154,9 +32154,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "confirmation_unresolved_lookup",
+    "expected": "ask_evidence",
     "includes": [
-      "Check which source you searched and"
+      "Did you personally search"
     ]
   },
   {
@@ -32169,9 +32169,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "confirmation_unresolved_lookup",
+    "expected": "ask_evidence",
     "includes": [
-      "Check which source you searched and"
+      "Did you personally search"
     ]
   },
   {
@@ -32552,9 +32552,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "confirmation_unresolved_lookup",
+    "expected": "ask_evidence",
     "includes": [
-      "Check which source you searched and"
+      "Did you personally search"
     ],
     "answer": "The query returned a row."
   },
@@ -32568,9 +32568,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "confirmation_unresolved_lookup",
+    "expected": "ask_evidence",
     "includes": [
-      "Check which source you searched and"
+      "Did you personally search"
     ]
   },
   {
@@ -32583,9 +32583,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "confirmation_unresolved_lookup",
+    "expected": "ask_evidence",
     "includes": [
-      "Check which source you searched and"
+      "Did you personally search"
     ]
   },
   {
@@ -34353,5 +34353,1605 @@
       "targetMatch": "original",
       "coverage": "complete"
     }
+  },
+  {
+    "name": "Report reconciliation AL09 first",
+    "question": "I reopened the exact JSONL file from my original writer config, elmbrook.jsonl, myself after the writer exited. I used the original working directory; every row parsed successfully. I examined all rows for my original run-unique marker willowfin-527 and found none. What does that show?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL fil"
+    ]
+  },
+  {
+    "name": "Report reconciliation AL09 result",
+    "question": "I reopened the exact JSONL file from my original writer config, elmbrook.jsonl, myself after the writer exited. I used the original working directory; every row parsed successfully. I examined all rows for my original run-unique marker willowfin-527 and found none. What does that show?",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match after"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation AL09 incompatible",
+    "question": "I reopened the exact JSONL file from my original writer config, elmbrook.jsonl, myself after the writer exited. I used the original working directory; every row parsed successfully. I examined all rows for my original run-unique marker willowfin-527 and found none. What does that show?",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts wi"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation AL11 first",
+    "question": "I personally checked the receiver named in the original worker configuration for original decision ID raven-681 from my launch receipt. I found an incoming entry with that exact ID there. I have no downstream storage readback. What does my check verify?",
+    "expected": "storage",
+    "includes": [
+      "A receiver entry that match"
+    ]
+  },
+  {
+    "name": "Report reconciliation AL11 result",
+    "question": "I personally checked the receiver named in the original worker configuration for original decision ID raven-681 from my launch receipt. I found an incoming entry with that exact ID there. I have no downstream storage readback. What does my check verify?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching ent"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation AL11 incompatible",
+    "question": "I personally checked the receiver named in the original worker configuration for original decision ID raven-681 from my launch receipt. I found an incoming entry with that exact ID there. I have no downstream storage readback. What does my check verify?",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts wi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation AL12 first",
+    "question": "After the writer exited I personally queried the downstream store named in that original deployment configuration. I used the original decision ID fennel-592 from the receipt and retrieved the full record with that same ID. What does that independent query prove?",
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstream store"
+    ]
+  },
+  {
+    "name": "Report reconciliation AL12 result",
+    "question": "After the writer exited I personally queried the downstream store named in that original deployment configuration. I used the original decision ID fennel-592 from the receipt and retrieved the full record with that same ID. What does that independent query prove?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching rec"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation AL12 incompatible",
+    "question": "After the writer exited I personally queried the downstream store named in that original deployment configuration. I used the original decision ID fennel-592 from the receipt and retrieved the full record with that same ID. What does that independent query prove?",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts wi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 0 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "The receiver alone returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 0 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. The receiver alone returned one matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 1 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "The receiver was the only source I checked.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 1 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. The receiver was the only source I checked.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 2 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "My colleague alone queried the original JSONL file.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 2 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. My colleague alone queried the original JSONL file.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 3 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "My colleague queried the original JSONL file without me.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 3 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. My colleague queried the original JSONL file without me.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 4 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My original decision ID was oak-17, with pine-19 on the returned record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 4 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. My original decision ID was oak-17, with pine-19 on the returned record.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 5 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My original decision ID was oak-17, with the only returned record fabricated by me.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 5 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. My original decision ID was oak-17, with the only returned record fabricated by me.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 6 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still "
+    ],
+    "answer": "My original decision ID was oak-17, with several pages still unread.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 6 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. My original decision ID was oak-17, with several pages still unread.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 7 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "My original decision ID was oak-17, with the lookup still in progress.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 7 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. My original decision ID was oak-17, with the lookup still in progress.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 8 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts wi"
+    ],
+    "answer": "The query returned one matching record. The query returned no matching records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 8 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. The query returned one matching record. The query returned no matching records.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts wi"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 9 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching r"
+    ],
+    "answer": "My query was pending. The query has now finished. The query returned a full record with that same ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl 9 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. My query was pending. The query has now finished. The query returned a full record with that same ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching r"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl matched gap None",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search t"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl matched gap yes",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching r"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl matched gap no",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl matched gap unsure",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl no-match gap None",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search a"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl no-match gap yes",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match after"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl no-match gap no",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl no-match gap unsure",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Report reconciliation jsonl two same IDs",
+    "question": "My original decision ID was oak-17. My original decision ID was oak-17. I queried the original JSONL file for the original decision ID. The query returned one matching record. It also returned a record with ID oak-17.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identifie"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 0 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "The store alone returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 0 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID. The store alone returned one matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 1 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "The store was the only source I checked.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 1 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID. The store was the only source I checked.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 2 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "My colleague alone queried the intended receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 2 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID. My colleague alone queried the intended receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 3 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "My colleague queried the intended receiver without me.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 3 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID. My colleague queried the intended receiver without me.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 4 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My original decision ID was oak-17, with pine-19 on the returned record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 4 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID. My original decision ID was oak-17, with pine-19 on the returned record.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 5 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My original decision ID was oak-17, with the only returned record fabricated by me.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 5 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID. My original decision ID was oak-17, with the only returned record fabricated by me.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 6 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still "
+    ],
+    "answer": "My original decision ID was oak-17, with several pages still unread.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 6 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID. My original decision ID was oak-17, with several pages still unread.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 7 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "My original decision ID was oak-17, with the lookup still in progress.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 7 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID. My original decision ID was oak-17, with the lookup still in progress.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 8 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts wi"
+    ],
+    "answer": "The query returned one matching record. The query returned no matching records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 8 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID. The query returned one matching record. The query returned no matching records.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts wi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 9 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching ent"
+    ],
+    "answer": "My query was pending. The query has now finished. The query returned a full record with that same ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver 9 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID. My query was pending. The query has now finished. The query returned a full record with that same ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching ent"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver matched gap None",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search t"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver matched gap yes",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching ent"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver matched gap no",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver matched gap unsure",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver no-match gap None",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search a"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver no-match gap yes",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no match in th"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver no-match gap no",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver no-match gap unsure",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Report reconciliation receiver two same IDs",
+    "question": "My original decision ID was oak-17. My original decision ID was oak-17. I queried the intended receiver for the original decision ID. The query returned one matching record. It also returned a record with ID oak-17.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identifie"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 0 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "The receiver alone returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 0 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. The receiver alone returned one matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 1 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "The receiver was the only source I checked.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 1 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. The receiver was the only source I checked.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 2 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "My colleague alone queried the intended downstream store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 2 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. My colleague alone queried the intended downstream store.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 3 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "My colleague queried the intended downstream store without me.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 3 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. My colleague queried the intended downstream store without me.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 4 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My original decision ID was oak-17, with pine-19 on the returned record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 4 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. My original decision ID was oak-17, with pine-19 on the returned record.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 5 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My original decision ID was oak-17, with the only returned record fabricated by me.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 5 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. My original decision ID was oak-17, with the only returned record fabricated by me.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 6 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still "
+    ],
+    "answer": "My original decision ID was oak-17, with several pages still unread.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 6 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. My original decision ID was oak-17, with several pages still unread.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 7 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "answer": "My original decision ID was oak-17, with the lookup still in progress.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 7 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. My original decision ID was oak-17, with the lookup still in progress.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 8 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts wi"
+    ],
+    "answer": "The query returned one matching record. The query returned no matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 8 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. The query returned one matching record. The query returned no matching records.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts wi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 9 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching rec"
+    ],
+    "answer": "My query was pending. The query has now finished. The query returned a full record with that same ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage 9 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. My query was pending. The query has now finished. The query returned a full record with that same ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching rec"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage matched gap None",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search t"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage matched gap yes",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching rec"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Report reconciliation storage matched gap no",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Report reconciliation storage matched gap unsure",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Report reconciliation storage no-match gap None",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search a"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation storage no-match gap yes",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no match in yo"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Report reconciliation storage no-match gap no",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Report reconciliation storage no-match gap unsure",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sear"
+    ],
+    "answer": "My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Report reconciliation storage two same IDs",
+    "question": "My original decision ID was oak-17. My original decision ID was oak-17. I queried the intended downstream store for the original decision ID. The query returned one matching record. It also returned a record with ID oak-17.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identifie"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Report reconciliation retention",
+    "question": "Yesterday I ran the published Node demo with default capture and console destination. I discarded stderr. I want the token count.",
+    "expected": "console_discarded_metadata",
+    "includes": [
+      "Check any other saved copy "
+    ]
+  },
+  {
+    "name": "Report reconciliation python console default",
+    "question": "Before recording the decision, the original Python application called observe(). No exporter or OpenTelemetry environment variables were set. Both streams were retained. Where should I look for the decision JSON?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for"
+    ]
   }
 ]
