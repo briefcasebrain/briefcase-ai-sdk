@@ -211,6 +211,10 @@
     "node_startup": {
       "kind": "action",
       "text": "Check the original Node preload startup diagnostic and its effective OTLP endpoint. Check for successful initialization before searching the collector for the original decision."
+    },
+    "worker_forward": {
+      "kind": "action",
+      "text": "Check the main thread's exporter and its retained output. A worker created after the main thread started observing forwards decisions to that thread. Verify the original decision at the main thread's destination."
     }
   },
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
@@ -236,7 +240,7 @@
       "\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|moved|reconfigured|replaced|overrode|unset|reset)\\b[^.!?;\\n]{0,65}\\b(?:exporter|configuration|settings?|environment|variables?|destination)s?\\b"
     ]
   },
-  "revision": 16,
+  "revision": 17,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -873,6 +877,28 @@
       "all": [
         "(?<!not )\\b(?:a|the|one|our|my|its)\\s+(?:run[- ]unique|unique|original|correlation|decision)\\s+(?:marker|identifier|id|value)\\s+(?:still\\s+)?(?:survives?|remains? available|was retained|is available|was saved)\\b"
       ]
+    },
+    "pythonMemoryExample": {
+      "scope": "clause",
+      "all": [
+        "^\\s*(?:(?:the|verbatim|stock|documented|published|original|unmodified)\\s+)*(?:python\\s+memory|memory\\s+python)\\s+(?:example|quickstart|demo)\\b"
+      ]
+    },
+    "nodeDemoConsole": {
+      "scope": "clause",
+      "all": [
+        "^\\s*(?:(?:the|published|documented|stock|unmodified|original)\\s+)*node\\s+(?:preload\\s+)?(?:demo|example|quickstart)\\s+(?:with|used|using|selected)\\s+(?:(?:the |its )?(?:default capture|default metadata capture)\\s+and\\s+)?(?:the |its )?console\\s+(?:destination|exporter)\\b"
+      ]
+    },
+    "workerForward": {
+      "scope": "text",
+      "all": [
+        "\\bworker thread\\b",
+        "\\bmain thread\\b[^.;!?\\n]{0,65}\\b(?:already observing|already recording|started observing)\\b[^.;!?\\n]{0,55}\\bbefore\\b"
+      ],
+      "none": [
+        "\\b(?:not|never|unknown|uncertain|might|maybe)\\s+(?:already |have been )?observing"
+      ]
     }
   },
   "decisions": [
@@ -880,6 +906,12 @@
       "action": "inactive_preload",
       "all": [
         "inactivePreload"
+      ]
+    },
+    {
+      "action": "worker_forward",
+      "all": [
+        "workerForward"
       ]
     },
     {
@@ -1283,7 +1315,8 @@
       ],
       "any": [
         "memory",
-        "quickstart"
+        "quickstart",
+        "pythonMemoryExample"
       ]
     },
     {
@@ -1600,6 +1633,21 @@
     {
       "action": "node_console",
       "all": [
+        "nodeDemoConsole",
+        "metadata"
+      ],
+      "none": [
+        "memory",
+        "file",
+        "otlp",
+        "http",
+        "inherited",
+        "alternateScript"
+      ]
+    },
+    {
+      "action": "node_console",
+      "all": [
         "node",
         "wantMeta"
       ],
@@ -1694,7 +1742,8 @@
           "shellClue",
           "console",
           "genericResult",
-          "jsonl"
+          "jsonl",
+          "uncertainPrivateDestination"
         ]
       }
     ],
@@ -1850,7 +1899,8 @@
           "console",
           "genericResult",
           "jsonl",
-          "remoteLaunch"
+          "remoteLaunch",
+          "uncertainPrivateDestination"
         ]
       },
       {
@@ -1868,7 +1918,8 @@
         "drop": [
           "shellClue",
           "alternateScript",
-          "remoteLaunch"
+          "remoteLaunch",
+          "uncertainPrivateDestination"
         ],
         "affirmative": "console"
       },
@@ -1883,7 +1934,8 @@
         ],
         "action": "otlp",
         "drop": [
-          "remoteLaunch"
+          "remoteLaunch",
+          "uncertainPrivateDestination"
         ],
         "affirmative": "otlp"
       },
@@ -1898,7 +1950,8 @@
         ],
         "action": "receiver",
         "drop": [
-          "remoteLaunch"
+          "remoteLaunch",
+          "uncertainPrivateDestination"
         ],
         "affirmative": "http"
       },
@@ -1912,7 +1965,8 @@
         ],
         "action": "memory_only",
         "drop": [
-          "remoteLaunch"
+          "remoteLaunch",
+          "uncertainPrivateDestination"
         ],
         "affirmative": "memory"
       }
@@ -1927,7 +1981,10 @@
           "\\b(?:probably|perhaps|potentially|possibly|i guess|i suspect|i suppose|nope|nah|no idea|not positive|not certain|presumably|seems? like|likely|best guess)\\b"
         ],
         "action": "otlp",
-        "affirmative": "otlp"
+        "affirmative": "otlp",
+        "drop": [
+          "uncertainPrivateDestination"
+        ]
       },
       {
         "none": [
@@ -1938,7 +1995,10 @@
           "\\b(?:probably|perhaps|potentially|possibly|i guess|i suspect|i suppose|nope|nah|no idea|not positive|not certain|presumably|seems? like|likely|best guess)\\b"
         ],
         "action": "receiver",
-        "affirmative": "http"
+        "affirmative": "http",
+        "drop": [
+          "uncertainPrivateDestination"
+        ]
       }
     ]
   },
@@ -2398,6 +2458,12 @@
         ]
       },
       {
+        "fact": "inlineStartup",
+        "all": [
+          "(?:^|\\n)DIRECT_WEB=unverified(?=\\n|$)"
+        ]
+      },
+      {
         "fact": "inlineHTTP",
         "all": [
           "(?:^|\\n)DIRECT_WEB=valid(?=\\n|$)"
@@ -2482,7 +2548,8 @@
     "endpointSyntax": "^https?://(?:[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*|(?:[0-9]{1,3}\\.){3}[0-9]{1,3}|\\[[a-f0-9:]+\\])(?::[0-9]{1,5})?(?:/[a-z0-9/_.~%:+-]*)?$",
     "preloadSource": "\\b(?:node (?:auto[- ]?)?preload|original preload)\\b[^.;!?\\n]{0,45}\\b(?:inherited|ran|launched|used)\\b",
     "nodeOptionsOnly": "\\b(?:node_options\\s*=|(?:only|solely|loaded|inherited) (?:from |through |via |in )*node_options)\\b",
-    "registerOption": "(?:^|\\s)(?:--import|--require|--loader|--experimental-loader|-r)(?:\\s+|=)[\"\\x27]?@briefcase-ai/auto/register(?:\\.js)?[\"\\x27]?(?=$|\\s)"
+    "registerOption": "(?:^|\\s)(?:--import|--require|--loader|--experimental-loader|-r)(?:\\s+|=)[\"\\x27]?@briefcase-ai/auto/register(?:\\.js)?[\"\\x27]?(?=$|\\s)",
+    "explicitPreload": "\\b(?:the |my |our |original )?(?:node )?preload\\s+(?:(?:was|is) )?(?:also )?(?:passed|loaded|supplied|specified|included|given) (?:directly |explicitly )?(?:on|via|through|in) (?:the |its |my |our |original )?(?:command line|execargv)\\b"
   },
   "privateJobMarker": {
     "declaration": "\\bjob token\\s+(?:(?:is|was|of)\\s+)?[\"\\x27`]?([\\w-]+(?:[.:/@+%-][\\w:-]+)*)[\"\\x27`]?\\s+(?:was|is)\\s+unique to (?:this|my|our|that|the original) (?:invocation|job|run|attempt|call)\\b",
@@ -2582,7 +2649,7 @@
   "launchCommand": "(?:^|\\s|[:`])(?:python(?:[23](?:\\.\\d+)?)?|node(?:js)?|bun|deno|npm|npx|uv|bash|sh|zsh|\\./[\\w./-]+)\\s+(?=(?:-|[\\w./-]+\\.(?:py|[cm]?js|ts|sh)\\b|run\\s))",
   "commandClauseSplit": "\\n+|[.!?](?=\\s|$)|\\b(?:but|whereas|however)\\b|\\bwhile (?=(?:my|our|the original|another|the other)\\b)|,?\\s+and (?=(?:my|our|the original) (?:actual |original )?(?:process|run|worker|launcher)\\b)|,?\\s+(?:and|while)\\s+(?=(?:(?:another|the other|an? unrelated|an? different|an? separate|an? previous|unrelated|someone else.s)\\s+(?:(?:python|node|local|hosted|separate|earlier|previous)\\s+){0,3}(?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)\\b|(?:my|our|the) (?:original|actual|target) (?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)))",
   "commandToken": "\"(?:\\\\.|[^\"\\\\\\n])*\"|'[^'\\n]*'|(;|&&|\\|\\||\\||(?<!\\S)#)",
-  "destinationAlternative": "(?:,?\\s+(?:(?:and|but)\\s+)?(?:(?:(?:did|does|was|is)\\s+not|didn.t|doesn.t|wasn.t|isn.t|never)\\s+(?:use|select(?:ed)?|enabl(?:e|ed)|configur(?:e|ed)(?: for| with)?)|not|rather than|instead of)\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+exporter)?\\b)",
+  "destinationAlternative": "(?:,?\\s+(?:(?:and|but)\\s+)?(?:(?:(?:did|does|was|is)\\s+not|didn.t|doesn.t|wasn.t|isn.t|never)\\s+(?:use|select(?:ed)?|enabl(?:e|ed)|configur(?:e|ed)(?: for| with)?)|not|rather than|instead of)\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+exporter)?\\b)|\\bneither\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+exporter)?\\s+nor\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+exporter)?\\b",
   "nonOriginalCommand": "\\b(?:for example|e\\.g\\.|example command|as an example|illustrat(?:ive|ion)|sample command|hypothetical|in future|next time|next run|plan to|would (?:run|launch|use)|could (?:run|launch|use)|might (?:run|launch|use)|if (?:you|i|we) (?:run|launch|use)|(?:do not|did not|didn.t|never) (?:run|launch|execute))\\b",
   "positiveDestinations": {
     "otlp": [
@@ -2632,7 +2699,10 @@
   ],
   "opaqueBindings": [
     "\\b(?:[\\w -]{0,24}(?:token|password|secret|credential)|(?:\\w+[ -])?(?:opaque value|field value|identifier|marker|token|handle|nickname|credential)|api[ _-]+key|ticket(?: number| value)?|(?:decision|run|trace)[ _-]+id|(?:original|unique) (?:marker|id|identifier|correlation))\\s*(?:(?:is set to|was set to|is|was|equals|set to|assigned to|recorded as)\\s+|[:=#]\\s*)+(\"[^\"\\n]*\"|'[^'\\n]*'|[^\\s,;]+)",
-    "\\b(?:decision[_ -]id|trace[_ -]id|run[_ -]id|correlation(?: id)?|identifier|marker)\\b\\s+(?:for|from|of|on|belonging to|tied to|associated with|linked to|specific to|corresponding to|assigned to|issued for|recorded for|generated for|identifying|that identifies|which identifies)\\s+(?:(?:my|our|this|that|the)\\s+(?:(?:specific|particular|original|target|intended|failed|initial|actual|submitted|current|selected)\\s+){0,3}|(?:this|that)\\s+one\\b|the\\s+(?:run|job|call)\\s+i\\s+(?:launched|submitted|made)\\b)(?:invocation|attempt|run|retry|call|request|launch|process|execution|job|submission|decision|test)\\b\\s+(?:was|is)\\s+(\"[^\"\\n]*\"|'[^'\\n]*'|[^\\s,;]+)"
+    "\\b(?:decision[_ -]id|trace[_ -]id|run[_ -]id|correlation(?: id)?|identifier|marker)\\b\\s+(?:for|from|of|on|belonging to|tied to|associated with|linked to|specific to|corresponding to|assigned to|issued for|recorded for|generated for|identifying|that identifies|which identifies)\\s+(?:(?:my|our|this|that|the)\\s+(?:(?:specific|particular|original|target|intended|failed|initial|actual|submitted|current|selected)\\s+){0,3}|(?:this|that)\\s+one\\b|the\\s+(?:run|job|call)\\s+i\\s+(?:launched|submitted|made)\\b)(?:invocation|attempt|run|retry|call|request|launch|process|execution|job|submission|decision|test)\\b\\s+(?:was|is)\\s+(\"[^\"\\n]*\"|'[^'\\n]*'|[^\\s,;]+)",
+    "\\b(?:workspace|agent)(?:\\s+(?:name|label|identifier|id))?\\s+(?:(?:is|was|called|named|labeled|labelled|equals)\\s+|[:=]\\s*)(\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s,;]+)",
+    "\\b(?:stdout|stderr|standard output|standard error)\\s+(?:(?:was|is|went|saved|written|captured|retained|archived|redirected|to|into|in|at|as)\\s+)+(\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s,;]+)",
+    "(?:^|\\s)[12]?>>?\\s*(\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s,;]+)"
   ],
   "rawFacts": [
     "privateJobMarker",

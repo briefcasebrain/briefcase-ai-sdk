@@ -4406,5 +4406,201 @@
     "includes": [
       "receiver"
     ]
+  },
+  {
+    "name": "Original M06 future persistence example",
+    "question": "Can I make the next ticket survive a restart? Verbatim Python memory example; user may rerun with a fresh ticket.",
+    "expected": "future",
+    "includes": [
+      "complete JSONL example"
+    ]
+  },
+  {
+    "name": "Original N02 published console demo metadata",
+    "question": "Which output should I open? Published Node demo with default capture and console destination. Both streams were archived separately. User wants the token count and decision type.",
+    "expected": "node_console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Quoted demo description cannot select a destination",
+    "question": "The original decision ID was \"Published Node demo with default capture and console destination\". Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Unlaunched docs demo does not replace an affirmative source",
+    "question": "My original run used OTLP. For example: Published Node demo with default capture and console destination. I want metadata.",
+    "expected": "otlp",
+    "includes": [
+      "Search the collector"
+    ]
+  },
+  {
+    "name": "Opaque workspace audit.jsonl",
+    "question": "My workspace is audit.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque workspace audit.txt",
+    "question": "My workspace is audit.txt. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque workspace run-otlp-14",
+    "question": "My workspace is run-otlp-14. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque agent audit.jsonl",
+    "question": "My agent is audit.jsonl. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque agent audit.txt",
+    "question": "My agent is audit.txt. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Opaque agent run-otlp-14",
+    "question": "My agent is run-otlp-14. Which exporter did my original process use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "Retained stream destination saved stdout to",
+    "question": "My run used the console exporter and saved stdout to replies.jsonl.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Retained stream destination redirected standard output into",
+    "question": "My run used the console exporter and redirected standard output into replies.jsonl.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Retained stream destination archived stderr in",
+    "question": "My run used the console exporter and archived stderr in replies.jsonl.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Independent example on next line For example:",
+    "question": "My original run used the console exporter. For example:\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Independent example on next line Example command:",
+    "question": "My original run used the console exporter. Example command:\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Independent example on next line As an example:",
+    "question": "My original run used the console exporter. As an example:\nBRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Both transports explicitly denied OTLP",
+    "question": "My original run used neither OTLP nor HTTP. It used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Both transports explicitly denied HTTP",
+    "question": "My original run used neither HTTP nor OTLP. It used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ]
+  },
+  {
+    "name": "Credential followed by independent exporter evidence console",
+    "question": "My CI job token was apricot. Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "answer": "console",
+    "omits": [
+      "apricot",
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Credential followed by independent exporter evidence audit.jsonl",
+    "question": "My CI job token was apricot. Which exporter did my original process use?",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ],
+    "answer": "audit.jsonl",
+    "omits": [
+      "apricot",
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Credential followed by independent exporter evidence unknown",
+    "question": "My CI job token was apricot. Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "static guide"
+    ],
+    "answer": "unknown",
+    "omits": [
+      "apricot",
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "Credential followed by independent exporter evidence probably audit.jsonl",
+    "question": "My CI job token was apricot. Which exporter did my original process use?",
+    "expected": "fallback",
+    "includes": [
+      "static guide"
+    ],
+    "answer": "probably audit.jsonl",
+    "omits": [
+      "apricot",
+      "audit.jsonl"
+    ]
   }
 ]

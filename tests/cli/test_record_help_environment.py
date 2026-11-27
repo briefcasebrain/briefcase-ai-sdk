@@ -132,3 +132,26 @@ def test_node_selects_raw_protocol_before_trimming(raw_traces, expected, monkeyp
                 "BRIEFCASE_EXPORTER=otlp node --import @briefcase-ai/auto/register app.js 2> debug.err")
     assert main(["record-help", question]) == 0
     assert expected in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("question,env,expected", [
+    ("BRIEFCASE_EXPORTER=https://999.999.999.999 node --import @briefcase-ai/auto/register app.js",
+     {}, "startup diagnostic"),
+    ("The original Node preload inherited the unchanged settings from this shell. It was a worker thread. "
+     "The main thread was already observing before it created the worker.",
+     {"BRIEFCASE_EXPORTER": "old.jsonl"}, "main thread's exporter"),
+    ("The original Node preload inherited the unchanged settings from this shell. "
+     "The preload was passed on the command line.",
+     {"NODE_OPTIONS": "--import @briefcase-ai/auto/register", "BRIEFCASE_EXPORTER": "console"}, "retained stderr"),
+])
+def test_original_node_transport_and_preload_context(question, env, expected, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    for key in ("BRIEFCASE_AUTO", "BRIEFCASE_EXPORTER", "NODE_OPTIONS"):
+        monkeypatch.delenv(key, raising=False)
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    assert main(["record-help", question]) == 0
+    assert expected in capsys.readouterr().out

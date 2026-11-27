@@ -153,6 +153,7 @@ def _select(table: Dict[str, Any], facts: Set[str]) -> str:
 def _original_commands(table: Dict[str, Any], text: str) -> str:
     """Keep an original launch and its arguments, without attributing later shell commands to it."""
     parts = re.split(f"({table['commandClauseSplit']})", text, flags=re.I)
+    example_next = False
     for index in range(0, len(parts), 2):
         clause = parts[index]
         launch = re.search(table["launchCommand"], clause, re.I)
@@ -162,6 +163,12 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
             if boundary:
                 parts[index] = clause[:launch.start() + boundary.start()]
         hypothetical = re.search(table["nonOriginalCommand"], clause, re.I)
+        if launch and example_next:
+            parts[index] = ""
+            example_next = False
+            continue
+        if clause.strip():
+            example_next = bool(hypothetical and not launch and clause.rstrip().endswith(":"))
         if hypothetical and launch:
             parts[index] = clause[:hypothetical.start()]
         else:
@@ -287,13 +294,16 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 settings[key] = "grpc" if raw.strip().lower() == "grpc" else ("http/json" if raw else "")
         if inherited is not None:
             settings = {**inherited, **settings}
-        from_options = not commands and (settings.pop("REGISTER_FROM_NODE_OPTIONS", "") == "yes"
-                                         or re.search(inline["nodeOptionsOnly"], evidence, re.I))
+        explicit_preload = commands or re.search(inline["explicitPreload"], evidence, re.I)
+        from_options = not explicit_preload and (settings.pop("REGISTER_FROM_NODE_OPTIONS", "") == "yes"
+                                                 or re.search(inline["nodeOptionsOnly"], evidence, re.I))
         if from_options and settings.get("BRIEFCASE_AUTO", "").lower() not in ("1", "true"):
             settings["BRIEFCASE_AUTO"] = "0"
         choice = settings.get("BRIEFCASE_EXPORTER", "")
-        if choice.lower().startswith(("http://", "https://")) and _http_destination(choice):
-            settings["DIRECT_WEB"] = "valid"
+        if choice.lower().startswith(("http://", "https://")):
+            safe_direct = (re.fullmatch(inline["endpointSyntax"], choice, re.I)
+                           and _node_endpoint(choice) and _http_destination(choice))
+            settings["DIRECT_WEB"] = "valid" if safe_direct else "unverified"
         endpoint = next((settings[k].strip() for k in inline["endpoints"] if settings.get(k, "").strip()), "")
         if endpoint:
             supported = re.fullmatch(inline["endpointSyntax"], endpoint, re.I)
@@ -339,7 +349,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     if action["kind"] == "ask" and answer is not None:
         safe_choice = key in ("ask_exporter", "ask_protocol") and any(
             re.fullmatch(pattern, answer.strip(), re.I) for pattern in table["exporterReplies"].values())
-        unsafe_reply = ((_sensitive(table, question) and not safe_choice)
+        safe_path = key in ("ask_exporter", "ask_path") and _matches(table["replies"]["ask_path"][0], answer.strip())
+        unsafe_reply = ((_sensitive(table, question) and not (safe_choice or safe_path))
                         or any(value in answer for value in raw_private))
         reply_source = answer
         if _sensitive(table, answer) or re.search(table["privateWebAddress"], answer, re.I):
