@@ -40,13 +40,18 @@ def _select(table: Dict[str, Any], evidence: str) -> str:
 
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           shell: Optional[str] = None) -> Tuple[str, str]:
-    evidence = question.strip()
+    def preprocess(value: str) -> str:
+        for change in table["preprocess"]:
+            value = re.sub(change["pattern"], change["replacement"], value, flags=re.I)
+        return value.strip()
+
+    evidence = preprocess(question)
     if shell and _matches(table["shell"], evidence):
-        evidence += "\nInherited exporter: " + shell
+        evidence += "\nInherited exporter: " + preprocess(shell)
     key = _select(table, evidence)
     action = table["actions"][key]
     if action["kind"] == "ask" and answer is not None:
-        reply = answer.strip()
+        reply = preprocess(answer)
         if reply and not re.fullmatch(table["unknown"], reply, re.I):
             evidence = action["replyPrefix"] + reply + "\n" + evidence
             key = _select(table, evidence)
@@ -65,15 +70,40 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     return key, re.sub(r"\{(\w+)\}", substitute, template)
 
 
-def _shell_exporter() -> str:
-    value = os.environ.get("BRIEFCASE_EXPORTER", "").strip()
+def _shell_exporter(question: str = "") -> str:
+    """Describe only configuration shared by the plausible original runtimes."""
+    env = os.environ
+    value = env.get("BRIEFCASE_EXPORTER", "").strip()
+    node = bool(re.search(r"\b(?:node(?:js)?|npm|npx|preload|javascript|typescript)\b|\.[cm]?js\b", question, re.I))
+    python = bool(re.search(r"\b(?:python[23]?|pip)\b|\.py\b", question, re.I))
+    if node and re.search(r"\bworker[_ ]threads?\b", question, re.I):
+        return "check-launch-config"
     if value.lower().startswith(("http://", "https://")):
-        return "HTTP"  # The receiver lookup does not need credentials or query parameters.
-    if value:
-        return value
-    if any(os.environ.get(key) for key in ("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT")):
-        return "otlp"
-    return "console"
+        return "HTTP"
+    if value and value.lower() not in ("otel", "otlp"):
+        if value in ("memory", "console"):
+            return value
+        if value.endswith(".jsonl") and not re.search(r"^[a-z][a-z0-9_.-]+:|[\x00-\x1f\x7f]", value, re.I):
+            return value
+        return "check-launch-config"
+    endpoints = ("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT")
+    if not value and not any(env.get(key, "").strip() for key in endpoints):
+        return "console"
+
+    from briefcase._observe import check_environment
+
+    protocol = (env.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL") or env.get("OTEL_EXPORTER_OTLP_PROTOCOL") or "")
+    node_target = "console" if protocol.strip().lower() == "grpc" else "otlp"
+    if node and not python:
+        return node_target
+    python_target = "otlp"
+    if check_environment(env):
+        python_target = "check-launch-config"
+    elif env.get("OTEL_SDK_DISABLED", "").strip().lower() == "true":
+        python_target = "disabled"
+    if python and not node or python_target == node_target:
+        return python_target
+    return "check-launch-config"
 
 
 def _line(prompt: str, interactive: bool) -> str:
@@ -95,7 +125,7 @@ def cmd_record_help(args, store, engine, stack) -> int:
     if not question:
         print(table["guide"])
         return 0
-    shell = _shell_exporter()
+    shell = _shell_exporter(question) if _matches(table["shell"], question) else None
     key, text = route(table, question, args.answer, shell)
     if table["actions"][key]["kind"] == "ask" and args.answer is None:
         print(text, flush=True)

@@ -42,3 +42,18 @@ def test_unknown_displays_same_guide_as_static(monkeypatch, capsys):
     static = capsys.readouterr().out
     assert main(["record-help", "Which JSONL file?", "--answer", "unknown"]) == 0
     assert capsys.readouterr().out.endswith(static)
+
+
+def test_url_credentials_never_appear_in_piped_result(monkeypatch, capsys):
+    from io import StringIO
+
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(
+        "The exporter used https://synthetic:fixture-secret@example.invalid/archive.jsonl?key=private\n"
+    ))
+    assert main(["record-help"]) == 0
+    result = capsys.readouterr().out
+    assert "receiver" in result
+    assert "fixture-secret" not in result
+    assert "key=private" not in result

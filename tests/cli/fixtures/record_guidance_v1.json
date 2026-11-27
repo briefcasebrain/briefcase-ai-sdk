@@ -13,6 +13,8 @@
     "question": "The log is full. How do I prove mine made it? Explicit file export to full.jsonl; no original ID, unique input or other independently identifying value survives.",
     "expected": "fresh",
     "includes": [
+      "full.jsonl",
+      "new ID",
       "new run"
     ]
   },
@@ -144,5 +146,231 @@
       "stdout"
     ],
     "answer": "first_decision.py"
+  },
+  {
+    "name": "reused input and known original",
+    "question": "Both entries in inbox.jsonl share the ticket. The original decision ID was trace-714.",
+    "expected": "jsonl",
+    "includes": [
+      "inbox.jsonl",
+      "trace-714"
+    ]
+  },
+  {
+    "name": "two artifacts share input",
+    "question": "The ticket in audit.jsonl was reused for both attempts.",
+    "expected": "ask_id",
+    "includes": [
+      "original decision ID"
+    ]
+  },
+  {
+    "name": "mixed process evidence",
+    "question": "Both Python commands are possible: a quickstart and a wrapper exporting to console. Both streams were retained.",
+    "expected": "ask_program",
+    "includes": [
+      "actually execute"
+    ]
+  },
+  {
+    "name": "local and hosted candidates",
+    "question": "There is a local SDK decision and there is a dashboard submission. Where is the run?",
+    "expected": "ask_run",
+    "includes": [
+      "local SDK decision",
+      "hosted"
+    ]
+  },
+  {
+    "name": "choose hosted after clarification",
+    "question": "There is a local SDK decision and there is a dashboard submission. Where is the run?",
+    "expected": "hosted",
+    "includes": [
+      "workspace",
+      "hosted run ID"
+    ],
+    "answer": "The hosted run."
+  },
+  {
+    "name": "reply outweighs file",
+    "question": "The Node exporter writes monitor.jsonl. I need the application reply. stdout was saved to answers.log.",
+    "expected": "reply",
+    "includes": [
+      "answers.log"
+    ]
+  },
+  {
+    "name": "ambiguous output despite file",
+    "question": "The Node example has a receipt.jsonl decision and prints the reply to stdout. Where is my output?",
+    "expected": "ask_subject",
+    "includes": [
+      "reply text",
+      "SDK decision"
+    ]
+  },
+  {
+    "name": "completed unmatched file read",
+    "question": "I reopened events.jsonl. Every row has a different marker from my original marker job-231.",
+    "expected": "jsonl_stale",
+    "includes": [
+      "events.jsonl",
+      "job-231",
+      "no readback"
+    ]
+  },
+  {
+    "name": "observed remote receipt",
+    "question": "A collector received the original trace ID group-42. The database has not been queried.",
+    "expected": "storage",
+    "includes": [
+      "receipt",
+      "group-42",
+      "unverified"
+    ]
+  },
+  {
+    "name": "observed durable read",
+    "question": "The warehouse query returned exactly the matching decision for trace ID group-42.",
+    "expected": "stored",
+    "includes": [
+      "storage",
+      "group-42"
+    ]
+  },
+  {
+    "name": "receiver success and unqueried storage",
+    "question": "HTTP receiver returned 202. No downstream readback. The original ID is known.",
+    "expected": "receiver",
+    "includes": [
+      "received batch",
+      "unconfirmed"
+    ]
+  },
+  {
+    "name": "hypothetical downstream",
+    "question": "How could I tell whether storage returns the matching span? I have only the collector URL.",
+    "expected": "endpoint",
+    "includes": [
+      "receipt unknown"
+    ]
+  },
+  {
+    "name": "negated match",
+    "question": "The HTTP receiver does not contain the original ID; its only entry is for a different ID.",
+    "expected": "receiver",
+    "includes": [
+      "unconfirmed"
+    ]
+  },
+  {
+    "name": "stderr saved with jsonl suffix",
+    "question": "The console exporter was active. I ran python app.py 2>terminal.jsonl.",
+    "expected": "console",
+    "includes": [
+      "terminal.jsonl",
+      "console"
+    ]
+  },
+  {
+    "name": "file paths are inert text",
+    "question": "Which JSONL contains marker z-71?",
+    "expected": "jsonl",
+    "includes": [
+      "/tmp/scan $(date)/t.jsonl"
+    ],
+    "answer": "/tmp/scan $(date)/t.jsonl"
+  },
+  {
+    "name": "retained stderr not an exporter",
+    "question": "The Node preload inherited the unchanged settings. stderr was saved in monitoring.err. I need usage metadata.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter"
+    ]
+  },
+  {
+    "name": "original program overrides unrelated file",
+    "question": "Another process wrote old.jsonl. My original process used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "stderr"
+    ]
+  },
+  {
+    "name": "unconfirmed receiver observation",
+    "question": "I could not find a matching receiver entry for my run.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "unconfirmed"
+    ]
+  },
+  {
+    "name": "ambiguous marker response",
+    "question": "Two identical tickets in tickets.jsonl.",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "I only have the repeated ticket"
+  },
+  {
+    "name": "relative clarified path with spaces",
+    "question": "Which JSONL file was used?",
+    "expected": "jsonl",
+    "includes": [
+      "run logs/a.jsonl"
+    ],
+    "answer": "run logs/a.jsonl"
+  },
+  {
+    "name": "http URL with credentials and file extension",
+    "question": "The exporter used https://synthetic:fixture-secret@example.invalid/archive.jsonl?key=private and I need to confirm delivery.",
+    "expected": "receiver",
+    "includes": [
+      "receiver"
+    ]
+  },
+  {
+    "name": "runtime disabled exporter",
+    "question": "The default exporter inherited the unchanged shell.",
+    "expected": "disabled",
+    "includes": [
+      "disable"
+    ],
+    "shell": "disabled"
+  },
+  {
+    "name": "unrecognized runtime default",
+    "question": "The default exporter inherited the unchanged shell.",
+    "expected": "check_launch",
+    "includes": [
+      "original launch configuration"
+    ],
+    "shell": "check-launch-config"
+  },
+  {
+    "name": "arbitrary memory does not print",
+    "question": "The Node default exporter inherited the unchanged shell.",
+    "expected": "memory_only",
+    "includes": [
+      "explicitly printed"
+    ],
+    "shell": "memory"
+  },
+  {
+    "name": "exited memory with lost stream",
+    "question": "The Python quickstart exited; no saved stdout exists.",
+    "expected": "memory_lost",
+    "includes": [
+      "no retained output"
+    ]
+  },
+  {
+    "name": "new durable record from memory quickstart",
+    "question": "How can my next run survive a restart? I used the Python quickstart.",
+    "expected": "future",
+    "includes": [
+      "new run"
+    ]
   }
 ]
