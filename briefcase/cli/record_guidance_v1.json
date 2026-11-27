@@ -313,6 +313,10 @@
     "console_discarded_metadata": {
       "kind": "action",
       "text": "Check any other saved copy of the original decision record for its token count or other metadata. A new run can show the token count for that run."
+    },
+    "reply_stdout_discarded": {
+      "kind": "action",
+      "text": "If another copy of the response or an app log from the original run was saved, check it for the reply."
     }
   },
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
@@ -359,6 +363,10 @@
     {
       "pattern": "(?:[^\\s\\x22\\x27`<>]+\\.jsonl|(?:console|memory|otlp|http) exporter)\\s+(?:from|of|belonging to) (?:another|an unrelated|a different|a previous|the other) (?:process|program|service|worker|run)\\b",
       "replacement": " "
+    },
+    {
+      "pattern": "\\b((?:I|we)\\s+(?:kept|saved|retained|archived|recorded)\\s+(?:the\\s+)?(?:stderr|standard error)),?\\s+but\\s+not\\s+(?:the\\s+)?(?:stdout|standard output)\\b",
+      "replacement": "I retained stderr. I discarded stdout"
     }
   ],
   "split": "\\n+|[.!?](?=\\s|$)|;|\\b(?:but|whereas|however)\\b|\\bwhile (?=(?:my|our|the original|another|the other)\\b)|,?\\s+and (?=(?:my|our|the original) (?:actual |original )?(?:process|run|worker|launcher)\\b)|,?\\s+(?:and|while)\\s+(?=(?:(?:another|the other|an? unrelated|an? different|an? separate|an? previous|unrelated|someone else.s)\\s+(?:(?:python|node|local|hosted|separate|earlier|previous)\\s+){0,3}(?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)\\b|(?:my|our|the) (?:original|actual|target) (?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)))",
@@ -551,7 +559,7 @@
     "wantMeta": {
       "scope": "clause",
       "all": [
-        "\\b(?:want|need|looking for|read|find|after|where (?:is|are)|show me|get back|trying to (?:locate|recover|inspect))\\b[^.;?!\\n]{0,75}(?:decision[_ ]json|metadata|decision[_ ]type|usage[_ ]count|token[_ ](?:usage|count)|full (?:local )?decision)|record with the usage count|both maps empty|empty inputs and outputs"
+        "\\b(?:want|need|looking for|read|find|after|where (?:is|are)|show me|get back|trying to (?:locate|recover|inspect))\\b[^.;?!\\n]{0,75}(?:decision[_ ]json|metadata|decision[_ ]type|usage[_ ]count|token[_ ](?:usage|count)|full (?:local )?decision)|record with the usage count|both maps empty|empty inputs and outputs|\\b(?:want|need|show me)\\s+(?:the |my |original )*(?:SDK )?decision(?: record)? on (?:stderr|stdout)\\b"
       ],
       "none": [
         "reply or|could mean"
@@ -1141,6 +1149,30 @@
       "none": [
         "\\b(?:if|possibly|perhaps|would|may|might|not|never|example)\\b"
       ]
+    },
+    "requestedLocalRecord": {
+      "scope": "request",
+      "any": [
+        "\\b(?:the |my |original )*local (?:SDK )?(?:decision|record)\\b"
+      ],
+      "none": [
+        "\\bor\\b"
+      ]
+    },
+    "discardedStdout": {
+      "scope": "clause",
+      "any": [
+        "\\b(?:discarded|deleted|dropped) (?:the )?stdout\\b|\\bstdout was (?:discarded|deleted|dropped)\\b"
+      ],
+      "none": [
+        "\\b(?:if|might|maybe|perhaps)\\b"
+      ]
+    },
+    "readDemoOnly": {
+      "scope": "clause",
+      "any": [
+        "\\b(?:only (?:read|viewed)|(?:read|viewed) only) (?:the |published )*Node (?:demo|quickstart|example)\\b"
+      ]
     }
   },
   "decisions": [
@@ -1148,6 +1180,50 @@
       "action": "wrapper_startup",
       "all": [
         "wrapperRejected"
+      ]
+    },
+    {
+      "action": "reply_stdout_discarded",
+      "all": [
+        "discardedStdout",
+        "wantReply"
+      ],
+      "none": [
+        "replyOnStderr",
+        "wantMeta"
+      ]
+    },
+    {
+      "action": "local",
+      "all": [
+        "requestedLocalRecord",
+        "hosted"
+      ],
+      "none": [
+        "requestedHosted",
+        "wantReply"
+      ]
+    },
+    {
+      "action": "ask_exporter",
+      "all": [
+        "readDemoOnly"
+      ],
+      "none": [
+        "inlineConsole",
+        "inlineMemory",
+        "fileExporter",
+        "requestedHosted",
+        "wantReply",
+        "explicit",
+        "console",
+        "memory",
+        "http",
+        "otlp",
+        "originalFilePath",
+        "inherited",
+        "stockRan",
+        "nodeDemoConsole"
       ]
     },
     {
@@ -1989,6 +2065,9 @@
       "all": [
         "quickstart",
         "stdoutLost"
+      ],
+      "none": [
+        "node"
       ]
     },
     {
@@ -2007,6 +2086,9 @@
       "all": [
         "quickstart",
         "stockRan"
+      ],
+      "none": [
+        "node"
       ]
     },
     {
@@ -2014,6 +2096,9 @@
       "all": [
         "quickstart",
         "printedDecision"
+      ],
+      "none": [
+        "node"
       ]
     },
     {
@@ -3836,7 +3921,7 @@
       "\\b(?:(?:the|our|my)\\s+)?(?:original|actual)\\s+(?:(?:python|node|local)\\s+)?(?:(?:application|app|program|job|process|invocation|run|worker)(?:['’]s)?\\s+)?(?:exporter|destination|sink)\\s+(?:(?:had been|has been|was|is)\\s+)?(?:(?:explicitly|directly|deliberately|actually)\\s+)?(?:set|configured|selected|assigned)\\s+(?:to|as)\\s+memory(?![\\w-])"
     ]
   },
-  "commandContext": "^(?:\\s*|\\s*(?:(?:the |my |our )?(?:original |actual )?(?:(?:node|python) )?(?:launch(?: command)?|command|invocation)|(?:i|we) (?:ran|launched|executed|used)|(?:the |my |our )?(?:original )?(?:run|job|process|worker|launcher) (?:ran|used|launched))(?:\\s+(?:was|is|with))?\\s*[:=`]?\\s*)$",
+  "commandContext": "^(?:\\s*|\\s*(?:(?:the |my |our )?(?:original |actual )?(?:(?:node|python) )?(?:launch(?: command)?|command|invocation)|(?:i|we) (?:ran|launched|executed|used)(?: (?:the |published )*node (?:demo|quickstart|example))?|(?:the |my |our )?(?:original )?(?:run|job|process|worker|launcher) (?:ran|used|launched))(?:\\s+(?:was|is|with))?\\s*[:=`]?\\s*)$",
   "opaqueRoles": [
     "correlation",
     "businessTicket",
@@ -4151,5 +4236,300 @@
   "fileActions": [
     "jsonl",
     "node_file"
-  ]
+  ],
+  "lookupLanguage": {
+    "fragments": {
+      "det": "(?:(?:the|my|our|its|that|a|an)\\s+)*",
+      "self": "(?:I|we)\\s+(?:(?:personally|independently|actually)\\s+)*",
+      "by": "(?:personally |independently )?(?:by me|by us)",
+      "phase": "(?:\\s+(?:myself |personally )?(?:after|once) (?:exit|shutdown|(?:the |my |our )?(?:original )?(?:writer|worker|process|job|run) (?:exited|ended|finished|stopped)))?",
+      "name": "[a-z0-9_./-]+\\.jsonl",
+      "id": "(?:[a-z0-9_-]+)",
+      "origin": "{{det}}original (?:writer|worker|launch|deployment)(?: (?:configuration|settings|directory))?(?: and its launch directory)?",
+      "file": "{{det}}(?:(?:exact|original|configured)\\s+)*(?:(?:JSONL )?file(?:,?\\s+{{name}})?|{{name}}),?",
+      "receiver": "{{det}}(?:intended |original )?(?:incoming log on {{det}})?(?:receiver|receiving endpoint)",
+      "storage": "{{det}}(?:intended |original )?downstream (?:store|storage)",
+      "originRel": "\\s+(?:(?:named |configured |identified )?(?:in|for|from|by)|using) {{origin}}",
+      "marker": "{{det}}(?:(?:unique|original|decision|lookup)\\s+)+(?:marker|ID|identifier)(?: {{id}})?(?: from {{det}}(?:original )?(?:launch )?receipt)?",
+      "object": "{{det}}(?:(?:single|one|complete|full|incoming|matching)\\s+)*(?:entry|decision|record|row)",
+      "linkage": "\\s+(?:with|bearing|carrying|containing) {{det}}(?:(?:same|exact|original|decision)\\s+)+(?:ID|identifier|marker)"
+    },
+    "productions": [
+      {
+        "pattern": "{{self}}(?:reopened|opened|inspected|read) {{file}}{{originRel}}{{phase}}",
+        "facts": [
+          "jsonl",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "(?:using|from) {{origin}},? {{self}}(?:reopened|opened|inspected|read) {{file}}{{phase}}",
+        "facts": [
+          "jsonl",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "{{self}}used {{origin}} to reopen {{file}}{{phase}}",
+        "facts": [
+          "jsonl",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "{{file}}{{originRel}} was (?:independently )?(?:reopened|opened|inspected|read) {{by}}{{phase}}",
+        "facts": [
+          "jsonl",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "(?=the original ){{file}} was (?:independently )?(?:reopened|opened|inspected|read) {{by}}{{phase}}",
+        "facts": [
+          "jsonl",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:checked|inspected|opened|searched) {{receiver}}{{originRel}}{{phase}}",
+        "facts": [
+          "receiver",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "(?:using|from) {{origin}},? {{self}}(?:checked|inspected|opened|searched) {{receiver}}{{phase}}",
+        "facts": [
+          "receiver",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "{{self}}used {{origin}} to inspect {{receiver}}{{phase}}",
+        "facts": [
+          "receiver",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "{{receiver}}{{originRel}} was (?:independently )?(?:checked|inspected|opened|searched) {{by}}{{phase}}",
+        "facts": [
+          "receiver",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "(?=the original ){{receiver}} was (?:independently )?(?:checked|inspected|opened|searched) {{by}}{{phase}}",
+        "facts": [
+          "receiver",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:queried|searched|inspected|read) {{storage}}{{originRel}}{{phase}}",
+        "facts": [
+          "storage",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "(?:using|from) {{origin}},? {{self}}(?:queried|searched|inspected|read) {{storage}}{{phase}}",
+        "facts": [
+          "storage",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "{{self}}used {{origin}} to query {{storage}}{{phase}}",
+        "facts": [
+          "storage",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "{{storage}}{{originRel}} was (?:independently )?(?:queried|searched|inspected|read) {{by}}{{phase}}",
+        "facts": [
+          "storage",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "(?=the original ){{storage}} was (?:independently )?(?:queried|searched|inspected|read) {{by}}{{phase}}",
+        "facts": [
+          "storage",
+          "reader",
+          "origin"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:looked up|searched for|investigated) {{marker}}",
+        "facts": [
+          "target"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:searched|scanned) (?:every row|them all|all (?:the )?rows) for {{marker}}",
+        "facts": [
+          "target",
+          "complete"
+        ]
+      },
+      {
+        "pattern": "every row was searched {{by}} for {{marker}}",
+        "facts": [
+          "target",
+          "complete"
+        ]
+      },
+      {
+        "pattern": "{{marker}} was used for my lookup|my original receipt provided {{marker}}",
+        "facts": [
+          "target"
+        ]
+      },
+      {
+        "pattern": "{{self}}parsed every row without error",
+        "facts": [
+          "complete"
+        ]
+      },
+      {
+        "pattern": "(?:there were (?:zero|no) matching (?:rows|records|entries)|nothing matched)",
+        "facts": [
+          "miss"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:saw|observed|read|found) {{object}}|{{object}} was (?:observed|read|seen|found) {{by}}",
+        "facts": [
+          "unlinked"
+        ]
+      },
+      {
+        "pattern": "(?:{{self}}(?:found|read)|(?:the query|my lookup|it) returned) {{object}}{{linkage}}|{{object}}{{linkage}} was returned",
+        "facts": [
+          "match"
+        ]
+      },
+      {
+        "pattern": "no one (?:checked|queried|inspected) {{storage}}",
+        "facts": [
+          "unreadStorage"
+        ]
+      },
+      {
+        "pattern": "what (?:have I established(?: in that file)?|can that receiver check establish|has this verified)",
+        "facts": [
+          "question"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:looked (?:in|through)|searched|scanned) {{file}}{{originRel}}{{phase}}",
+        "facts": [
+          "reader",
+          "origin",
+          "jsonl"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:opened|checked|examined) {{storage}}{{originRel}}{{phase}}",
+        "facts": [
+          "reader",
+          "origin",
+          "storage"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:checked|examined|read) (?:all|every) (?:the )?(?:row|entry|record)s? (?:using|for|against) {{marker}}",
+        "facts": [
+          "target",
+          "complete"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:used|compared against) {{marker}}(?: for (?:my|the) (?:search|lookup))?",
+        "facts": [
+          "target"
+        ]
+      },
+      {
+        "pattern": "(?:not one|none) of (?:the |those |these )?(?:entries|records|rows) matched",
+        "facts": [
+          "miss"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:retrieved|opened|saw) {{object}}{{linkage}}",
+        "facts": [
+          "match"
+        ]
+      },
+      {
+        "pattern": "(?:what (?:can (?:I|we) (?:conclude|verify)|does (?:this|that|my (?:search|lookup)) (?:mean|verify|establish)))(?: about (?:that|this) (?:source|file|receiver|store))?",
+        "facts": [
+          "question"
+        ]
+      }
+    ],
+    "sentences": "(?:[.!?;](?=\\s|$)|\\n+)",
+    "clause": ",?\\s+and\\s+(?=(?:I|we|the query|searched|scanned|saw|found)\\b)|\\s+while\\s+(?=investigating\\b)",
+    "implicit": "^(?:searched|scanned|saw|found)\\b",
+    "investigator": "^investigating\\s+",
+    "targetValue": "\\b(?:marker|ID|identifier)\\s+(?!(?:was|from|on|for|in|is|of|to|as)\\b)({{id}})\\b",
+    "routes": {
+      "jsonl": {
+        "match": "jsonl",
+        "unlinked": "jsonl",
+        "miss": "scanned_missing",
+        "unknown": "jsonl"
+      },
+      "receiver": {
+        "match": "storage",
+        "unlinked": "storage",
+        "miss": "receipt_unknown",
+        "unknown": "receiver"
+      },
+      "storage": {
+        "match": "stored",
+        "unlinked": "query_storage",
+        "miss": "store_missing",
+        "unknown": "query_storage"
+      }
+    },
+    "missingActions": [
+      "ask_subject",
+      "ask_program",
+      "ask_path",
+      "ask_protocol",
+      "ask_exporter",
+      "ask_id",
+      "fallback"
+    ],
+    "originalTarget": "\\boriginal\\s+(?:(?:decision|lookup|launch|run|unique)\\s+)*(?:ID|identifier|marker|receipt)\\b|\\b(?:ID|identifier|marker)(?:\\s+[a-z0-9_-]+)?\\s+from\\s+(?:my|the|our)\\s+(?:original\\s+)?(?:launch\\s+)?receipt\\b",
+    "location": {
+      "result": "\\b(?:found|saw|retrieved|observed|returned|contained|showed|yielded|appeared|located|came\\s+(?:(?:solely|only|exclusively)\\s+)?from)\\b|\\b(?:matching|matched)\\s+(?:entry|record|row)\\b",
+      "object": "\\b(?:records?|rows?|entr(?:y|ies)|decision|match|it|one)\\b",
+      "exclude": "\\b(?:might|maybe|if|whether|possibly|perhaps|possibly|would|could|did not|didn.t|never|no matching|without a match|no match)\\b",
+      "exclusive": "\\b(?:only|sole|solely|alone|lone|exclusively|nowhere else)\\b",
+      "phase": "\\b(?:searched|checked|inspected|queried|looked up|scanned|(?:re)?opened)\\b",
+      "link": "\\b(?:matching|matched|(?:same|original|exact)\\s+(?:decision\\s+)?(?:ID|identifier|marker))\\b",
+      "quantity": "\\bonly\\s+(?:one|a single|the first|the last|\\d+)\\s+(?:matching\\s+)?(?:records?|rows?|entr(?:y|ies))\\b",
+      "neutralSource": "(?:(?:(?:no one|nobody) (?:checked|queried|searched|read|inspected)|(?:I|we) (?:have not|had not|never|did not|haven.t|hadn.t|didn.t) (?:yet )?(?:checked?|quer(?:y|ied)|search(?:ed)?|read|inspect(?:ed)?)) (?:the |our |intended |original )*(?:downstream (?:storage|store)|receiver|receiving endpoint|JSONL file)(?: yet)?|(?:nobody|no one) (?:has |had )?(?:look(?:ed)?(?: in)?|quer(?:y|ied)|search(?:ed)?|scan(?:ned)?|check(?:ed)?|inspect(?:ed)?|read|open(?:ed)?) (?:(?:separate|independent|original|intended|downstream|the|our|my)\\s+)*(?:storage|store|database|warehouse|archive|receiver|collector|JSONL file)(?: yet)?|(?:I|we) (?:have not |had not |never |did not )(?:look(?:ed)?(?: in)?|quer(?:y|ied)|search(?:ed)?|scan(?:ned)?|check(?:ed)?|inspect(?:ed)?|read|open(?:ed)?) (?:(?:separate|independent|original|intended|downstream|the|our|my)\\s+)*(?:storage|store|database|warehouse|archive|receiver|collector|JSONL file)(?: yet)?|(?:I |we )?(?:have |had )?no (?:(?:separate|independent|complete|downstream|storage|database|receiver)\\s+)*(?:readback|lookup|query|check)(?: (?:from|in|of|at) (?:(?:separate|independent|original|intended|downstream|the|our|my)\\s+)*(?:storage|store|database|warehouse|archive|receiver|collector|JSONL file))?(?: yet| for that decision)?|there (?:has been|was|is) no (?:(?:separate|independent|complete|downstream|storage|database|receiver)\\s+)*(?:readback|lookup|query|check)(?: yet)?|(?:(?:separate|independent|original|intended|downstream|the|our|my)\\s+)*(?:storage|store|database|warehouse|archive|receiver|collector|JSONL file) (?:has |had )?not (?:been )?(?:look(?:ed)?(?: in)?|quer(?:y|ied)|search(?:ed)?|scan(?:ned)?|check(?:ed)?|inspect(?:ed)?|read|open(?:ed)?)(?: yet)?|(?:does|is|can|has) (?:that|this|it|the decision|the record|I)(?: (?:enough|prove|mean|been|to|confirm|claim|I|can|retrieve|it|from|in|stored|persisted|storage|the|store|archive|receiver|already))+)",
+      "completedRead": "\\b(?:an? |my |the )?(?:separate|independent)\\s+(?:query|lookup|search|readback)\\b[^;!?]*\\b(?:returned|yielded|retrieved)\\b"
+    }
+  }
 }

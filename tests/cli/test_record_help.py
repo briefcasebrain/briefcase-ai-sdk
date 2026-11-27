@@ -110,7 +110,8 @@ def test_confirmation_flags_and_pipe_report_only_selected_source(source, result,
     # A generic artifact may trigger an initial question; the explicit conclusion is identical.
     assert by_pipe.endswith(by_flag)
     assert "alpha.jsonl" not in by_flag and "beta.jsonl" not in by_flag
-    assert ("You reported" in by_flag) == (result != "unverified")
+    expected_report = result != "unverified" and (result != "matched" or source == "receiver")
+    assert ("You reported" in by_flag) == expected_report
 
 
 def test_outcome_requires_explicit_complete_pair(monkeypatch, capsys):

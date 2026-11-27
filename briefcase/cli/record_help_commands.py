@@ -1165,6 +1165,110 @@ def _continuation_patterns(fragments, expressions):
             for pattern in expressions]
 
 
+def _located_results(table, reports, quoted):
+    """Associate a reported record with its location independently of the requested source."""
+    spec = table["confirmation"]["attribution"]
+    language = table["lookupLanguage"]["location"]
+    at, exclusive, linked, unresolved, completed = set(), set(), set(), set(), set()
+    owner = set()
+    for report in reports:
+        for clause in report:
+            roles, scope = _report_roles(spec, clause, quoted)
+            named = {key for key, pattern in spec["sources"].items() if re.search(pattern, scope, re.I)}
+            if named and re.search(language["phase"], scope, re.I):
+                owner = named
+            acquisition = re.search(language["phase"], scope, re.I) and _accounted_read(
+                table, clause, roles["lookupIdentifier"]
+            )
+            disowned = re.search(spec["reportedForeign"], scope, re.I) and re.search(spec["foreign"], scope, re.I)
+            neutral = (acquisition or disowned or _context_statement(table, clause)
+                       or re.fullmatch(language["neutralSource"], scope.strip(), re.I)
+                       or re.fullmatch(spec["reportIntent"], scope.strip(), re.I))
+            if named and not neutral:
+                # A competing source is material even when its predicate is outside the result grammar.
+                unresolved.update(named)
+                if re.search(language["exclusive"], re.sub(language["quantity"], " ", scope, flags=re.I), re.I):
+                    exclusive.update(named)
+            if (re.search(language["exclude"], scope, re.I) or not re.search(language["object"], scope, re.I)
+                    or not re.search(language["result"], scope, re.I)):
+                continue
+            located = named or owner
+            if len(located) != 1:
+                continue
+            at.update(located)
+            if re.search(language["completedRead"], scope, re.I):
+                completed.update(located)
+            owner = located
+            if re.search(language["link"], scope, re.I):
+                linked.update(located)
+            restriction = re.sub(language["quantity"], " ", scope, flags=re.I)
+            if named and re.search(language["exclusive"], restriction, re.I):
+                exclusive.update(named)
+    return at, exclusive, linked, unresolved, completed
+
+
+@dataclass(frozen=True)
+class _LookupAccount:
+    source: str
+    result: str
+    accounted: bool
+    disputed: bool
+    unknown_clause: bool
+
+
+def _lookup_account(table, turns):
+    """Consume a firsthand lookup as source, search target, coverage and result roles."""
+    grammar = table["lookupLanguage"]
+    productions = grammar["productions"]
+    patterns = _continuation_patterns(tuple(grammar["fragments"].items()), tuple(r["pattern"] for r in productions))
+    facts = set()
+    unknown = False
+    seen_results = []
+    identifiers = set()
+    files = set()
+    values, paths = _continuation_patterns(tuple(grammar["fragments"].items()), (grammar["targetValue"], "{{name}}"))
+    for turn in turns:
+        for sentence in re.split(grammar["sentences"], turn or ""):
+            if not sentence.strip():
+                continue
+            for index, clause in enumerate(re.split(grammar["clause"], sentence.strip(), flags=re.I)):
+                if index and re.match(grammar["implicit"], clause, re.I):
+                    clause = "I " + clause
+                if index:
+                    clause = re.sub(grammar["investigator"], "I investigated ", clause, flags=re.I)
+                role = next((r for r, pattern in zip(productions, patterns) if pattern.fullmatch(clause.strip())), None)
+                if role is None:
+                    unknown = True
+                    # A comma adjunct may leave a source or target recognizable for routing,
+                    # while the complete sentence remains ineligible to authorize a claim.
+                    segments = clause.split(",")
+                    role = next((r for segment in segments for r, pattern in zip(productions, patterns)
+                                 if len(segments) > 1 and ("reader" in r["facts"] or "target" in r["facts"])
+                                 and pattern.fullmatch(segment.strip())), None)
+                    if role is None:
+                        continue
+                if "target" in role["facts"] and not re.search(grammar["originalTarget"], clause, re.I):
+                    unknown = True
+                    continue
+                facts.update(role["facts"])
+                if "target" in role["facts"]:
+                    identifiers.update(match[1] for match in values.finditer(clause))
+                if "jsonl" in role["facts"]:
+                    files.update(match.group() for match in paths.finditer(clause))
+                seen_results.extend(set(role["facts"]).intersection(("match", "miss", "unlinked")))
+    sources = facts.intersection(("jsonl", "receiver", "storage"))
+    if len(sources) != 1 or not {"reader", "origin", "target"} <= facts:
+        return None
+    source = sources.pop()
+    invalid_target = any(re.search(rule, value, re.I) for value in identifiers
+                         for rule in table["entities"]["correlation"]["reject"])
+    disputed = (invalid_target or len(identifiers) > 1 or len(files) > 1 or len(seen_results) > 1
+                or (source == "storage" and "unreadStorage" in facts))
+    result = seen_results[0] if len(seen_results) == 1 else "unknown"
+    accounted = not unknown and not disputed and (result != "miss" or "complete" in facts)
+    return _LookupAccount(source, result, accounted, disputed, unknown)
+
+
 def _returned_result(spec, clause, roles):
     """Parse the returned object independently from the reader's lookup target."""
     grammar = spec["resultOperand"]
@@ -1207,7 +1311,7 @@ def _returned_result(spec, clause, roles):
     if kinds.count("match") > 1:
         return "ambiguous"
     if "match" in kinds:
-        return "match"
+        return "mixed_match" if "miss" in kinds else "match"
     if "named" in kinds:
         return "named"
     return "neutral" if "neutral" in kinds else "miss"
@@ -1469,10 +1573,14 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             if (reported_sources and source not in reported_sources
                     and (roles["returnedIdentifier"] or re.match(result_grammar["head"], source_scope, re.I))):
                 attempts[origin[source]].clarification_veto = True
+            mixed_match = False
             for result_clause in re.split(result_grammar["combinedRead"], source_scope, flags=re.I) if owners else ():
                 if re.match(result_grammar["implicitReader"], result_clause, re.I):
                     result_clause = "it " + result_clause.lstrip()
                 returned = _returned_result(spec, result_clause, roles)
+                if returned == "mixed_match":
+                    mixed_match = True
+                    returned = "match"
                 if not returned:
                     continue
                 for name in owners:
@@ -1586,7 +1694,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     check.partial = True
                 if re.search(spec["returnedObject"], clause, re.I) and re.search(spec["unclearTarget"], clause, re.I):
                     check.unresolved_lookup = True
-                if "differentTarget" in meaning or re.search(spec["identifierComparison"], clause, re.I):
+                different = "differentTarget" in meaning or re.search(spec["identifierComparison"], clause, re.I)
+                if not mixed_match and different:
                     check.outcome = "no-match"
                 elif qualified and re.search(spec["equalIdentifiers"], clause, re.I):
                     check.outcome = "matched"
@@ -1596,7 +1705,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             for target in (named or active) if details else ():
                 check = checks[target]
                 if "comparison" in details:
-                    if re.search(spec["detailMismatch"], clause, re.I):
+                    if not mixed_match and re.search(spec["detailMismatch"], clause, re.I):
                         check.outcome = "no-match"
                     elif not (re.search(spec["equalIdentifiers"], clause, re.I)
                               or re.search(spec["exclusiveOther"], clause, re.I)):
@@ -1662,7 +1771,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 for target in targets:
                     checks[target].original_target = True
             ambiguous_rows = re.search(spec["ambiguousRows"], clause, re.I)
-            miss = "differentTarget" in meaning or re.search(spec["miss"], clause, re.I)
+            miss = not mixed_match and ("differentTarget" in meaning or re.search(spec["miss"], clause, re.I))
             if not (checked or ambiguous_rows or miss or re.search(spec["observation"], clause, re.I)
                     or re.search(spec["exclusiveOther"], clause, re.I)):
                 continue
@@ -1727,7 +1836,14 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     )):
         return "confirmation_unresolved_lookup" if conflict in (None, "ask_evidence") else conflict
     if needs_binding and not conflict and result != "unverified" and not accounted_result:
-        return "ask_evidence"
+        conflict = "ask_evidence"
+    if result == "matched" and conflict in (None, "ask_evidence"):
+        located, exclusive, linked, unresolved, completed = _located_results(table, reports, quoted_values)
+        own_match = source in linked and (source in completed or (check.original_target and check.outcome == "matched"))
+        if exclusive - {source} or (located - {source} and not own_match):
+            return "confirmation_other_source"
+        if unresolved - {source} and not own_match:
+            return "confirmation_unresolved_lookup"
     return conflict
 
 
@@ -1754,6 +1870,12 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
     origin = _GuideOrigin()
     key, facts = _next_step(table, question, answer, shell, inherited, privacy_notes, origin)
+    account = _lookup_account(table, (question, answer))
+    if account:
+        language = table["lookupLanguage"]
+        if not account.disputed and ((account.accounted and account.result != "unknown")
+                                     or key in language["missingActions"]):
+            key = language["routes"][account.source][account.result if account.accounted else "unknown"]
     if confirmation:
         report = confirmation if isinstance(confirmation, dict) else dict(zip(("source", "result"), confirmation))
         source, result = report["source"], report["result"]
@@ -1765,6 +1887,21 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                     _source_text(table, turn, aliases)
                 origin.files = {original for path in origin.files for original in aliases.get(path, {path})}
             conflict = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin)
+            if account and account.disputed and result != "unverified":
+                conflict = "confirmation_ambiguous"
+            elif account and account.unknown_clause and account.result != "unknown" and result != "unverified":
+                # A recognized record cannot resolve an unconsumed qualification of that lookup.
+                if conflict in (None, "ask_evidence"):
+                    conflict = "confirmation_unresolved_lookup"
+            elif account and account.accounted and account.result != "unknown" and result != "unverified":
+                kind, observed = account.source, account.result
+                if source != kind:
+                    conflict = "confirmation_unchecked"
+                elif observed == "unlinked":
+                    conflict = "ask_evidence" if result == "matched" else "confirmation_unresolved_lookup"
+                else:
+                    agrees = (result == "matched") == (observed == "match")
+                    conflict = None if agrees else "confirmation_inconsistent"
             missing = _observation_action(report)
             disposition = ("needs_clarification" if conflict == "ask_evidence" and not missing
                            else "contradicts" if conflict or missing else "supports")

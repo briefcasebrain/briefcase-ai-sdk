@@ -39045,5 +39045,3717 @@
     "includes": [
       "Check which source"
     ]
+  },
+  {
+    "name": "Composed original lookup 0",
+    "question": "Using my original launch settings, I reopened the configured file ledger.jsonl after exit. I searched every row for the unique marker mint-614 from my original receipt. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 1",
+    "question": "I searched every row for the unique marker mint-614 from my original receipt. Using my original launch settings, I reopened the configured file ledger.jsonl after exit. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 2",
+    "question": "Using my original launch settings, I reopened the configured file ledger.jsonl after exit. I searched every row for the unique marker mint-614 from my original receipt. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 3",
+    "question": "I searched every row for the unique marker mint-614 from my original receipt. Using my original launch settings, I reopened the configured file ledger.jsonl after exit. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 4",
+    "question": "Using my original launch settings, I reopened the configured file ledger.jsonl after exit. Every row was searched by me for the original decision ID mint-614. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 5",
+    "question": "Every row was searched by me for the original decision ID mint-614. Using my original launch settings, I reopened the configured file ledger.jsonl after exit. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 6",
+    "question": "Using my original launch settings, I reopened the configured file ledger.jsonl after exit. Every row was searched by me for the original decision ID mint-614. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 7",
+    "question": "Every row was searched by me for the original decision ID mint-614. Using my original launch settings, I reopened the configured file ledger.jsonl after exit. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 8",
+    "question": "I personally reopened ledger.jsonl using the original writer configuration. I searched every row for the unique marker mint-614 from my original receipt. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 9",
+    "question": "I searched every row for the unique marker mint-614 from my original receipt. I personally reopened ledger.jsonl using the original writer configuration. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 10",
+    "question": "I personally reopened ledger.jsonl using the original writer configuration. I searched every row for the unique marker mint-614 from my original receipt. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 11",
+    "question": "I searched every row for the unique marker mint-614 from my original receipt. I personally reopened ledger.jsonl using the original writer configuration. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 12",
+    "question": "I personally reopened ledger.jsonl using the original writer configuration. Every row was searched by me for the original decision ID mint-614. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 13",
+    "question": "Every row was searched by me for the original decision ID mint-614. I personally reopened ledger.jsonl using the original writer configuration. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 14",
+    "question": "I personally reopened ledger.jsonl using the original writer configuration. Every row was searched by me for the original decision ID mint-614. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 15",
+    "question": "Every row was searched by me for the original decision ID mint-614. I personally reopened ledger.jsonl using the original writer configuration. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 16",
+    "question": "The original file ledger.jsonl was reopened by me after the writer exited. I searched every row for the unique marker mint-614 from my original receipt. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 17",
+    "question": "I searched every row for the unique marker mint-614 from my original receipt. The original file ledger.jsonl was reopened by me after the writer exited. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 18",
+    "question": "The original file ledger.jsonl was reopened by me after the writer exited. I searched every row for the unique marker mint-614 from my original receipt. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 19",
+    "question": "I searched every row for the unique marker mint-614 from my original receipt. The original file ledger.jsonl was reopened by me after the writer exited. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 20",
+    "question": "The original file ledger.jsonl was reopened by me after the writer exited. Every row was searched by me for the original decision ID mint-614. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 21",
+    "question": "Every row was searched by me for the original decision ID mint-614. The original file ledger.jsonl was reopened by me after the writer exited. There were zero matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 22",
+    "question": "The original file ledger.jsonl was reopened by me after the writer exited. Every row was searched by me for the original decision ID mint-614. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 23",
+    "question": "Every row was searched by me for the original decision ID mint-614. The original file ledger.jsonl was reopened by me after the writer exited. Nothing matched.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 24",
+    "question": "Using my original launch settings, I reopened the configured file ledger.jsonl after exit. I searched every row for the unique marker mint-614 from my original receipt. There were zero matching rows. The lookup was carried out by a coworker without me.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 25",
+    "question": "Using my original launch settings, I reopened the configured file ledger.jsonl after exit. I searched every row for the unique marker mint-614 from my original receipt. There were zero matching rows. The lookup actually targeted a different run.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "You checked a diff"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 26",
+    "question": "Using my original launch settings, I reopened the configured file ledger.jsonl after exit. I searched every row for the unique marker mint-614 from my original receipt. There were zero matching rows. I could not open the original source.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 27",
+    "question": "Using my original launch settings, I reopened the configured file ledger.jsonl after exit. I searched every row for the unique marker mint-614 from my original receipt. There were zero matching rows. Only part of the lookup result was visible.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 28",
+    "question": "I personally inspected the receiver named in the original deployment settings. I searched for the original decision ID mint-614. An incoming entry was observed by me. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 29",
+    "question": "I searched for the original decision ID mint-614. I personally inspected the receiver named in the original deployment settings. An incoming entry was observed by me. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 30",
+    "question": "I personally inspected the receiver named in the original deployment settings. I searched for the original decision ID mint-614. I saw an incoming record. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 31",
+    "question": "I searched for the original decision ID mint-614. I personally inspected the receiver named in the original deployment settings. I saw an incoming record. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 32",
+    "question": "I personally inspected the receiver named in the original deployment settings. My original receipt provided the lookup ID mint-614. An incoming entry was observed by me. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 33",
+    "question": "My original receipt provided the lookup ID mint-614. I personally inspected the receiver named in the original deployment settings. An incoming entry was observed by me. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 34",
+    "question": "I personally inspected the receiver named in the original deployment settings. My original receipt provided the lookup ID mint-614. I saw an incoming record. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 35",
+    "question": "My original receipt provided the lookup ID mint-614. I personally inspected the receiver named in the original deployment settings. I saw an incoming record. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 36",
+    "question": "The receiving endpoint from the original worker configuration was checked by me. I searched for the original decision ID mint-614. An incoming entry was observed by me. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 37",
+    "question": "I searched for the original decision ID mint-614. The receiving endpoint from the original worker configuration was checked by me. An incoming entry was observed by me. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 38",
+    "question": "The receiving endpoint from the original worker configuration was checked by me. I searched for the original decision ID mint-614. I saw an incoming record. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 39",
+    "question": "I searched for the original decision ID mint-614. The receiving endpoint from the original worker configuration was checked by me. I saw an incoming record. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 40",
+    "question": "The receiving endpoint from the original worker configuration was checked by me. My original receipt provided the lookup ID mint-614. An incoming entry was observed by me. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 41",
+    "question": "My original receipt provided the lookup ID mint-614. The receiving endpoint from the original worker configuration was checked by me. An incoming entry was observed by me. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 42",
+    "question": "The receiving endpoint from the original worker configuration was checked by me. My original receipt provided the lookup ID mint-614. I saw an incoming record. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 43",
+    "question": "My original receipt provided the lookup ID mint-614. The receiving endpoint from the original worker configuration was checked by me. I saw an incoming record. No one checked downstream storage.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 44",
+    "question": "I personally inspected the receiver named in the original deployment settings. I searched for the original decision ID mint-614. An incoming entry was observed by me. The lookup was carried out by a coworker without me.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 45",
+    "question": "I personally inspected the receiver named in the original deployment settings. I searched for the original decision ID mint-614. An incoming entry was observed by me. The lookup actually targeted a different run.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 46",
+    "question": "I personally inspected the receiver named in the original deployment settings. I searched for the original decision ID mint-614. An incoming entry was observed by me. I could not open the original source.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 47",
+    "question": "I personally inspected the receiver named in the original deployment settings. I searched for the original decision ID mint-614. An incoming entry was observed by me. Only part of the lookup result was visible.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 48",
+    "question": "I queried the downstream store configured for the original deployment. I looked up original decision ID mint-614 from the receipt. The query returned the full record with that exact ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 49",
+    "question": "I looked up original decision ID mint-614 from the receipt. I queried the downstream store configured for the original deployment. The query returned the full record with that exact ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 50",
+    "question": "I queried the downstream store configured for the original deployment. I looked up original decision ID mint-614 from the receipt. A full decision bearing the same ID was returned.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 51",
+    "question": "I looked up original decision ID mint-614 from the receipt. I queried the downstream store configured for the original deployment. A full decision bearing the same ID was returned.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 52",
+    "question": "I queried the downstream store configured for the original deployment. The original decision ID mint-614 was used for my lookup. The query returned the full record with that exact ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 53",
+    "question": "The original decision ID mint-614 was used for my lookup. I queried the downstream store configured for the original deployment. The query returned the full record with that exact ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 54",
+    "question": "I queried the downstream store configured for the original deployment. The original decision ID mint-614 was used for my lookup. A full decision bearing the same ID was returned.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 55",
+    "question": "The original decision ID mint-614 was used for my lookup. I queried the downstream store configured for the original deployment. A full decision bearing the same ID was returned.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 56",
+    "question": "The original downstream store was independently queried by me after exit. I looked up original decision ID mint-614 from the receipt. The query returned the full record with that exact ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 57",
+    "question": "I looked up original decision ID mint-614 from the receipt. The original downstream store was independently queried by me after exit. The query returned the full record with that exact ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 58",
+    "question": "The original downstream store was independently queried by me after exit. I looked up original decision ID mint-614 from the receipt. A full decision bearing the same ID was returned.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 59",
+    "question": "I looked up original decision ID mint-614 from the receipt. The original downstream store was independently queried by me after exit. A full decision bearing the same ID was returned.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 60",
+    "question": "The original downstream store was independently queried by me after exit. The original decision ID mint-614 was used for my lookup. The query returned the full record with that exact ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 61",
+    "question": "The original decision ID mint-614 was used for my lookup. The original downstream store was independently queried by me after exit. The query returned the full record with that exact ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 62",
+    "question": "The original downstream store was independently queried by me after exit. The original decision ID mint-614 was used for my lookup. A full decision bearing the same ID was returned.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 63",
+    "question": "The original decision ID mint-614 was used for my lookup. The original downstream store was independently queried by me after exit. A full decision bearing the same ID was returned.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 64",
+    "question": "I queried the downstream store configured for the original deployment. I looked up original decision ID mint-614 from the receipt. The query returned the full record with that exact ID. The lookup was carried out by a coworker without me.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 65",
+    "question": "I queried the downstream store configured for the original deployment. I looked up original decision ID mint-614 from the receipt. The query returned the full record with that exact ID. The lookup actually targeted a different run.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 66",
+    "question": "I queried the downstream store configured for the original deployment. I looked up original decision ID mint-614 from the receipt. The query returned the full record with that exact ID. I could not open the original source.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup 67",
+    "question": "I queried the downstream store configured for the original deployment. I looked up original decision ID mint-614 from the receipt. The query returned the full record with that exact ID. Only part of the lookup result was visible.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup review route 0",
+    "question": "I used the original writer configuration and its launch directory to reopen the exact JSONL file, marshbank.jsonl, myself after exit. I parsed every row without error and searched them all for the unique marker linnet-519 from the original receipt. Nothing matched. What have I established in that file?",
+    "expected": "scanned_missing",
+    "includes": [
+      "If your completed "
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ]
+  },
+  {
+    "name": "Composed original lookup review route 1",
+    "question": "I checked the incoming log on the receiver from the original deployment and saw an entry while investigating original decision ID poppy-363. No one checked downstream storage. What can that receiver check establish?",
+    "expected": "storage",
+    "includes": [
+      "A receiver entry t"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ]
+  },
+  {
+    "name": "Composed original lookup review route 2",
+    "question": "I personally queried the downstream store configured for the original deployment after the writer exited. I looked up original decision ID sorrel-805 from the receipt, and the query returned the full record with that exact ID. What has this verified?",
+    "expected": "stored",
+    "includes": [
+      "Compare the return"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ]
+  },
+  {
+    "name": "Composed original lookup review route 3",
+    "question": "Our Node demo used a console exporter. We retained the stdout application reply and the stderr SDK decision. I want the decision on stderr.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained s"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ]
+  },
+  {
+    "name": "Composed original lookup review route 4",
+    "question": "Yesterday I ran the published Node demo with default capture and console destination. I kept stderr but not stdout. I want the model reply.",
+    "expected": "reply_stdout_discarded",
+    "includes": [
+      "If another copy of"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ]
+  },
+  {
+    "name": "Composed original lookup review route 5",
+    "question": "I ran the Node quickstart with BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process us"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ]
+  },
+  {
+    "name": "Composed original lookup review route 6",
+    "question": "I only read the Node demo. I kept stdout but not stderr. I want the token count from my own program.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ]
+  },
+  {
+    "name": "Composed original lookup review route 7",
+    "question": "I created a decision locally. I submitted a hosted dashboard run. I want the local decision record.",
+    "expected": "local",
+    "includes": [
+      "Use the local SDK "
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ]
+  },
+  {
+    "name": "Composed original lookup exposed 0 None",
+    "question": "I used the original writer configuration and its launch directory to reopen the exact JSONL file, marshbank.jsonl, myself after exit. I parsed every row without error and searched them all for the unique marker linnet-519 from the original receipt. Nothing matched. What have I established in that file?",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no ma"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup exposed 1 None",
+    "question": "I checked the incoming log on the receiver from the original deployment and saw an entry while investigating original decision ID poppy-363. No one checked downstream storage. What can that receiver check establish?",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup exposed 1 yes",
+    "question": "I checked the incoming log on the receiver from the original deployment and saw an entry while investigating original decision ID poppy-363. No one checked downstream storage. What can that receiver check establish?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Composed original lookup exposed 1 no",
+    "question": "I checked the incoming log on the receiver from the original deployment and saw an entry while investigating original decision ID poppy-363. No one checked downstream storage. What can that receiver check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Composed original lookup exposed 1 unsure",
+    "question": "I checked the incoming log on the receiver from the original deployment and saw an entry while investigating original decision ID poppy-363. No one checked downstream storage. What can that receiver check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Composed original lookup exposed 2 None",
+    "question": "I personally queried the downstream store configured for the original deployment after the writer exited. I looked up original decision ID sorrel-805 from the receipt, and the query returned the full record with that exact ID. What has this verified?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed original lookup exclusive 0 False",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The receiver was the only source with a matching record."
+  },
+  {
+    "name": "Composed original lookup exclusive 0 True",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My written notes do not specify which identifier I searched. The receiver was the only source with a matching record."
+  },
+  {
+    "name": "Composed original lookup exclusive 1 False",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "Only the original receiver returned one matching row."
+  },
+  {
+    "name": "Composed original lookup exclusive 1 True",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My written notes do not specify which identifier I searched. Only the original receiver returned one matching row."
+  },
+  {
+    "name": "Composed original lookup exclusive 2 False",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The collector is the sole destination containing a matching entry."
+  },
+  {
+    "name": "Composed original lookup exclusive 2 True",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My written notes do not specify which identifier I searched. The collector is the sole destination containing a matching entry."
+  },
+  {
+    "name": "Composed original lookup one matching storage matched 0",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with the original ID and a record with a different ID."
+  },
+  {
+    "name": "Composed original lookup one matching storage no-match 0",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection con"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with the original ID and a record with a different ID."
+  },
+  {
+    "name": "Composed original lookup one matching receiver matched 0",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with the original ID and a record with a different ID."
+  },
+  {
+    "name": "Composed original lookup one matching receiver no-match 0",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection con"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with the original ID and a record with a different ID."
+  },
+  {
+    "name": "Composed original lookup one matching jsonl matched 0",
+    "question": "I searched the intended JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with the original ID and a record with a different ID."
+  },
+  {
+    "name": "Composed original lookup one matching jsonl no-match 0",
+    "question": "I searched the intended JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection con"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with the original ID and a record with a different ID."
+  },
+  {
+    "name": "Composed original lookup one matching storage matched 1",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with a different ID and a record with the original ID."
+  },
+  {
+    "name": "Composed original lookup one matching storage no-match 1",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection con"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with a different ID and a record with the original ID."
+  },
+  {
+    "name": "Composed original lookup one matching receiver matched 1",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with a different ID and a record with the original ID."
+  },
+  {
+    "name": "Composed original lookup one matching receiver no-match 1",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection con"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with a different ID and a record with the original ID."
+  },
+  {
+    "name": "Composed original lookup one matching jsonl matched 1",
+    "question": "I searched the intended JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with a different ID and a record with the original ID."
+  },
+  {
+    "name": "Composed original lookup one matching jsonl no-match 1",
+    "question": "I searched the intended JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection con"
+    ],
+    "omits": [
+      "mint-614",
+      "marshbank.jsonl",
+      "linnet-519",
+      "sorrel-805",
+      "poppy-363"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned a record with a different ID and a record with the original ID."
+  },
+  {
+    "name": "Located receiver result with independent store report 0 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The only place I found the record was the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 0 1",
+    "question": "The only place I found the record was the receiver.",
+    "answer": "I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 0 2",
+    "question": "I queried the intended downstream store for the original decision ID. My written notes do not specify which identifier I searched.",
+    "answer": "The only place I found the record was the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 0 3",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The only place I found the record was the receiver. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 0 4",
+    "question": "The only place I found the record was the receiver.",
+    "answer": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 0 5",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The only place I found the record was the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 1 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I only found a match in the receiver's log.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 1 1",
+    "question": "I only found a match in the receiver's log.",
+    "answer": "I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 1 2",
+    "question": "I queried the intended downstream store for the original decision ID. My written notes do not specify which identifier I searched.",
+    "answer": "I only found a match in the receiver's log.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 1 3",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I only found a match in the receiver's log. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 1 4",
+    "question": "I only found a match in the receiver's log.",
+    "answer": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 1 5",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I only found a match in the receiver's log.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 2 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The matching record came solely from the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 2 1",
+    "question": "The matching record came solely from the receiver.",
+    "answer": "I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 2 2",
+    "question": "I queried the intended downstream store for the original decision ID. My written notes do not specify which identifier I searched.",
+    "answer": "The matching record came solely from the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 2 3",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The matching record came solely from the receiver. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 2 4",
+    "question": "The matching record came solely from the receiver.",
+    "answer": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 2 5",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The matching record came solely from the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 3 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I found it at the receiver, nowhere else.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 3 1",
+    "question": "I found it at the receiver, nowhere else.",
+    "answer": "I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 3 2",
+    "question": "I queried the intended downstream store for the original decision ID. My written notes do not specify which identifier I searched.",
+    "answer": "I found it at the receiver, nowhere else.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 3 3",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I found it at the receiver, nowhere else. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 3 4",
+    "question": "I found it at the receiver, nowhere else.",
+    "answer": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 3 5",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I found it at the receiver, nowhere else.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 4 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I found the original record at the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 4 1",
+    "question": "I found the original record at the receiver.",
+    "answer": "I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 4 2",
+    "question": "I queried the intended downstream store for the original decision ID. My written notes do not specify which identifier I searched.",
+    "answer": "I found the original record at the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 4 3",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I found the original record at the receiver. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 4 4",
+    "question": "I found the original record at the receiver.",
+    "answer": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 4 5",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I found the original record at the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 5 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I found the record at the receiver during my investigation.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 5 1",
+    "question": "I found the record at the receiver during my investigation.",
+    "answer": "I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 5 2",
+    "question": "I queried the intended downstream store for the original decision ID. My written notes do not specify which identifier I searched.",
+    "answer": "I found the record at the receiver during my investigation.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 5 3",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I found the record at the receiver during my investigation. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 5 4",
+    "question": "I found the record at the receiver during my investigation.",
+    "answer": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Located receiver result with independent store report 5 5",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I found the record at the receiver during my investigation.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Individually bound match at both sources receiver 0",
+    "question": "I searched the original receiver for the original decision ID. I found a record with the original ID.",
+    "answer": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching "
+    ]
+  },
+  {
+    "name": "Individually bound match at both sources storage 0",
+    "question": "I searched the original receiver for the original decision ID. I found a record with the original ID.",
+    "answer": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching "
+    ]
+  },
+  {
+    "name": "Individually bound match at both sources receiver 1",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I searched the original receiver for the original decision ID. I found a record with the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching "
+    ]
+  },
+  {
+    "name": "Individually bound match at both sources storage 1",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "I searched the original receiver for the original decision ID. I found a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching "
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 0 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "Our receiver held the lone copy of that decision.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 0 1",
+    "question": "Our receiver held the lone copy of that decision.",
+    "answer": "I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 0 2",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "Our receiver held the lone copy of that decision. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 0 3",
+    "question": "Our receiver held the lone copy of that decision.",
+    "answer": "I queried the intended downstream store for the original decision ID. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 1 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "Only the receiver had anything to show for that ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 1 1",
+    "question": "Only the receiver had anything to show for that ID.",
+    "answer": "I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 1 2",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "Only the receiver had anything to show for that ID. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 1 3",
+    "question": "Only the receiver had anything to show for that ID.",
+    "answer": "I queried the intended downstream store for the original decision ID. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 2 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The receiver had an unspecified disposition.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 2 1",
+    "question": "The receiver had an unspecified disposition.",
+    "answer": "I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 2 2",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The receiver had an unspecified disposition. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 2 3",
+    "question": "The receiver had an unspecified disposition.",
+    "answer": "I queried the intended downstream store for the original decision ID. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 3 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "My notes describe a booking at the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 3 1",
+    "question": "My notes describe a booking at the receiver.",
+    "answer": "I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 3 2",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "My notes describe a booking at the receiver. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source storage 3 3",
+    "question": "My notes describe a booking at the receiver.",
+    "answer": "I queried the intended downstream store for the original decision ID. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 0 0",
+    "question": "I queried the original receiver for the original decision ID.",
+    "answer": "Our downstream store held the lone copy of that decision.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 0 1",
+    "question": "Our downstream store held the lone copy of that decision.",
+    "answer": "I queried the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 0 2",
+    "question": "I queried the original receiver for the original decision ID.",
+    "answer": "Our downstream store held the lone copy of that decision. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 0 3",
+    "question": "Our downstream store held the lone copy of that decision.",
+    "answer": "I queried the original receiver for the original decision ID. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 1 0",
+    "question": "I queried the original receiver for the original decision ID.",
+    "answer": "Only the downstream store had anything to show for that ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 1 1",
+    "question": "Only the downstream store had anything to show for that ID.",
+    "answer": "I queried the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 1 2",
+    "question": "I queried the original receiver for the original decision ID.",
+    "answer": "Only the downstream store had anything to show for that ID. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 1 3",
+    "question": "Only the downstream store had anything to show for that ID.",
+    "answer": "I queried the original receiver for the original decision ID. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 2 0",
+    "question": "I queried the original receiver for the original decision ID.",
+    "answer": "The downstream store had an unspecified disposition.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 2 1",
+    "question": "The downstream store had an unspecified disposition.",
+    "answer": "I queried the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 2 2",
+    "question": "I queried the original receiver for the original decision ID.",
+    "answer": "The downstream store had an unspecified disposition. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 2 3",
+    "question": "The downstream store had an unspecified disposition.",
+    "answer": "I queried the original receiver for the original decision ID. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 3 0",
+    "question": "I queried the original receiver for the original decision ID.",
+    "answer": "My notes describe a booking at the downstream store.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 3 1",
+    "question": "My notes describe a booking at the downstream store.",
+    "answer": "I queried the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 3 2",
+    "question": "I queried the original receiver for the original decision ID.",
+    "answer": "My notes describe a booking at the downstream store. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Unaccounted competing source receiver 3 3",
+    "question": "My notes describe a booking at the downstream store.",
+    "answer": "I queried the original receiver for the original decision ID. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Partial source understood despite comma adjunct receiver",
+    "question": "During handoff, I personally inspected the receiver named in the original deployment settings. I searched for the original decision ID mint-614. I saw an incoming record.",
+    "expected": "receiver",
+    "includes": [
+      "Search the HTTP re"
+    ]
+  },
+  {
+    "name": "Partial account does not authorize receiver",
+    "question": "During handoff, I personally inspected the receiver named in the original deployment settings. I searched for the original decision ID mint-614. I saw an incoming record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Partial source understood despite comma adjunct jsonl",
+    "question": "During handoff, I personally reopened ledger.jsonl using the original writer configuration. I searched for the original decision ID mint-614. I saw an incoming record.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original "
+    ]
+  },
+  {
+    "name": "Partial account does not authorize jsonl",
+    "question": "During handoff, I personally reopened ledger.jsonl using the original writer configuration. I searched for the original decision ID mint-614. I saw an incoming record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Partial source understood despite comma adjunct storage",
+    "question": "During handoff, I queried the downstream store configured for the original deployment. I searched for the original decision ID mint-614. I saw an incoming record.",
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstr"
+    ]
+  },
+  {
+    "name": "Partial account does not authorize storage",
+    "question": "During handoff, I queried the downstream store configured for the original deployment. I searched for the original decision ID mint-614. I saw an incoming record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Lookup target declared unknown",
+    "question": "I queried the downstream store configured for the original deployment. I searched for the original decision ID unknown. The query returned the full record with that exact ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup target declared missing",
+    "question": "I queried the downstream store configured for the original deployment. I searched for the original decision ID missing. The query returned the full record with that exact ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup target declared lost",
+    "question": "I queried the downstream store configured for the original deployment. I searched for the original decision ID lost. The query returned the full record with that exact ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source H03",
+    "question": "Can I tell the team it is in the archive? OTLP collector captured a briefcase.decision span with the original trace correlation. An independent query of the archive after exporter exit returned the matching decision span.",
+    "expected": "confirmation_unchecked",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source A11",
+    "question": "The collector's receiver log has an entry matching my original decision ID d-933. Does that prove I can retrieve it from storage?",
+    "expected": "confirmation_unchecked",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source B11",
+    "question": "An HTTP receiver accepted a batch; I opened its payload and matched the original decision ID h-561. No one has queried the database. How far is this verified?",
+    "expected": "confirmation_details",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source C11",
+    "question": "The receiver log contains a matching entry for our original decision ID web-281. We have no readback from storage yet. Is the record persisted?",
+    "expected": "confirmation_unchecked",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source D11",
+    "question": "The received HTTP batch contains a record matching original decision ID net-720. I have the receiver log but no separate downstream readback. Can I claim storage?",
+    "expected": "confirmation_unchecked",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source K11",
+    "question": "The receiver log shows a matching entry for the original decision ID relay-48. I have no downstream storage readback. Has the decision been stored?",
+    "expected": "confirmation_unchecked",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source L11",
+    "question": "The receiver log contains a matching entry for our original decision ID node-367. We have not queried downstream storage. Is that enough to confirm storage?",
+    "expected": "confirmation_unchecked",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source W11",
+    "question": "I found our original decision ID fern-379 in the receiver log from the RPC batch. Nobody has read the downstream store yet. Which part can we verify?",
+    "expected": "confirmation_details",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source X11",
+    "question": "The receiver logged a batch entry whose decision ID matches my original ID fold-497. We have no independent readback from storage. What evidence do I have?",
+    "expected": "confirmation_unchecked",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source Y11",
+    "question": "The receiver log holds a batch entry matching the original decision ID urn-476. We have no downstream storage readback for that decision. What can we establish?",
+    "expected": "confirmation_unchecked",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source AA11",
+    "question": "I saw the original decision ID pond-932 in a matching entry at the receiver. There has been no downstream storage lookup. What has the receiver evidence verified?",
+    "expected": "confirmation_details",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source AB11",
+    "question": "A receiver entry matches our original decision ID bell-284. Nobody has checked the downstream store. What can I confirm about delivery?",
+    "expected": "confirmation_unchecked",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "unverified"
+    },
+    "includes": [
+      "Search the intended sourc"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source AE11",
+    "question": "I personally checked the receiver log at the endpoint configured by my original worker. I compared a received decision with the ID on the original launch receipt, fern-824, and it matched exactly. Nobody queried storage. What evidence do I have?",
+    "expected": "confirmed_receiver_matched",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "includes": [
+      "You reported a matching e"
+    ]
+  },
+  {
+    "name": "Independent read versus unqueried source AG11",
+    "question": "I checked the original deployment configuration to identify its receiver, then personally opened that receiver’s incoming records. One contained the exact decision ID maple-132 from my original launch receipt. I have not looked in downstream storage. What has been verified?",
+    "expected": "confirmed_receiver_matched",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "includes": [
+      "You reported a matching e"
+    ]
   }
 ]
