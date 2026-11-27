@@ -163,10 +163,13 @@ def client_settings(env: Optional[Mapping[str, str]] = None, server: Optional[st
     return {"addr": addr, "token": token or None, "ca": ca or None, "source": source}
 
 
-def gateway_address(env: Optional[Mapping[str, str]] = None) -> str:
+def gateway_address(env: Optional[Mapping[str, str]] = None, server: Optional[str] = None) -> Optional[str]:
     env = os.environ if env is None else env
+    gateway = env.get("BRIEFCASE_ENGINE_GATEWAY")
+    if gateway or server or configured_address(env):
+        return gateway or None
     record = current_install(env) or {}
-    return env.get("BRIEFCASE_ENGINE_GATEWAY") or record.get("gateway") or DEFAULT_GATEWAY
+    return record.get("gateway") or DEFAULT_GATEWAY
 
 
 def help_text(text: str, env: Optional[Mapping[str, str]] = None) -> str:

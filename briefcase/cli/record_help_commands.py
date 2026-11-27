@@ -8,7 +8,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from briefcase.cli import _ux
 
@@ -22,8 +22,10 @@ def register(sub) -> None:
         "record-help",
         help="Find an existing decision using evidence from the original run.",
         description="Describe the original run. Give a question as an argument, or pipe a question "
-                    "and optional clarification on separate lines. A final source/result pair can confirm your check. "
+                    "and optional clarification on separate lines. Confirm a check with a structured observation. "
                     "All input stays local.",
+        epilog="Terminal or pipe final line: SOURCE RESULT READER SOURCE_MATCH TARGET_MATCH [COVERAGE]. "
+               "Example: jsonl no-match me original original complete.",
     )
 
     def private_syntax_error(_message: str) -> None:
@@ -37,6 +39,13 @@ def register(sub) -> None:
                         help="Source inspected for the original decision ID or run-unique marker. Pair with --result.")
     parser.add_argument("--result", metavar="{matched,no-match,unverified}", action="append",
                         help="Observed result at that source. Use matched only for an unambiguous original match.")
+    for flag, values, meaning in (
+        ("reader", "me,another,unverified", "Who personally performed the lookup."),
+        ("source-match", "original,different,unverified", "Whether the inspected source was the intended instance."),
+        ("target-match", "original,different,unverified", "Whether you looked up the original ID or unique marker."),
+        ("coverage", "complete,partial,unverified", "How much of that source you searched. Required for absence."),
+    ):
+        parser.add_argument("--" + flag, metavar="{" + values + "}", action="append", help=meaning)
     parser.set_defaults(func=cmd_record_help)
 
 
@@ -582,7 +591,7 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
             table["inlineNode"]["command"], clause)
         prefix = clause[:candidate.start()] if candidate else ""
         owner = table["launchOwner"]
-        if candidate and re.search(owner["other"], prefix, re.I) and re.search(owner["own"], prefix, re.I):
+        if candidate and re.search(owner["other"], prefix, re.I):
             parts[index] = " original exporter unknown "
             continue
         original = re.fullmatch(table["commandContext"], prefix, re.I) and re.search(
@@ -869,9 +878,16 @@ def _report_roles(spec, clause, quoted_values):
 
 
 def _report_files(table, clause, quoted_values):
-    values = (next(v for v in match.groups() if v is not None)
-              for match in re.finditer(table["fileMentions"], clause, re.I))
-    return {quoted_values.get(value, value) for value in values}
+    values = set()
+    for match in re.finditer(table["fileMentions"], clause, re.I):
+        token = next(v for v in match.groups() if v is not None)
+        path = quoted_values.get(token, token)
+        directory = re.match(table["confirmation"]["attribution"]["operandDirectory"], clause[match.end():], re.I)
+        if directory and not re.match(r"^(?:[/\\]|[A-Za-z]:)", path):
+            base = quoted_values.get(directory.group(1), directory.group(1)).rstrip("/\\")
+            path = base + "/" + path.removeprefix("./")
+        values.add(path)
+    return values
 
 
 def _source_instances(table, clause, quoted):
@@ -978,20 +994,40 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     attempts = {key: _SourceCheck() for key in origin.values()}
     current = dict(origin)
     latest = dict(origin)
+    foreign_context = set()
     if "readDifferentPath" in facts:
         attempts[origin["jsonl"]].correct_instance = False
     for clauses in reports:
         for clause in clauses:
             roles, source_scope = _report_roles(spec, clause, quoted_values)
             checked = re.search(spec["lookupPerformed"], source_scope, re.I)
+            denied_check = re.search(spec["unchecked"], source_scope, re.I)
+            other_reader = re.search(spec["foreignReader"], source_scope, re.I)
             original = re.search(spec["original"], source_scope, re.I)
             qualified = not re.search(spec["uncertain"], source_scope, re.I)
             if re.search(spec["originalMarker"], source_scope, re.I) and qualified:
                 original_marker = True
             named = {key for key, pattern in spec["sources"].items() if re.search(pattern, source_scope, re.I)}
+            if (checked or denied_check) and re.search(spec["fileReference"], source_scope, re.I):
+                named.add("jsonl")
+            if other_reader:
+                foreign_context = named or active or set(origin)
+                for target in foreign_context:
+                    prior = attempts[origin[target]]
+                    if not prior.original_target:
+                        prior.unchecked = True
+                continue
+            if checked:
+                foreign_context = set()
+            elif foreign_context and (not named or named <= foreign_context):
+                continue
             clause = source_scope
             inspected = _source_instances(table, source_scope, quoted_values)
             sought = set(roles["lookupIdentifier"])
+            if checked and not sought:
+                alternatives = re.search(spec["lookupAlternatives"], clause[checked.end():], re.I)
+                if alternatives:
+                    sought.add(quoted_values.get(alternatives.group(1), alternatives.group(1)))
             subject = re.search(spec["outcomeTarget"], clause, re.I)
             if subject:
                 sought = {quoted_values.get(subject.group(1), subject.group(1))}
@@ -1038,7 +1074,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             if uncertain_read and not named and not active:
                 for possible in origin:
                     attempts[origin[possible]].unchecked = True
-            if failed or uncertain_read or re.search(spec["unchecked"], clause, re.I):
+            if failed or uncertain_read or denied_check:
                 blocked = named or active
                 active = set(blocked)
                 for target in blocked:
@@ -1063,7 +1099,11 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         checks[target].correct_instance = True
                     checks[target].matching_rows = 0
             if checked and qualified and named:
-                first = min(re.search(spec["sources"][key], source_scope, re.I).start() for key in named)
+                positions = [m.start() for key in named for m in [re.search(spec["sources"][key], source_scope, re.I)]
+                             if m is not None]
+                if not positions:
+                    positions.append(checked.end())
+                first = min(positions)
                 if "jsonl" in named:
                     filename = re.search(table["fileMentions"], source_scope, re.I)
                     if filename:
@@ -1087,7 +1127,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             foreign = re.search(spec["foreign"], attribution, re.I)
             explicit = (re.search(spec["reportedForeign"], clause, re.I)
                         or re.search(spec["foreignLookup"], clause, re.I))
-            query_ids = set(roles["lookupIdentifier"])
+            query_ids = set(sought)
             if subject:
                 query_ids.add(quoted_values.get(subject.group(1), subject.group(1)))
             row_ids = set(roles["returnedIdentifier"])
@@ -1099,7 +1139,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 for target in targets:
                     checks[target].original_target = True
             ambiguous_rows = re.search(spec["ambiguousRows"], clause, re.I)
-            if not (checked or ambiguous_rows or re.search(spec["observation"], clause, re.I)
+            miss = re.search(spec["miss"], clause, re.I)
+            if not (checked or ambiguous_rows or miss or re.search(spec["observation"], clause, re.I)
                     or re.search(spec["exclusiveOther"], clause, re.I)):
                 continue
             for target in targets:
@@ -1127,7 +1168,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 if ambiguous_rows or (original_ids and len(unique_ids or original_ids) != 1 and (query_ids or row_ids)):
                     check.ambiguous = True
                 if not check.foreign_target and (check.original_target or (row_ids and original_ids)):
-                    if re.search(spec["miss"], clause, re.I):
+                    if miss:
                         check.outcome = "no-match"
                     elif qualified and len(unique_ids or original_ids) == 1 and row_ids:
                         count = sum(value in (unique_ids or original_ids) for value in roles["returnedIdentifier"])
@@ -1154,13 +1195,32 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     return check.compare(source, result, action, facts)
 
 
+def _observation_action(report):
+    source, result = report["source"], report["result"]
+    if result == "unverified":
+        return None
+    if report.get("reader") in ("another", "unverified"):
+        return "confirmation_unchecked"
+    if report.get("sourceMatch") == "different":
+        return "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
+    if report.get("targetMatch") == "different":
+        return "confirmation_other_run"
+    if (report.get("reader"), report.get("sourceMatch"), report.get("targetMatch")) != ("me", "original", "original"):
+        return "confirmation_details"
+    if result == "no-match" and report.get("coverage") != "complete":
+        return "confirmation_partial"
+    return None
+
+
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
-          confirmation: Optional[Tuple[str, str]] = None, privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
+          confirmation: Optional[Union[Tuple[str, str], Dict[str, str]]] = None,
+          privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
     origin = _GuideOrigin()
     key, facts = _next_step(table, question, answer, shell, inherited, privacy_notes, origin)
     if confirmation:
-        source, result = confirmation
+        report = confirmation if isinstance(confirmation, dict) else dict(zip(("source", "result"), confirmation))
+        source, result = report["source"], report["result"]
         outcome = table["confirmation"]["outcomes"].get(source, {}).get(result)
         if outcome:
             if origin.files:
@@ -1168,7 +1228,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 for turn in (question, answer or ""):
                     _source_text(table, turn, aliases)
                 origin.files = {original for path in origin.files for original in aliases.get(path, {path})}
-            key = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin) or outcome
+            conflict = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin)
+            key = conflict or _observation_action(report) or outcome
     return key, table["actions"][key]["text"]
 
 
@@ -1619,11 +1680,17 @@ def _line(prompt: str, interactive: bool) -> str:
     return sys.stdin.readline().strip()
 
 
-def _confirmation(table: Dict[str, Any], line: str) -> Optional[Tuple[str, str]]:
+def _confirmation(table: Dict[str, Any], line: str) -> Optional[Dict[str, str]]:
     parts = line.split()
-    if len(parts) == 2 and parts[1] in table["confirmation"]["outcomes"].get(parts[0], {}):
-        return parts[0], parts[1]
-    return None
+    info = table["confirmation"]
+    if len(parts) < 2 or parts[1] not in info["outcomes"].get(parts[0], {}):
+        return None
+    fields = ("source", "result", "reader", "sourceMatch", "targetMatch", "coverage")
+    if len(parts) > len(fields) or any(
+        value not in info["observation"][field] for field, value in zip(fields[2:], parts[2:])
+    ):
+        raise _SessionError("Choose supported observation values in the order shown in --help.")
+    return dict(zip(fields, parts))
 
 
 class _SessionError(ValueError):
@@ -1637,11 +1704,20 @@ def _session(table, args, turns):
         raise _SessionError("Supply one clarification answer, once.")
     answer = args.answer[0] if args.answer else None
     pair = None
+    options = {"reader": args.reader, "sourceMatch": args.source_match,
+               "targetMatch": args.target_match, "coverage": args.coverage}
+    if any(options.values()) and not args.source:
+        raise _SessionError("An observation needs both --source and --result.")
     if args.source:
         if (len(args.source) != 1 or len(args.result) != 1
                 or args.result[0] not in table["confirmation"]["outcomes"].get(args.source[0], {})):
             raise _SessionError("Choose exactly one supported source and one observed result. See --help.")
-        pair = (args.source[0], args.result[0])
+        pair = {"source": args.source[0], "result": args.result[0]}
+        for option, values in options.items():
+            if values:
+                if len(values) != 1 or values[0] not in table["confirmation"]["observation"][option]:
+                    raise _SessionError("Choose one supported value for each observation field. See --help.")
+                pair[option] = values[0]
     lines = ([args.question] if args.question is not None else []) + list(turns)
     while lines and not lines[-1].strip():
         lines.pop()
@@ -1741,7 +1817,7 @@ def _guide_session(args) -> int:
     if prompted:
         print(text, flush=True)
         print(table["confirmation"]["instruction"])
-        question, answer, confirmation = read_turn("Optional source and result (Enter to skip): ")
+        question, answer, confirmation = read_turn("Optional observation (Enter to skip): ")
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
     if not prompted or confirmation:
         print(text)

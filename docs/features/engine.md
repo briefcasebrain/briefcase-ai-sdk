@@ -6,7 +6,7 @@ The proprietary engine runs in infrastructure operated by Briefcase AI. Contact 
 
 ## Connect an entitled workspace
 
-Install the independent gRPC client with `pip install 'briefcase-ai[engine]'`. Set `BRIEFCASE_ENGINE_ADDR` to the TLS endpoint provided for your workspace, load `OCI_JJ_AUTH_TOKEN` through your secret manager, and set `OCI_JJ_TLS_CA` if your administrator supplies a CA. Run `briefcase-ai graph log <ref>` with a repository reference you can access. The portal URL above serves a web page; your workspace endpoint serves gRPC.
+Install the independent gRPC client with `pip install 'briefcase-ai[engine]'`. Set `BRIEFCASE_ENGINE_ADDR` to the TLS endpoint provided for your workspace, load `OCI_JJ_AUTH_TOKEN` through your secret manager, and set `OCI_JJ_TLS_CA` if your administrator supplies a CA. For image pushes, set `BRIEFCASE_ENGINE_GATEWAY` to the registry hostname supplied for the same workspace. Run `briefcase-ai graph log <ref>` with a repository reference you can access. The portal URL above serves a web page; your workspace endpoint serves gRPC.
 
 ## Use the free SDK locally
 

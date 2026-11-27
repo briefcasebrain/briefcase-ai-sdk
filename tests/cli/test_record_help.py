@@ -13,8 +13,7 @@ TABLE = json.loads(_TABLE.read_text())
 
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
 def test_shared_record_guidance(case):
-    pair = case.get("confirmation")
-    confirmation = (pair["source"], pair["result"]) if pair else None
+    confirmation = case.get("confirmation")
     action, text = route(TABLE, case["question"], case.get("answer"), case.get("shell"), confirmation=confirmation)
     assert action == case["expected"]
     assert text == TABLE["actions"][action]["text"]
@@ -97,9 +96,10 @@ def test_confirmation_flags_and_pipe_report_only_selected_source(source, result,
 
     question = "I opened alpha.jsonl, then beta.jsonl. A receiver returned a row."
     monkeypatch.setattr("sys.stdin", StringIO(""))
-    assert main(["record-help", question, "--source", source, "--result", result]) == 0
+    assert main(["record-help", question, "--source", source, "--result", result, "--reader", "me",
+                 "--source-match", "original", "--target-match", "original", "--coverage", "complete"]) == 0
     by_flag = capsys.readouterr().out
-    monkeypatch.setattr("sys.stdin", StringIO(f"{question}\n{source} {result}\n"))
+    monkeypatch.setattr("sys.stdin", StringIO(f"{question}\n{source} {result} me original original complete\n"))
     assert main(["record-help"]) == 0
     by_pipe = capsys.readouterr().out
     # A generic artifact may trigger an initial question; the explicit conclusion is identical.
@@ -128,7 +128,8 @@ def test_three_turn_pipe_accepts_source_result_after_clarification(monkeypatch, 
 
     from briefcase.cli.__main__ import main
 
-    monkeypatch.setattr("sys.stdin", StringIO("Where is the JSONL for marker run-123?\naudit.jsonl\njsonl no-match\n"))
+    data = "Where is the JSONL for marker run-123?\naudit.jsonl\njsonl no-match me original original complete\n"
+    monkeypatch.setattr("sys.stdin", StringIO(data))
     assert main(["record-help"]) == 0
     result = capsys.readouterr().out
     assert "Reader-confirmed absence" in result
@@ -150,13 +151,14 @@ def test_terminal_accepts_confirmation_after_path_clarification(monkeypatch, cap
     from briefcase.cli import _ux
     from briefcase.cli.__main__ import main
 
-    terminal = StringIO("Where is the JSONL for marker visit-671?\naudit.jsonl\njsonl no-match\n")
+    terminal = StringIO("Where is the JSONL for marker visit-671?\naudit.jsonl\n"
+                        "jsonl no-match me original original complete\n")
     monkeypatch.setattr(terminal, "isatty", lambda: True)
     monkeypatch.setattr(_ux, "is_interactive", lambda: True)
     monkeypatch.setattr("sys.stdin", terminal)
     assert main(["record-help"]) == 0
     output = capsys.readouterr().out
-    assert "Optional source and result" in output and "Reader-confirmed absence" in output
+    assert "Optional observation" in output and "Reader-confirmed absence" in output
     assert "audit.jsonl" not in output
 
 
@@ -187,7 +189,7 @@ def test_terminal_confirmation_after_answer_option(monkeypatch, capsys):
     from briefcase.cli import _ux
     from briefcase.cli.__main__ import main
 
-    terminal = StringIO("jsonl no-match\n")
+    terminal = StringIO("jsonl no-match me original original complete\n")
     monkeypatch.setattr(terminal, "isatty", lambda: True)
     monkeypatch.setattr(_ux, "is_interactive", lambda: True)
     monkeypatch.setattr("sys.stdin", terminal)
@@ -211,7 +213,8 @@ def test_malformed_option_uses_fixed_diagnostic(option, capsys):
 @pytest.mark.parametrize("lines,code,phrase", [
     ("jsonl matched\njsonl no-match\n", 2, "once"),
     ("A question\nreceiver matched\nstorage matched\n", 2, "once"),
-    ("Explicit JSONL to audit.jsonl.\nI reopened it after exit.\njsonl no-match\n", 0, "Reader-confirmed absence"),
+    ("Explicit JSONL to audit.jsonl.\nI reopened it after exit.\n"
+     "jsonl no-match me original original complete\n", 0, "Reader-confirmed absence"),
 ])
 def test_final_report_is_decoded_independently_of_question(lines, code, phrase, monkeypatch, capsys):
     from io import StringIO
@@ -331,7 +334,9 @@ def test_terminal_rejects_pasted_second_report(monkeypatch, capsys, question, se
     assert "once" in capture.err
 
 
-@pytest.mark.parametrize("pair", ["receiver matched", "receiver no-match", ""])
+@pytest.mark.parametrize("pair", [
+    "receiver matched me original original", "receiver no-match me original original complete", "",
+])
 def test_terminal_investigation_precedes_optional_outcome(monkeypatch, capsys, pair):
     from io import StringIO
     from briefcase.cli import _ux
@@ -344,9 +349,9 @@ def test_terminal_investigation_precedes_optional_outcome(monkeypatch, capsys, p
     assert main(["record-help", "My original run used OTLP."]) == 0
     capture = capsys.readouterr().out
     assert capture.count("Search the collector") == 1
-    assert capture.index("Search the collector") < capture.index("Optional source and result")
+    assert capture.index("Search the collector") < capture.index("Optional observation")
     if pair:
-        assert capture.index("Optional source and result") < capture.index("Reader-confirmed")
+        assert capture.index("Optional observation") < capture.index("Reader-confirmed")
 
 
 @pytest.mark.parametrize("command", ["", " node --import @briefcase-ai/auto/register app.js"])
@@ -461,3 +466,37 @@ def test_chained_sqlite_precedes_jsonl_extension_in_public_resolver(monkeypatch)
     factory.assert_called_once_with("records.jsonl")
     statement = 'Before recording the decision, the original Python application called observe("chain:records.jsonl").'
     assert route(TABLE, statement)[0] == "chain_store"
+
+
+@pytest.mark.parametrize("extra,phrase", [
+    ("", "Report who checked"),
+    ("another", "personal lookup"),
+    ("me different", "file you inspected differs"),
+    ("me original different", "different run"),
+    ("me original original partial", "exhaustive search"),
+    ("me original original complete", "Reader-confirmed absence"),
+])
+def test_progressive_observation_report_in_flags_and_pipe(extra, phrase, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    question = "How do I check the original JSONL file?"
+    values = ["jsonl", "no-match", *extra.split()]
+    options = ["--source", "--result", "--reader", "--source-match", "--target-match", "--coverage"]
+    args = [word for pair in zip(options, values) for word in pair]
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    assert main(["record-help", question, *args]) == 0
+    flag_text = capsys.readouterr().out
+    monkeypatch.setattr("sys.stdin", StringIO(question + "\n" + " ".join(values)))
+    assert main(["record-help"]) == 0
+    pipe_text = capsys.readouterr().out
+    assert phrase.lower() in flag_text.lower() and pipe_text.endswith(flag_text)
+
+
+@pytest.mark.parametrize("extra", ["--reader", "--source-match", "--target-match", "--coverage"])
+def test_observation_rejects_unknown_option_value_without_echo(extra, capsys):
+    from briefcase.cli.__main__ import main
+
+    assert main(["record-help", "--source", "receiver", "--result", "matched", extra, "private-value"]) == 2
+    captured = capsys.readouterr()
+    assert "private-value" not in captured.out + captured.err and "Reader-confirmed" not in captured.out

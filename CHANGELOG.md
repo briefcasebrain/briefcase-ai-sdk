@@ -10,8 +10,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - Use `briefcase-ai record-help` to choose the next check for a missing decision.
-  If you have already checked the original run, you can report which source you
-  inspected and whether it matched. A collector match confirms receipt. To
+  Report who performed the lookup, whether the source and identifier belonged
+  to the original run, and what the lookup returned. A source-wide absence
+  requires a complete search. A collector match confirms receipt. To
   confirm storage, check the downstream store. The command runs locally and
   refers to sources by role, such as the JSONL file from your original launch.
   Your identifiers and destination names stay out of its replies. Use

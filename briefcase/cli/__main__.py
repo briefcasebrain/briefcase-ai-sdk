@@ -112,6 +112,14 @@ class _GroupedParser(argparse.ArgumentParser):
         ])
 
 
+class _CommandParser(argparse.ArgumentParser):
+    def error(self, message):
+        # Invalid legacy options may carry an install code or a licence token.
+        if self.prog == "briefcase-ai engine" or self.prog.startswith("briefcase-ai engine "):
+            message = "Unsupported engine argument. See briefcase-ai engine --help."
+        super().error(message)
+
+
 def build_parser() -> _GroupedParser:
     from briefcase import __version__
 
@@ -132,7 +140,7 @@ def build_parser() -> _GroupedParser:
         "--no-input", action="store_true",
         help="Never prompt; a bare `briefcase-ai` prints status and this list (or set BRIEFCASE_NO_INPUT=1).",
     )
-    sub = parser.add_subparsers(dest="command", metavar="<command>", parser_class=argparse.ArgumentParser)
+    sub = parser.add_subparsers(dest="command", metavar="<command>", parser_class=_CommandParser)
     parser.subparsers = sub
     # Every briefcase/cli/*_commands.py with a register(subparsers); one broken module is
     # skipped, not fatal.
@@ -289,6 +297,8 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
         if args.command == "record-help":
             print("Unexpected record-help argument. Quote the question or pipe it on one line.", file=sys.stderr)
             return 2
+        if args.command == "engine":
+            parser.error("Unsupported engine argument. See briefcase-ai engine --help.")
         parser.error("unrecognized arguments: " + " ".join(extra))
     _ux.set_debug(args.debug)
     _ux.set_no_input(args.no_input)
