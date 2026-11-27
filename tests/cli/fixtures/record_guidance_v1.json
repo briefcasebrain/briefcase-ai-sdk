@@ -332,7 +332,7 @@
   },
   {
     "name": "runtime disabled exporter",
-    "question": "The default exporter inherited the unchanged shell.",
+    "question": "The default exporter inherited this shell\u2019s unchanged configuration.",
     "expected": "disabled",
     "includes": [
       "disable"
@@ -341,7 +341,7 @@
   },
   {
     "name": "unrecognized runtime default",
-    "question": "The default exporter inherited the unchanged shell.",
+    "question": "The default exporter inherited this shell\u2019s unchanged configuration.",
     "expected": "check_launch",
     "includes": [
       "original launch configuration"
@@ -350,7 +350,7 @@
   },
   {
     "name": "arbitrary memory does not print",
-    "question": "The Node default exporter inherited the unchanged shell.",
+    "question": "The Node default exporter inherited this shell\u2019s unchanged configuration.",
     "expected": "memory_only",
     "includes": [
       "explicitly printed"
@@ -683,7 +683,7 @@
   },
   {
     "name": "inherited path preserving spaces",
-    "question": "Python used the default exporter and inherited the unchanged shell.",
+    "question": "Python used the default exporter and inherited this shell\u2019s unchanged configuration.",
     "expected": "jsonl",
     "includes": [
       "Open run logs/a.jsonl"
@@ -692,7 +692,7 @@
   },
   {
     "name": "redirect is not inherited memory exporter",
-    "question": "Node used the default exporter and inherited the unchanged shell. stderr went to debug.jsonl.",
+    "question": "Node used the default exporter and inherited this shell\u2019s unchanged configuration. stderr went to debug.jsonl.",
     "expected": "memory_only",
     "includes": [
       "before exit"
@@ -945,7 +945,7 @@
   },
   {
     "name": "inherited OTLP before stream filename",
-    "question": "Node inherited the unchanged default exporter. stderr was saved into debug.jsonl.",
+    "question": "Node inherited the unchanged default exporter from this shell. stderr was saved into debug.jsonl.",
     "expected": "otlp",
     "includes": [
       "collector"
@@ -954,7 +954,7 @@
   },
   {
     "name": "inherited HTTP before stream filename",
-    "question": "Node inherited the unchanged default exporter. stderr was saved into debug.jsonl.",
+    "question": "Node inherited the unchanged default exporter from this shell. stderr was saved into debug.jsonl.",
     "expected": "receiver",
     "includes": [
       "batch"
@@ -1256,7 +1256,7 @@
   },
   {
     "name": "Resolved Node console overrides OTLP setting label",
-    "question": "Node used the default exporter and inherited the unchanged shell. BRIEFCASE_EXPORTER=otlp; stderr went to debug.jsonl.",
+    "question": "Node used the default exporter and inherited this shell\u2019s unchanged configuration. BRIEFCASE_EXPORTER=otlp; stderr went to debug.jsonl.",
     "expected": "node_console",
     "includes": [
       "debug.jsonl",
@@ -1278,6 +1278,229 @@
     "expected": "console",
     "includes": [
       "worker.err"
+    ]
+  },
+  {
+    "name": "E01",
+    "question": "The JSONL exporter appended two identical tickets to billing.jsonl. The decision ID for my original run was invoice-88. How do I check which one is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "billing.jsonl",
+      "invoice-88"
+    ]
+  },
+  {
+    "name": "E02 initial",
+    "question": "In review.jsonl I found multiple rows with the same ticket, from separate invocations. How do I choose the original one?",
+    "expected": "ask_id",
+    "includes": []
+  },
+  {
+    "name": "E02",
+    "question": "In review.jsonl I found multiple rows with the same ticket, from separate invocations. How do I choose the original one?",
+    "expected": "jsonl",
+    "includes": [
+      "review.jsonl",
+      "rev-602"
+    ],
+    "answer": "I found the original decision ID rev-602."
+  },
+  {
+    "name": "E03",
+    "question": "I ran the Python quickstart first_decision.py as written. The launcher kept its stdout in retained.out. Now that the process exited, where do I look for the decision it printed?",
+    "expected": "memory",
+    "includes": [
+      "retained.out"
+    ]
+  },
+  {
+    "name": "E04 initial",
+    "question": "I have both the Python quickstart and a separate script with the console exporter. The launcher captured stdout in standard.txt and stderr in error.txt. Where should I search for the decision?",
+    "expected": "ask_program",
+    "includes": []
+  },
+  {
+    "name": "E04",
+    "question": "I have both the Python quickstart and a separate script with the console exporter. The launcher captured stdout in standard.txt and stderr in error.txt. Where should I search for the decision?",
+    "expected": "memory",
+    "includes": [
+      "standard.txt"
+    ],
+    "answer": "It ran the unchanged Python quickstart first_decision.py."
+  },
+  {
+    "name": "E05",
+    "question": "I submitted this hosted run to workspace harbor, agent routing, and saved run ID work-913. Where can I look it up?",
+    "expected": "hosted",
+    "includes": [
+      "harbor",
+      "routing",
+      "work-913"
+    ]
+  },
+  {
+    "name": "E06 initial",
+    "question": "We had both a local SDK run and a hosted dashboard run for this release. Where should I check my run?",
+    "expected": "ask_run",
+    "includes": []
+  },
+  {
+    "name": "E06",
+    "question": "We had both a local SDK run and a hosted dashboard run for this release. Where should I check my run?",
+    "expected": "hosted",
+    "includes": [
+      "violet",
+      "run-906"
+    ],
+    "answer": "I want the hosted submission in workspace violet, run ID run-906."
+  },
+  {
+    "name": "E07",
+    "question": "I want the text my Node application printed as its reply. Its stdout was saved as reply.out and its SDK telemetry went to telemetry.jsonl. Which file should I look in?",
+    "expected": "reply",
+    "includes": [
+      "reply.out"
+    ]
+  },
+  {
+    "name": "E08 initial",
+    "question": "Our Node demo saved the application response from stdout in answer.txt and the console decision from stderr in decision.txt. Which output should I look at?",
+    "expected": "ask_subject",
+    "includes": []
+  },
+  {
+    "name": "E08",
+    "question": "Our Node demo saved the application response from stdout in answer.txt and the console decision from stderr in decision.txt. Which output should I look at?",
+    "expected": "node_console",
+    "includes": [
+      "decision.txt"
+    ],
+    "answer": "The decision metadata for the call, including the token count."
+  },
+  {
+    "name": "E09",
+    "question": "After the process exited I checked history.jsonl for my original unique marker red-901. The only row belongs to yesterday, red-670; there is no match for red-901. Can I verify my run there?",
+    "expected": "scanned_missing",
+    "includes": [
+      "history.jsonl",
+      "red-901"
+    ]
+  },
+  {
+    "name": "E10",
+    "question": "The process selected the console exporter. The original launch command was python transfer.py 2>transfer.err and stderr was retained. Where should I check for the record?",
+    "expected": "console",
+    "includes": [
+      "transfer.err"
+    ]
+  },
+  {
+    "name": "E11",
+    "question": "The collector receiver has a matching entry for the original decision ID collect-58. We have not checked downstream storage. What has been verified?",
+    "expected": "storage",
+    "includes": [
+      "collect-58"
+    ]
+  },
+  {
+    "name": "E12",
+    "question": "I queried downstream storage by the original decision ID save-641 after the writer exited. The storage query returned the matching decision. What does that establish?",
+    "expected": "stored",
+    "includes": [
+      "save-641"
+    ]
+  },
+  {
+    "name": "Explicit app text request after hosted submission",
+    "question": "My job submitted a hosted dashboard run with run ID demo-412. The app also wrote a reply to stdout. Please show the application reply.",
+    "expected": "reply",
+    "includes": [
+      "stdout"
+    ]
+  },
+  {
+    "name": "Original file follows coworker",
+    "question": "My coworker used old.jsonl. My original process used real.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open real.jsonl"
+    ]
+  },
+  {
+    "name": "Original file precedes coworker",
+    "question": "My original process used real.jsonl. My coworker used old.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open real.jsonl"
+    ]
+  },
+  {
+    "name": "No observation of receiver match",
+    "question": "The original decision ID is group-42. I have no evidence the receiver received trace ID group-42.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "unconfirmed",
+      "group-42"
+    ]
+  },
+  {
+    "name": "Unknown query result not readback",
+    "question": "The original decision ID is group-42. I do not know if the database returned a row with ID group-42.",
+    "expected": "query_storage",
+    "includes": [
+      "downstream readback",
+      "group-42"
+    ]
+  },
+  {
+    "name": "Speculative file response",
+    "question": "Where is the JSONL file?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "Probably old.jsonl"
+  },
+  {
+    "name": "Colloquial unavailable ID",
+    "question": "Two rows in same.jsonl share ticket T-350.",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "nope"
+  },
+  {
+    "name": "Explicit memory overrides stderr JSONL suffix",
+    "question": "Node used observe(\"memory\") with stderr redirected to debug.jsonl.",
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ]
+  },
+  {
+    "name": "Original remote host environment unavailable",
+    "question": "The original process used the unchanged default exporter on a remote host whose environment was unavailable. The local setting in this shell is laptop.jsonl.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "laptop.jsonl"
+  },
+  {
+    "name": "Original file preferred among unlabeled artifacts",
+    "question": "The retained artifacts include audit.jsonl and stream.jsonl. My original process exported to decisions.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open decisions.jsonl"
+    ]
+  },
+  {
+    "name": "Two unlabeled file candidates",
+    "question": "I see two files, captures.jsonl or other.jsonl. Which is my JSONL exporter path?",
+    "expected": "ask_path",
+    "includes": [
+      "original process"
     ]
   }
 ]

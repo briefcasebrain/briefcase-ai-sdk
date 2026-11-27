@@ -238,5 +238,127 @@
       ]
     },
     "answer": "I {denial} stale.jsonl."
+  },
+  {
+    "name": "Origin modifies identifier after its name",
+    "question": "The exporter wrote repeated ticket data to batch.jsonl. The {entity} {relation} {origin} {bind} proof-673. Which row is mine?",
+    "variants": {
+      "entity": [
+        "decision ID",
+        "trace ID",
+        "RUN_ID"
+      ],
+      "relation": [
+        "for",
+        "from",
+        "recorded for",
+        "associated with",
+        "assigned to"
+      ],
+      "origin": [
+        "my original run",
+        "our particular invocation",
+        "this failed attempt"
+      ],
+      "bind": [
+        "was",
+        "is",
+        "was reported as"
+      ]
+    },
+    "expected": "jsonl",
+    "includes": [
+      "proof-673",
+      "batch.jsonl"
+    ]
+  },
+  {
+    "name": "Explicit returned text overrides exporter clues",
+    "question": "The {runtime} job {dest}. The program saved stdout in answer.log. I {goal} {object}. Which artifact should I inspect?",
+    "variants": {
+      "runtime": [
+        "Node",
+        "Python"
+      ],
+      "dest": [
+        "wrote records to accounting.jsonl",
+        "configured an HTTP receiver",
+        "selected the console exporter",
+        "submitted a hosted dashboard run"
+      ],
+      "goal": [
+        "want",
+        "need",
+        "am looking for"
+      ],
+      "object": [
+        "the text my application printed as its reply",
+        "the words that the caller received",
+        "the message the client saw"
+      ]
+    },
+    "expected": "reply",
+    "includes": [
+      "answer.log"
+    ]
+  },
+  {
+    "name": "Reported match determines receipt before asking protocol",
+    "question": "The {source} {observed} for the original decision ID event-665. No separate downstream readback exists.",
+    "variants": {
+      "source": [
+        "receiver",
+        "collector",
+        "received HTTP batch",
+        "received OTLP span"
+      ],
+      "observed": [
+        "has a matching entry",
+        "holds a record matching our original ID",
+        "shows an event with the same decision ID",
+        "includes a message matched to the original ID"
+      ]
+    },
+    "expected": "storage",
+    "includes": [
+      "event-665",
+      "receipt",
+      "unverified"
+    ]
+  },
+  {
+    "name": "Two artifact meanings with no requested type",
+    "question": "The {runtime} app printed a reply to stdout and wrote SDK decision metadata to {file}. Where is my result?",
+    "variants": {
+      "runtime": [
+        "Node",
+        "Python"
+      ],
+      "file": [
+        "meta.jsonl",
+        "trace.jsonl"
+      ]
+    },
+    "expected": "ask_subject",
+    "includes": [
+      "reply text",
+      "usage metadata"
+    ]
+  },
+  {
+    "name": "Explicit metadata over negated app text",
+    "question": "The Node demo uses the console exporter. I need the {metadata} rather than my application reply. stderr was saved in counts.log.",
+    "variants": {
+      "metadata": [
+        "token count",
+        "decision type",
+        "token usage"
+      ]
+    },
+    "expected": "node_console",
+    "includes": [
+      "counts.log",
+      "token_usage"
+    ]
   }
 ]

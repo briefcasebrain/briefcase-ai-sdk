@@ -37,9 +37,17 @@ def _matches(rule: Dict[str, Any], evidence: str) -> bool:
 
 def _collect_facts(table: Dict[str, Any], evidence: str) -> Set[str]:
     clauses = re.split(table["split"], evidence, flags=re.I)
+    request_scopes = table["requestScopes"]
+    requested = []
+    for clause in clauses:
+        for pattern in request_scopes["patterns"]:
+            match = re.search(pattern, clause, re.I)
+            if match and not re.search(request_scopes["negatedBefore"], clause[:match.start()], re.I):
+                requested.append(re.split(request_scopes["cut"], match.group(1), flags=re.I, maxsplit=1)[0])
+    scopes = {"clause": clauses, "text": [evidence], "request": requested}
     facts = set()
     for name, criterion in table["facts"].items():
-        units = clauses if criterion["scope"] == "clause" else [evidence]
+        units = scopes[criterion["scope"]]
         if any(_matches(criterion, unit) for unit in units):
             facts.add(name)
     return facts
@@ -75,7 +83,11 @@ def _entity(spec: Dict[str, Any], text: str, grammar: Dict[str, str]) -> Optiona
 def _entities(table: Dict[str, Any], text: str) -> Dict[str, Dict[str, Any]]:
     values = {}
     for name, spec in table["entities"].items():
-        entity = _entity(spec, text, table["entityGrammar"])
+        source = text
+        if spec.get("scope") == "clause":
+            clauses = re.split(table["split"], text, flags=re.I)
+            source = "\n".join(clause for clause in clauses if not re.search(spec["exclude"], clause, re.I))
+        entity = _entity(spec, source, table["entityGrammar"])
         if entity is not None:
             values[name] = entity
     return values
@@ -121,6 +133,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                     shell_path = value
                 break
     key = _select(table, facts)
+    if key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value")):
+        key = "ask_path"
     action = table["actions"][key]
     if action["kind"] == "ask" and answer is not None:
         reply = preprocess(answer)
@@ -143,16 +157,17 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             facts.difference_update(valid.get("drop", []))
             facts.update(valid.get("add", []))
             key = valid.get("action") or _select(table, facts)
-            if table["actions"][key]["kind"] == "ask":
+            unresolved_path = key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value"))
+            if table["actions"][key]["kind"] == "ask" or unresolved_path:
                 key = table["fallback"]
     template = table["actions"][key]["text"]
 
     def substitute(placeholder: re.Match) -> str:
         name = placeholder.group(1)
-        if name in table["entities"]:
-            return entities.get(name, {}).get("value", table["defaults"][name])
         if name == "path" and shell_path:
             return shell_path
+        if name in table["entities"]:
+            return entities.get(name, {}).get("value", table["defaults"][name])
         for pattern in table["extract"][name]:
             match = re.search(pattern, evidence, re.I)
             if match:
@@ -165,6 +180,21 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     return key, re.sub(r"\{(\w+)\}", substitute, template)
 
 
+def _http_destination(url: str, *, allow_insecure: bool = False) -> bool:
+    from urllib.parse import urlsplit
+
+    from briefcase._observe import _check_url
+    from briefcase.exporters.http import _is_loopback_host
+
+    try:
+        _check_url(url, "destination")
+        parts = urlsplit(url)
+    except ValueError:
+        return False
+    return (not any(character.isspace() for character in url)
+            and (parts.scheme == "https" or allow_insecure or _is_loopback_host(parts.hostname or "")))
+
+
 def _shell_exporter(question: str = "") -> str:
     """Describe only configuration shared by the plausible original runtimes."""
     env = os.environ
@@ -174,7 +204,7 @@ def _shell_exporter(question: str = "") -> str:
     if node and re.search(r"\bworker[_ ]threads?\b", question, re.I):
         return "check-launch-config"
     if value.lower().startswith(("http://", "https://")):
-        return "HTTP"
+        return "HTTP" if _http_destination(value) else "check-launch-config"
     if value and value.lower() not in ("otel", "otlp"):
         if value in ("memory", "console"):
             return value
@@ -189,6 +219,9 @@ def _shell_exporter(question: str = "") -> str:
 
     protocol = (env.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL") or env.get("OTEL_EXPORTER_OTLP_PROTOCOL") or "")
     node_target = "console" if protocol.strip().lower() == "grpc" else "otlp"
+    endpoint = next((env[key].strip() for key in endpoints if env.get(key, "").strip()), "")
+    if node_target == "otlp" and endpoint and not _http_destination(endpoint, allow_insecure=True):
+        node_target = "check-launch-config"
     if node and not python:
         return node_target
     python_target = "otlp"

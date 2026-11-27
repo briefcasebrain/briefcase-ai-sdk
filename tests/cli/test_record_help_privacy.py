@@ -15,6 +15,10 @@ import pytest
     "--provider-auth-token=demo-712",
     "--clientSecret demo-712",
     "--http-authorization-header demo-712",
+    "My API token is demo-712",
+    "The bearer credential we used was demo-712",
+    "The HTTP password in the launch configuration was demo-712",
+    "My provider API key is demo-712",
 ])
 def test_credentials_are_never_used_as_correlation(credential, monkeypatch, capsys):
     from briefcase.cli.__main__ import main
@@ -22,6 +26,7 @@ def test_credentials_are_never_used_as_correlation(credential, monkeypatch, caps
     evidence = f"{credential} My original exporter used HTTPS https://example.invalid/archive.jsonl"
     monkeypatch.setattr("sys.stdin", StringIO(evidence + "\n"))
     assert main(["record-help"]) == 0
-    result = capsys.readouterr().out
+    captured = capsys.readouterr()
+    result = captured.out + captured.err
     assert "receiver" in result.lower()
     assert not any(value in result for value in ("demo-712", "secondary-906", "example.invalid"))
