@@ -7573,5 +7573,22 @@
       "Inspect retained stderr for "
     ],
     "answer": "briefcase-ai exec --to console -- python app.py\nThe original Python application recorded the decision. Then it called briefcase.setup(MemoryExporter())."
+  },
+  {
+    "name": "Empty Python headers without a wrapper initial",
+    "question": "Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\", headers={}).",
+    "expected": "memory_only",
+    "includes": [
+      "memory exporter"
+    ]
+  },
+  {
+    "name": "Empty Python headers without a wrapper answer",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "memory exporter"
+    ],
+    "answer": "Before recording the decision, the original Python application called briefcase.observe(exporter=\"memory\", headers={})."
   }
 ]
