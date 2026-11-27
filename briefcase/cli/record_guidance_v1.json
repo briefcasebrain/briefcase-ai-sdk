@@ -1275,6 +1275,12 @@
       ]
     },
     {
+      "action": "query_storage",
+      "all": [
+        "foreignStoreComparison"
+      ]
+    },
+    {
       "action": "stored",
       "all": [
         "linkedStoreReadback"
@@ -1618,6 +1624,16 @@
       ],
       "none": [
         "hasID"
+      ]
+    },
+    {
+      "action": "query_storage",
+      "all": [
+        "durableStoreQuery"
+      ],
+      "none": [
+        "receiptObserved",
+        "storeObserved"
       ]
     },
     {
@@ -3398,14 +3414,20 @@
   "filePathAntecedent": "\\s*(?:(?:the|our|my)\\s+)?(?:original\\s+)?(?:(?:local|SDK|file)\\s+)?(?:exporter|destination|sink|process|run|application)\\s+(?:was|is|used|selected|chose|wrote to|was set to)\\s+(?:(?:a|the|an)\\s+)?(?:local\\s+)?jsonl(?:\\s+(?:file|exporter|destination))?\\s*",
   "wrapperFailed": "\\b(?:wrapper|launcher|preflight)\\s+(?:exited(?:\\s+with)?\\s+[1-9]\\d*|failed|rejected the launch|aborted)\\s+before\\s+(?:the\\s+)?(?:child|python|node|application|program)\\s+(?:started|ran|launched)\\b",
   "readbackPair": {
-    "query": "\\b(?:(?:I|we|the reader|the operator|the investigator)\\s+(?:(?:had|have|later|independently|then|already|subsequently)\\s+)*(?:queried|searched|checked|inspected|examined|scanned|read|performed (?:an? |the )?(?:query|lookup|readback))|(?:store|storage|database|archive|warehouse|backend)\\s+(?:was|had been)\\s+(?:queried|searched|checked|inspected))\\b",
+    "query": "\\b(?:(?:I|we|the reader|the operator|the investigator)\\s+(?:(?:had|have|later|independently|then|already|subsequently)\\s+)*(?:opened|reopened|looked up|queried|searched|checked|inspected|examined|scanned|read|performed (?:an? |the )?(?:query|lookup|readback))|(?:store|storage|database|archive|warehouse|backend)\\s+(?:was|had been)\\s+(?:queried|searched|checked|inspected))\\b",
     "source": "\\b(?:downstream|store|storage|warehouse|database|backend|archive)\\b",
     "original": "\\b(?:for|using|by|against|with)\\s+(?:(?:the|our|my|its)\\s+)?original\\s+(?:(?:decision|run|trace|unique)\\s+)?(?:id|identifier|marker|correlation)\\b",
-    "record": "\\b(?:(?:complete|full|matching|exact|original)\\s+)+(?:record|row|entry|decision|span)\\b",
+    "record": "\\b(?:(?:complete|full|matching|exact|original)\\s+)+(?:(?:returned|retrieved|stored)\\s+)?(?:record|row|entry|decision|span)\\b",
     "returned": "\\b(?:came back|returned|retrieved|read back|yielded|found|produced|received|got back|got)\\b",
     "same": "\\b(?:(?:that|the|this|exactly the|the very)\\s+)?(?:same|matching|original)\\s+(?:(?:decision|run|trace|unique)\\s+)?(?:id|identifier|marker|correlation)\\b",
     "denied": "\\b(?:no|not|never|without|might|may|if|would|didn['’]t|hasn['’]t|haven['’]t|wasn['’]t|couldn['’]t|will|plan|expect|instead|different|another|unrelated|other|unsure|maybe|only (?:metadata|summary|acknowledg\\w*))\\b",
-    "otherSource": "\\b(?:receiver|collector|console|stderr|stdout|jsonl)\\b"
+    "otherSource": "\\b(?:receiver|collector|console|stderr|stdout|jsonl)\\b",
+    "durableSource": "\\b(?:downstream\\s+(?:store|storage|database|backend|warehouse)|configured\\s+(?:store|database|warehouse)|(?:database|warehouse))\\b",
+    "identityComparison": "\\b(?:matched|compared|checked|verified|validated)\\s+(?:(?:the|its|that|this|returned|record['’]s|decision['’]s)\\s+)*(?:decision\\s+|run\\s+|trace\\s+)?(?:id|identifier|marker|correlation)\\s+(?:matched\\s+)?(?:to|against|with)\\s+",
+    "originalComparison": "^(?:(?:the|my|our|this|that)\\s+)*(?:original\\s+(?:(?:launch|run|invocation|decision)\\s+)?(?:receipt|identifier|id|marker)|(?:receipt|identifier|id|marker)\\s+(?:from|for|of)\\s+(?:the\\s+)?original\\s+(?:run|launch|invocation))\\b",
+    "foreignComparison": "^(?:(?:the|a|an|my|our)\\s+)*(?:(?:another|other|different|unrelated|previous)\\s+(?:run|launch|invocation|decision)|(?:receipt|identifier|id|marker)\\s+(?:from|for|of)\\s+(?:(?:a|an|the)\\s+)?(?:another|other|different|unrelated|previous)\\s+(?:run|launch|invocation|decision))\\b",
+    "unknownTarget": "\\b(?:never (?:learned|knew|verified)|(?:do|did) not know|unsure|uncertain)\\s+(?:of\\s+)?(?:which|what)\\s+(?:(?:run|decision|trace)\\s+)?(?:id|identifier|marker)\\b",
+    "equalComparison": "^matched\\b|\\b(?:the (?:two )?(?:ids|identifiers|markers) (?:matched|agreed|were (?:equal|identical))|they (?:matched|agreed|were identical))\\b"
   },
   "lookupEvidence": {
     "denied": "\\b(?:if|would|might|maybe|perhaps|hypothetical|example|sample|documentation|could have|not|never|didn['’]t|wasn['’]t|isn['’]t|unsure|plan(?:ning)? to|intend to|want to|hope to|will|should)\\b|\\b(?:another|different|unrelated|previous|other)\\s+(?:run|invocation|job|worker|application|decision|attempt)\\b",

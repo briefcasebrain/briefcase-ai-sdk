@@ -22721,5 +22721,824 @@
       "sourceMatch": "original",
       "targetMatch": "original"
     }
+  },
+  {
+    "name": "Configured store read 0/0/0",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. What did that check establish?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ]
+  },
+  {
+    "name": "Configured store read 0/0/0 outcome",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. What did that check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 0/0/1",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. How should I verify the result of this storage lookup?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ]
+  },
+  {
+    "name": "Configured store read 0/0/1 outcome",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 0/1/0",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The query returned a complete record and I compared its identifier against the receipt for the original invocation. What did that check establish?",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read 0/1/0 outcome",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The query returned a complete record and I compared its identifier against the receipt for the original invocation. What did that check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 0/1/0 comparison still permits a reported miss",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The query returned a complete record and I compared its identifier against the receipt for the original invocation. What did that check establish?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 0/1/1",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The query returned a complete record and I compared its identifier against the receipt for the original invocation. How should I verify the result of this storage lookup?",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read 0/1/1 outcome",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The query returned a complete record and I compared its identifier against the receipt for the original invocation. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 0/1/1 comparison still permits a reported miss",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The query returned a complete record and I compared its identifier against the receipt for the original invocation. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 0/2/0",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The full retrieved decision came back and I checked its trace ID against my original run receipt. What did that check establish?",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read 0/2/0 outcome",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The full retrieved decision came back and I checked its trace ID against my original run receipt. What did that check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 0/2/0 comparison still permits a reported miss",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The full retrieved decision came back and I checked its trace ID against my original run receipt. What did that check establish?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 0/2/1",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The full retrieved decision came back and I checked its trace ID against my original run receipt. How should I verify the result of this storage lookup?",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read 0/2/1 outcome",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The full retrieved decision came back and I checked its trace ID against my original run receipt. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 0/2/1 comparison still permits a reported miss",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. The full retrieved decision came back and I checked its trace ID against my original run receipt. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 1/0/0",
+    "question": "Once the application stopped, I searched the database that the original worker used. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. What did that check establish?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ]
+  },
+  {
+    "name": "Configured store read 1/0/0 outcome",
+    "question": "Once the application stopped, I searched the database that the original worker used. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. What did that check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 1/0/1",
+    "question": "Once the application stopped, I searched the database that the original worker used. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. How should I verify the result of this storage lookup?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ]
+  },
+  {
+    "name": "Configured store read 1/0/1 outcome",
+    "question": "Once the application stopped, I searched the database that the original worker used. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 1/1/0",
+    "question": "Once the application stopped, I searched the database that the original worker used. The query returned a complete record and I compared its identifier against the receipt for the original invocation. What did that check establish?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ]
+  },
+  {
+    "name": "Configured store read 1/1/0 outcome",
+    "question": "Once the application stopped, I searched the database that the original worker used. The query returned a complete record and I compared its identifier against the receipt for the original invocation. What did that check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 1/1/0 comparison still permits a reported miss",
+    "question": "Once the application stopped, I searched the database that the original worker used. The query returned a complete record and I compared its identifier against the receipt for the original invocation. What did that check establish?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 1/1/1",
+    "question": "Once the application stopped, I searched the database that the original worker used. The query returned a complete record and I compared its identifier against the receipt for the original invocation. How should I verify the result of this storage lookup?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ]
+  },
+  {
+    "name": "Configured store read 1/1/1 outcome",
+    "question": "Once the application stopped, I searched the database that the original worker used. The query returned a complete record and I compared its identifier against the receipt for the original invocation. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 1/1/1 comparison still permits a reported miss",
+    "question": "Once the application stopped, I searched the database that the original worker used. The query returned a complete record and I compared its identifier against the receipt for the original invocation. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 1/2/0",
+    "question": "Once the application stopped, I searched the database that the original worker used. The full retrieved decision came back and I checked its trace ID against my original run receipt. What did that check establish?",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read 1/2/0 outcome",
+    "question": "Once the application stopped, I searched the database that the original worker used. The full retrieved decision came back and I checked its trace ID against my original run receipt. What did that check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 1/2/0 comparison still permits a reported miss",
+    "question": "Once the application stopped, I searched the database that the original worker used. The full retrieved decision came back and I checked its trace ID against my original run receipt. What did that check establish?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 1/2/1",
+    "question": "Once the application stopped, I searched the database that the original worker used. The full retrieved decision came back and I checked its trace ID against my original run receipt. How should I verify the result of this storage lookup?",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read 1/2/1 outcome",
+    "question": "Once the application stopped, I searched the database that the original worker used. The full retrieved decision came back and I checked its trace ID against my original run receipt. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 1/2/1 comparison still permits a reported miss",
+    "question": "Once the application stopped, I searched the database that the original worker used. The full retrieved decision came back and I checked its trace ID against my original run receipt. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 2/0/0",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. What did that check establish?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ]
+  },
+  {
+    "name": "Configured store read 2/0/0 outcome",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. What did that check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 2/0/1",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. How should I verify the result of this storage lookup?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ]
+  },
+  {
+    "name": "Configured store read 2/0/1 outcome",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 2/1/0",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The query returned a complete record and I compared its identifier against the receipt for the original invocation. What did that check establish?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ]
+  },
+  {
+    "name": "Configured store read 2/1/0 outcome",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The query returned a complete record and I compared its identifier against the receipt for the original invocation. What did that check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 2/1/0 comparison still permits a reported miss",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The query returned a complete record and I compared its identifier against the receipt for the original invocation. What did that check establish?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 2/1/1",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The query returned a complete record and I compared its identifier against the receipt for the original invocation. How should I verify the result of this storage lookup?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ]
+  },
+  {
+    "name": "Configured store read 2/1/1 outcome",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The query returned a complete record and I compared its identifier against the receipt for the original invocation. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 2/1/1 comparison still permits a reported miss",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The query returned a complete record and I compared its identifier against the receipt for the original invocation. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 2/2/0",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The full retrieved decision came back and I checked its trace ID against my original run receipt. What did that check establish?",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read 2/2/0 outcome",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The full retrieved decision came back and I checked its trace ID against my original run receipt. What did that check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 2/2/0 comparison still permits a reported miss",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The full retrieved decision came back and I checked its trace ID against my original run receipt. What did that check establish?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read 2/2/1",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The full retrieved decision came back and I checked its trace ID against my original run receipt. How should I verify the result of this storage lookup?",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read 2/2/1 outcome",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The full retrieved decision came back and I checked its trace ID against my original run receipt. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read 2/2/1 comparison still permits a reported miss",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. The full retrieved decision came back and I checked its trace ID against my original run receipt. How should I verify the result of this storage lookup?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a mat"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured store read foreign 0/0",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read foreign outcome 0/0",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID or"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read foreign 0/1",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I read the full returned decision and matched its ID to the receipt for a different run.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read foreign outcome 0/1",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I read the full returned decision and matched its ID to the receipt for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID or"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read pending 0",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I still need to compare the returned decision with my receipt.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read full clarification 0",
+    "question": "Which exporter did the original process use?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ],
+    "answer": "After the writer exited I independently queried the downstream store configured for this original run. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350."
+  },
+  {
+    "name": "Configured store read receiver only 0",
+    "question": "After the writer exited I independently queried the receiver configured for this original run. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350.",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send JSO"
+    ]
+  },
+  {
+    "name": "Configured store read foreign 1/0",
+    "question": "Once the application stopped, I searched the database that the original worker used. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read foreign outcome 1/0",
+    "question": "Once the application stopped, I searched the database that the original worker used. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID or"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read foreign 1/1",
+    "question": "Once the application stopped, I searched the database that the original worker used. I read the full returned decision and matched its ID to the receipt for a different run.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read foreign outcome 1/1",
+    "question": "Once the application stopped, I searched the database that the original worker used. I read the full returned decision and matched its ID to the receipt for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID or"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read pending 1",
+    "question": "Once the application stopped, I searched the database that the original worker used. I still need to compare the returned decision with my receipt.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read full clarification 1",
+    "question": "Which exporter did the original process use?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ],
+    "answer": "Once the application stopped, I searched the database that the original worker used. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350."
+  },
+  {
+    "name": "Configured store read receiver only 1",
+    "question": "Once the application stopped, I searched the receiver that the original worker used. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350.",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send JSO"
+    ]
+  },
+  {
+    "name": "Configured store read foreign 2/0",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read foreign outcome 2/0",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID or"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read foreign 2/1",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I read the full returned decision and matched its ID to the receipt for a different run.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read foreign outcome 2/1",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I read the full returned decision and matched its ID to the receipt for a different run.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID or"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Configured store read pending 2",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I still need to compare the returned decision with my receipt.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for the"
+    ]
+  },
+  {
+    "name": "Configured store read full clarification 2",
+    "question": "Which exporter did the original process use?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ],
+    "answer": "I opened our original run's downstream store after the job finished and looked up its decision. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350."
+  },
+  {
+    "name": "Configured store read receiver only 2",
+    "question": "I opened our original run's receiver after the job finished and looked up its decision. I personally read the full returned decision and matched its ID to the original launch receipt, larch-350.",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send JSO"
+    ]
   }
 ]

@@ -168,20 +168,35 @@ def _storage_lookup(table, evidence):
                    or re.search(spec["returned"], scoped, re.I))]
     lookups = {}
     records = {}
+    compared_original = set()
+    durable_queries = set()
+    foreign_comparisons = set()
     for index, (roles, scoped) in enumerate(events):
         clause = _source_text(table, scoped)
+        comparison = re.search(spec["identityComparison"], clause, re.I)
+        compared_to = clause[comparison.end():] if comparison else ""
+        if lookups and comparison and re.search(spec["foreignComparison"], compared_to, re.I):
+            if not re.search(spec["otherSource"], clause, re.I):
+                lookups[index] = (False, set())
+                foreign_comparisons.add(index)
+            continue
         if re.search(attribution["foreign"], clause, re.I) and re.search(attribution["reportedForeign"], clause, re.I):
             if lookups and not re.search(spec["otherSource"], clause, re.I):
                 lookups[index] = (False, set())
             continue
         if re.search(spec["denied"], clause, re.I) or re.search(spec["otherSource"], clause, re.I):
             continue
+        if (comparison and re.search(spec["originalComparison"], compared_to, re.I)
+                and re.search(spec["equalComparison"], clause[comparison.start():], re.I)):
+            compared_original.add(index)
         read = (re.search(spec["query"], clause, re.I) or re.search(evidence_spec["reportedRead"], clause, re.I)
                 or (re.search(evidence_spec["reader"], clause, re.I)
                     and re.search(evidence_spec["readEvent"], clause, re.I)
                     and re.search(evidence_spec["independentReader"], clause, re.I)
                     and re.search(evidence_spec["actualRead"], clause, re.I)))
         if read and re.search(spec["source"], clause, re.I):
+            if re.search(spec["durableSource"], clause, re.I):
+                durable_queries.add(index)
             target = set(roles["lookupIdentifier"])
             if target and originals:
                 lookups[index] = (target == originals and len(target) == 1, target)
@@ -194,14 +209,19 @@ def _storage_lookup(table, evidence):
         if re.search(spec["record"], clause, re.I) and returned_record:
             returned = set(roles["returnedIdentifier"])
             original = bool(re.search(evidence_spec["originalRow"], clause, re.I))
-            if returned or original or re.search(spec["same"], clause, re.I):
-                records[index] = (returned, original)
+            records[index] = (returned, original, bool(re.search(spec["same"], clause, re.I)))
     if lookups:
         latest = max(lookups)
         valid, target = lookups[latest]
+        if latest in foreign_comparisons:
+            return "foreignStoreComparison"
         if valid is False:
             return "differentStoreLookup"
-        for position, (returned, original) in records.items():
+        for position, (returned, original, same) in records.items():
+            original = original or position in compared_original or (
+                position + 1 in compared_original and position + 1 not in lookups)
+            if not (returned or original or same):
+                continue
             # Prefer the preceding lookup if a record sits between two separate reads.
             owner = next((i for i in (position, position - 1, position + 1) if i in lookups), None)
             if owner == latest:
@@ -212,7 +232,12 @@ def _storage_lookup(table, evidence):
                 if target and returned and returned != target:
                     return "storageIDMismatch"
                 return "linkedStoreReadback"
-        return "pendingStoreReadback" if valid is not None else None
+        if valid is not None:
+            return "pendingStoreReadback"
+        if latest in durable_queries and not any(
+            re.search(spec["unknownTarget"], scope, re.I) for _, scope in statements
+        ):
+            return "durableStoreQuery"
     return None
 
 
@@ -1187,6 +1212,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     original_check = attempts[origin[source]]
     last_check = attempts[latest[source]]
     check = original_check if original_check.outcome or original_check.ambiguous else last_check
+    if source == "storage" and "foreignStoreComparison" in facts:
+        return "confirmation_other_run"
     if source == "storage" and check.outcome is None:
         if "linkedStoreReadback" in facts:
             check.outcome = "matched"
