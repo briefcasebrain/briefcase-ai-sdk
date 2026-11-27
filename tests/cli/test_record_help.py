@@ -513,3 +513,23 @@ def test_static_receiver_observation_example_is_executable(capsys):
     assert example is not None
     assert main(["record-help", *shlex.split(example.group(1))]) == 0
     assert "Reader-confirmed receipt" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("terminal", [False, True])
+@pytest.mark.parametrize("tail", ["", "\n", "storage matched me original original\n",
+                                  "\nstorage no-match me original original complete\n"])
+def test_optional_lookup_details_precede_one_final_observation(terminal, tail, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    session = ("I queried the intended downstream store for the original decision ID.\n"
+               "The query returned a full record with that same ID.\n"
+               "storage matched me original original\n" + tail)
+    stream = StringIO(session)
+    monkeypatch.setattr(stream, "isatty", lambda: terminal)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: terminal)
+    monkeypatch.setattr("sys.stdin", stream)
+    assert main(["record-help"]) == (2 if tail.strip() else 0)
+    output = capsys.readouterr()
+    assert output.out.count("Reader-confirmed") == (0 if tail.strip() else 1)

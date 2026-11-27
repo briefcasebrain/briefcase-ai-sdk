@@ -166,8 +166,16 @@ def _receiver_readback(spec, clauses):
         record = (re.search(spec["receiverRecordNoun"], clause, re.I)
                   or re.match(spec["receiverReference"], clause, re.I))
         entry = not invalid and (_matches(spec["receiverRecord"], clause) or (identity and record))
-        roles.append((inspected, entry))
-    return any(read and any(entry for _, entry in roles[max(0, i - 1):i + 2]) for i, (read, _) in enumerate(roles))
+        original_query = inspected and re.search(spec["receiverQueryTarget"], clause, re.I)
+        same_result = not invalid and record and _matches(spec["matchingResult"], clause)
+        roles.append((inspected, original_query, entry, same_result))
+    for index, (inspected, original_query, _, _) in enumerate(roles):
+        if not inspected:
+            continue
+        for _, _, original_entry, same_result in roles[max(0, index - 1):index + 2]:
+            if original_entry or (original_query and same_result):
+                return True
+    return False
 
 
 def _lookup_evidence(table, evidence):
@@ -210,6 +218,14 @@ def _lookup_evidence(table, evidence):
     return facts
 
 
+def _other_reader(spec, clause, event):
+    actor = clause[:event.start()] if event else ""
+    return (re.search(spec["foreignReader"], clause, re.I)
+            or (re.search(spec["possessedReader"], actor, re.I)
+                and not re.search(spec["firstPersonActor"], actor, re.I)
+                and not re.search(spec["independentDevice"], actor, re.I)))
+
+
 def _storage_lookup(table, evidence):
     """Relate a completed store query, the identifier searched and the returned full record."""
     spec = table["readbackPair"]
@@ -227,8 +243,25 @@ def _storage_lookup(table, evidence):
     compared_original = set()
     durable_queries = set()
     foreign_comparisons = set()
+    pending_at = -1
+    intervening_status = set()
+    foreign_reader = False
     for index, (roles, scoped) in enumerate(events):
         clause = _source_text(table, scoped)
+        event = re.search(attribution["lookupPerformed"], clause, re.I) or re.search(
+            attribution["resultActor"], clause, re.I)
+        if _other_reader(attribution, clause, event):
+            foreign_reader = True
+            intervening_status.add(index)
+            continue
+        if re.search(attribution["detailSelf"], clause, re.I):
+            foreign_reader = False
+        if foreign_reader:
+            continue
+        if re.search(attribution["detailPending"], clause, re.I):
+            pending_at = index
+            intervening_status.add(index)
+            continue
         comparison = re.search(spec["identityComparison"], clause, re.I)
         compared_to = clause[comparison.end():] if comparison else ""
         if lookups and comparison and re.search(spec["foreignComparison"], compared_to, re.I):
@@ -280,7 +313,11 @@ def _storage_lookup(table, evidence):
                 continue
             # Prefer the preceding lookup if a record sits between two separate reads.
             owner = next((i for i in (position, position - 1, position + 1) if i in lookups), None)
-            if owner == latest:
+            # A pending status updates this attempt without starting another one.
+            if (owner is None and position > latest
+                    and all(i in intervening_status for i in range(latest + 1, position))):
+                owner = latest
+            if owner == latest and pending_at <= position:
                 if valid is None and not original:
                     continue
                 if returned and not target and not original:
@@ -913,6 +950,8 @@ class _SourceCheck:
     shared_identifier: bool = False
     unresolved_lookup: bool = False
     partial: bool = False
+    pending: bool = False
+    foreign_reader_only: bool = False
     unresolved_detail: bool = False
 
     def compare(self, source, result, action, facts):
@@ -920,7 +959,7 @@ class _SourceCheck:
             return "confirmation_other_run"
         if result == "unverified":
             return None
-        if self.unchecked:
+        if self.unchecked or self.pending or self.foreign_reader_only:
             return "confirmation_unchecked"
         if source == "jsonl" and ("unresolvedPath" in facts or ("pendingPath" in facts and not self.original_target)):
             return "confirmation_unresolved_path"
@@ -1088,11 +1127,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             denied_check = (re.search(spec["unchecked"], source_scope, re.I)
                             or re.search(spec["unseenResult"], source_scope, re.I))
             reported = checked or re.search(spec["resultActor"], source_scope, re.I)
-            actor = source_scope[:reported.start()] if reported else ""
-            other_reader = (re.search(spec["foreignReader"], source_scope, re.I)
-                            or (re.search(spec["possessedReader"], actor, re.I)
-                                and not re.search(spec["firstPersonActor"], actor, re.I)
-                                and not re.search(spec["independentDevice"], actor, re.I)))
+            other_reader = _other_reader(spec, source_scope, reported)
             original = re.search(spec["original"], source_scope, re.I)
             qualified = not re.search(spec["uncertain"], source_scope, re.I)
             if re.search(spec["originalMarker"], source_scope, re.I) and qualified:
@@ -1109,7 +1144,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 for target in foreign_context:
                     prior = attempts[origin[target]]
                     if not prior.original_target or (not checked and prior.outcome is None):
-                        prior.unchecked = True
+                        prior.foreign_reader_only = True
                 continue
             if checked or re.search(spec["detailSelf"], source_scope, re.I):
                 foreign_context = set()
@@ -1204,6 +1239,14 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             # qualification to that lookup, without starting another source check.
             for target in named or active:
                 check = checks[target]
+                if re.search(spec["detailPending"], clause, re.I):
+                    check.pending = True
+                elif check.original_target and qualified and re.search(spec["sameReaderResult"], clause, re.I):
+                    check.pending = False
+                    check.foreign_reader_only = False
+                if (re.search(spec["returnedIdentitySubject"], clause, re.I)
+                        and re.search(spec["foreign"], clause, re.I)):
+                    check.outcome = "no-match"
                 if re.search(spec["partialCoverage"], clause, re.I):
                     check.partial = True
                 if re.search(spec["returnedObject"], clause, re.I) and re.search(spec["unclearTarget"], clause, re.I):
@@ -1240,7 +1283,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 if "progress" in details:
                     if re.search(spec["detailLimited"], clause, re.I):
                         check.partial = True
-                    elif not re.search(spec["detailComplete"], clause, re.I):
+                    elif not check.pending and not re.search(spec["detailComplete"], clause, re.I):
                         check.unchecked = True
             if checked and qualified and named:
                 positions = [m.start() for key in named for m in [re.search(spec["sources"][key], source_scope, re.I)]
@@ -1266,6 +1309,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             if checked and qualified and (named or re.search(spec["reportRef"], clause, re.I)):
                 for target in targets:
                     checks[target].unchecked = False
+                    checks[target].foreign_reader_only = False
             attribution = re.sub(spec["readerContext"], "", source_scope, flags=re.I)
             attribution = re.sub(spec["notForeign"], "", attribution, flags=re.I)
             foreign = re.search(spec["foreign"], attribution, re.I)
@@ -1968,12 +2012,15 @@ def _guide_session(args) -> int:
         shell, inherited = _session_environment(table, question + "\n" + answer)
     key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
     prompted = not confirmation and interactive and key in table["confirmation"]["next"]
+    previous_key = key
     if prompted:
         print(text, flush=True)
         print(table["confirmation"]["instruction"])
-        question, answer, confirmation = read_turn("Optional observation (Enter to skip): ")
+        question, answer, confirmation = read_turn("Optional observation or lookup details (Enter to skip): ")
+        if answer and not confirmation and turns[-1].strip():
+            question, answer, confirmation = read_turn("Optional observation (Enter to skip): ")
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
-    if not prompted or confirmation:
+    if not prompted or confirmation or key != previous_key:
         print(text)
     if not prompted and key in table["confirmation"]["next"]:
         print(table["confirmation"]["instruction"])

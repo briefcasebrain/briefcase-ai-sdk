@@ -27773,5 +27773,899 @@
       "targetMatch": "original",
       "coverage": "complete"
     }
+  },
+  {
+    "name": "Receiver relative identity intended receiver searched 0 0",
+    "question": "The original worker sent its decision to a receiver. I searched the intended receiver for the original decision ID. I read one matching record with the same decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity intended receiver searched 0 1",
+    "question": "The original worker sent its decision to a receiver. I read one matching record with the same decision ID. I searched the intended receiver for the original decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity intended receiver searched 1 0",
+    "question": "The original worker sent its decision to a receiver. I searched the intended receiver for the original decision ID. The retained entry contained that same identifier.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity intended receiver searched 1 1",
+    "question": "The original worker sent its decision to a receiver. The retained entry contained that same identifier. I searched the intended receiver for the original decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity intended receiver inspected 0 0",
+    "question": "The original worker sent its decision to a receiver. I inspected the intended receiver for the original decision ID. I read one matching record with the same decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity intended receiver inspected 0 1",
+    "question": "The original worker sent its decision to a receiver. I read one matching record with the same decision ID. I inspected the intended receiver for the original decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity intended receiver inspected 1 0",
+    "question": "The original worker sent its decision to a receiver. I inspected the intended receiver for the original decision ID. The retained entry contained that same identifier.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity intended receiver inspected 1 1",
+    "question": "The original worker sent its decision to a receiver. The retained entry contained that same identifier. I inspected the intended receiver for the original decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity configured collector searched 0 0",
+    "question": "The original worker sent its decision to a receiver. I searched the configured collector for the original decision ID. I read one matching record with the same decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity configured collector searched 0 1",
+    "question": "The original worker sent its decision to a receiver. I read one matching record with the same decision ID. I searched the configured collector for the original decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity configured collector searched 1 0",
+    "question": "The original worker sent its decision to a receiver. I searched the configured collector for the original decision ID. The retained entry contained that same identifier.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity configured collector searched 1 1",
+    "question": "The original worker sent its decision to a receiver. The retained entry contained that same identifier. I searched the configured collector for the original decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity configured collector inspected 0 0",
+    "question": "The original worker sent its decision to a receiver. I inspected the configured collector for the original decision ID. I read one matching record with the same decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity configured collector inspected 0 1",
+    "question": "The original worker sent its decision to a receiver. I read one matching record with the same decision ID. I inspected the configured collector for the original decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity configured collector inspected 1 0",
+    "question": "The original worker sent its decision to a receiver. I inspected the configured collector for the original decision ID. The retained entry contained that same identifier.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity configured collector inspected 1 1",
+    "question": "The original worker sent its decision to a receiver. The retained entry contained that same identifier. I inspected the configured collector for the original decision ID.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Receiver relative identity insufficient 0",
+    "question": "I searched the receiver for another decision ID. I read one matching record with the same decision ID.",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send JSO"
+    ]
+  },
+  {
+    "name": "Receiver relative identity insufficient 1",
+    "question": "I searched the receiver. I read one matching record with the same decision ID.",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send JSO"
+    ]
+  },
+  {
+    "name": "Receiver relative identity insufficient 2",
+    "question": "I searched the intended receiver for the original decision ID. I hope to find a matching record with the same decision ID.",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID or mark"
+    ]
+  },
+  {
+    "name": "Receiver relative identity insufficient 3",
+    "question": "I searched the intended receiver for the original decision ID. My colleague read one matching record with the same decision ID.",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send JSO"
+    ]
+  },
+  {
+    "name": "Receiver relative identity foreign actor The intern",
+    "question": "I searched the intended receiver for the original decision ID. The intern read one matching record with the same ID.",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send JSO"
+    ]
+  },
+  {
+    "name": "Receiver relative identity foreign actor Another auditor",
+    "question": "I searched the intended receiver for the original decision ID. Another auditor read one matching record with the same ID.",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send JSO"
+    ]
+  },
+  {
+    "name": "Receiver relative identity foreign actor A separate application",
+    "question": "I searched the intended receiver for the original decision ID. A separate application read one matching record with the same ID.",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send JSO"
+    ]
+  },
+  {
+    "name": "Ordered report review 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "answer": "My teammate got a full record with that same ID. My own query never finished.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report review 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wit"
+    ],
+    "answer": "The returned ID belongs to another run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report review 2",
+    "question": "The original launch used ash.jsonl. I searched archived.jsonl for the original decision ID and found one matching row.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs fr"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report review 3",
+    "question": "The original run used ash.jsonl. I searched the original file for the original decision ID. I skipped the first page. No matches.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requires an"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report review 4",
+    "question": "I queried the intended downstream store for the original decision ID. My query was pending.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downstream"
+    ],
+    "answer": "The query returned a full record with that same ID."
+  },
+  {
+    "name": "Ordered report review 5",
+    "question": "My original launch was briefcase-ai exec --to ash.jsonl -- python app.py. The same run submitted a hosted dashboard run. Where can I find my run?",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace and "
+    ],
+    "answer": "The hosted dashboard run."
+  },
+  {
+    "name": "Ordered report review 6",
+    "question": "The original exporter was console. I retained stdout containing the decision JSON and stderr containing the application reply. I need the decision JSON.",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdout for the c"
+    ]
+  },
+  {
+    "name": "Ordered report review 7",
+    "question": "My original launch was briefcase-ai exec --to https://reed.invalid -- python app.py. I inspected the receiver. I found an entry with the original decision ID. How do I verify storage?",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches the o"
+    ]
+  },
+  {
+    "name": "Ordered report review 8",
+    "question": "The original exporter was memory. The README says to use briefcase-ai exec --to ash.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory exp"
+    ]
+  },
+  {
+    "name": "Ordered report distinct candidate sources",
+    "question": "My original launch was briefcase-ai exec --to ash.jsonl -- python app.py. The same run submitted a hosted dashboard run. Where can I find my run?",
+    "expected": "ask_run",
+    "includes": [
+      "Did the original launch create a "
+    ]
+  },
+  {
+    "name": "Ordered report jsonl completed after pending turn 0",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID. My query was pending. The query returned a full record with that same ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the id"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl completed after pending turn 1",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the id"
+    ],
+    "answer": "My query was pending. The query returned a full record with that same ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl pending after result turn 0",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID. The query returned a full record with that same ID. My query is still pending.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl pending after result turn 1",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "answer": "The query returned a full record with that same ID. My query is still pending.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl not personal turn 0",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID. My teammate obtained a full record with that same ID. My own query never finished.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl not personal turn 1",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "answer": "My teammate obtained a full record with that same ID. My own query never finished.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl personal completion turn 0",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID. My teammate got a full record with that same ID. My own query returned a full record with that same ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the id"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl personal completion turn 1",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the id"
+    ],
+    "answer": "My teammate got a full record with that same ID. My own query returned a full record with that same ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl wrong returned run turn 0",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID. The returned ID belongs to another run.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wit"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl wrong returned run turn 1",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wit"
+    ],
+    "answer": "The returned ID belongs to another run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl incomplete absence turn 0",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID. I omitted the last page. No matches.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requires an"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report jsonl incomplete absence turn 1",
+    "question": "The original decision ID was coast-819. I searched the original JSONL file for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requires an"
+    ],
+    "answer": "I omitted the last page. No matches.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver completed after pending turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID. My query was pending. The query returned a full record with that same ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for the "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver completed after pending turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for the "
+    ],
+    "answer": "My query was pending. The query returned a full record with that same ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver pending after result turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID. The query returned a full record with that same ID. My query is still pending.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver pending after result turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "answer": "The query returned a full record with that same ID. My query is still pending.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver not personal turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID. My teammate obtained a full record with that same ID. My own query never finished.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver not personal turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "answer": "My teammate obtained a full record with that same ID. My own query never finished.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver personal completion turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID. My teammate got a full record with that same ID. My own query returned a full record with that same ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for the "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver personal completion turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for the "
+    ],
+    "answer": "My teammate got a full record with that same ID. My own query returned a full record with that same ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver wrong returned run turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID. The returned ID belongs to another run.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wit"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver wrong returned run turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wit"
+    ],
+    "answer": "The returned ID belongs to another run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver incomplete absence turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID. I omitted the last page. No matches.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requires an"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report receiver incomplete absence turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requires an"
+    ],
+    "answer": "I omitted the last page. No matches.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage completed after pending turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID. My query was pending. The query returned a full record with that same ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage completed after pending turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "answer": "My query was pending. The query returned a full record with that same ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage pending after result turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID. The query returned a full record with that same ID. My query is still pending.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage pending after result turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "answer": "The query returned a full record with that same ID. My query is still pending.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage not personal turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID. My teammate obtained a full record with that same ID. My own query never finished.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage not personal turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selected"
+    ],
+    "answer": "My teammate obtained a full record with that same ID. My own query never finished.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage personal completion turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID. My teammate got a full record with that same ID. My own query returned a full record with that same ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage personal completion turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence for "
+    ],
+    "answer": "My teammate got a full record with that same ID. My own query returned a full record with that same ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage wrong returned run turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID. The returned ID belongs to another run.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wit"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage wrong returned run turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wit"
+    ],
+    "answer": "The returned ID belongs to another run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage incomplete absence turn 0",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID. I omitted the last page. No matches.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requires an"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Ordered report storage incomplete absence turn 1",
+    "question": "The original decision ID was coast-819. I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requires an"
+    ],
+    "answer": "I omitted the last page. No matches.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
   }
 ]
