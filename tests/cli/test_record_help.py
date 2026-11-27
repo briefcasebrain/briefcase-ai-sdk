@@ -500,3 +500,16 @@ def test_observation_rejects_unknown_option_value_without_echo(extra, capsys):
     assert main(["record-help", "--source", "receiver", "--result", "matched", extra, "private-value"]) == 2
     captured = capsys.readouterr()
     assert "private-value" not in captured.out + captured.err and "Reader-confirmed" not in captured.out
+
+
+def test_static_receiver_observation_example_is_executable(capsys):
+    import re
+    import shlex
+    from briefcase.cli.__main__ import main
+
+    assert main(["record-help", "--static"]) == 0
+    guide = capsys.readouterr().out
+    example = re.search(r"use (--source receiver .*?)\.", guide)
+    assert example is not None
+    assert main(["record-help", *shlex.split(example.group(1))]) == 0
+    assert "Reader-confirmed receipt" in capsys.readouterr().out

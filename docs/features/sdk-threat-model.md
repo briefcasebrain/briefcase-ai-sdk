@@ -27,3 +27,9 @@ Record the installed versions and observed outcomes for Codex, Claude Code, Curs
 On 2026-11-25, Docker Compose 5.5.0 resolved all six stock services. The disposable startup fixture created a server, stopped it, and reused the same container ID on the second SDK startup.
 
 On 2026-11-25, Claude Code 2.1.332, Codex 0.170.0 and Cursor 2026.09.18-9a7762b each attempted the requested marker command in separate allow and deny projects. The fixture checked the hook response for that command. Each allow created the marker and each deny left it absent. Cursor used temporary configuration and data directories.
+
+On 2026-11-27, the installed 6.0.0 wheel at commit `584df84` passed six real-host checks.
+Claude Code 2.1.332, Codex 0.170.0 and Cursor 2026.09.18-9a7762b each invoked the
+hook for the requested command in both fixtures. Each allow created its marker and each
+deny left it absent. The retired `engine install`, `engine up` and `engine upgrade`
+commands each exited 2 and left the fresh SDK home without engine state.

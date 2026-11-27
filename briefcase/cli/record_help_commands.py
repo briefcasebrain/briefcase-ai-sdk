@@ -136,10 +136,23 @@ def _lookup_evidence(table, evidence):
     """Extract source, actor and action separately before asking whether a lookup still lacks information."""
     spec = table["lookupEvidence"]
     facts = set()
+    receiver_read = False
     for clause in re.split(table["split"], evidence, flags=re.I):
+        if not clause.strip():
+            continue
         if re.search(spec["denied"], clause, re.I) or re.search(spec["question"], clause, re.I):
+            receiver_read = False
             continue
         source = _source_text(table, clause)
+        current_read = _matches(spec["receiverRead"], source)
+        continuation = receiver_read and re.match(spec["receiverContinuation"], source, re.I)
+        if ((current_read or continuation) and _matches(spec["receiverRecord"], source)
+                and not re.search(spec["otherObservationSource"], source, re.I)):
+            facts.add("retainedReceiverEntry")
+        receiver_read = current_read
+        for observation in spec["observations"]:
+            if _matches(observation, source):
+                facts.update(observation["add"])
         roles = {name for name in ("originalActor", "emission", "idRole", "runtimeActor", "configure",
                                    "consoleRole", "reader") if re.search(spec[name], source, re.I)}
         if {"originalActor", "emission", "idRole"} <= roles:
@@ -1026,8 +1039,14 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
         for clause in clauses:
             roles, source_scope = _report_roles(spec, clause, quoted_values)
             checked = re.search(spec["lookupPerformed"], source_scope, re.I)
-            denied_check = re.search(spec["unchecked"], source_scope, re.I)
-            other_reader = re.search(spec["foreignReader"], source_scope, re.I)
+            denied_check = (re.search(spec["unchecked"], source_scope, re.I)
+                            or re.search(spec["unseenResult"], source_scope, re.I))
+            reported = checked or re.search(spec["resultActor"], source_scope, re.I)
+            actor = source_scope[:reported.start()] if reported else ""
+            other_reader = (re.search(spec["foreignReader"], source_scope, re.I)
+                            or (re.search(spec["possessedReader"], actor, re.I)
+                                and not re.search(spec["firstPersonActor"], actor, re.I)
+                                and not re.search(spec["independentDevice"], actor, re.I)))
             original = re.search(spec["original"], source_scope, re.I)
             qualified = not re.search(spec["uncertain"], source_scope, re.I)
             if re.search(spec["originalMarker"], source_scope, re.I) and qualified:
@@ -1039,7 +1058,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 foreign_context = named or active or set(origin)
                 for target in foreign_context:
                     prior = attempts[origin[target]]
-                    if not prior.original_target:
+                    if not prior.original_target or (not checked and prior.outcome is None):
                         prior.unchecked = True
                 continue
             if checked:
@@ -1051,8 +1070,11 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             sought = set(roles["lookupIdentifier"])
             if checked and not sought:
                 alternatives = re.search(spec["lookupAlternatives"], clause[checked.end():], re.I)
-                if alternatives:
-                    sought.add(quoted_values.get(alternatives.group(1), alternatives.group(1)))
+                operand = alternatives or re.search(spec["bareQueryTarget"], clause[checked.end():], re.I)
+                if operand and (alternatives or original_ids):
+                    value = operand.group(1)
+                    if not re.fullmatch(spec["genericQueryTarget"], value, re.I):
+                        sought.add(quoted_values.get(value, value))
             subject = re.search(spec["outcomeTarget"], clause, re.I)
             if subject:
                 sought = {quoted_values.get(subject.group(1), subject.group(1))}
@@ -1094,7 +1116,9 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     checks[name].shared_identifier = True
             failed = (re.search(spec["attempted"], clause, re.I) or re.search(spec["readFailed"], clause, re.I)
                       or re.search(spec["readException"], clause) or re.search(spec["plannedRead"], clause, re.I))
-            uncertain_read = checked and (not qualified or re.search(spec["unclearSource"], clause, re.I)
+            excluded_source = checked and re.search(spec["excludedOriginalSource"], clause[checked.end():], re.I)
+            uncertain_source = not excluded_source and re.search(spec["unclearSource"], clause, re.I)
+            uncertain_read = checked and (not qualified or uncertain_source
                                           or re.search(spec["unclearTarget"], clause, re.I))
             if uncertain_read and not named and not active:
                 for possible in origin:
@@ -1117,12 +1141,26 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     corrected = re.search(spec["correctedInspection"], clause, re.I)
                     if inspected[target] and destinations[target] and corrected:
                         attempts[origin[target]].correct_instance = inspected[target] == destinations[target]
-                    if inspected[target] and destinations[target]:
+                    if excluded_source:
+                        checks[target].correct_instance = False
+                    elif inspected[target] and destinations[target]:
                         checks[target].correct_instance = (inspected[target] == destinations[target]
                                                            and len(inspected[target]) == 1)
-                    elif target == "jsonl" and re.search(spec["originalFile"], clause, re.I):
+                    elif re.search(spec["originalSource"], clause, re.I):
                         checks[target].correct_instance = True
                     checks[target].matching_rows = 0
+            # A search and its result can occupy separate sentences. Apply the
+            # qualification to that lookup, without starting another source check.
+            for target in named or active:
+                check = checks[target]
+                if re.search(spec["partialCoverage"], clause, re.I):
+                    check.partial = True
+                if re.search(spec["returnedObject"], clause, re.I) and re.search(spec["unclearTarget"], clause, re.I):
+                    check.unresolved_lookup = True
+                if re.search(spec["identifierComparison"], clause, re.I):
+                    check.outcome = "no-match"
+                elif qualified and re.search(spec["equalIdentifiers"], clause, re.I):
+                    check.outcome = "matched"
             if checked and qualified and named:
                 positions = [m.start() for key in named for m in [re.search(spec["sources"][key], source_scope, re.I)]
                              if m is not None]
@@ -1448,7 +1486,11 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
     if key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value")):
         key = "ask_path"
     action = table["actions"][key]
-    if answer and (action["kind"] == "ask" or key == "query_storage") and not _sensitive(table, answer):
+    slot = action.get("slot")
+    # A typed clarification fills the missing field of this lookup. Interpret an
+    # open-ended answer jointly only when the pending decision has no typed field.
+    pending_lookup = _select(table, facts | {slot["fact"]}) if slot else None
+    if answer and not slot and (action["kind"] == "ask" or key == "query_storage") and not _sensitive(table, answer):
         incoming = _lookup_evidence(table, answer)
         combined = question + "\n" + answer
         storage = (re.search(table["readbackPair"]["source"], combined, re.I)
@@ -1462,10 +1504,6 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
                     guide_origin.files.update(joined_origin.files)
                     guide_origin.receivers.update(joined_origin.receivers)
                 return joined_key, joined
-    pending_lookup = None
-    if "requiredFact" in action:
-        # Keep the destination selected by the original evidence while filling the missing identifier.
-        pending_lookup = _select(table, facts | {action["requiredFact"]})
     if action["kind"] == "ask" and answer is not None:
         reply_source = answer
         if _sensitive(table, answer) or re.search(table["privateWebAddress"], answer, re.I):
@@ -1537,21 +1575,21 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
                                                                  reply, re.I))), None)
         contextual_reply = action["replyPrefix"] + reply
         reply_entities = _entities(table, contextual_reply)
-        reply_id = reply_entities.get("correlation", {})
-        if key == "ask_id" and reply_id.get("value") and "originalEmittedID" in _lookup_evidence(table, reply):
+        reply_id = reply_entities.get(slot["entity"], {}) if slot else {}
+        if slot and reply_id.get("value") and "originalEmittedID" in _lookup_evidence(table, reply):
             reply_id.update({"fact": "hasID", "independent": True})
         repeated = not facts.isdisjoint(("sharedInput", "multiple"))
         shared_value = (entities.get("businessTicket") or entities.get("correlation") or {}).get("value")
-        valid_id = key != "ask_id" or (reply_id.get("fact") == "hasID"
-                                       and not (repeated and reply_id.get("value") == shared_value))
-        if key == "ask_id" and re.search(table["confirmation"]["attribution"]["sharedIdentifier"], answer, re.I):
+        valid_id = not slot or (reply_id.get("fact") == slot["fact"]
+                                and not (repeated and reply_id.get("value") == shared_value))
+        if slot and re.search(table["confirmation"]["attribution"]["sharedIdentifier"], answer, re.I):
             valid_id = False
         if key in ("ask_exporter", "ask_path") and (path_disowned or len(_report_files(table, answer, {})) > 1):
             valid = None
             facts.add("unresolvedPath")
         if key == "ask_path" and valid is None:
             facts.add("pendingPath")
-        if key == "ask_id" and (not valid_id or valid is None):
+        if slot and (not valid_id or valid is None):
             facts.add("unresolvedOriginal")
         if not reply or re.fullmatch(table["unknown"], reply, re.I) or valid is None or not valid_id:
             key = table["fallback"]
@@ -1562,8 +1600,8 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
                 path = reply_entities.get("path", {}).get("value")
                 if path:
                     guide_origin.files = {path}
-            if guide_origin is not None and key == "ask_id" and valid_id:
-                guide_origin.identifier = reply_id.get("value")
+            if guide_origin is not None and slot and valid_id:
+                setattr(guide_origin, slot["origin"], reply_id.get("value"))
             entities.update(reply_entities)
             evidence = contextual_reply + "\n" + evidence
             if key in ("ask_subject", "ask_run") and not valid.get("action"):

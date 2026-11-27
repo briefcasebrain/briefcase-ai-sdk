@@ -23540,5 +23540,2794 @@
     "includes": [
       "Did the original process send JSO"
     ]
+  },
+  {
+    "name": "Lookup agreement review 0",
+    "question": "The original exporter was memory. Example from the README: briefcase-ai exec --to birch.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Lookup agreement review 1",
+    "question": "The original run used a JSONL file. Its filename is unknown.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL fi"
+    ],
+    "answer": "My original launch was python -m briefcase.cli.exec_commands --to birch.jsonl -- python app.py."
+  },
+  {
+    "name": "Lookup agreement review 2",
+    "question": "The original run used birch.jsonl. I searched only the first half of the original file for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requ"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement review 3",
+    "question": "The original run used birch.jsonl. I searched the original file for the original decision ID. It returned 0 rows.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result confli"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement review 4",
+    "question": "The original run used birch.jsonl. My manager searched the original file for the original decision ID and found one matching row. I did not perform the lookup.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement review 5",
+    "question": "The original run used birch.jsonl. I searched the copy, not the original file, for the original decision ID.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected dif"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement review 6",
+    "question": "The original run used birch.jsonl. My original decision ID was lilac-10. I searched birch.jsonl for lilac-11 and found it.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl I personally matched",
+    "question": "I personally searched the original file for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl I personally no-match",
+    "question": "I personally searched the original file for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl After my job finished I matched",
+    "question": "After my job finished I searched the original file for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl After my job finished I no-match",
+    "question": "After my job finished I searched the original file for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl My supervisor matched",
+    "question": "My supervisor searched the original file for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl My supervisor no-match",
+    "question": "My supervisor searched the original file for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl My colleague matched",
+    "question": "My colleague searched the original file for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl My colleague no-match",
+    "question": "My colleague searched the original file for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl He independently matched",
+    "question": "He independently searched the original file for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl He independently no-match",
+    "question": "He independently searched the original file for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl first half matched",
+    "question": "I searched the first half of the original file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl last quarter matched",
+    "question": "I searched the last quarter of the original file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl initial portion matched",
+    "question": "I searched the initial portion of the original file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl contrast rather than matched",
+    "question": "I checked the copy, rather than the original file, for the original decision ID.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected dif"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl contrast instead of matched",
+    "question": "I checked the copy, instead of the original file, for the original decision ID.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected dif"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl contrast not matched",
+    "question": "I checked the copy, not the original file, for the original decision ID.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected dif"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl target fern matched",
+    "question": "My original decision ID was fern. I searched the original file for fern and found one matching row.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl target moss matched",
+    "question": "My original decision ID was fern. I searched the original file for moss and found one matching row.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl first half no-match",
+    "question": "I searched the first half of the original file for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requ"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl last quarter no-match",
+    "question": "I searched the last quarter of the original file for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requ"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl initial portion no-match",
+    "question": "I searched the initial portion of the original file for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requ"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl contrast rather than no-match",
+    "question": "I checked the copy, rather than the original file, for the original decision ID.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected dif"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl contrast instead of no-match",
+    "question": "I checked the copy, instead of the original file, for the original decision ID.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected dif"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl contrast not no-match",
+    "question": "I checked the copy, not the original file, for the original decision ID.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected dif"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl target fern no-match",
+    "question": "My original decision ID was fern. I searched the original file for fern and found 0 rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement jsonl target moss no-match",
+    "question": "My original decision ID was fern. I searched the original file for moss and found 0 rows.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver I personally matched",
+    "question": "I personally searched the original receiver for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt f"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver I personally no-match",
+    "question": "I personally searched the original receiver for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver After my job finished I matched",
+    "question": "After my job finished I searched the original receiver for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt f"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver After my job finished I no-match",
+    "question": "After my job finished I searched the original receiver for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver My supervisor matched",
+    "question": "My supervisor searched the original receiver for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver My supervisor no-match",
+    "question": "My supervisor searched the original receiver for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver My colleague matched",
+    "question": "My colleague searched the original receiver for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver My colleague no-match",
+    "question": "My colleague searched the original receiver for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver He independently matched",
+    "question": "He independently searched the original receiver for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver He independently no-match",
+    "question": "He independently searched the original receiver for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver first half matched",
+    "question": "I searched the first half of the original receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt f"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver last quarter matched",
+    "question": "I searched the last quarter of the original receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt f"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver initial portion matched",
+    "question": "I searched the initial portion of the original receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt f"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver contrast rather than matched",
+    "question": "I checked the copy, rather than the original receiver, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver contrast instead of matched",
+    "question": "I checked the copy, instead of the original receiver, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver contrast not matched",
+    "question": "I checked the copy, not the original receiver, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver target fern matched",
+    "question": "My original decision ID was fern. I searched the original receiver for fern and found one matching row.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt f"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver target moss matched",
+    "question": "My original decision ID was fern. I searched the original receiver for moss and found one matching row.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver first half no-match",
+    "question": "I searched the first half of the original receiver for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requ"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver last quarter no-match",
+    "question": "I searched the last quarter of the original receiver for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requ"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver initial portion no-match",
+    "question": "I searched the initial portion of the original receiver for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requ"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver contrast rather than no-match",
+    "question": "I checked the copy, rather than the original receiver, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver contrast instead of no-match",
+    "question": "I checked the copy, instead of the original receiver, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver contrast not no-match",
+    "question": "I checked the copy, not the original receiver, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver target fern no-match",
+    "question": "My original decision ID was fern. I searched the original receiver for fern and found 0 rows.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement receiver target moss no-match",
+    "question": "My original decision ID was fern. I searched the original receiver for moss and found 0 rows.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage I personally matched",
+    "question": "I personally searched the original downstream store for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persisten"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage I personally no-match",
+    "question": "I personally searched the original downstream store for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage After my job finished I matched",
+    "question": "After my job finished I searched the original downstream store for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persisten"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage After my job finished I no-match",
+    "question": "After my job finished I searched the original downstream store for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage My supervisor matched",
+    "question": "My supervisor searched the original downstream store for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage My supervisor no-match",
+    "question": "My supervisor searched the original downstream store for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage My colleague matched",
+    "question": "My colleague searched the original downstream store for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage My colleague no-match",
+    "question": "My colleague searched the original downstream store for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage He independently matched",
+    "question": "He independently searched the original downstream store for the original decision ID. The lookup returned one matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage He independently no-match",
+    "question": "He independently searched the original downstream store for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage first half matched",
+    "question": "I searched the first half of the original downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persisten"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage last quarter matched",
+    "question": "I searched the last quarter of the original downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persisten"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage initial portion matched",
+    "question": "I searched the initial portion of the original downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persisten"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage contrast rather than matched",
+    "question": "I checked the copy, rather than the original downstream store, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage contrast instead of matched",
+    "question": "I checked the copy, instead of the original downstream store, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage contrast not matched",
+    "question": "I checked the copy, not the original downstream store, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage target fern matched",
+    "question": "My original decision ID was fern. I searched the original downstream store for fern and found one matching row.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persisten"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage target moss matched",
+    "question": "My original decision ID was fern. I searched the original downstream store for moss and found one matching row.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Lookup agreement storage first half no-match",
+    "question": "I searched the first half of the original downstream store for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requ"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage last quarter no-match",
+    "question": "I searched the last quarter of the original downstream store for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requ"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage initial portion no-match",
+    "question": "I searched the initial portion of the original downstream store for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requ"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage contrast rather than no-match",
+    "question": "I checked the copy, rather than the original downstream store, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage contrast instead of no-match",
+    "question": "I checked the copy, instead of the original downstream store, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage contrast not no-match",
+    "question": "I checked the copy, not the original downstream store, for the original decision ID.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected d"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage target fern no-match",
+    "question": "My original decision ID was fern. I searched the original downstream store for fern and found 0 rows.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement storage target moss no-match",
+    "question": "My original decision ID was fern. I searched the original downstream store for moss and found 0 rows.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decisio"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Lookup agreement Example from the README briefcase-ai exec",
+    "question": "The original exporter was memory. Example from the README: briefcase-ai exec --to incidental.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Lookup agreement Example from the README python -m briefcase.cli exec",
+    "question": "The original exporter was memory. Example from the README: python -m briefcase.cli exec --to incidental.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Lookup agreement Example from the README python -m briefcase.cli.exec_commands",
+    "question": "The original exporter was memory. Example from the README: python -m briefcase.cli.exec_commands --to incidental.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Lookup agreement Sample in our tutorial briefcase-ai exec",
+    "question": "The original exporter was memory. Sample in our tutorial: briefcase-ai exec --to incidental.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Lookup agreement Sample in our tutorial python -m briefcase.cli exec",
+    "question": "The original exporter was memory. Sample in our tutorial: python -m briefcase.cli exec --to incidental.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Lookup agreement Sample in our tutorial python -m briefcase.cli.exec_commands",
+    "question": "The original exporter was memory. Sample in our tutorial: python -m briefcase.cli.exec_commands --to incidental.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Lookup agreement Illustration from the documentation briefcase-ai exec",
+    "question": "The original exporter was memory. Illustration from the documentation: briefcase-ai exec --to incidental.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Lookup agreement Illustration from the documentation python -m briefcase.cli exec",
+    "question": "The original exporter was memory. Illustration from the documentation: python -m briefcase.cli exec --to incidental.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Lookup agreement Illustration from the documentation python -m briefcase.cli.exec_commands",
+    "question": "The original exporter was memory. Illustration from the documentation: python -m briefcase.cli.exec_commands --to incidental.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a mem"
+    ]
+  },
+  {
+    "name": "Lookup agreement python -m briefcase.cli.exec_commands",
+    "question": "The original run used a JSONL file. Its filename is unknown.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL fi"
+    ],
+    "answer": "My original launch was python -m briefcase.cli.exec_commands --to original.jsonl -- python app.py."
+  },
+  {
+    "name": "Lookup agreement python3.11 -m briefcase.cli.exec_commands",
+    "question": "The original run used a JSONL file. Its filename is unknown.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL fi"
+    ],
+    "answer": "My original launch was python3.11 -m briefcase.cli.exec_commands --to original.jsonl -- python app.py."
+  },
+  {
+    "name": "Pending investigation AF02",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID or m"
+    ]
+  },
+  {
+    "name": "Pending investigation AF02 answer",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "answer": "I kept the original decision ID, quartz-403."
+  },
+  {
+    "name": "Pending investigation AF06",
+    "question": "I created a decision locally and submitted a hosted dashboard run during the same deployment check. Where do I inspect my run?",
+    "expected": "ask_run",
+    "includes": [
+      "Did the original launch create"
+    ]
+  },
+  {
+    "name": "Pending investigation AF06 answer",
+    "question": "I created a decision locally and submitted a hosted dashboard run during the same deployment check. Where do I inspect my run?",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace a"
+    ],
+    "answer": "It is the hosted run. Its receipt names workspace bridgewater and run ID coral-219."
+  },
+  {
+    "name": "Pending investigation AF10",
+    "question": "The original launch set the console exporter in code and ran python slate.py 2>slate-console.err. I still have that redirected file. Where should I check the decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ]
+  },
+  {
+    "name": "Pending investigation AF11",
+    "question": "I personally inspected the receiver configured by the original process and found its incoming entry bearing my original decision ID birch-583. No independent downstream read has been done. What can I establish?",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation ID slot 0/kept/,",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "answer": "I kept the original decision ID, cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 0/kept/:",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "answer": "I kept the original decision ID: cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 0/kept/;",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "answer": "I kept the original decision ID; cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 0/retained/,",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "answer": "I retained the original decision ID, cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 0/retained/:",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "answer": "I retained the original decision ID: cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 0/retained/;",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "answer": "I retained the original decision ID; cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 0/saved/,",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "answer": "I saved the original decision ID, cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 0/saved/:",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "answer": "I saved the original decision ID: cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 0/saved/;",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "answer": "I saved the original decision ID; cedar-715."
+  },
+  {
+    "name": "Pending investigation uncertain slot 0/I never",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to "
+    ],
+    "answer": "I never kept the original decision ID, cedar-715."
+  },
+  {
+    "name": "Pending investigation uncertain slot 0/Maybe t",
+    "question": "The ticket appears twice in the JSONL export and I want the decision for my initial invocation. How do I distinguish its record from the retry?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to "
+    ],
+    "answer": "Maybe the original decision ID, cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 1/kept/,",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "I kept the original decision ID, cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 1/kept/:",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "I kept the original decision ID: cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 1/kept/;",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "I kept the original decision ID; cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 1/retained/,",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "I retained the original decision ID, cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 1/retained/:",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "I retained the original decision ID: cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 1/retained/;",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "I retained the original decision ID; cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 1/saved/,",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "I saved the original decision ID, cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 1/saved/:",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "I saved the original decision ID: cedar-715."
+  },
+  {
+    "name": "Pending investigation ID slot 1/saved/;",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "I saved the original decision ID; cedar-715."
+  },
+  {
+    "name": "Pending investigation uncertain slot 1/I never",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to "
+    ],
+    "answer": "I never kept the original decision ID, cedar-715."
+  },
+  {
+    "name": "Pending investigation uncertain slot 1/Maybe t",
+    "question": "I opened ledger.jsonl and found two rows sharing the same ticket. Which one is mine?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to "
+    ],
+    "answer": "Maybe the original decision ID, cedar-715."
+  },
+  {
+    "name": "Pending investigation competing I created a decision locally I submitted a hosted dashboard run 0",
+    "question": "I created a decision locally. I submitted a hosted dashboard run. Which run did I just create?",
+    "expected": "ask_run",
+    "includes": [
+      "Did the original launch create"
+    ]
+  },
+  {
+    "name": "Pending investigation hosted selection I created a decision locally I submitted a hosted dashboard run 0",
+    "question": "I created a decision locally. I submitted a hosted dashboard run. Which run did I just create?",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace a"
+    ],
+    "answer": "I mean the hosted run. I kept its submission receipt."
+  },
+  {
+    "name": "Pending investigation competing I created a decision locally I submitted a hosted dashboard run 1",
+    "question": "I submitted a hosted dashboard run. I created a decision locally. Where do I look?",
+    "expected": "ask_run",
+    "includes": [
+      "Did the original launch create"
+    ]
+  },
+  {
+    "name": "Pending investigation hosted selection I created a decision locally I submitted a hosted dashboard run 1",
+    "question": "I submitted a hosted dashboard run. I created a decision locally. Where do I look?",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace a"
+    ],
+    "answer": "I mean the hosted run. I kept its submission receipt."
+  },
+  {
+    "name": "Pending investigation competing I created a decision locally I submitted a run to the dashboard 0",
+    "question": "I created a decision locally. I submitted a run to the dashboard. Which run did I just create?",
+    "expected": "ask_run",
+    "includes": [
+      "Did the original launch create"
+    ]
+  },
+  {
+    "name": "Pending investigation hosted selection I created a decision locally I submitted a run to the dashboard 0",
+    "question": "I created a decision locally. I submitted a run to the dashboard. Which run did I just create?",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace a"
+    ],
+    "answer": "I mean the hosted run. I kept its submission receipt."
+  },
+  {
+    "name": "Pending investigation competing I created a decision locally I submitted a run to the dashboard 1",
+    "question": "I submitted a run to the dashboard. I created a decision locally. Where do I look?",
+    "expected": "ask_run",
+    "includes": [
+      "Did the original launch create"
+    ]
+  },
+  {
+    "name": "Pending investigation hosted selection I created a decision locally I submitted a run to the dashboard 1",
+    "question": "I submitted a run to the dashboard. I created a decision locally. Where do I look?",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace a"
+    ],
+    "answer": "I mean the hosted run. I kept its submission receipt."
+  },
+  {
+    "name": "Pending investigation competing I recorded the decision on my workstation I submitted a hosted dashboard run 0",
+    "question": "I recorded the decision on my workstation. I submitted a hosted dashboard run. Which run did I just create?",
+    "expected": "ask_run",
+    "includes": [
+      "Did the original launch create"
+    ]
+  },
+  {
+    "name": "Pending investigation hosted selection I recorded the decision on my workstation I submitted a hosted dashboard run 0",
+    "question": "I recorded the decision on my workstation. I submitted a hosted dashboard run. Which run did I just create?",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace a"
+    ],
+    "answer": "I mean the hosted run. I kept its submission receipt."
+  },
+  {
+    "name": "Pending investigation competing I recorded the decision on my workstation I submitted a hosted dashboard run 1",
+    "question": "I submitted a hosted dashboard run. I recorded the decision on my workstation. Where do I look?",
+    "expected": "ask_run",
+    "includes": [
+      "Did the original launch create"
+    ]
+  },
+  {
+    "name": "Pending investigation hosted selection I recorded the decision on my workstation I submitted a hosted dashboard run 1",
+    "question": "I submitted a hosted dashboard run. I recorded the decision on my workstation. Where do I look?",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace a"
+    ],
+    "answer": "I mean the hosted run. I kept its submission receipt."
+  },
+  {
+    "name": "Pending investigation competing I recorded the decision on my workstation I submitted a run to the dashboard 0",
+    "question": "I recorded the decision on my workstation. I submitted a run to the dashboard. Which run did I just create?",
+    "expected": "ask_run",
+    "includes": [
+      "Did the original launch create"
+    ]
+  },
+  {
+    "name": "Pending investigation hosted selection I recorded the decision on my workstation I submitted a run to the dashboard 0",
+    "question": "I recorded the decision on my workstation. I submitted a run to the dashboard. Which run did I just create?",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace a"
+    ],
+    "answer": "I mean the hosted run. I kept its submission receipt."
+  },
+  {
+    "name": "Pending investigation competing I recorded the decision on my workstation I submitted a run to the dashboard 1",
+    "question": "I submitted a run to the dashboard. I recorded the decision on my workstation. Where do I look?",
+    "expected": "ask_run",
+    "includes": [
+      "Did the original launch create"
+    ]
+  },
+  {
+    "name": "Pending investigation hosted selection I recorded the decision on my workstation I submitted a run to the dashboard 1",
+    "question": "I submitted a run to the dashboard. I recorded the decision on my workstation. Where do I look?",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace a"
+    ],
+    "answer": "I mean the hosted run. I kept its submission receipt."
+  },
+  {
+    "name": "Pending investigation stream The original launch set",
+    "question": "The original launch set the console exporter in code. I retained the redirected stderr from python job.py 2>log.err.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ]
+  },
+  {
+    "name": "Pending investigation stream The original launch configured",
+    "question": "The original launch configured the console exporter in code. I retained the redirected stderr from python job.py 2>log.err.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ]
+  },
+  {
+    "name": "Pending investigation stream The original launch selected",
+    "question": "The original launch selected the console exporter in code. I retained the redirected stderr from python job.py 2>log.err.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ]
+  },
+  {
+    "name": "Pending investigation stream Our actual invocation set",
+    "question": "Our actual invocation set the console exporter in code. I retained the redirected stderr from python job.py 2>log.err.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ]
+  },
+  {
+    "name": "Pending investigation stream Our actual invocation configured",
+    "question": "Our actual invocation configured the console exporter in code. I retained the redirected stderr from python job.py 2>log.err.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ]
+  },
+  {
+    "name": "Pending investigation stream Our actual invocation selected",
+    "question": "Our actual invocation selected the console exporter in code. I retained the redirected stderr from python job.py 2>log.err.",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver collector/inspected/bears/ and found that ",
+    "question": "I personally inspected the collector configured by our original worker and found that its incoming entry bears the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver collector/inspected/bears/. ",
+    "question": "I personally inspected the collector configured by our original worker. its incoming entry bears the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver collector/inspected/contains/ and found that ",
+    "question": "I personally inspected the collector configured by our original worker and found that its incoming entry contains the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver collector/inspected/contains/. ",
+    "question": "I personally inspected the collector configured by our original worker. its incoming entry contains the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver collector/examined/bears/ and found that ",
+    "question": "I personally examined the collector configured by our original worker and found that its incoming entry bears the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver collector/examined/bears/. ",
+    "question": "I personally examined the collector configured by our original worker. its incoming entry bears the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver collector/examined/contains/ and found that ",
+    "question": "I personally examined the collector configured by our original worker and found that its incoming entry contains the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver collector/examined/contains/. ",
+    "question": "I personally examined the collector configured by our original worker. its incoming entry contains the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver receiver/inspected/bears/ and found that ",
+    "question": "I personally inspected the receiver configured by our original worker and found that its incoming entry bears the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver receiver/inspected/bears/. ",
+    "question": "I personally inspected the receiver configured by our original worker. its incoming entry bears the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver receiver/inspected/contains/ and found that ",
+    "question": "I personally inspected the receiver configured by our original worker and found that its incoming entry contains the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver receiver/inspected/contains/. ",
+    "question": "I personally inspected the receiver configured by our original worker. its incoming entry contains the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver receiver/examined/bears/ and found that ",
+    "question": "I personally examined the receiver configured by our original worker and found that its incoming entry bears the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver receiver/examined/bears/. ",
+    "question": "I personally examined the receiver configured by our original worker. its incoming entry bears the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver receiver/examined/contains/ and found that ",
+    "question": "I personally examined the receiver configured by our original worker and found that its incoming entry contains the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Pending investigation inspected receiver receiver/examined/contains/. ",
+    "question": "I personally examined the receiver configured by our original worker. its incoming entry contains the original decision ID fern-64. We have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Completed lookup details review 0",
+    "question": "I queried the intended downstream store for the original decision ID. I compared the returned ID with the original receipt. The two IDs were different.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details review 1",
+    "question": "I queried the wrong downstream database for the original decision ID and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected dif"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details review 2",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a full record with an unknown identifier.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does no"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details review 3",
+    "question": "I queried the downstream store for the original decision ID. I did not see the result. My teammate found the matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details review 4",
+    "question": "The original run used quill89.jsonl. I searched the original file for the original decision ID. I only searched the last 20 lines. I found no match.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requir"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details review 5",
+    "question": "I personally queried the intended downstream store for the original decision ID and got the full record with that same ID.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Completed lookup details review 6",
+    "question": "The original run used a JSONL file. Its filename is unknown.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "My original launch was python -m briefcase.cli.exec_commands --to quill89.jsonl -- python app.py."
+  },
+  {
+    "name": "Completed lookup details jsonl matched 0",
+    "question": "I personally searched the original file for the original decision ID. I compared the two identifiers. They were different. The two IDs were unequal.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl matched 1",
+    "question": "I personally searched the original file for the original decision ID. The two identifiers were equal.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl matched 2",
+    "question": "I personally searched the original file for the original decision ID. The lookup returned a full record with an unidentified marker.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does no"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl matched 3",
+    "question": "I personally searched the original file for the original decision ID. I never received the result. My manager found one matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl matched 4",
+    "question": "I personally searched the original file for the original decision ID. My colleague found the matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl matched 5",
+    "question": "I personally searched the original file for the original decision ID. I only searched the last 10 entries.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl matched 6",
+    "question": "I personally queried the wrong file for the original decision ID and found one matching row.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl matched 7",
+    "question": "I personally searched the original file for the original decision ID. The lookup returned one matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl no-match 0",
+    "question": "I personally searched the original file for the original decision ID. I compared the two identifiers. They were different. The two IDs were unequal.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl no-match 1",
+    "question": "I personally searched the original file for the original decision ID. The two identifiers were equal.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl no-match 2",
+    "question": "I personally searched the original file for the original decision ID. The lookup returned a full record with an unidentified marker.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does no"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl no-match 3",
+    "question": "I personally searched the original file for the original decision ID. I never received the result. My manager found one matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl no-match 4",
+    "question": "I personally searched the original file for the original decision ID. My colleague found the matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl no-match 5",
+    "question": "I personally searched the original file for the original decision ID. I only searched the last 10 entries.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requir"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl no-match 6",
+    "question": "I personally queried the wrong file for the original decision ID and found one matching row.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details jsonl no-match 7",
+    "question": "I personally searched the original file for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver matched 0",
+    "question": "I personally searched the original receiver for the original decision ID. I compared the two identifiers. They were different. The two IDs were unequal.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver matched 1",
+    "question": "I personally searched the original receiver for the original decision ID. The two identifiers were equal.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver matched 2",
+    "question": "I personally searched the original receiver for the original decision ID. The lookup returned a full record with an unidentified marker.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does no"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver matched 3",
+    "question": "I personally searched the original receiver for the original decision ID. I never received the result. My manager found one matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver matched 4",
+    "question": "I personally searched the original receiver for the original decision ID. My colleague found the matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver matched 5",
+    "question": "I personally searched the original receiver for the original decision ID. I only searched the last 10 entries.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver matched 6",
+    "question": "I personally queried the wrong receiver for the original decision ID and found one matching row.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected dif"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver matched 7",
+    "question": "I personally searched the original receiver for the original decision ID. The lookup returned one matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver no-match 0",
+    "question": "I personally searched the original receiver for the original decision ID. I compared the two identifiers. They were different. The two IDs were unequal.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver no-match 1",
+    "question": "I personally searched the original receiver for the original decision ID. The two identifiers were equal.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver no-match 2",
+    "question": "I personally searched the original receiver for the original decision ID. The lookup returned a full record with an unidentified marker.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does no"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver no-match 3",
+    "question": "I personally searched the original receiver for the original decision ID. I never received the result. My manager found one matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver no-match 4",
+    "question": "I personally searched the original receiver for the original decision ID. My colleague found the matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver no-match 5",
+    "question": "I personally searched the original receiver for the original decision ID. I only searched the last 10 entries.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requir"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver no-match 6",
+    "question": "I personally queried the wrong receiver for the original decision ID and found one matching row.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected dif"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details receiver no-match 7",
+    "question": "I personally searched the original receiver for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details storage matched 0",
+    "question": "I personally searched the original downstream database for the original decision ID. I compared the two identifiers. They were different. The two IDs were unequal.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details storage matched 1",
+    "question": "I personally searched the original downstream database for the original decision ID. The two identifiers were equal.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details storage matched 2",
+    "question": "I personally searched the original downstream database for the original decision ID. The lookup returned a full record with an unidentified marker.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does no"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details storage matched 3",
+    "question": "I personally searched the original downstream database for the original decision ID. I never received the result. My manager found one matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details storage matched 4",
+    "question": "I personally searched the original downstream database for the original decision ID. My colleague found the matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details storage matched 5",
+    "question": "I personally searched the original downstream database for the original decision ID. I only searched the last 10 entries.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details storage matched 6",
+    "question": "I personally queried the wrong downstream database for the original decision ID and found one matching row.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected dif"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details storage matched 7",
+    "question": "I personally searched the original downstream database for the original decision ID. The lookup returned one matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Completed lookup details storage no-match 0",
+    "question": "I personally searched the original downstream database for the original decision ID. I compared the two identifiers. They were different. The two IDs were unequal.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details storage no-match 1",
+    "question": "I personally searched the original downstream database for the original decision ID. The two identifiers were equal.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details storage no-match 2",
+    "question": "I personally searched the original downstream database for the original decision ID. The lookup returned a full record with an unidentified marker.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does no"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details storage no-match 3",
+    "question": "I personally searched the original downstream database for the original decision ID. I never received the result. My manager found one matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details storage no-match 4",
+    "question": "I personally searched the original downstream database for the original decision ID. My colleague found the matching row.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the sel"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details storage no-match 5",
+    "question": "I personally searched the original downstream database for the original decision ID. I only searched the last 10 entries.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requir"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details storage no-match 6",
+    "question": "I personally queried the wrong downstream database for the original decision ID and found one matching row.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected dif"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Completed lookup details storage no-match 7",
+    "question": "I personally searched the original downstream database for the original decision ID. The lookup returned 0 rows.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
   }
 ]
