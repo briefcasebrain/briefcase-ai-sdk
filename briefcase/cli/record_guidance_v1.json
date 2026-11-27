@@ -55,11 +55,11 @@
     },
     "storage": {
       "kind": "action",
-      "text": "If a receiver entry matches the original decision ID or trace correlation, it verifies receipt. Query downstream storage for the original ID or unique marker and compare its returned ID. Storage remains unverified until that separate readback matches."
+      "text": "A receiver entry that matches the original decision ID or trace identifier confirms receipt. Search the downstream store for the original identifier to check whether it has the record."
     },
     "stored": {
       "kind": "action",
-      "text": "If you have a returned downstream record, compare it with the original ID or unique marker. An exact match verifies storage at the time of readback. Retain that matching row or span."
+      "text": "Compare the returned record with the original decision ID or unique marker. An exact match confirms the record was in that store when you checked."
     },
     "ask_path": {
       "kind": "ask",
@@ -68,7 +68,7 @@
     },
     "ask_id": {
       "kind": "ask",
-      "text": "What original decision ID or marker unique to this invocation do you have? Identical ticket text cannot distinguish the runs. If no identifier survives, the original remains unknown.",
+      "text": "Do you have the original decision ID or a marker unique to that run? Identical ticket text can't distinguish the runs.",
       "replyPrefix": "Original correlation: ",
       "slot": {
         "entity": "correlation",
@@ -83,7 +83,7 @@
     },
     "ask_subject": {
       "kind": "ask",
-      "text": "Which artifact do you want to inspect: the application reply text, a local SDK decision with usage metadata, or a submitted dashboard run?",
+      "text": "Are you looking for the app's reply, a local SDK decision record or a hosted dashboard run?",
       "replyPrefix": "Original artifact: ",
       "artifactSlot": true
     },
@@ -116,7 +116,7 @@
     },
     "receipt_unknown": {
       "kind": "action",
-      "text": "Receipt of the original ID or unique marker is unconfirmed. Inspect receiver-side entries or received spans for the original ID or trace correlation. A successful request, an endpoint, or an unrelated entry cannot verify delivery of this decision. Verify storage separately with a matching downstream readback."
+      "text": "Receipt is still unknown. Search the receiver's entries or spans for the original decision ID or trace identifier."
     },
     "memory_only": {
       "kind": "action",
@@ -144,7 +144,7 @@
     },
     "query_storage": {
       "kind": "action",
-      "text": "Run a downstream readback for the original ID or unique marker. A row from that store verifies persistence at the time of the query only if it matches the original identifier. Endpoint settings, HTTP status and a receiver entry establish no downstream readback."
+      "text": "Search the downstream store for the original decision ID or unique marker. An exact match confirms the record was in that store when you checked."
     },
     "scanned_missing": {
       "kind": "action",
@@ -172,39 +172,39 @@
     },
     "confirmed_jsonl_matched": {
       "kind": "action",
-      "text": "Reader-confirmed match for the identifier you looked up in the JSONL file you inspected. The row verifies a write to that file for that identifier. Compare it with the original decision ID or a marker unique to the original run."
+      "text": "You reported one matching record in the original JSONL file. Keep that row as evidence of what the file contained when you opened it."
     },
     "confirmed_jsonl_no_match": {
       "kind": "action",
-      "text": "Reader-confirmed absence of a matching row for the identifier you looked up in the JSONL file you scanned. Verify that the identifier belongs to the original run. Other files and destinations remain unknown."
+      "text": "You reported no match after searching the entire original JSONL file for the original identifier. Check the launch configuration for another destination to search."
     },
     "confirmed_jsonl_unverified": {
       "kind": "action",
-      "text": "The original JSONL record remains unverified. Reopen the intended file after the run and compare its rows with the original decision ID or a run-unique marker."
+      "text": "The original JSONL record is still unverified. Open the original file and search it for the original decision ID or unique marker."
     },
     "confirmed_receiver_matched": {
       "kind": "action",
-      "text": "Reader-confirmed receipt for the identifier you looked up at the receiver or collector you inspected. Verify that it belongs to the original run. Query downstream storage separately for that same identifier to verify persistence."
+      "text": "You reported a matching entry at the receiver. That confirms receipt for the original run. Search the downstream store for the same identifier to check storage."
     },
     "confirmed_receiver_no_match": {
       "kind": "action",
-      "text": "Reader-confirmed absence of a matching entry for the identifier you looked up in the receiver data you checked. Verify that the identifier belongs to the original run. Delivery outside that check and downstream persistence remain unknown."
+      "text": "You reported no match in the receiver data you checked for the original identifier. Search the downstream store for that identifier to check whether it has the record."
     },
     "confirmed_receiver_unverified": {
       "kind": "action",
-      "text": "Receipt remains unverified. Inspect the intended receiver for the original decision ID or run-unique marker. Verify storage with a separate readback."
+      "text": "Receipt is still unverified. Search the intended receiver for the original decision ID or unique marker."
     },
     "confirmed_storage_matched": {
       "kind": "action",
-      "text": "Reader-confirmed persistence for the identifier you looked up at the time of your independent downstream read. Retain the matching record and compare its identifier with the original decision ID or a marker unique to that run."
+      "text": "You reported a matching record in the intended store. That confirms it was there when you checked. Keep the matching record as evidence."
     },
     "confirmed_storage_no_match": {
       "kind": "action",
-      "text": "Reader-confirmed absence of a matching record for the identifier you looked up in the downstream result you inspected. Verify that it belongs to the original run. Other stores and other times remain unknown."
+      "text": "You reported no match in your complete search of the intended store for the original identifier. Check the receiver for that identifier if you still need to verify receipt."
     },
     "confirmed_storage_unverified": {
       "kind": "action",
-      "text": "Downstream persistence remains unverified. Run an independent query at the intended store and compare the returned record with the original decision ID or run-unique marker."
+      "text": "Storage is still unverified. Search the intended store for the original decision ID or unique marker."
     },
     "surviving_marker": {
       "kind": "action",
@@ -252,7 +252,7 @@
     },
     "confirmation_other_run": {
       "kind": "action",
-      "text": "Check the original decision ID or a run-unique marker at the selected source. A result for a different run cannot establish a match or absence for the original. Report the outcome of the original-identifier check."
+      "text": "The result is for a different run. Search the same source for the original decision ID or unique marker."
     },
     "chain_store": {
       "kind": "action",
@@ -260,27 +260,27 @@
     },
     "confirmation_inconsistent": {
       "kind": "action",
-      "text": "The selected result conflicts with the later check you described for the original identifier. Review that observation and report the result for the same source and identifier."
+      "text": "Your selection conflicts with the result you described. Review the original lookup and report what it returned."
     },
     "confirmation_unchecked": {
       "kind": "action",
-      "text": "A personal lookup at the selected source is unverified. Check that source yourself for the original identifier, then report what you found."
+      "text": "Search the intended source yourself for the original decision ID or unique marker."
     },
     "confirmation_ambiguous": {
       "kind": "action",
-      "text": "The lookup does not identify one original decision. Use an identifier unique to the invocation and compare the candidate records before reporting a result."
+      "text": "The lookup hasn't identified a single record. Compare the candidate records using the original decision ID or a marker unique to that run."
     },
     "confirmation_other_file": {
       "kind": "action",
-      "text": "The file you inspected differs from the original JSONL destination. Open the original file and search it for the original decision ID before reporting a result."
+      "text": "You checked a different file. Search the original JSONL file for the original decision ID or unique marker."
     },
     "confirmation_other_source": {
       "kind": "action",
-      "text": "The source you inspected differs from the original destination. Check the original receiver or downstream store for the original decision ID before reporting a result."
+      "text": "You checked a different source. Search the receiver or store used by the original run for the original decision ID or unique marker."
     },
     "confirmation_unresolved_path": {
       "kind": "action",
-      "text": "The original JSONL path is still unknown. Identify the destination from the original launch and inspect that file before reporting a result."
+      "text": "The original JSONL path is unknown. Check the original launch configuration for that path."
     },
     "console_unretained": {
       "kind": "action",
@@ -292,11 +292,11 @@
     },
     "confirmation_unresolved_lookup": {
       "kind": "action",
-      "text": "The described lookup does not identify its source and target as the original destination and decision. Verify where the lookup ran and which original identifier it searched before reporting a result."
+      "text": "Check which source you searched and whether you used the original decision ID or unique marker."
     },
     "confirmation_partial": {
       "kind": "action",
-      "text": "A source-wide absence requires an exhaustive search. Check the remaining entries for the original identifier, or verify that your completed search covered the entire relevant source."
+      "text": "A complete search is still unverified. Search the entire relevant source for the original decision ID or unique marker."
     },
     "jsonl_candidates": {
       "kind": "action",
@@ -304,7 +304,7 @@
     },
     "confirmation_details": {
       "kind": "action",
-      "text": "Check the intended source for the original decision ID or a run-unique marker. Report who checked, which source and identifier were checked, and the result. To confirm absence, report whether the search covered the entire relevant source."
+      "text": "Search the intended source for the original decision ID or unique marker, then report what you found. To report no match, search the entire relevant source."
     }
   },
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
@@ -462,12 +462,14 @@
     "stockRan": {
       "scope": "clause",
       "all": [
-        "(?:\\b(?:i|we|it|the job|the (?:archived )?command|the launcher|original process|launch log) (?:actually |only |definitely |did )?(?:ran|executed|called|invoked|launched|used|runs|started)\\b[^.;\\n]{0,75}\\b(?:quickstart|tutorial|stock example|sample script|first_decision\\.py)\\b|(?:actual|original|launch|archived|recorded) (?:command|manifest|argv)[^.\\n]{0,80}first_decision\\.py|(?:verbatim|stock) python quickstart\\b|first_decision\\.py unchanged|\\b(?:quickstart|tutorial|stock example|sample script|first_decision\\.py)\\b[^.;\\n]{0,45}(?:already exited|has exited|finished|was (?:actually )?(?:run|executed|launched)))|(?:actually|specifically|in fact) (?:ran|executed|launched|invoked) [^.;\\n]{0,60}(?:first_decision\\.py|quickstart)|(?:log|command|transcript|scheduler|launcher|entrypoint|manifest|shell history|crontab)[^.;\\n]{0,90}\\bpython[23]?\\s+(?:[^\\s;]+/)?first_decision\\.py\\b|\\bpython[23]?\\s+(?:[^\\s;]+/)?first_decision\\.py\\s+1?>>?\\s*[^\\s;]+"
+        "(?:\\b(?:i|we|it|the job|the (?:archived )?command|the launcher|original process|launch log) (?:actually |only |definitely |did )?(?:ran|executed|called|invoked|launched|used|runs|started)\\b[^.;\\n]{0,75}\\b(?:quickstart|tutorial|stock example|sample script|first_decision\\.py)\\b|(?:actual|original|launch|archived|recorded) (?:command|manifest|argv)[^.\\n]{0,80}first_decision\\.py|(?:verbatim|stock) python quickstart\\b|first_decision\\.py unchanged|\\b(?:quickstart|tutorial|stock example|sample script|first_decision\\.py)\\b[^.;\\n]{0,45}(?:already exited|has exited|finished|was (?:actually )?(?:run|executed|launched)))|(?:actually|specifically|in fact) (?:ran|executed|launched|invoked) [^.;\\n]{0,60}(?:first_decision\\.py|quickstart)|(?:log|command|transcript|scheduler|launcher|entrypoint|manifest|shell history|crontab)[^.;\\n]{0,90}\\bpython[23]?\\s+(?:[^\\s;]+/)?first_decision\\.py\\b|\\bpython[23]?\\s+(?:[^\\s;]+/)?first_decision\\.py\\s+1?>>?\\s*[^\\s;]+|\\b(?:(?:my|our|the|this|original)\\s+)?(?:launcher|scheduler|entrypoint|job|process|command)\\s+(?:(?:actually|directly|specifically|only)\\s+)*(?:ran|invoked|executed|started|launched|called)\\s+(?:(?:the|our|my|unmodified|unchanged|original|stock|verbatim|python)\\s+)*(?:quickstart|tutorial|sample script|example script)\\b"
       ],
       "none": [
         "\\b(?:did not|didn.t|not sure|cannot tell|can.t tell|don.t know|could have|might have|maybe|possible|whether|alternatives?|which (?:one|script|program|command) (?:ran|executed)|never ran|not (?:the |a )?(?:quickstart|worker))\\b",
         "\\bhad (?:a |the )?(?:choice|option)|only one ran|not (?:actually )?(?:executed|launched)",
-        "possibly|one (?:option|possibility)|example command|available commands|could also|might have"
+        "possibly|one (?:option|possibility)|example command|available commands|could also|might have",
+        "\\b(?:(?:quickstart|tutorial|first_decision\\.py|stock (?:python )?(?:script|example))\\b[^.;?!\\n]{0,100}\\bor\\b[^.;?!\\n]{0,80}\\b(?:service|worker|wrapper|daemon|custom (?:app|application|script)|production (?:app|script))|(?:service|worker|wrapper|daemon|custom (?:app|application|script)|production (?:app|script))\\b[^.;?!\\n]{0,100}\\bor\\b[^.;?!\\n]{0,80}\\b(?:quickstart|tutorial|first_decision\\.py|stock (?:python )?(?:script|example)))\\b",
+        "\\b(?:quickstart|tutorial|example|first_decision\\.py)\\s+(?:(?:is|was|has been|had been|comes|came|also|already|still|currently)\\s+)+\\b(?:available|bundled|installed|included|packaged|shipped|listed)\\b|\\b(?:deployment|image|package|checkout|repository|distribution|installation)\\s+(?:(?:also|currently)\\s+)?(?:has|includes?|contains?|bundles?|lists?|ships? with)\\b[^.;?!\\n]{0,90}\\b(?:quickstart|tutorial|example|first_decision\\.py)\\b"
       ]
     },
     "stdoutLost": {
@@ -756,7 +758,9 @@
         "(?:\\b(?:i|we|the (?:archived )?(?:command|launcher|job|manifest)|original (?:process|job|run)) (?:actually |only |definitely )?(?:ran|executed|called|invoked|launched|selected|used)\\b[^.;\\n]{0,70}(?:worker|service|wrapper|console)|(?:original|actual|archived|launch) (?:command|manifest|log)[^.\\n]{0,75}(?:worker|service|wrapper)|(?:worker|wrapper|service) (?:was|is) (?:the one (?:that )?)?(?:executed|launched|run)\\b)|(?:original |actual |archived )?(?:launch (?:record|log|manifest|transcript)|shell history|scheduler|entrypoint|crontab)[^.;\\n]{0,65}(?:worker|service|wrapper)[_a-z0-9-]*\\.py"
       ],
       "none": [
-        "\\b(?:did not|didn.t|not sure|cannot tell|can.t tell|don.t know|could have|might have|maybe|possible|whether|alternatives?|which (?:one|script|program|command) (?:ran|executed)|never ran|not (?:the |a )?(?:quickstart|worker))\\b"
+        "\\b(?:did not|didn.t|not sure|cannot tell|can.t tell|don.t know|could have|might have|maybe|possible|whether|alternatives?|which (?:one|script|program|command) (?:ran|executed)|never ran|not (?:the |a )?(?:quickstart|worker))\\b",
+        "\\b(?:(?:quickstart|tutorial|first_decision\\.py|stock (?:python )?(?:script|example))\\b[^.;?!\\n]{0,100}\\bor\\b[^.;?!\\n]{0,80}\\b(?:service|worker|wrapper|daemon|custom (?:app|application|script)|production (?:app|script))|(?:service|worker|wrapper|daemon|custom (?:app|application|script)|production (?:app|script))\\b[^.;?!\\n]{0,100}\\bor\\b[^.;?!\\n]{0,80}\\b(?:quickstart|tutorial|first_decision\\.py|stock (?:python )?(?:script|example)))\\b",
+        "\\b(?:service|worker|daemon|wrapper)\\s+(?:(?:is|was|has been|had been|comes|came|also|already|still|currently)\\s+)+\\b(?:available|bundled|installed|included|packaged|shipped|listed)\\b|\\b(?:deployment|image|package|checkout|repository|distribution|installation)\\s+(?:(?:also|currently)\\s+)?(?:has|includes?|contains?|bundles?|lists?|ships? with)\\b[^.;?!\\n]{0,90}\\b(?:service|worker|daemon|wrapper)\\b"
       ]
     },
     "fileRead": {
@@ -1100,6 +1104,22 @@
       "all": [
         "\\b(?:hosted|dashboard)\\b"
       ]
+    },
+    "rowsInOriginalFile": {
+      "scope": "clause",
+      "all": [
+        "\\b(?:records?|rows?|entries|decisions?)\\b",
+        "\\b(?:in|from|inside)\\s+(?:(?:the|our|my|original|actual|same|exported|local)\\s+)*JSONL\\s+(?:file|export|output)\\b"
+      ],
+      "none": [
+        "\\b(?:not|never|might|maybe|perhaps|uncertain|unknown|another|different)\\b"
+      ]
+    },
+    "programAlternatives": {
+      "scope": "clause",
+      "all": [
+        "\\b(?:(?:quickstart|tutorial|first_decision\\.py|stock (?:python )?(?:script|example))\\b[^.;?!\\n]{0,100}\\bor\\b[^.;?!\\n]{0,80}\\b(?:service|worker|wrapper|daemon|custom (?:app|application|script)|production (?:app|script))|(?:service|worker|wrapper|daemon|custom (?:app|application|script)|production (?:app|script))\\b[^.;?!\\n]{0,100}\\bor\\b[^.;?!\\n]{0,80}\\b(?:quickstart|tutorial|first_decision\\.py|stock (?:python )?(?:script|example)))\\b"
+      ]
     }
   },
   "decisions": [
@@ -1118,6 +1138,86 @@
       "none": [
         "wantReply",
         "wantMeta"
+      ]
+    },
+    {
+      "all": [
+        "foreignReceiverSource"
+      ],
+      "action": "receipt_unknown"
+    },
+    {
+      "action": "console_stdout",
+      "all": [
+        "wantMeta",
+        "decisionOnStdout"
+      ],
+      "none": [
+        "decisionOnStderr",
+        "decisionOnStorage"
+      ],
+      "resolvesArtifact": true
+    },
+    {
+      "action": "node_console",
+      "all": [
+        "wantMeta",
+        "decisionOnStderr",
+        "node"
+      ],
+      "none": [
+        "decisionOnStdout",
+        "decisionOnStorage"
+      ],
+      "resolvesArtifact": true
+    },
+    {
+      "action": "console",
+      "all": [
+        "wantMeta",
+        "decisionOnStderr"
+      ],
+      "none": [
+        "decisionOnStdout",
+        "decisionOnStorage"
+      ],
+      "resolvesArtifact": true
+    },
+    {
+      "action": "query_storage",
+      "all": [
+        "wantMeta",
+        "decisionOnStorage"
+      ],
+      "none": [
+        "decisionOnStderr",
+        "decisionOnStdout"
+      ],
+      "resolvesArtifact": true
+    },
+    {
+      "all": [
+        "programAlternatives"
+      ],
+      "none": [
+        "stockRan",
+        "appRan",
+        "requestedHosted",
+        "wantReply"
+      ],
+      "action": "ask_program"
+    },
+    {
+      "all": [
+        "rowsInOriginalFile",
+        "sharedInput",
+        "hasID"
+      ],
+      "action": "jsonl_candidates",
+      "none": [
+        "wantReply",
+        "wantMeta",
+        "requestedHosted"
       ]
     },
     {
@@ -1199,55 +1299,6 @@
       "action": "reply",
       "all": [
         "wantReply"
-      ],
-      "resolvesArtifact": true
-    },
-    {
-      "action": "console_stdout",
-      "all": [
-        "wantMeta",
-        "decisionOnStdout"
-      ],
-      "none": [
-        "decisionOnStderr",
-        "decisionOnStorage"
-      ],
-      "resolvesArtifact": true
-    },
-    {
-      "action": "node_console",
-      "all": [
-        "wantMeta",
-        "decisionOnStderr",
-        "node"
-      ],
-      "none": [
-        "decisionOnStdout",
-        "decisionOnStorage"
-      ],
-      "resolvesArtifact": true
-    },
-    {
-      "action": "console",
-      "all": [
-        "wantMeta",
-        "decisionOnStderr"
-      ],
-      "none": [
-        "decisionOnStdout",
-        "decisionOnStorage"
-      ],
-      "resolvesArtifact": true
-    },
-    {
-      "action": "query_storage",
-      "all": [
-        "wantMeta",
-        "decisionOnStorage"
-      ],
-      "none": [
-        "decisionOnStderr",
-        "decisionOnStdout"
       ],
       "resolvesArtifact": true
     },
@@ -2340,7 +2391,8 @@
           "\\b(?:lost|forgotten|forgot|unknown|unavailable|missing|unclear|uncertain|unsaved|misplaced|unrecorded|unrecoverable|ambiguous|unidentified)\\b|\\b(?:dunno|idk|nobody knows|no idea|can.t remember)\\b|\\s+or\\s+",
           "\\b(?:probably|perhaps|potentially|possibly|i guess|i suspect|i suppose|nope|nah|no idea|not positive|not certain|presumably|seems? like|likely|best guess)\\b"
         ],
-        "action": "local"
+        "action": "local",
+        "resumeLocal": true
       }
     ],
     "ask_subject": [
@@ -2695,7 +2747,8 @@
             "(?:^|[.!?;]\\s+|\\n)\\s*({{idToken}})\\s+(?:is|was)\\s+(?:my|our|the)\\s+(?:{{originalID}})(?=\\s*[,.;!?]|\\s*$)",
             "(?:^|[.!?;]\\s+|\\n)\\s*\"([^\"\\n]{1,120})\"\\s+(?:is|was)\\s+(?:my|our|the)\\s+(?:{{originalID}})(?=\\s*[,.;!?]|\\s*$)",
             "(?:^|[.!?;]\\s+|\\n)\\s*'([^'\\n]{1,120})'\\s+(?:is|was)\\s+(?:my|our|the)\\s+(?:{{originalID}})(?=\\s*[,.;!?]|\\s*$)",
-            "(?:^|[.!?;]\\s+|\\n)\\s*“([^”\\n]{1,120})”\\s+(?:is|was)\\s+(?:my|our|the)\\s+(?:{{originalID}})(?=\\s*[,.;!?]|\\s*$)"
+            "(?:^|[.!?;]\\s+|\\n)\\s*“([^”\\n]{1,120})”\\s+(?:is|was)\\s+(?:my|our|the)\\s+(?:{{originalID}})(?=\\s*[,.;!?]|\\s*$)",
+            "{{originalID}}\\s*,\\s*({{nameToken}})\\s*,"
           ],
           "fact": "hasID",
           "independent": true
@@ -3194,14 +3247,14 @@
   "runtimeDenied": "\\b(?:not|never|unconfirmed|unsure|unknown|possibly|maybe|whether|if|could|might|may|guess|think|suspect|no evidence|no proof|didn.t|wasn.t|isn.t|wasn’t|didn’t)\\b",
   "confirmation": {
     "sources": {
-      "jsonl": "Original JSONL file reopened after the run",
-      "receiver": "Receiver or collector that accepted the export",
-      "storage": "Independent read of the intended downstream store"
+      "jsonl": "JSONL file from the original run",
+      "receiver": "Receiver or collector used by the original run",
+      "storage": "Downstream store used by the original run"
     },
     "results": {
-      "matched": "Found an unambiguous match for the original decision ID or run-unique marker",
-      "no-match": "Completed the check at this source and found no matching record",
-      "unverified": "Unchecked, uncertain, ambiguous, or from another source"
+      "matched": "Found one match for the original decision ID or unique marker",
+      "no-match": "Searched and found no match",
+      "unverified": "Unverified or unsure"
     },
     "outcomes": {
       "jsonl": {
@@ -3238,7 +3291,7 @@
       "store_missing": "storage",
       "surviving_marker": "jsonl"
     },
-    "instruction": "Optional confirmation: report a check you personally performed for the original identifier at the intended source. Use --source, --result, --reader, --source-match and --target-match. For absence, also supply --coverage complete. In a pipe or terminal, enter those values in that order on the final line. Example: jsonl matched me original original. See --help for choices.",
+    "instruction": "You can report a lookup you ran yourself. Use --source, --result, --reader, --source-match and --target-match. To report no match, add --coverage complete. In a terminal or pipe, enter the values in that order on the last line. For a match in the original JSONL file, enter jsonl matched me original original. See --help for choices.",
     "attribution": {
       "sources": {
         "jsonl": "\\b(?:jsonl|local file|original file|file (?:lookup|result|check|row)|json lines)\\b",
@@ -3331,7 +3384,89 @@
       "detailNeutral": "\\b(?:for|about|from|at|of|on)\\s+(?:(?:my|our|the|that|this|an?)\\s+)?(?:original|intended|correct|same|different|another|previous|other|unrelated)\\s+(?:run|lookup|decision|source|receiver|file|store|database|invocation|id|identifier|marker)\\b",
       "detailPending": "\\b(?:my|our|the|this|that)\\s+(?:own\\s+)?(?:query|lookup|search|scan|check|readback)\\s+(?:(?:was|is|still|remains?|had|has|been|never|not|did|hasn.t|hadn.t|didn.t)\\s+)*(?:pending|unfinished|incomplete|running|waiting|queued|never finished|not finished|never completed|not completed|didn.t finish|didn.t complete)\\b",
       "sameReaderResult": "^\\s*(?:(?:I|we)\\s+(?:(?:personally|then|later|finally|subsequently|actually)\\s+)*(?:read|got|received|retrieved|found|saw)|(?:my|our|the|this|that)\\s+(?:own\\s+)?(?:query|lookup|search|scan|check|readback)\\s+(?:(?:then|later|finally|subsequently|actually)\\s+)*(?:returned|yielded|produced|found))\\b",
-      "returnedIdentitySubject": "^\\s*(?:the|its|this|that)\\s+(?:returned|retrieved|received|observed|reported)\\s+(?:(?:decision|trace|run)\\s+)?(?:id|identifier|marker|correlation)\\b"
+      "returnedIdentitySubject": "^\\s*(?:the|its|this|that)\\s+(?:returned|retrieved|received|observed|reported)\\s+(?:(?:decision|trace|run)\\s+)?(?:id|identifier|marker|correlation)\\b",
+      "completedStatus": "^\\s*(?:the|this|that|my|our)\\s+(?:own\\s+)?(?:search|query|lookup|readback|scan)\\s+(?:(?:actually|later|then|finally|has|had|successfully)\\s+)*(?:completed|finished|succeeded)\\s*$",
+      "outsideInstance": "\\b(?:at|from|in|on|belonged? to|belongs? to|came from)\\s+(?:(?:a|an|the|some)\\s+)?(?:another|other|different|separate|unrelated|wrong)\\s+(?:database|receiver|collector|store|storage|warehouse|file|backend|source|instance|endpoint|service)\\b",
+      "continuationGrammar": {
+        "unit": "(?:rows?|records?|entr(?:y|ies)|decisions?|batches?|spans?|matches|results?)",
+        "id": "(?:(?:decision|trace|run|unique)\\s+)?(?:id|identifier|correlation|marker)s?",
+        "determiner": "(?:(?:a|an|the|that|this|some|one|both|my|our|its|their|those|two|a single|only|just|same|full|single|complete|matching|exact|exactly|original|older|prior|previous|stored|retrieved|returned|retained|received|incoming|other|another|different|old|every|all)\\s+)*",
+        "link": "(?:with|bearing|carrying|for|matching|from|containing|against|to|on|in|of)",
+        "source": "(?:(?:original|intended|local|downstream|remote|configured|receiving)\\s+)*(?:jsonl(?: file)?|file|receiver|collector|store|database|storage|warehouse|backend|source)",
+        "reader": "(?:I|we|the reader)",
+        "query": "(?:my|our|the|this|that|its)\\s+(?:(?:own|storage|receiver|file|separate)\\s+)?(?:query|lookup|search|scan|check|readback)",
+        "object": "(?:{{determiner}}(?:{{unit}}|{{id}}|run|invocation|receipt|launch receipt|trace correlation)|(?:no|zero|\\d+)\\s+(?:matching\\s+)?{{unit}})",
+        "noun": "{{object}}(?:\\s+{{link}}\\s+{{object}}){0,3}",
+        "predicate": "(?:returned|produced|yielded|retrieved|read|received|found|contained|had|carries|carried|included|showed|bore|obtained|saw|got)",
+        "subject": "(?:{{reader}}|{{query}}|it|{{determiner}}{{source}}|{{object}})",
+        "age": "(?:older|old|earlier|previous|prior|yesterday)",
+        "ref": "(?:identityvalue|(?=[\\w.:-]*[-_:\\d])[\\w.:-]+)",
+        "resolvedId": "(?:(?:the|that|its|this|our|my|their|same|exact|original|unique|recorded|run.unique)\\s+|(?:original\\s+)?(?:receipt|run|call)['’]s\\s+)*(?:{{id}})(?:\\s+{{ref}})?(?:\\s+(?:on|from)\\s+(?:(?:the|my|our|original|launch|run)\\s+)*receipt(?:,\\s*{{ref}})?)?",
+        "rows": "(?:(?:all|every|each|the|only|a|one|readable|matching|my|our|received|incoming|previous|older|original|retrieved|returned|full|complete|exactly|that|its|this|the only)\\s+)*(?:{{unit}}|them|row|decision span)",
+        "missOutcome": "(?:none|no (?:matching )?(?:row|entry|record|decision))\\s+matched(?:\\s+{{resolvedId}})?|(?:there (?:is|was|were)\\s+)?no (?:matching )?(?:rows?|entries|records?|matches|match)(?:\\s+for\\s+{{ref}})?|the (?:marker|identifier|id) did not occur",
+        "rowCheck": "(?:(?:I|we)\\s+)?(?:compared|checked|examined|matched|searched)\\s+(?:{{rows}}|all of them|each|it|its payload)\\s+(?:to|for|against|with|using)\\s+{{resolvedId}}(?:,\\s*unique to (?:that|the|this) invocation)?",
+        "parseRows": "(?:(?:I|we)\\s+parsed\\s+{{rows}}|{{rows}}\\s+parsed)(?:\\s+successfully|,?\\s+without errors?,?)?",
+        "archiveConfig": "(?:(?:the|my|our|their|its|exact|original|actual|configured|same|launch|deployment|file|working|store)\\s+)*(?:configuration|config|path|directory|instance|store|receiver|file)(?:\\s+[\\w./-]+\\.jsonl)?"
+      },
+      "permittedContinuation": [
+        "{{subject}}\\s+(?:(?:personally|independently|actually|also|only|finally|then|later|already)\\s+)*{{predicate}}\\s+{{noun}}(?:\\s+and\\s+{{noun}})?",
+        "{{noun}}\\s+(?:was found|were found|were returned|was returned|came back|was present)(?:\\s+{{link}}\\s+{{noun}})?",
+        "{{noun}}(?:\\s+was found)?[, ]+only\\s+{{noun}}",
+        "(?:no matches|no matching {{unit}}|there (?:were|was) {{noun}})(?:\\s+for {{id}}(?:\\s+[\\w.:-]+)?)?",
+        "only\\s+[\\w.:-]+\\s+from\\s+{{determiner}}run\\s+was present",
+        "(?:I|we)\\s+(?:personally\\s+)?(?:compared|checked|matched)\\s+(?:{{noun}}|the two identifiers)(?:\\s+(?:against|to|with)\\s+(?:(?:my|our|the|original|launch|run)\\s+)*(?:receipt|{{id}})(?:\\s+for\\s+{{determiner}}invocation)?(?:,\\s*[\\w.:-]+)?)?",
+        "(?:they|both|(?:the|these|those)\\s+two\\s+{{id}})\\s+(?:(?:were|are)\\s+(?:equal|unequal|identical|different|the same)|matched|agreed)",
+        "(?:the returned|my original|the original|our original)\\s+{{id}}\\s+(?:was|is|belongs to)(?:\\s+{{determiner}}run)?",
+        "{{query}}\\s+(?:(?:is|was|still|never|has|had|not|finally|then|successfully)\\s+)*(?:pending|running|waiting|finished|completed|succeeded)",
+        "(?:{{reader}}\\s+)?(?:only\\s+)?(?:searched|checked|examined|looked through|skipped|omitted)\\s+(?:the\\s+)?(?:first|last|latest|earliest|most recent)\\s+(?:\\d+\\s+)?(?:pages?|entries|rows?|records?)",
+        "(?:my|our)\\s+(?:colleague|teammate|coworker)\\s+(?:got|found|obtained|read)\\s+{{noun}}",
+        "{{reader}}\\s+(?:personally\\s+)?{{predicate}}\\s+{{noun}}\\s+and\\s+(?:checked|matched|compared)\\s+{{noun}}\\s+(?:against|to|with)\\s+{{determiner}}(?:launch |run )?receipt(?:,\\s*[\\w.:-]+)?",
+        "{{reader}}\\s+(?:(?:personally|independently|actually|later|then|finally|also|again)\\s+)*(?:searched|checked|rechecked|inspected|opened|reopened|queried|requeried|scanned|examined)\\s+(?:the\\s+)?(?:{{source}}(?:\\s+(?:[\\w./:-]+|quoted:\\d+))?|[\\w./:-]+\\.jsonl)\\s+(?:for|using|with)\\s+{{determiner}}{{id}}(?:\\s+[\\w.:-]+)?(?:\\s+and\\s+{{predicate}}\\s+{{noun}})?",
+        "(?:{{predicate}}\\s+{{noun}}|(?:checked|compared|matched)\\s+{{noun}}\\s+(?:against|to|with)\\s+{{determiner}}(?:launch |run )?receipt(?:,\\s*[\\w.:-]+)?)",
+        "(?:searched|checked|scanned|looked)\\s+(?:up|for|using)\\s+{{determiner}}(?:{{id}}(?:\\s+[\\w.:-]+)?|decision)",
+        "{{predicate}}\\s+{{noun}}\\s+matching\\s+{{determiner}}{{id}}\\s+[\\w.:-]+",
+        "{{parseRows}}(?:\\s+and\\s+(?:{{rowCheck}}|{{missOutcome}}))?",
+        "{{rowCheck}}(?:,?\\s+and\\s+(?:{{missOutcome}}|found zero matches|it matched exactly))?",
+        "{{missOutcome}}",
+        "(?:{{rows}}\\s+(?:was|were|is|are|belongs to|has)\\s+(?:from\\s+)?|(?:the (?:source|file) only (?:contained|contains)|it contained)\\s+)(?:(?:an?|the|only|all|a previous)\\s+)*(?:{{age}}(?:\\s+(?:{{unit}}|run|invocation))?|previous marker)(?:(?:,\\s*|\\s+tagged\\s+|\\s+and has (?:marker|id)\\s+|\\s+){{ref}})?",
+        "(?:they were all|there (?:is|were|are) (?:only|one))\\s+{{age}}\\s+(?:{{unit}}|{{id}})(?:\\s+with different {{id}}|\\s+for {{ref}})?(?:\\s+and\\s+{{missOutcome}})?",
+        "(?:one|it|{{rows}}|(?:the|our|my) (?:receiver|storage|collector)(?: query)?|{{reader}}|(?:I|we) (?:opened|inspected) its payload and)\\s+(?:{{predicate}}|matched)\\s+(?:{{rows}}\\s+(?:bearing|with|matching)\\s+)?{{resolvedId}}",
+        "(?:{{reader}}\\s+)?(?:personally\\s+)?(?:{{predicate}}|opened|inspected)\\s+{{rows}}(?:\\s+there|\\s+and\\s+matched\\s+{{resolvedId}})?",
+        "(?:(?:I|we)\\s+)?(?:personally\\s+)?(?:checked|searched|looked up|reopened|inspected|examined)\\s+(?:(?:the|that|its|this|my|our|original|exact|incoming|configured|downstream)\\s+)*(?:{{source}}|every row|its payload)\\s+(?:for|using|with)\\s+{{resolvedId}}",
+        "(?:I|we)\\s+(?:verified|checked|matched)\\s+{{archiveConfig}}\\s+(?:to|against|and|and verified|to select)\\s+{{archiveConfig}}(?:\\s+and\\s+(?:{{archiveConfig}}|(?:searched|looked up)\\s+(?:for|using)\\s+{{resolvedId}}))?",
+        "working directory,\\s+then personally reopened its exact JSONL file [\\w./-]+\\.jsonl in a separate process after exit",
+        "(?:an?|the)\\s+independent\\s+(?:query|lookup|read)\\s+of\\s+(?:the\\s+)?(?:archive|{{source}})\\s+after\\s+(?:exporter|process|job) exit\\s+{{predicate}}\\s+{{rows}}",
+        "(?:OTLP |HTTP )?(?:receiver|collector)\\s+(?:captured|accepted|received)\\s+(?:a|the)\\s+(?:briefcase\\.decision\\s+)?(?:span|row|batch)\\s+with\\s+{{resolvedId}}",
+        "(?:the full|the retrieved|the complete)\\s+(?:decision|record|row)\\s+came back with\\s+{{resolvedId}}",
+        "(?:I|we)\\s+matched\\s+{{archiveConfig}}\\s+to\\s+{{archiveConfig}},\\s+searched using\\s+{{resolvedId}},\\s+and got\\s+{{rows}}\\s+with\\s+{{resolvedId}}",
+        "{{subject}}\\s+{{predicate}}\\s+(?:no|zero|0)\\s+(?:matching\\s+)?{{unit}}",
+        "there\\s+(?:was|were|is|are)\\s+(?:one|some|only)\\s+{{age}}\\s+{{unit}}\\s+for\\s+{{ref}}\\s+and\\s+{{missOutcome}}",
+        "{{predicate}}\\s+{{rows}}\\s+(?:bearing|carrying|with|including)\\s+{{resolvedId}}",
+        "it matched(?: exactly)?",
+        "I compared\\s+{{rows}}\\s+with\\s+{{resolvedId}},?",
+        "(?:{{noun}}\\s+)?no matching {{unit}} was found(?:,\\s+only\\s+{{noun}})?",
+        "(?:{{reader}}\\s+)?{{predicate}}\\s+{{rows}}\\s+(?:bearing|carrying|with|including|matching)\\s+{{resolvedId}}",
+        "(?:{{reader}}\\s+)?(?:searched|scanned|checked|inspected)\\s+(?:it\\s+)?(?:for|using|with)\\s+{{resolvedId}}",
+        "(?:the\\s+)?{{source}}\\s+(?:only\\s+)?{{predicate}}\\s+{{noun}}",
+        "(?:found|returned|observed)\\s+no matching {{unit}}\\s+(?:for|with)\\s+{{resolvedId}}",
+        "(?:that|this|the|our|my)\\s+(?:ticket|marker|business ID)\\s+(?:was|is)\\s+(?:reused|shared)\\s+(?:by|across|between)\\s+(?:both|multiple|several)\\s+(?:runs|submissions|invocations)"
+      ],
+      "questionLead": "^\\s*(?:(?:what|where|when|how|which)\\s+(?:(?:far|much|source|file|archive|step|evidence|conclusion|record|result|action|part|one)\\s+)?(?:did|does|do|is|are|was|were|can|could|should|would|will|has|have|to|now|next)\\b|(?:did|does|do|is|are|was|were|can|could|should|would|will|has|have)\\s+(?:that|this|I|we|my|our|it|mine|the|its)\\b)",
+      "resultClauseSplit": "\\s+and\\s+(?=(?:I|we|it|they|the (?:query|result|record|lookup|entry|returned|two)|my\\s+own)\\b)",
+      "coordinateDetail": "\\s+(?:and|but|however|whereas|except|although)\\s+",
+      "fileListOperand": "(?:quoted:\\d+|[\\w./-]+)\\.jsonl",
+      "standaloneResult": "^\\s*(?:(?:the|my|our|its|that|this)\\s+(?:(?:returned|observed|incoming|matching|retrieved|actual)\\s+)?(?:result|record|row|entry|response|payload|count|search|lookup|readback|query)|it)\\s+(?:had|has|was|is|contained|came|belongs?|returned|yielded|reported|showed|recorded|produced|finished|stopped)\\b",
+      "contextDeclaration": "^\\s*(?:(?:(?:my|our|the|this|that|its|an?|a|original|actual|first|retained|launch|SDK|local|python|node|job|unique)\\s+)*(?:run|job|worker|process|launcher|application|app|script|exporter|deployment|launch|invocation|ticket|marker|receipt|ID|decision ID|original file|source)\\s+(?:(?:actually|also|originally|explicitly)\\s+)*(?:was|is|had|has|used|wrote|writes|exported|sent|submitted|printed|assigned|ran|executed|recorded|produced)|(?:I|we)\\s+(?:(?:also|still|originally|actually)\\s+)*(?:ran|launched|kept|retained|submitted|have|recorded)\\s+(?:(?:the|my|our|original|unique|launch|same)\\s+)*(?:ticket|receipt|marker|decision ID|command|worker|job|script)|(?:briefcase-ai|python|node|BRIEFCASE_EXPORTER=))\\b|^\\s*(?:(?:the|my|our)\\s+)?(?:(?:original|first)\\s+)?(?:run|invocation|worker|job|process)['’]s\\s+(?:original\\s+|unique\\s+)?(?:marker|identifier|decision ID)\\s+(?:was|is)\\b|^\\s*(?:(?:the|my|our|original)\\s+)*(?:writer|process|job|worker|application)\\s+(?:(?:has|had|already)\\s+)*(?:exited|finished|stopped|terminated)\\s*$",
+      "lookupSuffixAnchor": "\\b(?:for|using|by|against|with)\\s+(?:(?:the|our|my|its|an?|run.unique|original|unique|exact|first|recorded)\\s+)*(?:decision[_ ]?id|run[_ ]?id|trace[_ ]?id|id|identifier|marker|correlation)\\b(?:\\s*[:=]\\s*)?(?:\\s+(?=[\\w.:-]*[-_:\\d])[\\w.:-]+)?",
+      "neutralLookupTail": "^(?:(?:after|before|once|following)\\s+(?:(?:the|my|our|original|exporting|writing)\\s+)*(?:writer|process|job|run|exporter|worker|application|program)?\\s*(?:had\\s+)?(?:exit(?:ed)?|stopped|finished|terminated|ended|shutdown)|(?:from|on|in|at)\\s+(?:(?:the|my|our|original|first|job|launch|run)\\s+)*(?:receipt|log)|(?:in|from|with)\\s+(?:an?|the)\\s+(?:separate|second|independent|new)\\s+process|(?:at|in)\\s+(?:(?:the|my|our|original|intended)\\s+)*(?:jsonl|file|receiver|store|storage|database)(?:\\s+[\\w.:-]+)?|(?:after|before)\\s+exit)$",
+      "readOperand": {
+        "identifier": "(\\b(?:(?:decision|run|trace)[_ ]+id|id|identifier|marker|correlation)(?:\\s+was)?\\s*[:=]?\\s+)(?=[\\w.:-]*[-_:\\d])[\\w.:-]+",
+        "externalProcess": "\\b(?:in|from|using|used|with)\\s+(?:a|an|the)\\s+(?:fresh|new|second|separate|independent|another)\\s+process\\b",
+        "ageResult": ":\\s*it\\s+(?:has|had|contained)\\s+only\\s+[\\w.:-]+\\s+from\\s+(?:a|the)\\s+(?:previous|older|different)\\s+run\\s*$",
+        "word": "(?:i|we|my|our|our(?:['’]s)?|its|it|the|a|an|that|this|their|in|of|on|at|after|once|before|from|with|by|for|to|and|then|via|against|using|every|all|each|any|only|whole|original|intended|exact|configured|actual|recorded|unique|run.unique|own|incoming|stored|export|new|fresh|another|second|separate|independent|personally|independently|later|actually|also|myself|directly|recent|first|initial|last|latest|earliest|top|bottom|most|one|two|three|ten|twenty|half|quarter|third|subset|sample|percent|\\d+|looked|up|searched|scanned|queried|look|read|reopened|rechecked|opened|checked|inspected|examined|used|locate|identify|select|verified|selecting|verifying|specified|identified|resolving|reopening|terminated|ended|exited|stopped|finished|exit|portion|receipt|JSONL|lines|file|files|paths?|directory|working|launch|logs?|command|manifest|config|configuration|process|worker|writer|app|application|program|deployment|exporter|exporting|job|run|trace|identifier|marker|correlation|ID|decision|instance|records?|entry|entries|row|rows|page|pages|results?|data|source|stored|store|storage|database|downstream|receiver|collector|backend|archive|endpoint|named|that|used|sourcevalue|identityvalue|its|it|exact|directly|readable|did|not|never|has|been)"
+      },
+      "contextValue": "(?:(?:the|my|our|a|an|its|to|via|at|for|in|original|actual|same|local|hosted|configured|its|decision|sent|wrote|run|worker|unique|retained|downstream|python|node|jsonl|exporter|file|store|database|storage|archive|collector|receiver|service|endpoint|receipt|marker|id|stdout|stderr|console|memory|otlp|http|job|first|second|both|twice|ticket|text|and|used|a|[0-9]+)\\b(?:\\s+|$))*",
+      "roleTail": "(?:\\s+on\\s+(?:(?:the|my|original|first|launch|job)\\s+)*receipt)?"
     },
     "observation": {
       "reader": {
@@ -3340,17 +3475,17 @@
         "unverified": "Unknown or unchecked"
       },
       "sourceMatch": {
-        "original": "I checked the intended original source instance",
-        "different": "I checked a different source instance",
-        "unverified": "Source instance unverified"
+        "original": "I checked the source used by the original run",
+        "different": "I checked a different source",
+        "unverified": "Source unverified"
       },
       "targetMatch": {
         "original": "I looked up the original decision ID or a marker unique to that run",
-        "different": "I looked up another identifier",
-        "unverified": "Original identifier unverified"
+        "different": "I looked up a different ID or marker",
+        "unverified": "ID or marker unverified"
       },
       "coverage": {
-        "complete": "I searched the entire relevant source for that identifier",
+        "complete": "I searched the entire relevant source for that ID or marker",
         "partial": "I searched part of the source",
         "unverified": "Search coverage unknown"
       }
@@ -3371,7 +3506,7 @@
   "commandClauseSplit": "\\n+|[.!?](?=\\s|$)|\\b(?:but|whereas|however)\\b|\\bwhile (?=(?:my|our|the original|another|the other)\\b)|,?\\s+and (?=(?:my|our|the original) (?:actual |original )?(?:process|run|worker|launcher)\\b)|,?\\s+(?:and|while)\\s+(?=(?:(?:another|the other|an? unrelated|an? different|an? separate|an? previous|unrelated|someone else.s)\\s+(?:(?:python|node|local|hosted|separate|earlier|previous)\\s+){0,3}(?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)\\b|(?:my|our|the) (?:original|actual|target) (?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)))",
   "commandToken": "\"(?:\\\\.|[^\"\\\\\\n])*\"|'[^'\\n]*'|(;|&&|\\|\\||\\||(?<!\\S)#)",
   "destinationAlternative": "(?:,?\\s+(?:(?:and|but)\\s+)?(?:(?:(?:did|does|was|is)\\s+not|didn.t|doesn.t|wasn.t|isn.t|never)\\s+(?:use|select(?:ed)?|enabl(?:e|ed)|configur(?:e|ed)(?: for| with)?)|not|rather than|instead of)\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+exporter)?\\b)|\\bneither\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+(?:spans?|batches|batch|requests?|records?|events?|exporter|destination|protocol))?\\s+nor\\s+(?:the |an? )?(?:otlp|otel|https?|console|memory|jsonl)(?:\\s+exporter)?\\b",
-  "nonOriginalCommand": "\\b(?:(?:the )?(?:docs|documentation|readme|tutorial) (?:shows?|lists?|gives?|suggests?) (?:this |the |an? )?(?:example |sample )?(?:command|launch)|for example|e\\.g\\.|example command|as an example|illustrat(?:ive|ion)|sample command|hypothetical|in future|next time|next run|plan to|would (?:run|launch|use)|could (?:run|launch|use)|might (?:run|launch|use)|if (?:you|i|we) (?:run|launch|use)|(?:do not|did not|didn.t|never) (?:run|launch|execute))\\b|\\b(?:copied|took|quoted|borrowed|pasted) (?:this |the |that |an? )?(?:sample |example )?(?:command|launch|example) from (?:the |a |our )?(?:readme|docs|documentation|tutorial|manual)\\b|\\b(?:i|we) (?:never|did not|didn.t) (?:ran|run|executed?|launched?) (?:it|this|that|the command)\\b|\\b(?:(?:i|we)\\s+)?(?:never|did not|didn.t)\\s+(?:run|ran|execute|executed|launch|launched|use|used)\\s+(?:it|this|that|the (?:above |previous |preceding )?(?:example|command|launch))\\b|^\\s*(?:i|we)\\s+(?:copied|quoted|pasted|borrowed|took)\\s+it\\s+from\\s+(?:the |our |a )?(?:docs|readme|tutorial|manual|documentation)\\b|\\b(?:this|that|the (?:above |previous |preceding )?)\\s*(?:command|launch|example|invocation)\\s+(?:(?:was|has been|had been|is)\\s+)?(?:never|not)\\s+(?:actually\\s+)?(?:run|executed|used|launched)\\b|\\b(?:this|that|it)\\s+(?:was|is)\\s+(?:not|never)\\s+(?:(?:the|our|my|an?)\\s+)?(?:original|actual)\\s+(?:launch|command|invocation)\\b|\\b(?:example|sample|illustration|example (?:command|launch)|command example)\\s+(?:from|in|taken from)\\s+(?:(?:the|our|a)\\s+)?(?:docs|readme|tutorial|manual|documentation)\\b|\\b(?:the\\s+)?(?:docs|documentation|readme|tutorial|manual|guide)\\s+(?:says?|said|suggests?|suggested|recommends?|recommended|instructs?|instructed|tells?|told)\\s+(?:(?:us|me|users?|readers?)\\s+)?(?:to\\s+)?(?:use|run|launch|execute|invoke)\\b",
+  "nonOriginalCommand": "\\b(?:(?:the )?(?:docs|documentation|readme|tutorial) (?:shows?|lists?|gives?|suggests?) (?:this |the |an? )?(?:example |sample )?(?:command|launch)|for example|e\\.g\\.|example command|as an example|illustrat(?:ive|ion)|sample command|hypothetical|in future|next time|next run|plan to|would (?:run|launch|use)|could (?:run|launch|use)|might (?:run|launch|use)|if (?:you|i|we) (?:run|launch|use)|(?:do not|did not|didn.t|never) (?:run|launch|execute))\\b|\\b(?:copied|took|quoted|borrowed|pasted) (?:this |the |that |an? )?(?:sample |example )?(?:command|launch|example) from (?:the |a |our )?(?:readme|docs|documentation|tutorial|manual)\\b|\\b(?:i|we) (?:never|did not|didn.t) (?:ran|run|executed?|launched?) (?:it|this|that|the command)\\b|\\b(?:(?:i|we)\\s+)?(?:never|did not|didn.t)\\s+(?:run|ran|execute|executed|launch|launched|use|used)\\s+(?:it|this|that|the (?:above |previous |preceding )?(?:example|command|launch))\\b|^\\s*(?:i|we)\\s+(?:copied|quoted|pasted|borrowed|took)\\s+it\\s+from\\s+(?:the |our |a )?(?:docs|readme|tutorial|manual|documentation)\\b|\\b(?:this|that|the (?:above |previous |preceding )?)\\s*(?:command|launch|example|invocation)\\s+(?:(?:was|has been|had been|is)\\s+)?(?:never|not)\\s+(?:actually\\s+)?(?:run|executed|used|launched)\\b|\\b(?:this|that|it)\\s+(?:was|is)\\s+(?:not|never)\\s+(?:(?:the|our|my|an?)\\s+)?(?:original|actual)\\s+(?:launch|command|invocation)\\b|\\b(?:example|sample|illustration|example (?:command|launch)|command example)\\s+(?:from|in|taken from)\\s+(?:(?:the|our|a)\\s+)?(?:docs|readme|tutorial|manual|documentation)\\b|\\b(?:the\\s+)?(?:docs|documentation|readme|tutorial|manual|guide)\\s+(?:says?|said|suggests?|suggested|recommends?|recommended|instructs?|instructed|tells?|told)\\s+(?:(?:us|me|users?|readers?)\\s+)?(?:to\\s+)?(?:use|run|launch|execute|invoke)\\b|\\b(?:the\\s+)?(?:docs|documentation|readme|tutorial|manual|guide)\\s+(?:(?:also|only|merely)\\s+)?(?:shows?|lists?|gives?|illustrates?|suggests?|demonstrates?)\\s+(?=(?:briefcase-ai|briefcase|python\\d*|node|BRIEFCASE_[A-Z_]+=)\\b)",
   "positiveDestinations": {
     "otlp": [
       "\\b(?:(?:i|we|it|(?:my |our |the |this |that |a )?(?:(?:original|actual|local|separate|explicit|default|python|node|test)\\s+){0,3}(?:run|job|program|process|application|app|service|batch|script|worker|launcher|source|exporter|receiver|node|python))\\s+(?:(?:explicitly|originally|directly|actually)\\s+)?)\\b(?:used?|uses|selected|chose|configured|enabled|set|exported|sent|exports?|writes?)\\s+(?:(?:the|an?|its|my|our|explicit|original|default|exporter|over|via|through|using|to|with|for|as)\\s+){0,5}(?:otlp|otel)(?![\\w-])",

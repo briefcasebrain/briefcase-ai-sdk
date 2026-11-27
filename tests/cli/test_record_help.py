@@ -105,7 +105,7 @@ def test_confirmation_flags_and_pipe_report_only_selected_source(source, result,
     # A generic artifact may trigger an initial question; the explicit conclusion is identical.
     assert by_pipe.endswith(by_flag)
     assert "alpha.jsonl" not in by_flag and "beta.jsonl" not in by_flag
-    assert ("Reader-confirmed" in by_flag) == (result != "unverified")
+    assert ("You reported" in by_flag) == (result != "unverified")
 
 
 def test_outcome_requires_explicit_complete_pair(monkeypatch, capsys):
@@ -117,10 +117,10 @@ def test_outcome_requires_explicit_complete_pair(monkeypatch, capsys):
     for reply in ("", "jsonl", "I confirm jsonl matched", "jsonl matched; storage matched", "storage unknown"):
         monkeypatch.setattr("sys.stdin", StringIO(question + "\n" + reply + "\n"))
         assert main(["record-help"]) == 0
-        assert "Reader-confirmed" not in capsys.readouterr().out
+        assert "You reported" not in capsys.readouterr().out
     assert main(["record-help", question, "--source", "jsonl"]) == 2
     captured = capsys.readouterr()
-    assert "both --source and --result" in captured.err and "Reader-confirmed" not in captured.out
+    assert "both --source and --result" in captured.err and "You reported" not in captured.out
 
 
 def test_three_turn_pipe_accepts_source_result_after_clarification(monkeypatch, capsys):
@@ -132,7 +132,7 @@ def test_three_turn_pipe_accepts_source_result_after_clarification(monkeypatch, 
     monkeypatch.setattr("sys.stdin", StringIO(data))
     assert main(["record-help"]) == 0
     result = capsys.readouterr().out
-    assert "Reader-confirmed absence" in result
+    assert "You reported no match" in result
     assert "audit.jsonl" not in result and "Open audit.jsonl" not in result
 
 
@@ -158,7 +158,7 @@ def test_terminal_accepts_confirmation_after_path_clarification(monkeypatch, cap
     monkeypatch.setattr("sys.stdin", terminal)
     assert main(["record-help"]) == 0
     output = capsys.readouterr().out
-    assert "Optional observation" in output and "Reader-confirmed absence" in output
+    assert "Report your lookup or end input" in output and "You reported no match" in output
     assert "audit.jsonl" not in output
 
 
@@ -180,7 +180,7 @@ def test_duplicate_and_conflicting_session_reports_are_rejected(flag_pair, last,
     assert main(args) == 2
     captured = capsys.readouterr()
     assert "once" in captured.err
-    assert "Reader-confirmed" not in captured.out and "visit-671" not in captured.err + captured.out
+    assert "You reported" not in captured.out and "visit-671" not in captured.err + captured.out
 
 
 def test_terminal_confirmation_after_answer_option(monkeypatch, capsys):
@@ -195,7 +195,7 @@ def test_terminal_confirmation_after_answer_option(monkeypatch, capsys):
     monkeypatch.setattr("sys.stdin", terminal)
     assert main(["record-help", "Where is the JSONL for marker visit-671?", "--answer", "audit.jsonl"]) == 0
     result = capsys.readouterr().out
-    assert "Reader-confirmed absence" in result and "visit-671" not in result and "audit.jsonl" not in result
+    assert "You reported no match" in result and "visit-671" not in result and "audit.jsonl" not in result
 
 
 @pytest.mark.parametrize("option", ["--static=violet-892", "--help=violet-892"])
@@ -214,7 +214,7 @@ def test_malformed_option_uses_fixed_diagnostic(option, capsys):
     ("jsonl matched\njsonl no-match\n", 2, "once"),
     ("A question\nreceiver matched\nstorage matched\n", 2, "once"),
     ("Explicit JSONL to audit.jsonl.\nI reopened it after exit.\n"
-     "jsonl no-match me original original complete\n", 0, "Reader-confirmed absence"),
+     "jsonl no-match me original original complete\n", 0, "You reported no match"),
 ])
 def test_final_report_is_decoded_independently_of_question(lines, code, phrase, monkeypatch, capsys):
     from io import StringIO
@@ -256,7 +256,7 @@ def test_two_reports_before_a_question_are_rejected(terminal, second, monkeypatc
     monkeypatch.setattr("sys.stdin", stream)
     assert main(["record-help"]) == 2
     captured = capsys.readouterr()
-    assert "once" in captured.err and "Reader-confirmed" not in captured.out
+    assert "once" in captured.err and "You reported" not in captured.out
 
 
 @pytest.mark.parametrize("answer", ["opaque-value", "jsonl matched", "storage no-match"])
@@ -330,7 +330,7 @@ def test_terminal_rejects_pasted_second_report(monkeypatch, capsys, question, se
     monkeypatch.setattr("sys.stdin", terminal)
     assert main(["record-help", question]) == 2
     capture = capsys.readouterr()
-    assert "Reader-confirmed" not in capture.out
+    assert "You reported" not in capture.out
     assert "once" in capture.err
 
 
@@ -349,9 +349,9 @@ def test_terminal_investigation_precedes_optional_outcome(monkeypatch, capsys, p
     assert main(["record-help", "My original run used OTLP."]) == 0
     capture = capsys.readouterr().out
     assert capture.count("Search the collector") == 1
-    assert capture.index("Search the collector") < capture.index("Optional observation")
+    assert capture.index("Search the collector") < capture.index("Report your lookup or end input")
     if pair:
-        assert capture.index("Optional observation") < capture.index("Reader-confirmed")
+        assert capture.index("Report your lookup or end input") < capture.index("You reported")
 
 
 @pytest.mark.parametrize("command", ["", " node --import @briefcase-ai/auto/register app.js"])
@@ -451,8 +451,8 @@ def test_foreign_observation_cannot_confirm_original(source, result, channel, mo
     monkeypatch.setattr("sys.stdin", stream)
     assert main(args) == 0
     emitted = capsys.readouterr()
-    assert "different run cannot establish" in emitted.out
-    assert "Reader-confirmed" not in emitted.out + emitted.err
+    assert "result is for a different run" in emitted.out
+    assert "You reported" not in emitted.out + emitted.err
 
 
 def test_chained_sqlite_precedes_jsonl_extension_in_public_resolver(monkeypatch):
@@ -469,12 +469,12 @@ def test_chained_sqlite_precedes_jsonl_extension_in_public_resolver(monkeypatch)
 
 
 @pytest.mark.parametrize("extra,phrase", [
-    ("", "Report who checked"),
-    ("another", "personal lookup"),
-    ("me different", "file you inspected differs"),
+    ("", "Search the intended source"),
+    ("another", "Search the intended source yourself"),
+    ("me different", "You checked a different file"),
     ("me original different", "different run"),
-    ("me original original partial", "exhaustive search"),
-    ("me original original complete", "Reader-confirmed absence"),
+    ("me original original partial", "A complete search is still unverified"),
+    ("me original original complete", "You reported no match"),
 ])
 def test_progressive_observation_report_in_flags_and_pipe(extra, phrase, monkeypatch, capsys):
     from io import StringIO
@@ -499,7 +499,7 @@ def test_observation_rejects_unknown_option_value_without_echo(extra, capsys):
 
     assert main(["record-help", "--source", "receiver", "--result", "matched", extra, "private-value"]) == 2
     captured = capsys.readouterr()
-    assert "private-value" not in captured.out + captured.err and "Reader-confirmed" not in captured.out
+    assert "private-value" not in captured.out + captured.err and "You reported" not in captured.out
 
 
 def test_static_receiver_observation_example_is_executable(capsys):
@@ -512,7 +512,7 @@ def test_static_receiver_observation_example_is_executable(capsys):
     example = re.search(r"use (--source receiver .*?)\.", guide)
     assert example is not None
     assert main(["record-help", *shlex.split(example.group(1))]) == 0
-    assert "Reader-confirmed receipt" in capsys.readouterr().out
+    assert "You reported a matching entry" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("terminal", [False, True])
@@ -532,4 +532,64 @@ def test_optional_lookup_details_precede_one_final_observation(terminal, tail, m
     monkeypatch.setattr("sys.stdin", stream)
     assert main(["record-help"]) == (2 if tail.strip() else 0)
     output = capsys.readouterr()
-    assert output.out.count("Reader-confirmed") == (0 if tail.strip() else 1)
+    assert output.out.count("You reported") == (0 if tail.strip() else 1)
+
+
+@pytest.mark.parametrize("terminal", [False, True])
+@pytest.mark.parametrize("extra", ["", "\nstorage matched me original original\n"])
+def test_blank_before_optional_report_preserves_full_session(terminal, extra, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    stream = StringIO("I queried the intended downstream store for the original decision ID.\n\n"
+                      "storage matched me original original\n" + extra)
+    monkeypatch.setattr(stream, "isatty", lambda: terminal)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: terminal)
+    monkeypatch.setattr("sys.stdin", stream)
+    assert main(["record-help"]) == (2 if extra else 0)
+    assert capsys.readouterr().out.count("You reported") == (0 if extra else 1)
+
+
+def test_terminal_applies_optional_details_before_collecting_outcome(monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    stream = StringIO("I queried the intended downstream store for the original decision ID.\n"
+                      "The query returned a full record with that same ID.\nstorage matched me original original\n")
+    monkeypatch.setattr(stream, "isatty", lambda: True)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: True)
+    monkeypatch.setattr("sys.stdin", stream)
+    assert main(["record-help"]) == 0
+    output = capsys.readouterr().out
+    assert output.index(TABLE["actions"]["stored"]["text"]) < output.index("Confirm what you found")
+    assert output.index("Confirm what you found") < output.index(TABLE["actions"]["confirmed_storage_matched"]["text"])
+
+
+@pytest.mark.parametrize("details", ["", "The query returned a full record with that same ID.\n"])
+def test_one_eof_finishes_optional_observation(monkeypatch, capsys, details):
+    from io import StringIO
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    class Session(StringIO):
+        ended = False
+
+        def readline(self, *args, **kwargs):
+            assert not self.ended, "read repeated after EOF"
+            line = super().readline(*args, **kwargs)
+            self.ended = line == ""
+            return line
+
+        def __iter__(self):
+            assert not self.ended, "read repeated after EOF"
+            return super().__iter__()
+
+    stream = Session(details)
+    monkeypatch.setattr(stream, "isatty", lambda: True)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: True)
+    monkeypatch.setattr("sys.stdin", stream)
+    question = "I queried the intended downstream store for the original decision ID."
+    assert main(["record-help", question]) == 0
+    assert stream.ended and "You reported" not in capsys.readouterr().out

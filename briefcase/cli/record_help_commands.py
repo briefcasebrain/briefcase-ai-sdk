@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+from functools import lru_cache
 import json
 import os
 import re
@@ -21,11 +22,11 @@ def register(sub) -> None:
     parser = sub.add_parser(
         "record-help",
         help="Find an existing decision using evidence from the original run.",
-        description="Describe the original run. Give a question as an argument, or pipe a question "
-                    "and optional clarification on separate lines. Confirm a check with a structured observation. "
-                    "All input stays local.",
-        epilog="Terminal or pipe final line: SOURCE RESULT READER SOURCE_MATCH TARGET_MATCH [COVERAGE]. "
-               "Example: jsonl no-match me original original complete.",
+        description="Describe what you want to find and what you know about the original run. Pass a question "
+                    "as an argument or pipe the question and any answer on separate lines. Input stays local.",
+        epilog="To report a lookup in a terminal or pipe, put SOURCE RESULT READER SOURCE_MATCH TARGET_MATCH "
+               "[COVERAGE] on the last line. For a complete JSONL search with no match, "
+               "enter jsonl no-match me original original complete.",
     )
 
     def private_syntax_error(_message: str) -> None:
@@ -40,10 +41,12 @@ def register(sub) -> None:
     parser.add_argument("--result", metavar="{matched,no-match,unverified}", action="append",
                         help="Observed result at that source. Use matched only for an unambiguous original match.")
     for flag, values, meaning in (
-        ("reader", "me,another,unverified", "Who personally performed the lookup."),
-        ("source-match", "original,different,unverified", "Whether the inspected source was the intended instance."),
-        ("target-match", "original,different,unverified", "Whether you looked up the original ID or unique marker."),
-        ("coverage", "complete,partial,unverified", "How much of that source you searched. Required for absence."),
+        ("reader", "me,another,unverified", "Who performed the lookup."),
+        ("source-match", "original,different,unverified", "Whether you checked the source used by the original run."),
+        ("target-match", "original,different,unverified",
+         "Whether you looked up the original decision ID or unique marker."),
+        ("coverage", "complete,partial,unverified",
+         "How much of the source you searched. Report complete to establish no match."),
     ):
         parser.add_argument("--" + flag, metavar="{" + values + "}", action="append", help=meaning)
     parser.set_defaults(func=cmd_record_help)
@@ -187,7 +190,10 @@ def _lookup_evidence(table, evidence):
     want_first = any(re.search(spec["question"], c, re.I) and re.search(spec["wantFirst"], c, re.I) for c in clauses)
     projected = [_source_text(table, c) for c in clauses]
     if _receiver_readback(spec, projected):
-        facts.add("retainedReceiverEntry")
+        attribution = table["confirmation"]["attribution"]
+        outside = any(re.search(attribution["outsideInstance"], clause, re.I)
+                      and re.search(attribution["sources"]["receiver"], clause, re.I) for clause in projected)
+        facts.add("foreignReceiverSource" if outside else "retainedReceiverEntry")
     for clause, source in zip(clauses, projected):
         if re.search(spec["denied"], source, re.I) or re.search(spec["question"], source, re.I):
             original_event = False
@@ -257,6 +263,9 @@ def _storage_lookup(table, evidence):
         if re.search(attribution["detailSelf"], clause, re.I):
             foreign_reader = False
         if foreign_reader:
+            continue
+        if re.fullmatch(attribution["completedStatus"], clause, re.I):
+            intervening_status.add(index)
             continue
         if re.search(attribution["detailPending"], clause, re.I):
             pending_at = index
@@ -952,6 +961,7 @@ class _SourceCheck:
     partial: bool = False
     pending: bool = False
     foreign_reader_only: bool = False
+    unaccounted: bool = False
     unresolved_detail: bool = False
 
     def compare(self, source, result, action, facts):
@@ -975,6 +985,8 @@ class _SourceCheck:
             return "confirmation_ambiguous"
         if self.outcome and result != self.outcome:
             return "confirmation_inconsistent"
+        if self.unaccounted:
+            return "confirmation_unresolved_lookup"
         return None
 
 
@@ -1083,6 +1095,77 @@ def _report_identities(table, reports, quoted_values):
     return original_ids, shared_ids, shared_unspecified
 
 
+def _permitted_continuation(spec, clause):
+    """Require a complete supported statement; an arbitrary trailing qualifier is material."""
+    patterns = _continuation_patterns(tuple(spec["continuationGrammar"].items()), tuple(spec["permittedContinuation"]))
+    pieces = re.split(spec["resultClauseSplit"], clause.strip(), flags=re.I)
+    return all(any(pattern.fullmatch(piece.strip()) for pattern in patterns) for piece in pieces)
+
+
+@lru_cache(maxsize=4)
+def _continuation_patterns(fragments, expressions):
+    # The rules use the same named grammar fragments as the browser, in declaration order.
+    symbols = {}
+    for key, expression in fragments:
+        symbols[key] = "(?:" + re.sub(r"\{\{(\w+)\}\}", lambda m: symbols[m[1]], expression) + ")"
+    return [re.compile(re.sub(r"\{\{(\w+)\}\}", lambda m: symbols[m[1]], pattern), re.I)
+            for pattern in expressions]
+
+
+def _accounted_read(table, clause, identifiers):
+    """Check every operand of the acquisition before allowing its structured outcome."""
+    spec = table["confirmation"]["attribution"]
+    grammar = spec["readOperand"]
+    clause = re.sub(grammar["ageResult"], "", clause, flags=re.I)
+    clause = re.sub(table["fileMentions"], " sourcevalue ", clause, flags=re.I)
+    clause = re.sub(grammar["identifier"], r"\1identityvalue", clause, flags=re.I)
+    for pattern in spec["namedInstances"].values():
+        for match in reversed(list(re.finditer(pattern, clause, re.I))):
+            if not re.fullmatch(spec["nonInstance"], match.group(1), re.I):
+                start, end = match.span(1)
+                clause = clause[:start] + "sourcevalue" + clause[end:]
+    for value in identifiers:
+        if value:
+            target = r"(\b(?:for|by|using|with|against)\s+)" + re.escape(value) + r"(?!\w)"
+            clause = re.sub(target, r"\1identityvalue", clause, flags=re.I)
+    clause = re.sub(r"\bID\s*=\s*(?=\s|$|and\b)", "ID ", clause, flags=re.I)
+    clause = re.sub(r"['’]s\b", "", clause, flags=re.I)
+    clause = re.sub(grammar["externalProcess"], " process ", clause, flags=re.I)
+    parts = re.split(spec["coordinateDetail"], clause, flags=re.I)
+    for index, part in enumerate(parts):
+        if index and _permitted_continuation(spec, part):
+            continue
+        words = re.findall(r"[\w-]+|[^\w\s,.:;]", part)
+        if not all(re.fullmatch(grammar["word"], word, re.I) for word in words):
+            return False
+    return True
+
+
+def _context_statement(table, clause):
+    spec = table["confirmation"]["attribution"]
+    declaration = re.search(spec["contextDeclaration"], clause, re.I)
+    if not declaration:
+        return False
+    remaining = clause[declaration.end():].strip()
+    if not remaining:
+        return True
+    wrapper = re.search(table["inlineNode"]["wrapperCommand"], clause)
+    command = wrapper or re.search(table["inlineNode"]["command"], clause)
+    if command:
+        return bool(re.fullmatch(table["commandContext"], clause[:command.start()], re.I))
+    remaining = re.sub(table["fileMentions"], " file ", remaining, flags=re.I)
+    for pattern in spec["namedInstances"].values():
+        for match in reversed(list(re.finditer(pattern, remaining, re.I))):
+            if not re.fullmatch(spec["nonInstance"], match.group(1), re.I):
+                start, end = match.span(1)
+                remaining = remaining[:start] + remaining[end:]
+    if re.fullmatch(spec["contextValue"], remaining.strip(), re.I):
+        return True
+    # An identifier value is data only when the declaration itself labels it as such.
+    return (bool(re.search(r"\b(?:marker|ID|identifier)\s+(?:is|was)$", declaration.group(), re.I))
+            and bool(re.fullmatch(r"[\w.:-]+" + spec["roleTail"], remaining, re.I)))
+
+
 def _confirmation_conflict(table, source, result, turns, action, facts, guide_origin):
     """Bind an observation to its source and target before interpreting a structured outcome."""
     spec = table["confirmation"]["attribution"]
@@ -1116,12 +1199,17 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     current = dict(origin)
     latest = dict(origin)
     foreign_context = set()
+    unbound_details = []
+    inspected_sources = set()
     if "readDifferentPath" in facts:
         attempts[origin["jsonl"]].correct_instance = False
-    for clauses in reports:
+    for turn_index, clauses in enumerate(reports):
+        if turn_index and not active and action in ("query_storage", "stored") and source == "storage":
+            active = {source}
         for clause in clauses:
             roles, source_scope = _report_roles(spec, clause, quoted_values)
-            checked = re.search(spec["lookupPerformed"], source_scope, re.I)
+            verbs = re.sub(table["fileMentions"], lambda match: " " * len(match.group()), source_scope, flags=re.I)
+            checked = re.search(spec["lookupPerformed"], verbs, re.I)
             if active and re.match(spec["resultContinuation"], source_scope, re.I):
                 checked = None
             denied_check = (re.search(spec["unchecked"], source_scope, re.I)
@@ -1136,7 +1224,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             if (checked or denied_check) and re.search(spec["fileReference"], source_scope, re.I):
                 named.add("jsonl")
             details = {role for role, pattern in spec["detailRoles"].items() if re.search(pattern, source_scope, re.I)}
-            if details and not (named or active):
+            if (details or re.search(spec["standaloneResult"], source_scope, re.I)) and not (named or active):
                 # A standalone result qualifier still constrains the submitted report.
                 active = {source}
             if other_reader:
@@ -1146,6 +1234,9 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     if not prior.original_target or (not checked and prior.outcome is None):
                         prior.foreign_reader_only = True
                 continue
+            # Once a source is under inspection, a follow-on statement about it
+            # must be accounted for, even when it contains no familiar outcome term.
+            bound_before = bool(active)
             if checked or re.search(spec["detailSelf"], source_scope, re.I):
                 foreign_context = set()
             elif foreign_context and (not named or named <= foreign_context):
@@ -1185,6 +1276,42 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         current[name] = event[name]
                 latest[name] = event[name]
             checks = {name: attempts[key] for name, key in event.items()}
+            inquiry = re.search(spec["questionLead"], source_scope, re.I)
+            if not inspected_sources and not checked and not active and source_scope.strip():
+                if not (inquiry or roles["declaredIdentifier"] or _context_statement(table, clause)
+                        or _permitted_continuation(spec, clause)):
+                    unbound_details.append((named, clause))
+            if checked and named and not bound_before:
+                known_ids = original_ids | set(roles["lookupIdentifier"])
+                if not _accounted_read(table, source_scope, known_ids):
+                    unbound_details.append((named, source_scope))
+                linked = re.split(spec["coordinateDetail"], source_scope, flags=re.I)[1:]
+                target = re.search(spec["lookupSuffixAnchor"], source_scope[checked.end():], re.I)
+                trailing = source_scope[checked.end() + target.end():].strip(" ,") if target else ""
+                if trailing and not re.fullmatch(spec["neutralLookupTail"], trailing, re.I):
+                    detail = re.sub(r"^(?:and|then)\s+", "", trailing, flags=re.I)
+                    if not _permitted_continuation(spec, detail):
+                        linked.append(detail)
+                if any(not kinds or kinds & named for kinds, _ in unbound_details) or (linked and not all(
+                    _permitted_continuation(spec, phrase)
+                    or (named == {"jsonl"} and re.fullmatch(spec["fileListOperand"], phrase.strip(), re.I))
+                    for phrase in linked
+                )):
+                    for name in named:
+                        checks[name].unaccounted = True
+                unbound_details.clear()
+            if (bound_before and source_scope.strip() and not inquiry
+                    and not roles["declaredIdentifier"]):
+                for name in named or active:
+                    permitted = _permitted_continuation(spec, source_scope)
+                    if checked and name in inspected_sources and named and qualified and permitted:
+                        checks[name].unaccounted = False
+                    elif not permitted:
+                        checks[name].unaccounted = True
+                    if re.search(spec["outsideInstance"], source_scope, re.I):
+                        checks[name].correct_instance = False
+            if checked:
+                inspected_sources.update(named)
             if unbound_source:
                 for kind in origin:
                     attempts[origin[kind]].unresolved_lookup = True
@@ -1241,7 +1368,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 check = checks[target]
                 if re.search(spec["detailPending"], clause, re.I):
                     check.pending = True
-                elif check.original_target and qualified and re.search(spec["sameReaderResult"], clause, re.I):
+                elif (check.original_target and qualified and (re.search(spec["sameReaderResult"], clause, re.I)
+                      or re.fullmatch(spec["completedStatus"], clause, re.I))):
                     check.pending = False
                     check.foreign_reader_only = False
                 if (re.search(spec["returnedIdentitySubject"], clause, re.I)
@@ -1301,7 +1429,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         or re.fullmatch(spec["exclusiveSuffix"], gap, re.I)):
                     for target in checks.keys() - named:
                         attempts[origin[target]].unchecked = True
-            if named and (checked or re.search(spec["observation"], clause, re.I)):
+            if named and (checked or re.search(spec["observation"], verbs, re.I)):
                 active = named
             targets = named or active or set(spec["sources"])
             if not named and re.search(spec["runlessReport"], clause, re.I):
@@ -1745,6 +1873,12 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
                                                           inherited=inherited, guide_origin=guide_origin)
                     if table["actions"][combined]["kind"] != "ask":
                         return combined, combined_facts
+            if valid.get("resumeLocal"):
+                local_facts = facts - {"hosted", "requestedHosted", "confirmedHosted"}
+                local_action = _select(table, local_facts)
+                if (table["actions"][local_action]["kind"] != "ask"
+                        and local_action not in (table["fallback"], "hosted")):
+                    return local_action, local_facts
             facts.difference_update(valid.get("drop", []))
             facts.update(valid.get("add", []))
             key = valid.get("action") or pending_lookup or _select(table, facts)
@@ -1872,12 +2006,6 @@ def _shell_exporter(question: str = "") -> str:
     return "check-launch-config"
 
 
-def _line(prompt: str, interactive: bool) -> str:
-    if interactive:
-        print(prompt, end="", flush=True)
-    return sys.stdin.readline().strip()
-
-
 def _confirmation(table: Dict[str, Any], line: str) -> Optional[Dict[str, str]]:
     parts = line.split()
     info = table["confirmation"]
@@ -1974,17 +2102,27 @@ def _guide_session(args) -> int:
     interactive = _ux.is_interactive() and sys.stdin.isatty()
     turns: List[str] = []
 
+    eof = False
+    eof_hint = "Ctrl+Z then Enter" if os.name == "nt" else "Ctrl+D"
+
     def read_turn(prompt: str):
-        line = _line(prompt, True)
+        nonlocal eof
+        if eof:
+            return _session(table, args, turns)
+        print(prompt, end="", flush=True)
+        raw = sys.stdin.readline()
+        if not raw:
+            eof = True
+            return _session(table, args, turns)
+        line = raw.strip()
         turns.append(line)
-        if _confirmation(table, line):
-            end_key = "Ctrl+Z, then Enter" if os.name == "nt" else "Ctrl+D"
-            print(f"Press {end_key} on an empty line to finish this report: ", end="", flush=True)
+        if _confirmation(table, line) or not line.strip():
+            print(f"Press {eof_hint} on an empty line to finish this report: ", end="", flush=True)
             # A blank line can occur inside a paste. Only EOF delimits the full report.
             for remainder in sys.stdin:
                 if remainder.strip():
                     turns.append(remainder.strip())
-                    break
+            eof = True
         return _session(table, args, turns)
 
     if not sys.stdin.isatty():
@@ -2011,14 +2149,18 @@ def _guide_session(args) -> int:
     if answer is not None and table["actions"][key]["kind"] == "ask":
         shell, inherited = _session_environment(table, question + "\n" + answer)
     key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
-    prompted = not confirmation and interactive and key in table["confirmation"]["next"]
+    prompted = not confirmation and interactive and not eof and key in table["confirmation"]["next"]
     previous_key = key
     if prompted:
         print(text, flush=True)
         print(table["confirmation"]["instruction"])
-        question, answer, confirmation = read_turn("Optional observation or lookup details (Enter to skip): ")
-        if answer and not confirmation and turns[-1].strip():
-            question, answer, confirmation = read_turn("Optional observation (Enter to skip): ")
+        question, answer, confirmation = read_turn(f"Report your lookup or end input ({eof_hint}): ")
+        if answer and not confirmation and not eof and turns[-1].strip():
+            applied, instruction = route(table, question, answer, shell, inherited)
+            if applied != previous_key:
+                print(instruction, flush=True)
+                previous_key = applied
+            question, answer, confirmation = read_turn(f"Confirm what you found or end input ({eof_hint}): ")
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
     if not prompted or confirmation or key != previous_key:
         print(text)

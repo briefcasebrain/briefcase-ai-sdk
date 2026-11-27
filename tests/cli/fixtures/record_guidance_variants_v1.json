@@ -182,7 +182,7 @@
     "question": "My {origin} was origin-530. The {source} {verb} trace ID other-91.",
     "expected": "receipt_unknown",
     "includes": [
-      "unconfirmed"
+      "Receipt is still unkno"
     ],
     "variants": {
       "origin": [
@@ -208,7 +208,7 @@
     "question": "My {origin} was origin-530. The {source} returned a row with ID origin-530.",
     "expected": "stored",
     "includes": [
-      "storage"
+      "Compare the returned r"
     ],
     "variants": {
       "origin": [
@@ -354,7 +354,7 @@
     "expected": "storage",
     "includes": [
       "receipt",
-      "unverified"
+      "A receiver entry that "
     ],
     "omits": [
       "event-665"
@@ -375,8 +375,8 @@
     },
     "expected": "ask_subject",
     "includes": [
-      "reply text",
-      "usage metadata"
+      "Are you looking for th",
+      "Are you looking for th"
     ]
   },
   {
@@ -417,7 +417,7 @@
     },
     "expected": "receipt_unknown",
     "includes": [
-      "unconfirmed"
+      "Receipt is still unkno"
     ],
     "omits": [
       "source-93"
@@ -442,7 +442,7 @@
     },
     "expected": "query_storage",
     "includes": [
-      "readback"
+      "Search the downstream "
     ],
     "omits": [
       "source-93"
@@ -649,7 +649,7 @@
     },
     "expected": "stored",
     "includes": [
-      "original ID"
+      "Compare the returned r"
     ],
     "omits": [
       "{marker}"
