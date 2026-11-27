@@ -962,6 +962,7 @@ class _SourceCheck:
     pending: bool = False
     foreign_reader_only: bool = False
     unaccounted: bool = False
+    returned_unbound: bool = False
     unresolved_detail: bool = False
 
     def compare(self, source, result, action, facts):
@@ -985,7 +986,7 @@ class _SourceCheck:
             return "confirmation_ambiguous"
         if self.outcome and result != self.outcome:
             return "confirmation_inconsistent"
-        if self.unaccounted:
+        if self.unaccounted or self.returned_unbound:
             return "confirmation_unresolved_lookup"
         return None
 
@@ -1102,7 +1103,7 @@ def _permitted_continuation(spec, clause):
     return all(any(pattern.fullmatch(piece.strip()) for pattern in patterns) for piece in pieces)
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=24)
 def _continuation_patterns(fragments, expressions):
     # The rules use the same named grammar fragments as the browser, in declaration order.
     symbols = {}
@@ -1110,6 +1111,37 @@ def _continuation_patterns(fragments, expressions):
         symbols[key] = "(?:" + re.sub(r"\{\{(\w+)\}\}", lambda m: symbols[m[1]], expression) + ")"
     return [re.compile(re.sub(r"\{\{(\w+)\}\}", lambda m: symbols[m[1]], pattern), re.I)
             for pattern in expressions]
+
+
+def _returned_result(spec, clause, roles):
+    """Parse the returned object independently from the reader's lookup target."""
+    grammar = spec["resultOperand"]
+    head = re.match(grammar["head"], clause, re.I)
+    if not head:
+        return None
+    fragments = tuple(spec["continuationGrammar"].items())
+    body = re.split(grammar["compare"], clause[head.end():].strip(), flags=re.I)[0]
+    if re.fullmatch(grammar["attributeHead"], head.group(), re.I) and any(
+        token.fullmatch(body) for token in _continuation_patterns(fragments, tuple(grammar["identityAttribute"]))
+    ):
+        body = "record with " + body
+    kinds = []
+    for operand in re.split(grammar["objects"], body, flags=re.I):
+        kind = next((name for name in ("miss", "match", "named", "neutral") if any(
+            pattern.fullmatch(operand.strip()) for pattern in _continuation_patterns(fragments, tuple(grammar[name]))
+        )), "unknown")
+        if kind == "named" and not roles["returnedIdentifier"]:
+            kind = "neutral"
+        kinds.append(kind)
+    if "unknown" in kinds:
+        return "unknown"
+    if kinds.count("match") > 1:
+        return "ambiguous"
+    if "match" in kinds:
+        return "match"
+    if "named" in kinds:
+        return "named"
+    return "neutral" if "neutral" in kinds else "miss"
 
 
 def _accounted_read(table, clause, identifiers):
@@ -1201,6 +1233,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     foreign_context = set()
     unbound_details = []
     inspected_sources = set()
+    background_sources = set()
     if "readDifferentPath" in facts:
         attempts[origin["jsonl"]].correct_instance = False
     for turn_index, clauses in enumerate(reports):
@@ -1208,6 +1241,20 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             active = {source}
         for clause in clauses:
             roles, source_scope = _report_roles(spec, clause, quoted_values)
+            # The writer's output and a retained ID describe the evidence used for
+            # a lookup. Neither assertion reports that the reader inspected a row.
+            background = spec["backgroundRoles"]
+            file_scope = re.sub(table["fileMentions"], " sourcefile ", clause, flags=re.I)
+            if re.fullmatch(background["writer"], file_scope, re.I):
+                background_sources.add("jsonl")
+                continue
+            retained = re.fullmatch(background["identifier"], clause, re.I)
+            if retained and quoted_values.get(retained.group(1), retained.group(1)) in unique_ids:
+                continue
+            if re.fullmatch(background["rowQuestion"], clause, re.I):
+                continue
+            if background_sources and not inspected_sources and not active and source_scope.strip():
+                active = set(background_sources)
             verbs = re.sub(table["fileMentions"], lambda match: " " * len(match.group()), source_scope, flags=re.I)
             checked = re.search(spec["lookupPerformed"], verbs, re.I)
             if active and re.match(spec["resultContinuation"], source_scope, re.I):
@@ -1227,6 +1274,11 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             if (details or re.search(spec["standaloneResult"], source_scope, re.I)) and not (named or active):
                 # A standalone result qualifier still constrains the submitted report.
                 active = {source}
+            meaning = {name for name, rule in spec["observedSemantics"].items() if _matches(rule, source_scope)}
+            if "exclusiveEvidence" in meaning and active:
+                for target in active:
+                    if "externalEvidence" in meaning or (named and target not in named):
+                        attempts[current[target]].foreign_reader_only = True
             if other_reader:
                 foreign_context = named or active or set(origin)
                 for target in foreign_context:
@@ -1276,7 +1328,9 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         current[name] = event[name]
                 latest[name] = event[name]
             checks = {name: attempts[key] for name, key in event.items()}
-            inquiry = re.search(spec["questionLead"], source_scope, re.I)
+            inquiry = (re.search(spec["questionLead"], source_scope, re.I)
+                       and all(re.fullmatch(spec["neutralQuestionWords"], word, re.I)
+                               for word in re.findall(r"[\w-]+", source_scope)))
             if not inspected_sources and not checked and not active and source_scope.strip():
                 if not (inquiry or roles["declaredIdentifier"] or _context_statement(table, clause)
                         or _permitted_continuation(spec, clause)):
@@ -1310,6 +1364,34 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         checks[name].unaccounted = True
                     if re.search(spec["outsideInstance"], source_scope, re.I):
                         checks[name].correct_instance = False
+            # A recognized noun phrase alone cannot certify a record. Index
+            # the actual object, identity and multiplicity on the owning lookup.
+            owners = ((named or active) & inspected_sources) | (named if checked else set())
+            if not owners and re.match(spec["standaloneResult"], source_scope, re.I):
+                owners = named or active or {source}
+            result_grammar = spec["resultOperand"]
+            for result_clause in re.split(result_grammar["combinedRead"], source_scope, flags=re.I) if owners else ():
+                if re.match(result_grammar["implicitReader"], result_clause, re.I):
+                    result_clause = "it " + result_clause.lstrip()
+                returned = _returned_result(spec, result_clause, roles)
+                if not returned:
+                    continue
+                for name in owners:
+                    check = checks[name]
+                    if returned == "ambiguous":
+                        check.ambiguous = True
+                    elif returned == "unknown":
+                        check.unaccounted = True
+                    elif returned == "neutral":
+                        check.returned_unbound = True
+                    elif returned in ("match", "miss"):
+                        check.outcome = "matched" if returned == "match" else "no-match"
+                        check.returned_unbound = False
+                    if returned == "miss":
+                        meaning.add("differentTarget")
+            if re.search(spec["resultOperand"]["comparison"], source_scope, re.I):
+                for name in named or active:
+                    checks[name].returned_unbound = False
             if checked:
                 inspected_sources.update(named)
             if unbound_source:
@@ -1366,7 +1448,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             # qualification to that lookup, without starting another source check.
             for target in named or active:
                 check = checks[target]
-                if re.search(spec["detailPending"], clause, re.I):
+                if "failedSearch" in meaning or re.search(spec["detailPending"], clause, re.I):
                     check.pending = True
                 elif (check.original_target and qualified and (re.search(spec["sameReaderResult"], clause, re.I)
                       or re.fullmatch(spec["completedStatus"], clause, re.I))):
@@ -1375,11 +1457,11 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 if (re.search(spec["returnedIdentitySubject"], clause, re.I)
                         and re.search(spec["foreign"], clause, re.I)):
                     check.outcome = "no-match"
-                if re.search(spec["partialCoverage"], clause, re.I):
+                if "limitedSearch" in meaning or re.search(spec["partialCoverage"], clause, re.I):
                     check.partial = True
                 if re.search(spec["returnedObject"], clause, re.I) and re.search(spec["unclearTarget"], clause, re.I):
                     check.unresolved_lookup = True
-                if re.search(spec["identifierComparison"], clause, re.I):
+                if "differentTarget" in meaning or re.search(spec["identifierComparison"], clause, re.I):
                     check.outcome = "no-match"
                 elif qualified and re.search(spec["equalIdentifiers"], clause, re.I):
                     check.outcome = "matched"
@@ -1455,7 +1537,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 for target in targets:
                     checks[target].original_target = True
             ambiguous_rows = re.search(spec["ambiguousRows"], clause, re.I)
-            miss = re.search(spec["miss"], clause, re.I)
+            miss = "differentTarget" in meaning or re.search(spec["miss"], clause, re.I)
             if not (checked or ambiguous_rows or miss or re.search(spec["observation"], clause, re.I)
                     or re.search(spec["exclusiveOther"], clause, re.I)):
                 continue
@@ -2044,9 +2126,7 @@ def _session(table, args, turns):
                 if len(values) != 1 or values[0] not in table["confirmation"]["observation"][option]:
                     raise _SessionError("Choose one supported value for each observation field. See --help.")
                 pair[option] = values[0]
-    lines = ([args.question] if args.question is not None else []) + list(turns)
-    while lines and not lines[-1].strip():
-        lines.pop()
+    lines = ([args.question] if args.question is not None else []) + [line for line in turns if line.strip()]
     reports = [(index, item) for index, line in enumerate(lines) if (item := _confirmation(table, line))]
     if ((answer and _confirmation(table, answer)) or
             (reports and (pair or len(reports) != 1 or reports[0][0] != len(lines) - 1))):

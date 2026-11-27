@@ -30058,5 +30058,2534 @@
     "includes": [
       "Check which source you searched a"
     ]
+  },
+  {
+    "name": "Attributed lookup jsonl The query returned a full record with a different ID. matched 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. The query returned a full record with a different ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl The query returned a full record with a different ID. matched 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "answer": "The query returned a full record with a different ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl The lookup yielded the full row bearing a mismatched decision identifier. matched 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. The lookup yielded the full row bearing a mismatched decision identifier.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl The lookup yielded the full row bearing a mismatched decision identifier. matched 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "answer": "The lookup yielded the full row bearing a mismatched decision identifier.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl The query returned a full record with the same ID. matched 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. The query returned a full record with the same ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl The query returned a full record with the same ID. matched 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "answer": "The query returned a full record with the same ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl I only checked the first page. no-match 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. I only checked the first page.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl I only checked the first page. no-match 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "answer": "I only checked the first page.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl I only checked the first page. matched 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. I only checked the first page.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl I only checked the first page. matched 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "answer": "I only checked the first page.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl I searched only the last three rows. no-match 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. I searched only the last three rows.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl I searched only the last three rows. no-match 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "answer": "I searched only the last three rows.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl The query never succeeded. matched 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. The query never succeeded.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl The query never succeeded. matched 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "answer": "The query never succeeded.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl The lookup did not complete. no-match 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. The lookup did not complete.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl The lookup did not complete. no-match 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "answer": "The lookup did not complete.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl Does it matter that the returned row was fabricated? matched 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. Does it matter that the returned row was fabricated?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl Does it matter that the returned row was fabricated? matched 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "Does it matter that the returned row was fabricated?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl What does that verify? matched 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. What does that verify?",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl What does that verify? matched 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "answer": "What does that verify?",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl My colleague supplied the only record from the receiver. matched 0",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID. My colleague supplied the only record from the receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup jsonl My colleague supplied the only record from the receiver. matched 1",
+    "question": "My original decision ID was alder-412. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "answer": "My colleague supplied the only record from the receiver.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver The query returned a full record with a different ID. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. The query returned a full record with a different ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver The query returned a full record with a different ID. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "answer": "The query returned a full record with a different ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver The lookup yielded the full row bearing a mismatched decision identifier. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. The lookup yielded the full row bearing a mismatched decision identifier.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver The lookup yielded the full row bearing a mismatched decision identifier. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "answer": "The lookup yielded the full row bearing a mismatched decision identifier.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver The query returned a full record with the same ID. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. The query returned a full record with the same ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver The query returned a full record with the same ID. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ],
+    "answer": "The query returned a full record with the same ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver I only checked the first page. no-match 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. I only checked the first page.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver I only checked the first page. no-match 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "answer": "I only checked the first page.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver I only checked the first page. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. I only checked the first page.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver I only checked the first page. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ],
+    "answer": "I only checked the first page.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver I searched only the last three rows. no-match 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. I searched only the last three rows.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver I searched only the last three rows. no-match 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "answer": "I searched only the last three rows.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver The query never succeeded. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. The query never succeeded.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver The query never succeeded. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "answer": "The query never succeeded.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver The lookup did not complete. no-match 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. The lookup did not complete.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver The lookup did not complete. no-match 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "answer": "The lookup did not complete.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver Does it matter that the returned row was fabricated? matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. Does it matter that the returned row was fabricated?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver Does it matter that the returned row was fabricated? matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "Does it matter that the returned row was fabricated?",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver What does that verify? matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. What does that verify?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver What does that verify? matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ],
+    "answer": "What does that verify?",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver My colleague supplied the only record from the database. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID. My colleague supplied the only record from the database.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup receiver My colleague supplied the only record from the database. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "answer": "My colleague supplied the only record from the database.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage The query returned a full record with a different ID. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. The query returned a full record with a different ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage The query returned a full record with a different ID. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "answer": "The query returned a full record with a different ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage The lookup yielded the full row bearing a mismatched decision identifier. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. The lookup yielded the full row bearing a mismatched decision identifier.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage The lookup yielded the full row bearing a mismatched decision identifier. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "answer": "The lookup yielded the full row bearing a mismatched decision identifier.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage The query returned a full record with the same ID. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. The query returned a full record with the same ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage The query returned a full record with the same ID. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ],
+    "answer": "The query returned a full record with the same ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage I only checked the first page. no-match 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. I only checked the first page.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage I only checked the first page. no-match 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "answer": "I only checked the first page.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage I only checked the first page. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. I only checked the first page.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage I only checked the first page. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ],
+    "answer": "I only checked the first page.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage I searched only the last three rows. no-match 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. I searched only the last three rows.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage I searched only the last three rows. no-match 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverifi"
+    ],
+    "answer": "I searched only the last three rows.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage The query never succeeded. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. The query never succeeded.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage The query never succeeded. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "answer": "The query never succeeded.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage The lookup did not complete. no-match 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. The lookup did not complete.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage The lookup did not complete. no-match 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "answer": "The lookup did not complete.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage Does it matter that the returned row was fabricated? matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. Does it matter that the returned row was fabricated?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage Does it matter that the returned row was fabricated? matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "Does it matter that the returned row was fabricated?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage What does that verify? matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. What does that verify?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage What does that verify? matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ],
+    "answer": "What does that verify?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage My colleague supplied the only record from the receiver. matched 0",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID. My colleague supplied the only record from the receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup storage My colleague supplied the only record from the receiver. matched 1",
+    "question": "My original decision ID was alder-412. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ],
+    "answer": "My colleague supplied the only record from the receiver.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup writer and retained key 0",
+    "question": "My worker wrote two records with identical ticket text to entries.jsonl. I retained the original decision ID perch-478. Which record corresponds to my invocation?",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup unexplained observation 0",
+    "question": "My worker wrote two records with identical ticket text to entries.jsonl. I retained the original decision ID perch-478. Which record corresponds to my invocation?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "What I saw was only a count.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup duplicate identity 0",
+    "question": "My worker wrote two records with identical ticket text to entries.jsonl. I retained the original decision ID perch-478. Which record corresponds to my invocation?",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identified a sing"
+    ],
+    "answer": "The original file contained two matching rows.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup writer and retained key 1",
+    "question": "I kept the original decision ID perch-478. My worker wrote two records with identical ticket text to entries.jsonl. Which record corresponds to my invocation?",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup unexplained observation 1",
+    "question": "I kept the original decision ID perch-478. My worker wrote two records with identical ticket text to entries.jsonl. Which record corresponds to my invocation?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "What I saw was only a count.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup duplicate identity 1",
+    "question": "I kept the original decision ID perch-478. My worker wrote two records with identical ticket text to entries.jsonl. Which record corresponds to my invocation?",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identified a sing"
+    ],
+    "answer": "The original file contained two matching rows.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup writer and retained key 2",
+    "question": "Our service appended three entries sharing the same input to the original JSONL export. I saved the original ID perch-478. Which record corresponds to my invocation?",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup unexplained observation 2",
+    "question": "Our service appended three entries sharing the same input to the original JSONL export. I saved the original ID perch-478. Which record corresponds to my invocation?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "What I saw was only a count.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup duplicate identity 2",
+    "question": "Our service appended three entries sharing the same input to the original JSONL export. I saved the original ID perch-478. Which record corresponds to my invocation?",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't identified a sing"
+    ],
+    "answer": "The original file contained two matching rows.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Attributed lookup Node published example 0",
+    "question": "I ran the published Node demo with default capture and console destination. I want the token count.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for decisio"
+    ]
+  },
+  {
+    "name": "Attributed lookup Node published example 1",
+    "question": "We executed the published Node demo with default capture and console destination. I want the token count.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for decisio"
+    ]
+  },
+  {
+    "name": "Attributed lookup Node published example 2",
+    "question": "My launcher invoked the published Node demo with default capture and console destination. I want the token count.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for decisio"
+    ]
+  },
+  {
+    "name": "Attributed lookup Node published example 3",
+    "question": "The published Node demo with default capture and console destination. I want the token count.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for decisio"
+    ]
+  },
+  {
+    "name": "Attributed lookup observed reply beats wrapper 0",
+    "question": "My original launch was briefcase-ai exec --to console -- python app.py. I retained stdout containing the application reply and stderr containing the decision JSON. I need the application reply.",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for the applic"
+    ]
+  },
+  {
+    "name": "Attributed lookup observed reply beats wrapper 1",
+    "question": "My original launch was briefcase-ai exec --to console -- python app.py. I retained stderr containing the application reply and stdout containing the decision JSON. I need the application reply.",
+    "expected": "reply_stderr",
+    "includes": [
+      "Read retained stderr for the applic"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl next one record from another run",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "answer": "The query returned one record from another run."
+  },
+  {
+    "name": "Returned operand jsonl same one record from another run",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID. The query returned one record from another run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl compound one record from another run",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID and returned one record from another run.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl next a different marker",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned a different marker."
+  },
+  {
+    "name": "Returned operand jsonl same a different marker",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID. The query returned a different marker.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl compound a different marker",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID and returned a different marker.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl next only an identifier",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned only an identifier."
+  },
+  {
+    "name": "Returned operand jsonl same only an identifier",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID. The query returned only an identifier.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl compound only an identifier",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID and returned only an identifier.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl next two different records",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned two different records."
+  },
+  {
+    "name": "Returned operand jsonl same two different records",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID. The query returned two different records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl compound two different records",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID and returned two different records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl next the full original record",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "answer": "The query returned the full original record."
+  },
+  {
+    "name": "Returned operand jsonl same the full original record",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID. The query returned the full original record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl compound the full original record",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID and returned the full original record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl next the one matching entry",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "answer": "The query returned the one matching entry."
+  },
+  {
+    "name": "Returned operand jsonl same the one matching entry",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID. The query returned the one matching entry.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl compound the one matching entry",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID and returned the one matching entry.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl next a complete decision with the same decision ID",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ],
+    "answer": "The query returned a complete decision with the same decision ID."
+  },
+  {
+    "name": "Returned operand jsonl same a complete decision with the same decision ID",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID. The query returned a complete decision with the same decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl compound a complete decision with the same decision ID",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID and returned a complete decision with the same decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record in"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl next a plain checksum",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned a plain checksum."
+  },
+  {
+    "name": "Returned operand jsonl same a plain checksum",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID. The query returned a plain checksum.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl compound a plain checksum",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID and returned a plain checksum.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl next a row",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned a row."
+  },
+  {
+    "name": "Returned operand jsonl same a row",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID. The query returned a row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand jsonl compound a row",
+    "question": "My original decision ID was yellow-417. I queried the original JSONL file for the original decision ID and returned a row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand receiver next one record from another run",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "answer": "The query returned one record from another run."
+  },
+  {
+    "name": "Returned operand receiver same one record from another run",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID. The query returned one record from another run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ]
+  },
+  {
+    "name": "Returned operand receiver compound one record from another run",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID and returned one record from another run.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ]
+  },
+  {
+    "name": "Returned operand receiver next a different marker",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned a different marker."
+  },
+  {
+    "name": "Returned operand receiver same a different marker",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID. The query returned a different marker.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand receiver compound a different marker",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID and returned a different marker.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand receiver next only an identifier",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned only an identifier."
+  },
+  {
+    "name": "Returned operand receiver same only an identifier",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID. The query returned only an identifier.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand receiver compound only an identifier",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID and returned only an identifier.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand receiver next two different records",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned two different records."
+  },
+  {
+    "name": "Returned operand receiver same two different records",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID. The query returned two different records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand receiver compound two different records",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID and returned two different records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand receiver next the full original record",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ],
+    "answer": "The query returned the full original record."
+  },
+  {
+    "name": "Returned operand receiver same the full original record",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID. The query returned the full original record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ]
+  },
+  {
+    "name": "Returned operand receiver compound the full original record",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID and returned the full original record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ]
+  },
+  {
+    "name": "Returned operand receiver next the one matching entry",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ],
+    "answer": "The query returned the one matching entry."
+  },
+  {
+    "name": "Returned operand receiver same the one matching entry",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID. The query returned the one matching entry.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ]
+  },
+  {
+    "name": "Returned operand receiver compound the one matching entry",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID and returned the one matching entry.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ]
+  },
+  {
+    "name": "Returned operand receiver next a complete decision with the same decision ID",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ],
+    "answer": "The query returned a complete decision with the same decision ID."
+  },
+  {
+    "name": "Returned operand receiver same a complete decision with the same decision ID",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID. The query returned a complete decision with the same decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ]
+  },
+  {
+    "name": "Returned operand receiver compound a complete decision with the same decision ID",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID and returned a complete decision with the same decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching entry at th"
+    ]
+  },
+  {
+    "name": "Returned operand receiver next a plain checksum",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned a plain checksum."
+  },
+  {
+    "name": "Returned operand receiver same a plain checksum",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID. The query returned a plain checksum.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand receiver compound a plain checksum",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID and returned a plain checksum.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand receiver next a row",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned a row."
+  },
+  {
+    "name": "Returned operand receiver same a row",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID. The query returned a row.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand receiver compound a row",
+    "question": "My original decision ID was yellow-417. I queried the intended receiver for the original decision ID and returned a row.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand storage next one record from another run",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ],
+    "answer": "The query returned one record from another run."
+  },
+  {
+    "name": "Returned operand storage same one record from another run",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID. The query returned one record from another run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ]
+  },
+  {
+    "name": "Returned operand storage compound one record from another run",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID and returned one record from another run.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts with the r"
+    ]
+  },
+  {
+    "name": "Returned operand storage next a different marker",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned a different marker."
+  },
+  {
+    "name": "Returned operand storage same a different marker",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID. The query returned a different marker.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand storage compound a different marker",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID and returned a different marker.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand storage next only an identifier",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned only an identifier."
+  },
+  {
+    "name": "Returned operand storage same only an identifier",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID. The query returned only an identifier.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand storage compound only an identifier",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID and returned only an identifier.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand storage next two different records",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned two different records."
+  },
+  {
+    "name": "Returned operand storage same two different records",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID. The query returned two different records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand storage compound two different records",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID and returned two different records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand storage next the full original record",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ],
+    "answer": "The query returned the full original record."
+  },
+  {
+    "name": "Returned operand storage same the full original record",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID. The query returned the full original record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ]
+  },
+  {
+    "name": "Returned operand storage compound the full original record",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID and returned the full original record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ]
+  },
+  {
+    "name": "Returned operand storage next the one matching entry",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ],
+    "answer": "The query returned the one matching entry."
+  },
+  {
+    "name": "Returned operand storage same the one matching entry",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID. The query returned the one matching entry.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ]
+  },
+  {
+    "name": "Returned operand storage compound the one matching entry",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID and returned the one matching entry.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ]
+  },
+  {
+    "name": "Returned operand storage next a complete decision with the same decision ID",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ],
+    "answer": "The query returned a complete decision with the same decision ID."
+  },
+  {
+    "name": "Returned operand storage same a complete decision with the same decision ID",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID. The query returned a complete decision with the same decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ]
+  },
+  {
+    "name": "Returned operand storage compound a complete decision with the same decision ID",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID and returned a complete decision with the same decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record in t"
+    ]
+  },
+  {
+    "name": "Returned operand storage next a plain checksum",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned a plain checksum."
+  },
+  {
+    "name": "Returned operand storage same a plain checksum",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID. The query returned a plain checksum.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand storage compound a plain checksum",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID and returned a plain checksum.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand storage next a row",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ],
+    "answer": "The query returned a row."
+  },
+  {
+    "name": "Returned operand storage same a row",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID. The query returned a row.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
+  },
+  {
+    "name": "Returned operand storage compound a row",
+    "question": "My original decision ID was yellow-417. I queried the intended downstream store for the original decision ID and returned a row.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "targetMatch": "original",
+      "sourceMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you searched and"
+    ]
   }
 ]

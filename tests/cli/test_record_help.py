@@ -537,13 +537,14 @@ def test_optional_lookup_details_precede_one_final_observation(terminal, tail, m
 
 @pytest.mark.parametrize("terminal", [False, True])
 @pytest.mark.parametrize("extra", ["", "\nstorage matched me original original\n"])
-def test_blank_before_optional_report_preserves_full_session(terminal, extra, monkeypatch, capsys):
+@pytest.mark.parametrize("gap", ["\n", "\n\n", "\n \n\t\n"])
+def test_blank_before_optional_report_preserves_full_session(terminal, extra, gap, monkeypatch, capsys):
     from io import StringIO
     from briefcase.cli import _ux
     from briefcase.cli.__main__ import main
 
-    stream = StringIO("I queried the intended downstream store for the original decision ID.\n\n"
-                      "storage matched me original original\n" + extra)
+    stream = StringIO("I queried the intended downstream store for the original decision ID.\n" + gap
+                      + "storage matched me original original\n" + extra)
     monkeypatch.setattr(stream, "isatty", lambda: terminal)
     monkeypatch.setattr(_ux, "is_interactive", lambda: terminal)
     monkeypatch.setattr("sys.stdin", stream)
