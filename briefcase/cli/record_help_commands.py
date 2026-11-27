@@ -53,8 +53,25 @@ def _source_text(table, text):
     spans = {(match.start(1), match.end(1)) for pattern in table["opaqueBindings"]
              for match in re.finditer(pattern, text, re.I)}
     file_spans = []
+    # A literal --to value belongs to the launch wrapper. Child program arguments do not.
+    wrapper_paths = set()
+    wrapper_children = set()
+    for wrapper in re.finditer(table["inlineNode"]["wrapperCommand"], text):
+        wrapper_children.add(wrapper.span(3))
+        for option in re.finditer(table["inlineNode"]["wrapperOption"], wrapper.group(2)):
+            if option.group(1) == "--to" and option.group(2):
+                start, end = option.span(2)
+                wrapper_paths.add((wrapper.start(2) + start, wrapper.start(2) + end))
     for quoted in re.finditer(table["quoteSpans"], text):
         index = quoted.lastindex
+        if quoted.span() in wrapper_children:
+            component = re.search(r"[^/\\]+$", quoted.group(index))
+            if component:
+                spans.add((quoted.start(index), quoted.start(index) + max(0, component.start() - 1)))
+            continue
+        if quoted.span() in wrapper_paths and quoted.group(index).endswith(".jsonl"):
+            file_spans.append(quoted.span(index))
+            continue
         launch_literal = (re.search(table["launchLiteralContext"], text[:quoted.start()], re.I)
                           and re.fullmatch(table["launchLiteralValue"], quoted.group(index), re.I))
         if not launch_literal and not (
@@ -77,7 +94,7 @@ def _source_text(table, text):
         clause = clauses[-1]
         continued = (len(clauses) > 1 and re.search(table["filePathContinuation"], clause, re.I)
                      and re.fullmatch(table["filePathAntecedent"], clauses[-2], re.I))
-        if not (continued or re.search(table["fileRoleBefore"], clause, re.I)
+        if not ((start, end) in wrapper_paths or continued or re.search(table["fileRoleBefore"], clause, re.I)
                 or re.search(table["fileRoleAfter"], text[end:], re.I)):
             spans.add((start, end))
     chars = list(text)
@@ -94,6 +111,54 @@ def _source_text(table, text):
 def _positive_destinations(table, clauses):
     return {name for name, assertions in table["positiveDestinations"].items()
             if any(re.search(pattern, clause, re.I) for clause in clauses for pattern in assertions)}
+
+
+def _storage_lookup(table, evidence):
+    """Relate a completed store query, the identifier searched and the returned full record."""
+    spec = table["readbackPair"]
+    attribution = table["confirmation"]["attribution"]
+    reports, quoted = _report_clauses(table, [evidence])
+    statements = [_report_roles(attribution, clause, quoted) for clause in reports[0] if clause.strip()]
+    originals = {value for roles, _ in statements for value in roles["declaredIdentifier"]}
+    events = [(roles, scoped) for roles, scoped in statements
+              if not roles["declaredIdentifier"] or re.search(spec["query"], scoped, re.I)
+              or re.search(spec["returned"], scoped, re.I)]
+    lookups = {}
+    records = {}
+    for index, (roles, scoped) in enumerate(events):
+        clause = _source_text(table, scoped)
+        if re.search(attribution["foreign"], clause, re.I) and re.search(attribution["reportedForeign"], clause, re.I):
+            if lookups and not re.search(spec["otherSource"], clause, re.I):
+                lookups[index] = (False, set())
+            continue
+        if re.search(spec["denied"], clause, re.I) or re.search(spec["otherSource"], clause, re.I):
+            continue
+        if re.search(spec["query"], clause, re.I) and re.search(spec["source"], clause, re.I):
+            target = set(roles["lookupIdentifier"])
+            if target and originals:
+                lookups[index] = (target == originals and len(target) == 1, target)
+            elif re.search(spec["original"], clause, re.I):
+                lookups[index] = (True, target or originals)
+        if re.search(spec["record"], clause, re.I) and re.search(spec["returned"], clause, re.I):
+            returned = set(roles["returnedIdentifier"])
+            if returned or re.search(spec["same"], clause, re.I):
+                records[index] = returned
+    if lookups:
+        latest = max(lookups)
+        valid, target = lookups[latest]
+        if not valid:
+            return "differentStoreLookup"
+        for position, returned in records.items():
+            # Prefer the preceding lookup if a record sits between two separate reads.
+            owner = next((i for i in (position, position - 1, position + 1) if i in lookups), None)
+            if owner == latest:
+                if returned and not target:
+                    continue
+                if returned and returned != target:
+                    return "storageIDMismatch"
+                return "linkedStoreReadback"
+        return "pendingStoreReadback"
+    return None
 
 
 def _collect_facts(table: Dict[str, Any], evidence: str) -> Set[str]:
@@ -515,8 +580,11 @@ def _execution_evidence(table, source, inherited=None):
     ambient = (inherited or {}).get("REGISTER_FROM_NODE_OPTIONS")
     for clause in clauses:
         wrapper = re.search(inline["wrapperCommand"], clause)
-        if wrapper and re.fullmatch(table["commandContext"], clause[:wrapper.start()], re.I):
-            prefix, flags, child = wrapper.groups()
+        if wrapper and not re.fullmatch(table["commandContext"], clause[:wrapper.start()], re.I):
+            wrapper = None
+        if wrapper:
+            prefix, flags, child_path = wrapper.groups()
+            child = re.split(r"[/\\]", child_path.strip("\"'"))[-1].lower()
             settings = {match.group(1): next((v for v in match.groups()[1:] if v is not None), "")
                         for match in re.finditer(inline["assignment"], prefix)}
             settings = {**(inherited or {}), **settings}
@@ -559,7 +627,7 @@ def _execution_evidence(table, source, inherited=None):
                        or (choice.startswith("chain:") and choice[6:].strip()))
             if choice and not builtin and _plugin_name(choice) is None:
                 wrapper_facts.add("wrapperRejected")
-            if child.startswith("python"):
+            if child.startswith(("python", "pypy")):
                 from briefcase.cli.exec_commands import blocking_python_flags
 
                 args = [part.group(1).strip("\"'") for part in re.finditer(inline["argument"], clause[wrapper.end():])]
@@ -583,11 +651,14 @@ def _execution_evidence(table, source, inherited=None):
             runtime.add("Node")
             assigned = "BRIEFCASE_EXPORTER=" + destination + " " if destination else ""
             clause = prefix + "BRIEFCASE_AUTO=1 " + assigned + child + clause[wrapper.end():]
+        previous_count = len(commands)
         for match in re.finditer(inline["command"], clause):
             if (_command_register(inline, match) or ambient) and re.fullmatch(
                 table["commandContext"], clause[:match.start()], re.I
             ):
                 commands.append(match)
+        if wrapper and len(commands) == previous_count:
+            wrapper_choices.add(("inlineUnknown", None))
     selection = table["applicationSelection"]
     choices: Set[Tuple[str, Optional[str]]] = set()
     application_clauses: List[str] = []
@@ -675,18 +746,21 @@ class _SourceCheck:
     foreign_target: bool = False
     unchecked: bool = False
     ambiguous: bool = False
-    correct_file: Optional[bool] = None
+    correct_instance: Optional[bool] = None
     outcome: Optional[str] = None
+    matching_rows: int = 0
 
-    def compare(self, result, action, facts):
+    def compare(self, source, result, action, facts):
         if self.foreign_target:
             return "confirmation_other_run"
         if result == "unverified":
             return None
         if self.unchecked:
             return "confirmation_unchecked"
-        if self.correct_file is False:
-            return "confirmation_other_file"
+        if source == "jsonl" and ("unresolvedPath" in facts or ("pendingPath" in facts and not self.original_target)):
+            return "confirmation_unresolved_path"
+        if self.correct_instance is False:
+            return "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
         if action == "ask_id" or "unresolvedOriginal" in facts:
             return "ask_id"
         if self.ambiguous:
@@ -722,16 +796,16 @@ def _report_files(table, clause, quoted_values):
     return {quoted_values.get(value, value) for value in values}
 
 
-def _confirmation_conflict(table, source, result, turns, action, facts):
-    """Bind an observation to its source and target before interpreting a structured outcome."""
+def _source_instances(table, clause, quoted):
     spec = table["confirmation"]["attribution"]
-    checks = {name: _SourceCheck() for name in spec["sources"]}
-    if "readDifferentPath" in facts:
-        checks["jsonl"].correct_file = False
-    active = set()
-    original_marker = False
-    original_ids = set()
-    original_files = set()
+    instances = {"jsonl": _report_files(table, clause, quoted)}
+    for source, pattern in spec["namedInstances"].items():
+        instances[source] = {quoted.get(m.group(1), m.group(1)) for m in re.finditer(pattern, clause, re.I)
+                             if not re.fullmatch(spec["nonInstance"], m.group(1), re.I)}
+    return instances
+
+
+def _report_clauses(table, turns):
     quoted_ids = {}
     quoted_values = {}
     prefix = "quoted:"
@@ -746,13 +820,32 @@ def _confirmation_conflict(table, source, result, turns, action, facts):
             quoted_values[alias] = value
         return quoted_ids[value]
 
-    reports = [re.split(spec["split"], re.sub(table["quoteSpans"], quoted_id, turn or ""), flags=re.I)
+    separator = table["confirmation"]["attribution"]["split"]
+    reports = [re.split(separator, re.sub(table["quoteSpans"], quoted_id, turn or ""), flags=re.I)
                for turn in turns]
+    return reports, quoted_values
+
+
+def _confirmation_conflict(table, source, result, turns, action, facts):
+    """Bind an observation to its source and target before interpreting a structured outcome."""
+    spec = table["confirmation"]["attribution"]
+    checks = {name: _SourceCheck() for name in spec["sources"]}
+    if "readDifferentPath" in facts:
+        checks["jsonl"].correct_instance = False
+    active = set()
+    original_marker = False
+    original_ids = set()
+    destinations = {source: set() for source in checks}
+    reports, quoted_values = _report_clauses(table, turns)
     for clauses in reports:
         for clause in clauses:
             roles, scope = _report_roles(spec, clause, quoted_values)
             if re.search(spec["fileContext"], scope, re.I) and not re.search(spec["lookupPerformed"], scope, re.I):
-                original_files.update(_report_files(table, scope, quoted_values))
+                destinations["jsonl"].update(_report_files(table, scope, quoted_values))
+            if re.search(spec["instanceContext"], scope, re.I) and not re.search(spec["lookupPerformed"], scope, re.I):
+                for name, values in _source_instances(table, scope, quoted_values).items():
+                    if name != "jsonl":
+                        destinations[name].update(values)
             if re.search(spec["originalMarker"], scope, re.I) and not re.search(spec["uncertain"], scope, re.I):
                 original_ids.update(roles["declaredIdentifier"])
                 identity = _entities(table, clause).get("correlation", {})
@@ -768,21 +861,28 @@ def _confirmation_conflict(table, source, result, turns, action, facts):
                 original_marker = True
             named = {key for key, pattern in spec["sources"].items() if re.search(pattern, source_scope, re.I)}
             clause = source_scope
-            inspected = _report_files(table, source_scope, quoted_values) if checked else set()
-            if named and re.search(spec["unchecked"], clause, re.I):
-                if inspected and original_files and inspected.isdisjoint(original_files):
-                    named.discard("jsonl")
-                active = named
-                for target in named:
+            inspected = _source_instances(table, source_scope, quoted_values)
+            failed = re.search(spec["attempted"], clause, re.I) or re.search(spec["readFailed"], clause, re.I)
+            if failed or re.search(spec["unchecked"], clause, re.I):
+                blocked = named or active
+                active = set(blocked)
+                for target in blocked:
+                    wanted = destinations[target]
+                    if inspected[target] and wanted and inspected[target].isdisjoint(wanted):
+                        continue
                     checks[target].unchecked = True
                     checks[target].original_target = False
                     checks[target].outcome = None
+                    checks[target].matching_rows = 0
                 continue
-            if checked and qualified and "jsonl" in named:
-                if inspected and original_files:
-                    checks["jsonl"].correct_file = inspected == original_files and len(inspected) == 1
-                elif re.search(spec["originalFile"], clause, re.I):
-                    checks["jsonl"].correct_file = True
+            if checked and qualified:
+                for target in named:
+                    if inspected[target] and destinations[target]:
+                        checks[target].correct_instance = (inspected[target] == destinations[target]
+                                                           and len(inspected[target]) == 1)
+                    elif target == "jsonl" and re.search(spec["originalFile"], clause, re.I):
+                        checks[target].correct_instance = True
+                    checks[target].matching_rows = 0
             if checked and qualified and named:
                 first = min(re.search(spec["sources"][key], source_scope, re.I).start() for key in named)
                 if re.search(spec["exclusiveSource"], clause[:first], re.I):
@@ -840,16 +940,22 @@ def _confirmation_conflict(table, source, result, turns, action, facts):
                         check.outcome = "no-match"
                     elif qualified and len(original_ids) == 1 and row_ids:
                         count = sum(value in original_ids for value in roles["returnedIdentifier"])
-                        if count > 1:
+                        check.matching_rows += count
+                        if check.matching_rows > 1:
                             check.ambiguous = True
-                        check.outcome = "matched" if count else "no-match"
+                        check.outcome = "matched" if check.matching_rows else "no-match"
                     elif qualified and re.search(spec["originalMatch"], clause, re.I):
                         check.outcome = "matched"
                     elif re.search(spec["exclusiveOther"], clause, re.I):
                         check.outcome = "no-match"
                     elif qualified and not foreign and re.search(spec["match"], clause, re.I):
                         check.outcome = "matched"
-    return checks[source].compare(result, action, facts)
+    if source == "storage" and checks[source].outcome is None:
+        if "linkedStoreReadback" in facts:
+            checks[source].outcome = "matched"
+        elif "storageIDMismatch" in facts:
+            checks[source].outcome = "no-match"
+    return checks[source].compare(source, result, action, facts)
 
 
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
@@ -921,6 +1027,10 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
         disowned = {rule["fact"] for rule in table["disownedObservations"] if re.search(rule["pattern"], source, re.I)}
         facts = (facts & set(table["rawFacts"])) | _collect_facts(table, _scoped(table, source))
     facts.update(disowned)
+    if ("storeQuestion" in facts or re.search(table["readbackPair"]["source"], source_question, re.I)):
+        readback = _storage_lookup(table, question) if not _sensitive(table, question) else None
+        if readback:
+            facts.add(readback)
     if "privateJobMarker" in facts:
         witness = table["fileWitness"]
         previous_read = False
@@ -1035,18 +1145,27 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
     if key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value")):
         key = "ask_path"
     action = table["actions"][key]
+    pending_lookup = None
+    if "requiredFact" in action:
+        # Keep the destination selected by the original evidence while filling the missing identifier.
+        pending_lookup = _select(table, facts | {action["requiredFact"]})
     if action["kind"] == "ask" and answer is not None:
         reply_source = answer
         if _sensitive(table, answer) or re.search(table["privateWebAddress"], answer, re.I):
             aside = re.sub(table["sensitiveAsideSplit"], "\n", answer, flags=re.I)
             reply_source = "\n".join(c for c in re.split(table["split"], aside, flags=re.I)
                                      if not (_sensitive(table, c) or re.search(table["privateWebAddress"], c, re.I)))
+        path_disowned = False
         if key in ("ask_path", "ask_exporter"):
+            attribution = table["confirmation"]["attribution"]
             path_lines = [line.strip() for line in reply_source.splitlines() if line.strip()]
-            if len(path_lines) > 1 and _matches(table["replies"]["ask_path"][0], path_lines[0]) and all(
-                re.search(table["confirmation"]["attribution"]["foreign"], line, re.I) for line in path_lines[1:]
-            ):
-                reply_source = path_lines[0]
+            if len(path_lines) > 1 and _matches(table["replies"]["ask_path"][0], path_lines[0]):
+                details = path_lines[1:]
+                if all(re.search(attribution["reportedForeign"], line, re.I)
+                       and re.search(attribution["foreign"], line, re.I) for line in details):
+                    reply_source = path_lines[0]
+                else:
+                    path_disowned = any(re.search(attribution["foreign"], line, re.I) for line in details)
         safe_choice = key in ("ask_exporter", "ask_protocol") and any(
             re.fullmatch(pattern, reply_source.strip(), re.I) for pattern in table["exporterReplies"].values())
         safe_path = key in ("ask_exporter", "ask_path") and _matches(
@@ -1101,7 +1220,14 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
         shared_value = (entities.get("businessTicket") or entities.get("correlation") or {}).get("value")
         valid_id = key != "ask_id" or (reply_id.get("fact") == "hasID"
                                        and not (repeated and reply_id.get("value") == shared_value))
-        if key == "ask_id" and not valid_id:
+        if key == "ask_id" and re.search(table["confirmation"]["attribution"]["sharedIdentifier"], answer, re.I):
+            valid_id = False
+        if key in ("ask_exporter", "ask_path") and (path_disowned or len(_report_files(table, answer, {})) > 1):
+            valid = None
+            facts.add("unresolvedPath")
+        if key == "ask_path" and valid is None:
+            facts.add("pendingPath")
+        if key == "ask_id" and (not valid_id or valid is None):
             facts.add("unresolvedOriginal")
         if not reply or re.fullmatch(table["unknown"], reply, re.I) or valid is None or not valid_id:
             key = table["fallback"]
@@ -1120,7 +1246,7 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
                         return combined, combined_facts
             facts.difference_update(valid.get("drop", []))
             facts.update(valid.get("add", []))
-            key = valid.get("action") or _select(table, facts)
+            key = valid.get("action") or pending_lookup or _select(table, facts)
             unresolved_path = key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value"))
             if table["actions"][key]["kind"] == "ask" or unresolved_path:
                 key = table["fallback"]

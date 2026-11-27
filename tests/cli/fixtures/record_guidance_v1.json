@@ -13160,5 +13160,1005 @@
       "source": "jsonl",
       "result": "matched"
     }
+  },
+  {
+    "name": "Source-bound lookup continuation Y02 0",
+    "question": "Our worker processed the same ticket twice. I found both calls recorded in replay.jsonl. How do I distinguish the entry for the invocation I'm investigating?",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID or"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation Y02 1",
+    "question": "Our worker processed the same ticket twice. I found both calls recorded in replay.jsonl. How do I distinguish the entry for the invocation I'm investigating?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "The decision ID on the original receipt is fern-685."
+  },
+  {
+    "name": "Source-bound lookup continuation Y02 2",
+    "question": "Our worker processed the same ticket twice. I found both calls recorded in replay.jsonl. How do I distinguish the entry for the invocation I'm investigating?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below t"
+    ],
+    "answer": "Maybe the decision ID on the original receipt is fern-685."
+  },
+  {
+    "name": "Source-bound lookup continuation Y02 3",
+    "question": "Our worker processed the same ticket twice. I found both calls recorded in replay.jsonl. How do I distinguish the entry for the invocation I'm investigating?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below t"
+    ],
+    "answer": "That ID was lost."
+  },
+  {
+    "name": "Source-bound lookup continuation Y12",
+    "question": "After the program exited I queried the downstream store for the original decision ID arch-843. The complete record came back with that same ID. Does that confirm it was stored there?",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation Y12 report",
+    "question": "After the program exited I queried the downstream store for the original decision ID arch-843. The complete record came back with that same ID. Does that confirm it was stored there?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation pending file 0 The decision",
+    "question": "The same ticket was processed twice. Both decisions were recorded in snapshot.jsonl. Which decision belongs to my run?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "The decision ID on my original receipt is fir-110."
+  },
+  {
+    "name": "Source-bound lookup continuation pending file 0 The marker f",
+    "question": "The same ticket was processed twice. Both decisions were recorded in snapshot.jsonl. Which decision belongs to my run?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "The marker from the original invocation was beam-25."
+  },
+  {
+    "name": "Source-bound lookup continuation pending file 1 The decision",
+    "question": "The entries were saved in snapshot.jsonl. Two invocations used the same ticket. Which is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "The decision ID on my original receipt is fir-110."
+  },
+  {
+    "name": "Source-bound lookup continuation pending file 1 The marker f",
+    "question": "The entries were saved in snapshot.jsonl. Two invocations used the same ticket. Which is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "The marker from the original invocation was beam-25."
+  },
+  {
+    "name": "Source-bound lookup continuation pending file 2 The decision",
+    "question": "I found two calls recorded in snapshot.jsonl. They reused a ticket. How do I tell them apart?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "The decision ID on my original receipt is fir-110."
+  },
+  {
+    "name": "Source-bound lookup continuation pending file 2 The marker f",
+    "question": "I found two calls recorded in snapshot.jsonl. They reused a ticket. How do I tell them apart?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ],
+    "answer": "The marker from the original invocation was beam-25."
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 0 0 False",
+    "question": "After shutdown I searched the database for my original decision ID lapis-123. The complete row came back with the same identifier.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 0 0 True",
+    "question": "The complete row came back with the same identifier. After shutdown I searched the database for my original decision ID lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 0 1 False",
+    "question": "After shutdown I searched the database for my original decision ID lapis-123. It returned a full record with that same ID.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 0 1 True",
+    "question": "It returned a full record with that same ID. After shutdown I searched the database for my original decision ID lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 0 2 False",
+    "question": "After shutdown I searched the database for my original decision ID lapis-123. The full row was returned with decision ID lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 0 2 True",
+    "question": "The full row was returned with decision ID lapis-123. After shutdown I searched the database for my original decision ID lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 0 0",
+    "question": "After shutdown I searched the database for my original decision ID lapis-123. The query returned only an acknowledgement.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 0 1",
+    "question": "After shutdown I searched the database for my original decision ID lapis-123. The complete record might be returned with that same ID.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 0 2",
+    "question": "After shutdown I searched the database for my original decision ID lapis-123. The full row came back with that same identifier at the receiver.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 0 3",
+    "question": "After shutdown I searched the database for my original decision ID lapis-123. The full record came back with decision ID onyx-299.",
+    "expected": "store_missing",
+    "includes": [
+      "If the downstream lookup did"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation disowned read 0",
+    "question": "After shutdown I searched the database for my original decision ID lapis-123. The complete row came back with that same ID. I later learned that query was for a different run.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 1 0 False",
+    "question": "I independently queried downstream storage for the original marker lapis-123. The complete row came back with the same identifier.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 1 0 True",
+    "question": "The complete row came back with the same identifier. I independently queried downstream storage for the original marker lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 1 1 False",
+    "question": "I independently queried downstream storage for the original marker lapis-123. It returned a full record with that same ID.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 1 1 True",
+    "question": "It returned a full record with that same ID. I independently queried downstream storage for the original marker lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 1 2 False",
+    "question": "I independently queried downstream storage for the original marker lapis-123. The full row was returned with decision ID lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 1 2 True",
+    "question": "The full row was returned with decision ID lapis-123. I independently queried downstream storage for the original marker lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 1 0",
+    "question": "I independently queried downstream storage for the original marker lapis-123. The query returned only an acknowledgement.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 1 1",
+    "question": "I independently queried downstream storage for the original marker lapis-123. The complete record might be returned with that same ID.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 1 2",
+    "question": "I independently queried downstream storage for the original marker lapis-123. The full row came back with that same identifier at the receiver.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 1 3",
+    "question": "I independently queried downstream storage for the original marker lapis-123. The full record came back with decision ID onyx-299.",
+    "expected": "store_missing",
+    "includes": [
+      "If the downstream lookup did"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation disowned read 1",
+    "question": "I independently queried downstream storage for the original marker lapis-123. The complete row came back with that same ID. I later learned that query was for a different run.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 2 0 False",
+    "question": "The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123. The complete row came back with the same identifier.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 2 0 True",
+    "question": "The complete row came back with the same identifier. The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 2 1 False",
+    "question": "The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123. It returned a full record with that same ID.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 2 1 True",
+    "question": "It returned a full record with that same ID. The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 2 2 False",
+    "question": "The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123. The full row was returned with decision ID lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation exact read 2 2 True",
+    "question": "The full row was returned with decision ID lapis-123. The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned downs"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 2 0",
+    "question": "The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123. The query returned only an acknowledgement.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 2 1",
+    "question": "The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123. The complete record might be returned with that same ID.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 2 2",
+    "question": "The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123. The full row came back with that same identifier at the receiver.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation bounded read 2 3",
+    "question": "The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123. The full record came back with decision ID onyx-299.",
+    "expected": "store_missing",
+    "includes": [
+      "If the downstream lookup did"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation disowned read 2",
+    "question": "The original decision ID was lapis-123. I checked the warehouse for decision ID lapis-123. The complete row came back with that same ID. I later learned that query was for a different run.",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback fo"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation review wrapper",
+    "question": "briefcase-ai exec --to runs.jsonl -- python app.py",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation review foreign path",
+    "question": "The original exporter was JSONL. Where is my decision?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below t"
+    ],
+    "answer": "aspen-32.jsonl\nThat was from another run."
+  },
+  {
+    "name": "Source-bound lookup continuation review shared marker",
+    "question": "The original run used willow-71.jsonl. Two runs reused the same ticket. I have the ticket text.",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID or"
+    ],
+    "answer": "The marker tulip-12 was shared by both runs.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation review denied",
+    "question": "The original run used fir.jsonl. I tried to open fir.jsonl but permission was denied. I never saw any rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation review receiver instance",
+    "question": "The original exporter was OTLP. The original run sent to receiver North. I never checked receiver North. I searched receiver South for the original decision ID and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected dif"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation review two candidate paths",
+    "question": "The original exporter was JSONL. Which file should I check?",
+    "expected": "confirmation_unresolved_path",
+    "includes": [
+      "The original JSONL path is s"
+    ],
+    "answer": "willow-71.jsonl or aspen-32.jsonl",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation jsonl row chronology 0 matched",
+    "question": "The original run used fir.jsonl. My original decision ID was fern. I scanned the original file for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID moss.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation jsonl row chronology 0 no-match",
+    "question": "The original run used fir.jsonl. My original decision ID was fern. I scanned the original file for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID moss.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation jsonl row chronology 1 matched",
+    "question": "The original run used fir.jsonl. My original decision ID was fern. I scanned the original file for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID fern.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for t"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation jsonl row chronology 1 no-match",
+    "question": "The original run used fir.jsonl. My original decision ID was fern. I scanned the original file for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID fern.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation jsonl row chronology 2 matched",
+    "question": "The original run used fir.jsonl. My original decision ID was fern. I scanned the original file for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID fern.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation jsonl row chronology 2 no-match",
+    "question": "The original run used fir.jsonl. My original decision ID was fern. I scanned the original file for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID fern.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation jsonl row chronology 3 matched",
+    "question": "The original run used fir.jsonl. My original decision ID was fern. I scanned the original file for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID oak.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation jsonl row chronology 3 no-match",
+    "question": "The original run used fir.jsonl. My original decision ID was fern. I scanned the original file for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID oak.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation jsonl denied matched",
+    "question": "I tried to inspect the jsonl source. Permission was denied. I never saw any rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation jsonl denied no-match",
+    "question": "I tried to inspect the jsonl source. Permission was denied. I never saw any rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver row chronology 0 matched",
+    "question": "The original exporter used a receiver. My original decision ID was fern. I searched the receiver for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID moss.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver row chronology 0 no-match",
+    "question": "The original exporter used a receiver. My original decision ID was fern. I searched the receiver for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID moss.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver row chronology 1 matched",
+    "question": "The original exporter used a receiver. My original decision ID was fern. I searched the receiver for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID fern.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver row chronology 1 no-match",
+    "question": "The original exporter used a receiver. My original decision ID was fern. I searched the receiver for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID fern.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver row chronology 2 matched",
+    "question": "The original exporter used a receiver. My original decision ID was fern. I searched the receiver for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID fern.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver row chronology 2 no-match",
+    "question": "The original exporter used a receiver. My original decision ID was fern. I searched the receiver for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID fern.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver row chronology 3 matched",
+    "question": "The original exporter used a receiver. My original decision ID was fern. I searched the receiver for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID oak.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver row chronology 3 no-match",
+    "question": "The original exporter used a receiver. My original decision ID was fern. I searched the receiver for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID oak.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver denied matched",
+    "question": "I tried to inspect the receiver source. Permission was denied. I never saw any rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver denied no-match",
+    "question": "I tried to inspect the receiver source. Permission was denied. I never saw any rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage row chronology 0 matched",
+    "question": "The original exporter was OTLP. My original decision ID was fern. I searched the downstream store for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID moss.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage row chronology 0 no-match",
+    "question": "The original exporter was OTLP. My original decision ID was fern. I searched the downstream store for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID moss.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage row chronology 1 matched",
+    "question": "The original exporter was OTLP. My original decision ID was fern. I searched the downstream store for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID fern.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage row chronology 1 no-match",
+    "question": "The original exporter was OTLP. My original decision ID was fern. I searched the downstream store for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID fern.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage row chronology 2 matched",
+    "question": "The original exporter was OTLP. My original decision ID was fern. I searched the downstream store for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID fern.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage row chronology 2 no-match",
+    "question": "The original exporter was OTLP. My original decision ID was fern. I searched the downstream store for decision ID fern. It returned a row with decision ID fern. It also returned a row with decision ID fern.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup does not identify"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage row chronology 3 matched",
+    "question": "The original exporter was OTLP. My original decision ID was fern. I searched the downstream store for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID oak.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage row chronology 3 no-match",
+    "question": "The original exporter was OTLP. My original decision ID was fern. I searched the downstream store for decision ID fern. It returned a row with decision ID moss. It also returned a row with decision ID oak.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage denied matched",
+    "question": "I tried to inspect the storage source. Permission was denied. I never saw any rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage denied no-match",
+    "question": "I tried to inspect the storage source. Permission was denied. I never saw any rows.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation literal wrapper /usr/bin/python3.11runs.jsonl",
+    "question": "briefcase-ai exec --to runs.jsonl -- /usr/bin/python3.11 app.py",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation literal wrapper /usr/bin/python3.11\"my results/decisions.jsonl\"",
+    "question": "briefcase-ai exec --to \"my results/decisions.jsonl\" -- /usr/bin/python3.11 app.py",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation literal wrapper \"tmp/Python Test/bin/python3.11\"runs.jsonl",
+    "question": "briefcase-ai exec --to runs.jsonl -- \"tmp/Python Test/bin/python3.11\" app.py",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation literal wrapper \"tmp/Python Test/bin/python3.11\"\"my results/decisions.jsonl\"",
+    "question": "briefcase-ai exec --to \"my results/decisions.jsonl\" -- \"tmp/Python Test/bin/python3.11\" app.py",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation literal wrapper pypy3runs.jsonl",
+    "question": "briefcase-ai exec --to runs.jsonl -- pypy3 app.py",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation literal wrapper pypy3\"my results/decisions.jsonl\"",
+    "question": "briefcase-ai exec --to \"my results/decisions.jsonl\" -- pypy3 app.py",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation literal wrapper pythonruns.jsonl",
+    "question": "briefcase-ai exec --to runs.jsonl -- python app.py",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation literal wrapper python\"my results/decisions.jsonl\"",
+    "question": "briefcase-ai exec --to \"my results/decisions.jsonl\" -- python app.py",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation literal wrapper /usr/bin/noderuns.jsonl",
+    "question": "briefcase-ai exec --to runs.jsonl -- /usr/bin/node app.py",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation literal wrapper /usr/bin/node\"my results/decisions.jsonl\"",
+    "question": "briefcase-ai exec --to \"my results/decisions.jsonl\" -- /usr/bin/node app.py",
+    "expected": "check_launch",
+    "includes": [
+      "Inspect the original launch "
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation activated Node wrapper runs.jsonl",
+    "question": "briefcase-ai exec --to runs.jsonl -- /usr/bin/node --import @briefcase-ai/auto/register app.js",
+    "expected": "node_file",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation activated Node wrapper \"my results/decisions.jsonl\"",
+    "question": "briefcase-ai exec --to \"my results/decisions.jsonl\" -- /usr/bin/node --import @briefcase-ai/auto/register app.js",
+    "expected": "node_file",
+    "includes": [
+      "Open the original JSONL file"
+    ]
+  },
+  {
+    "name": "Source-bound lookup continuation receiver named source South matched",
+    "question": "The original run sent to receiver North. I never checked receiver North.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected dif"
+    ],
+    "answer": "I searched receiver South for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver named source South no-match",
+    "question": "The original run sent to receiver North. I never checked receiver North.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected dif"
+    ],
+    "answer": "I searched receiver South for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver named source North matched",
+    "question": "The original run sent to receiver North. I never checked receiver North.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for"
+    ],
+    "answer": "I searched receiver North for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation receiver named source North no-match",
+    "question": "The original run sent to receiver North. I never checked receiver North.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "answer": "I searched receiver North for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage named source South matched",
+    "question": "The original run sent to database North. I never checked database North.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected dif"
+    ],
+    "answer": "I searched database South for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage named source South no-match",
+    "question": "The original run sent to database North. I never checked database North.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected dif"
+    ],
+    "answer": "I searched database South for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage named source North matched",
+    "question": "The original run sent to database North. I never checked database North.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence"
+    ],
+    "answer": "I searched database North for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source-bound lookup continuation storage named source North no-match",
+    "question": "The original run sent to database North. I never checked database North.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflict"
+    ],
+    "answer": "I searched database North for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
   }
 ]
