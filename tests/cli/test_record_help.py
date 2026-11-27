@@ -224,7 +224,9 @@ def test_final_report_is_decoded_independently_of_question(lines, code, phrase, 
     assert "audit.jsonl" not in result.out + result.err
 
 
-@pytest.mark.parametrize("inline,expected", [("", "disabled Node preload"), ("BRIEFCASE_AUTO=1 ", "original JSONL file")])
+@pytest.mark.parametrize("inline,expected", [
+    ("", "disabled Node preload"), ("BRIEFCASE_AUTO=1 ", "original JSONL file")
+])
 def test_bare_preload_honors_inherited_activation(inline, expected, monkeypatch, capsys):
     from io import StringIO
     from briefcase.cli.__main__ import main
@@ -265,7 +267,8 @@ def test_repeated_answer_options_are_rejected(answer, capsys):
 
 
 def test_all_record_help_text_is_ascii():
-    for text in [TABLE["guide"], TABLE["confirmation"]["instruction"], *(item["text"] for item in TABLE["actions"].values())]:
+    texts = [TABLE["guide"], TABLE["confirmation"]["instruction"]]
+    for text in texts + [item["text"] for item in TABLE["actions"].values()]:
         assert text.isascii()
 
 
@@ -332,7 +335,8 @@ def test_terminal_investigation_precedes_optional_outcome(monkeypatch, capsys, p
 @pytest.mark.parametrize("env,expected", [
     ({"BRIEFCASE_AUTO": "0", "BRIEFCASE_EXPORTER": "prior.jsonl"}, "disabled Node preload"),
     ({"BRIEFCASE_AUTO": "False", "BRIEFCASE_EXPORTER": "otlp"}, "disabled Node preload"),
-    ({"BRIEFCASE_EXPORTER": "otlp", "OTEL_EXPORTER_OTLP_ENDPOINT": "http://999.999.999.999:4318"}, "startup diagnostic"),
+    ({"BRIEFCASE_EXPORTER": "otlp", "OTEL_EXPORTER_OTLP_ENDPOINT": "http://999.999.999.999:4318"},
+     "startup diagnostic"),
     ({"BRIEFCASE_EXPORTER": "otlp", "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318"}, "Search the collector"),
 ])
 def test_node_preload_resolution_is_shared_with_terminal_history(monkeypatch, capsys, command, env, expected):

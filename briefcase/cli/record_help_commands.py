@@ -312,7 +312,9 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 settings["BRIEFCASE_EXPORTER"] = "otlp"
         elif "BRIEFCASE_EXPORTER" in settings and not settings["BRIEFCASE_EXPORTER"]:
             settings["BRIEFCASE_EXPORTER"] = "console" if inherited is not None else "unresolved"
-        lines = "\n".join(f"{key}={value}" for key, value in settings.items() if "\n" not in value and "\r" not in value)
+        lines = "\n".join(
+            f"{key}={value}" for key, value in settings.items() if "\n" not in value and "\r" not in value
+        )
         selected = next((rule for rule in inline["rules"] if _matches(rule, lines)), None)
         if selected:
             facts.add(selected["fact"])
