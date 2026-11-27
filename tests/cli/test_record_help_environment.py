@@ -158,8 +158,10 @@ def test_original_node_transport_and_preload_context(question, env, expected, mo
 
 
 @pytest.mark.parametrize("timing,expected", [
-    ("I do not know whether the main thread was observing when the worker was created.", "Check whether the main thread"),
-    ("The worker thread was created first. The main thread started observing before the worker finished.", "original JSONL file"),
+    ("I do not know whether the main thread was observing when the worker was created.",
+     "Check whether the main thread"),
+    ("The worker thread was created first. The main thread started observing before the worker finished.",
+     "original JSONL file"),
     ("The main thread started observing before it created the worker.", "main thread's exporter"),
 ])
 def test_worker_forwarding_is_resolved_at_creation(timing, expected, monkeypatch, capsys):

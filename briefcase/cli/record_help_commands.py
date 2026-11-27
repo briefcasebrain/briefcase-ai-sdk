@@ -335,9 +335,12 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             previous_read = file_read
     inline_path = None
     inline = table["inlineNode"]
-    commands = [match for clause in re.split(table["split"], _scoped(table, question), flags=re.I)
-                for match in re.finditer(inline["command"], clause)
-                if _node_preloaded(inline, clause[match.end():]) and re.fullmatch(table["commandContext"], clause[:match.start()], re.I)]
+    commands = [
+        match for clause in re.split(table["split"], _scoped(table, question), flags=re.I)
+        for match in re.finditer(inline["command"], clause)
+        if _node_preloaded(inline, clause[match.end():])
+        and re.fullmatch(table["commandContext"], clause[:match.start()], re.I)
+    ]
     selected = None
     inherited_preload = inherited is not None and bool(re.search(inline["preloadSource"], evidence, re.I))
     if len(commands) == 1 or (not commands and inherited_preload):
@@ -387,7 +390,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         if not facts.intersection(("workerForward", "workerCreatedFirst")):
             facts.add("workerUnknown")
     selection = table["applicationSelection"]
-    choices = set()
+    choices: Set[str] = set()
     for clause in re.split(table["split"], _scoped(table, source_question), flags=re.I):
         worker_call = re.search(selection["workerActor"], clause, re.I)
         before_capture = re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
@@ -440,7 +443,9 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                                      if not (_sensitive(table, c) or re.search(table["privateWebAddress"], c, re.I)))
         safe_choice = key in ("ask_exporter", "ask_protocol") and any(
             re.fullmatch(pattern, reply_source.strip(), re.I) for pattern in table["exporterReplies"].values())
-        safe_path = key in ("ask_exporter", "ask_path") and _matches(table["replies"]["ask_path"][0], reply_source.strip())
+        safe_path = key in ("ask_exporter", "ask_path") and _matches(
+            table["replies"]["ask_path"][0], reply_source.strip()
+        )
         unsafe_reply = ((_sensitive(table, question) and not (safe_choice or safe_path))
                         or any(value in reply_source for value in raw_private))
         reply = "" if unsafe_reply else _scoped(table, preprocess(reply_source))
