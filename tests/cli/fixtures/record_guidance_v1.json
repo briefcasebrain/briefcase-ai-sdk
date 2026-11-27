@@ -18318,5 +18318,349 @@
     "includes": [
       "Search the collector's receive"
     ]
+  },
+  {
+    "name": "Receipt correlation initial",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID or m"
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ]
+  },
+  {
+    "name": "Receipt correlation AC02",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on my launch receipt is wick-537."
+  },
+  {
+    "name": "Receipt correlation my launch receipt on fir-8",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on my launch receipt is fir-8."
+  },
+  {
+    "name": "Receipt correlation my launch receipt recorded in fir-8",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID recorded in my launch receipt is fir-8."
+  },
+  {
+    "name": "Receipt correlation my launch receipt on \"fir-8\"",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on my launch receipt is \"fir-8\"."
+  },
+  {
+    "name": "Receipt correlation my launch receipt recorded in \"fir-8\"",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID recorded in my launch receipt is \"fir-8\"."
+  },
+  {
+    "name": "Receipt correlation my launch receipt on “fir-8”",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on my launch receipt is “fir-8”."
+  },
+  {
+    "name": "Receipt correlation my launch receipt recorded in “fir-8”",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID recorded in my launch receipt is “fir-8”."
+  },
+  {
+    "name": "Receipt correlation our run confirmation on fir-8",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on our run confirmation is fir-8."
+  },
+  {
+    "name": "Receipt correlation our run confirmation recorded in fir-8",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID recorded in our run confirmation is fir-8."
+  },
+  {
+    "name": "Receipt correlation our run confirmation on \"fir-8\"",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on our run confirmation is \"fir-8\"."
+  },
+  {
+    "name": "Receipt correlation our run confirmation recorded in \"fir-8\"",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID recorded in our run confirmation is \"fir-8\"."
+  },
+  {
+    "name": "Receipt correlation our run confirmation on “fir-8”",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on our run confirmation is “fir-8”."
+  },
+  {
+    "name": "Receipt correlation our run confirmation recorded in “fir-8”",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID recorded in our run confirmation is “fir-8”."
+  },
+  {
+    "name": "Receipt correlation the original job log on fir-8",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on the original job log is fir-8."
+  },
+  {
+    "name": "Receipt correlation the original job log recorded in fir-8",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID recorded in the original job log is fir-8."
+  },
+  {
+    "name": "Receipt correlation the original job log on \"fir-8\"",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on the original job log is \"fir-8\"."
+  },
+  {
+    "name": "Receipt correlation the original job log recorded in \"fir-8\"",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID recorded in the original job log is \"fir-8\"."
+  },
+  {
+    "name": "Receipt correlation the original job log on “fir-8”",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on the original job log is “fir-8”."
+  },
+  {
+    "name": "Receipt correlation the original job log recorded in “fir-8”",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID recorded in the original job log is “fir-8”."
+  },
+  {
+    "name": "Receipt correlation The original decision ID on their receipt is different-2.",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on their receipt is different-2."
+  },
+  {
+    "name": "Receipt correlation Maybe the original decision ID on my launch receipt is fir-8.",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "Maybe the original decision ID on my launch receipt is fir-8."
+  },
+  {
+    "name": "Receipt correlation The original decision ID on my receipt is fir-8 or pine-7.",
+    "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to "
+    ],
+    "omits": [
+      "wick-537",
+      "fir-8",
+      "pine-7",
+      "different-2"
+    ],
+    "answer": "The original decision ID on my receipt is fir-8 or pine-7."
   }
 ]

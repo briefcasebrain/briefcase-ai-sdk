@@ -179,7 +179,7 @@ one-click install link for the MCP server. Per-tool details:
 | `langchain` / `crewai` / `llamaindex` / `autogen` / `ag2` / `pageindex` / `openai-agents` | Framework auto-instrumentation via `briefcase.auto` (each adds its framework) |
 | `mcp` | MCP server (`briefcase-ai-mcp`) exposing the SDK to AI agents |
 | `run` | gRPC client for the `briefcase-ai` evaluation-run CLI (adds `grpcio`, `grpcio-reflection`, `protobuf`) |
-| `engine` | gRPC client for `briefcase-ai engine`, `graph` and `env` against the licensed Briefcase engine (adds `grpcio`, `protobuf`, `cryptography`; Briefcase operates the proprietary engine) |
+| `engine` | gRPC client for `briefcase-ai engine`, `graph` and `env` against the licensed Briefcase engine (adds `grpcio`, `protobuf`, `cryptography`; Briefcase AI operates the proprietary engine) |
 | `receiver` | OTLP/protobuf decoding for `briefcase-ai receive` (adds `opentelemetry-proto`; OTLP/JSON needs no extra) |
 | `budgets-redis` / `budgets-postgres` / `budgets-mysql` | Shared stores for `briefcase.budgets` (each adds its client: `redis`, `psycopg`, `pymysql`) |
 | `dev` | Dev tooling: pytest, mypy, flake8, moto (not part of `all`) |
@@ -201,7 +201,7 @@ not part of `all`.
 
 ## Managed platform
 
-The free SDK captures decisions, enforces controls, and supports local replay and storage on your own infrastructure. The proprietary engine runs in Briefcase’s managed service. A paid entitlement grants access to the service. Engine binaries and images stay with Briefcase.
+The free SDK captures decisions, enforces controls, and supports local replay and storage on your own infrastructure. The proprietary engine runs in Briefcase AI’s managed service. A paid entitlement grants access to the service. Engine binaries and images stay with Briefcase AI.
 
 ![Free SDK capture and optional managed engine access](docs/features/managed-engine.svg)
 

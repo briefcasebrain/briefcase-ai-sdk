@@ -292,6 +292,10 @@
     "confirmation_partial": {
       "kind": "action",
       "text": "The lookup covered only part of the selected source. Search the remaining entries for the original identifier before reporting that the source has no match."
+    },
+    "jsonl_candidates": {
+      "kind": "action",
+      "text": "Compare the original decision ID or unique marker with every candidate row in the original JSONL file. Attribute the decision to this invocation only if exactly one row has that decision_id or unique marker. Repeated ticket text cannot identify the row."
     }
   },
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
@@ -1624,6 +1628,17 @@
       ]
     },
     {
+      "action": "jsonl_candidates",
+      "all": [
+        "sharedInput",
+        "hasID",
+        "jsonl"
+      ],
+      "none": [
+        "file"
+      ]
+    },
+    {
       "action": "match_candidates",
       "all": [
         "sharedInput",
@@ -2759,7 +2774,7 @@
     }
   },
   "entityGrammar": {
-    "idLink": "\\s*(?:(?:for|from|of)\\s+(?:the |my |our |this )?(?:original )?(?:invocation|attempt|run|retry|call|launcher|receipt|job|process)\\s*)?(?:\\s+(?:name|identifier))?\\s*(?:(?:was|is|appears?|shows?|was shown|was listed|listed|was recorded|recorded|was returned|returned|was assigned|assigned|was set|set|was named|named|called|labelled|labeled|given|reported|was reported|was captured|captured|specified)\\s+)*(?:(?:as|to|of)\\s+)?(?:[:=#]\\s*)?",
+    "idLink": "\\s*(?:(?:(?:shown|printed|recorded|listed|noted|written)\\s+)?(?:on|in|from)\\s+(?:(?:my|our|the|this|original|issued|printed|retained|run|launch|job|submission|decision)\\s+)*(?:receipt|confirmation|log)\\s+)?\\s*(?:(?:for|from|of)\\s+(?:the |my |our |this )?(?:original )?(?:invocation|attempt|run|retry|call|launcher|receipt|job|process)\\s*)?(?:\\s+(?:name|identifier))?\\s*(?:(?:was|is|appears?|shows?|was shown|was listed|listed|was recorded|recorded|was returned|returned|was assigned|assigned|was set|set|was named|named|called|labelled|labeled|given|reported|was reported|was captured|captured|specified)\\s+)*(?:(?:as|to|of)\\s+)?(?:[:=#]\\s*)?",
     "link": "(?:\\s+(?:name|identifier))?\\s*(?:(?:was|is|appears?|shows?|was shown|was listed|listed|was recorded|recorded|was returned|returned|was assigned|assigned|was set|set|was named|named|called|labelled|labeled|given|reported|was reported|was captured|captured|specified)\\s+)*(?:(?:as|to|of)\\s+)?(?:[:=#]\\s*)?",
     "originalID": "\\b(?:original\\s+(?:unique\\s+)?(?:decision[_ -]id|trace[_ -]id|run[_ -]id|identifier|id|marker|correlation)|unique\\s+(?:marker|correlation|value|tag|code))\\b",
     "decisionID": "\\b(?:decision[_ -]id|trace[_ -]id|run[_ -]id|correlation(?: id)?|identifier|marker)\\b",

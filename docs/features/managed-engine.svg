@@ -17,7 +17,7 @@
 <g id="clust2" class="cluster">
 <title>cluster_managed</title>
 <path fill="#fafbf9" stroke="#b4beda" d="M587.34,-8C587.34,-8 739.84,-8 739.84,-8 745.84,-8 751.84,-14 751.84,-20 751.84,-20 751.84,-71 751.84,-71 751.84,-77 745.84,-83 739.84,-83 739.84,-83 587.34,-83 587.34,-83 581.34,-83 575.34,-77 575.34,-71 575.34,-71 575.34,-20 575.34,-20 575.34,-14 581.34,-8 587.34,-8"/>
-<text xml:space="preserve" text-anchor="middle" x="663.59" y="-65.7" font-family="Helvetica,sans-Serif" font-size="14.00">Briefcase&#45;operated service</text>
+<text xml:space="preserve" text-anchor="middle" x="663.59" y="-65.7" font-family="Helvetica,sans-Serif" font-size="14.00">Briefcase AI managed service</text>
 </g>
 <!-- app -->
 <g id="node1" class="node">

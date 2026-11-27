@@ -1,6 +1,6 @@
 # Managed engine access
 
-The proprietary engine runs in infrastructure operated by Briefcase. Contact your workspace administrator for an entitlement and the service endpoint. The portal is the place to request access. The gRPC client accepts the endpoint supplied for your workspace. [Managed engine portal](https://observe.briefcasebrain.io/engine)
+The proprietary engine runs in infrastructure operated by Briefcase AI. Contact your workspace administrator for an entitlement and the service endpoint. The portal is the place to request access. The gRPC client accepts the endpoint supplied for your workspace. [Managed engine portal](https://observe.briefcasebrain.io/engine)
 
 ![Where SDK records and managed engine requests go](managed-engine.svg)
 
@@ -20,3 +20,5 @@ Capture decisions with `briefcase.observe("runs.jsonl")`, inspect the resulting 
 4. Preview removal with `briefcase-ai engine uninstall --dry-run`. Ordinary uninstall retains data volumes and secrets. The separate `--purge` option permanently removes eligible data after confirmation.
 
 Use `briefcase-ai engine logs` and `briefcase-ai engine doctor` to inspect an existing installation during migration. The SDK accepts no customer installation, startup or upgrade commands for the proprietary engine.
+
+During legacy cleanup, keep the Docker endpoint under the control of the administrator who approved the operation. The SDK checks the recorded daemon identity, but Docker Compose opens a separate connection. Repointing that endpoint between verification and use is outside the threat model.

@@ -1,4 +1,4 @@
-"""Inspect and retire legacy engine installations. New engine access is managed by Briefcase."""
+"""Inspect and retire legacy engine installations. New engine access is managed by Briefcase AI."""
 from __future__ import annotations
 
 import argparse
@@ -884,7 +884,7 @@ def cmd_status(args, store, engine, stack) -> int:
     record = state["install"]
     if record is not None:
         state["services"] = _services(record)
-        state["update"] = {"checked": False, "reason": "Engine updates are managed by Briefcase."}
+        state["update"] = {"checked": False, "reason": "Engine updates are managed by Briefcase AI."}
     if getattr(args, "json", False):
         shown = _ux.print_json(state)
         return _engine.EXIT_NOT_INSTALLED if record is None and not state["remote"] else shown
