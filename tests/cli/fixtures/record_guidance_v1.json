@@ -16485,5 +16485,1838 @@
     "includes": [
       "If this process used a me"
     ]
+  },
+  {
+    "name": "Archived artifact AB08 initial",
+    "question": "I have archives of the Node demo's reply on stdout and the console decision on stderr. Which archive should I read for the result?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to in"
+    ]
+  },
+  {
+    "name": "Archived artifact AB08 clarification",
+    "question": "I have archives of the Node demo's reply on stdout and the console decision on stderr. Which archive should I read for the result?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for deci"
+    ],
+    "answer": "I need the SDK decision metadata, in particular the token count."
+  },
+  {
+    "name": "Archived artifact roles 0 False ask_subject",
+    "question": "The archived reply was on stdout and the console decision was on stderr. Which archive should I read for the result?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to in"
+    ]
+  },
+  {
+    "name": "Archived artifact roles 0 False console",
+    "question": "The archived reply was on stdout and the console decision was on stderr. Which archive should I read for the result?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for the "
+    ],
+    "answer": "I need SDK decision metadata and the token count."
+  },
+  {
+    "name": "Archived artifact roles 0 False reply",
+    "question": "The archived reply was on stdout and the console decision was on stderr. Which archive should I read for the result?",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for the app"
+    ],
+    "answer": "I want the application reply."
+  },
+  {
+    "name": "Archived artifact roles 0 True ask_subject",
+    "question": "the console decision was on stderr and The archived reply was on stdout. Which archive should I read for the result?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to in"
+    ]
+  },
+  {
+    "name": "Archived artifact roles 0 True console",
+    "question": "the console decision was on stderr and The archived reply was on stdout. Which archive should I read for the result?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for the "
+    ],
+    "answer": "I need SDK decision metadata and the token count."
+  },
+  {
+    "name": "Archived artifact roles 0 True reply",
+    "question": "the console decision was on stderr and The archived reply was on stdout. Which archive should I read for the result?",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for the app"
+    ],
+    "answer": "I want the application reply."
+  },
+  {
+    "name": "Archived artifact roles 1 False ask_subject",
+    "question": "The archived reply was on stderr and the console decision was on stdout. Which archive should I read for the result?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to in"
+    ]
+  },
+  {
+    "name": "Archived artifact roles 1 False console_stdout",
+    "question": "The archived reply was on stderr and the console decision was on stdout. Which archive should I read for the result?",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdout for the "
+    ],
+    "answer": "I need SDK decision metadata and the token count."
+  },
+  {
+    "name": "Archived artifact roles 1 False reply_stderr",
+    "question": "The archived reply was on stderr and the console decision was on stdout. Which archive should I read for the result?",
+    "expected": "reply_stderr",
+    "includes": [
+      "Read retained stderr for the app"
+    ],
+    "answer": "I want the application reply."
+  },
+  {
+    "name": "Archived artifact roles 1 True ask_subject",
+    "question": "the console decision was on stdout and The archived reply was on stderr. Which archive should I read for the result?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to in"
+    ]
+  },
+  {
+    "name": "Archived artifact roles 1 True console_stdout",
+    "question": "the console decision was on stdout and The archived reply was on stderr. Which archive should I read for the result?",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdout for the "
+    ],
+    "answer": "I need SDK decision metadata and the token count."
+  },
+  {
+    "name": "Archived artifact roles 1 True reply_stderr",
+    "question": "the console decision was on stdout and The archived reply was on stderr. Which archive should I read for the result?",
+    "expected": "reply_stderr",
+    "includes": [
+      "Read retained stderr for the app"
+    ],
+    "answer": "I want the application reply."
+  },
+  {
+    "name": "Archived artifact roles 2 False ask_subject",
+    "question": "The archived reply was on stdout and the SDK decision was in downstream storage. Which archive should I read for the result?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to in"
+    ]
+  },
+  {
+    "name": "Archived artifact roles 2 False query_storage",
+    "question": "The archived reply was on stdout and the SDK decision was in downstream storage. Which archive should I read for the result?",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for th"
+    ],
+    "answer": "I need SDK decision metadata and the token count."
+  },
+  {
+    "name": "Archived artifact roles 2 False reply",
+    "question": "The archived reply was on stdout and the SDK decision was in downstream storage. Which archive should I read for the result?",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for the app"
+    ],
+    "answer": "I want the application reply."
+  },
+  {
+    "name": "Archived artifact roles 2 True ask_subject",
+    "question": "the SDK decision was in downstream storage and The archived reply was on stdout. Which archive should I read for the result?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to in"
+    ]
+  },
+  {
+    "name": "Archived artifact roles 2 True query_storage",
+    "question": "the SDK decision was in downstream storage and The archived reply was on stdout. Which archive should I read for the result?",
+    "expected": "query_storage",
+    "includes": [
+      "Run a downstream readback for th"
+    ],
+    "answer": "I need SDK decision metadata and the token count."
+  },
+  {
+    "name": "Archived artifact roles 2 True reply",
+    "question": "the SDK decision was in downstream storage and The archived reply was on stdout. Which archive should I read for the result?",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for the app"
+    ],
+    "answer": "I want the application reply."
+  },
+  {
+    "name": "Archived artifact roles 3 False ask_subject",
+    "question": "The stdout archive contains the reply and the stderr archive contains the console decision. Which archive should I read for the result?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to in"
+    ]
+  },
+  {
+    "name": "Archived artifact roles 3 False console",
+    "question": "The stdout archive contains the reply and the stderr archive contains the console decision. Which archive should I read for the result?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for the "
+    ],
+    "answer": "I need SDK decision metadata and the token count."
+  },
+  {
+    "name": "Archived artifact roles 3 False reply",
+    "question": "The stdout archive contains the reply and the stderr archive contains the console decision. Which archive should I read for the result?",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for the app"
+    ],
+    "answer": "I want the application reply."
+  },
+  {
+    "name": "Archived artifact roles 3 True ask_subject",
+    "question": "the stderr archive contains the console decision and The stdout archive contains the reply. Which archive should I read for the result?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to in"
+    ]
+  },
+  {
+    "name": "Archived artifact roles 3 True console",
+    "question": "the stderr archive contains the console decision and The stdout archive contains the reply. Which archive should I read for the result?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for the "
+    ],
+    "answer": "I need SDK decision metadata and the token count."
+  },
+  {
+    "name": "Archived artifact roles 3 True reply",
+    "question": "the stderr archive contains the console decision and The stdout archive contains the reply. Which archive should I read for the result?",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for the app"
+    ],
+    "answer": "I want the application reply."
+  },
+  {
+    "name": "Archived artifact unspecified destination",
+    "question": "Which archive should I read for the result?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to ch"
+    ],
+    "answer": "I need SDK decision metadata and the token count."
+  },
+  {
+    "name": "Archived artifact unknown role",
+    "question": "I kept an archive of stdout and stderr. Which archive should I read for the result?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to ch"
+    ],
+    "answer": "I need SDK decision metadata and the token count."
+  },
+  {
+    "name": "Scope of reported lookup independent 0",
+    "question": "The original exporter was memory. My teammate's launch was briefcase-ai exec --to elm.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory "
+    ]
+  },
+  {
+    "name": "Scope of reported lookup independent 1",
+    "question": "My original launch was briefcase-ai exec --to memory -- python app.py. Before recording the decision, my Python worker called briefcase.observe('console'). Before recording the decision, my Python worker called briefcase.observe().",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory "
+    ]
+  },
+  {
+    "name": "Scope of reported lookup independent 2",
+    "question": "My original launch was briefcase-ai exec --to otlp -- python app.py. The launch printed: briefcase: auto-instrumentation is disabled for this process",
+    "expected": "bootstrap_off",
+    "includes": [
+      "The original startup diagnosti"
+    ]
+  },
+  {
+    "name": "Scope of reported lookup independent 3",
+    "question": "The original run used a JSONL file. Its filename is unknown.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "The original launch was briefcase-ai exec --to iris.jsonl -- python app.py."
+  },
+  {
+    "name": "Scope of reported lookup independent 4",
+    "question": "The original run used iris.jsonl. My original decision ID was leaf-A. I searched iris.jsonl for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup independent 5",
+    "question": "The original run used iris.jsonl. I searched the original file for the original decision ID and found a matching record. I then realized I opened cedar.jsonl instead.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup independent 6",
+    "question": "The original run used iris.jsonl. I searched only the first row of the original file for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup independent 7",
+    "question": "The original run used iris.jsonl. I only searched iris.jsonl for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has not b"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup independent 8",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. I searched receiver https://south.example.invalid for the original decision ID and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False False False matched decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file shadow.jsonl for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False False False matched decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file shadow.jsonl for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False False False no-match decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file shadow.jsonl for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False False False no-match decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file shadow.jsonl for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False False True matched decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file shadow.jsonl for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False False True matched decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file shadow.jsonl for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False False True no-match decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file shadow.jsonl for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False False True no-match decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file shadow.jsonl for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False True False matched decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file shadow.jsonl for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False True False matched decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file shadow.jsonl for decision ID leaf-A and found a matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False True False no-match decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file shadow.jsonl for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False True False no-match decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file shadow.jsonl for decision ID leaf-A and found no matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False True True matched decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file shadow.jsonl for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False True True matched decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file shadow.jsonl for decision ID leaf-A and found a matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False True True no-match decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file shadow.jsonl for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 False True True no-match decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file shadow.jsonl for decision ID leaf-A and found no matching record.",
+    "expected": "confirmation_other_file",
+    "includes": [
+      "The file you inspected differs"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True False False matched decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file ledger.jsonl for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True False False matched decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file ledger.jsonl for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True False False no-match decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file ledger.jsonl for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True False False no-match decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file ledger.jsonl for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True False True matched decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file ledger.jsonl for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True False True matched decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file ledger.jsonl for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True False True no-match decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file ledger.jsonl for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True False True no-match decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file ledger.jsonl for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True True False matched decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file ledger.jsonl for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True True False matched decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file ledger.jsonl for decision ID leaf-A and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True True False no-match decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file ledger.jsonl for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True True False no-match decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched only the first entry in the file ledger.jsonl for decision ID leaf-A and found no matching record.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True True True matched decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file ledger.jsonl for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True True True matched decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file ledger.jsonl for decision ID leaf-A and found a matching record.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True True True no-match decision_id=",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file ledger.jsonl for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 0 True True True no-match decision ID ",
+    "question": "My original run used ledger.jsonl. My original decision ID was leaf-A. I searched every entry in the file ledger.jsonl for decision ID leaf-A and found no matching record.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False False False matched decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://south.example.invalid for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False False False matched decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://south.example.invalid for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False False False no-match decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://south.example.invalid for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False False False no-match decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://south.example.invalid for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False False True matched decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://south.example.invalid for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False False True matched decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://south.example.invalid for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False False True no-match decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://south.example.invalid for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False False True no-match decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://south.example.invalid for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False True False matched decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://south.example.invalid for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False True False matched decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://south.example.invalid for decision ID leaf-A and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False True False no-match decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://south.example.invalid for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False True False no-match decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://south.example.invalid for decision ID leaf-A and found no matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False True True matched decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://south.example.invalid for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False True True matched decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://south.example.invalid for decision ID leaf-A and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False True True no-match decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://south.example.invalid for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 False True True no-match decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://south.example.invalid for decision ID leaf-A and found no matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True False False matched decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://north.example.invalid for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True False False matched decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://north.example.invalid for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True False False no-match decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://north.example.invalid for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True False False no-match decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://north.example.invalid for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True False True matched decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://north.example.invalid for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True False True matched decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://north.example.invalid for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True False True no-match decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://north.example.invalid for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True False True no-match decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://north.example.invalid for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True True False matched decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://north.example.invalid for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True True False matched decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://north.example.invalid for decision ID leaf-A and found a matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True True False no-match decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://north.example.invalid for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True True False no-match decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched only the first entry in the receiver https://north.example.invalid for decision ID leaf-A and found no matching record.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True True True matched decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://north.example.invalid for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True True True matched decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://north.example.invalid for decision ID leaf-A and found a matching record.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True True True no-match decision_id=",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://north.example.invalid for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 1 True True True no-match decision ID ",
+    "question": "My original launch was briefcase-ai exec --to https://north.example.invalid -- python app.py. My original decision ID was leaf-A. I searched every entry in the receiver https://north.example.invalid for decision ID leaf-A and found no matching record.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False False False matched decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database south for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False False False matched decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database south for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False False False no-match decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database south for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False False False no-match decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database south for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False False True matched decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database south for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False False True matched decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database south for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False False True no-match decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database south for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False False True no-match decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database south for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False True False matched decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database south for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False True False matched decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database south for decision ID leaf-A and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False True False no-match decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database south for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False True False no-match decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database south for decision ID leaf-A and found no matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False True True matched decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database south for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False True True matched decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database south for decision ID leaf-A and found a matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False True True no-match decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database south for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 False True True no-match decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database south for decision ID leaf-A and found no matching record.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True False False matched decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database north for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True False False matched decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database north for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True False False no-match decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database north for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True False False no-match decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database north for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True False True matched decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database north for decision_id=leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True False True matched decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database north for decision ID leaf-B and found a matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True False True no-match decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database north for decision_id=leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True False True no-match decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database north for decision ID leaf-B and found no matching record.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision ID"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True True False matched decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database north for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True True False matched decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database north for decision ID leaf-A and found a matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True True False no-match decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database north for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True True False no-match decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched only the first entry in the database north for decision ID leaf-A and found no matching record.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True True True matched decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database north for decision_id=leaf-A and found a matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True True True matched decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database north for decision ID leaf-A and found a matching record.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True True True no-match decision_id=",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database north for decision_id=leaf-A and found no matching record.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup 2 True True True no-match decision ID ",
+    "question": "My original run used database north. My original decision ID was leaf-A. I searched every entry in the database north for decision ID leaf-A and found no matching record.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of a "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup python order memory 'console' False",
+    "question": "My original launch was briefcase-ai exec --to memory -- python app.py. Before recording the decision, my Python worker called briefcase.observe('console'). Before recording the decision, my Python worker called briefcase.observe('console').",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ]
+  },
+  {
+    "name": "Scope of reported lookup python order memory 'console' True",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ],
+    "answer": "My original launch was briefcase-ai exec --to memory -- python app.py. Before recording the decision, my Python worker called briefcase.observe('console'). Before recording the decision, my Python worker called briefcase.observe('console')."
+  },
+  {
+    "name": "Scope of reported lookup python order console 'memory' False",
+    "question": "My original launch was briefcase-ai exec --to console -- python app.py. Before recording the decision, my Python worker called briefcase.observe('memory'). Before recording the decision, my Python worker called briefcase.observe('memory').",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory "
+    ]
+  },
+  {
+    "name": "Scope of reported lookup python order console 'memory' True",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory "
+    ],
+    "answer": "My original launch was briefcase-ai exec --to console -- python app.py. Before recording the decision, my Python worker called briefcase.observe('memory'). Before recording the decision, my Python worker called briefcase.observe('memory')."
+  },
+  {
+    "name": "Scope of reported lookup python order memory  False",
+    "question": "My original launch was briefcase-ai exec --to memory -- python app.py. Before recording the decision, my Python worker called briefcase.observe('console'). Before recording the decision, my Python worker called briefcase.observe().",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory "
+    ]
+  },
+  {
+    "name": "Scope of reported lookup python order memory  True",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory "
+    ],
+    "answer": "My original launch was briefcase-ai exec --to memory -- python app.py. Before recording the decision, my Python worker called briefcase.observe('console'). Before recording the decision, my Python worker called briefcase.observe()."
+  },
+  {
+    "name": "Scope of reported lookup python order console  False",
+    "question": "My original launch was briefcase-ai exec --to console -- python app.py. Before recording the decision, my Python worker called briefcase.observe('memory'). Before recording the decision, my Python worker called briefcase.observe().",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ]
+  },
+  {
+    "name": "Scope of reported lookup python order console  True",
+    "question": "Which exporter did my original process use?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ],
+    "answer": "My original launch was briefcase-ai exec --to console -- python app.py. Before recording the decision, my Python worker called briefcase.observe('memory'). Before recording the decision, my Python worker called briefcase.observe()."
+  },
+  {
+    "name": "Scope of reported lookup coverage jsonl first row matched",
+    "question": "I searched only the first row in the file receipt.jsonl for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage jsonl first row no-match",
+    "question": "I searched only the first row in the file receipt.jsonl for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage jsonl last record matched",
+    "question": "I searched only the last record in the file receipt.jsonl for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage jsonl last record no-match",
+    "question": "I searched only the last record in the file receipt.jsonl for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage jsonl top 3 entries matched",
+    "question": "I searched only the top 3 entries in the file receipt.jsonl for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage jsonl top 3 entries no-match",
+    "question": "I searched only the top 3 entries in the file receipt.jsonl for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage receiver first row matched",
+    "question": "I searched only the first row in the receiver north for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage receiver first row no-match",
+    "question": "I searched only the first row in the receiver north for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage receiver last record matched",
+    "question": "I searched only the last record in the receiver north for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage receiver last record no-match",
+    "question": "I searched only the last record in the receiver north for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage receiver top 3 entries matched",
+    "question": "I searched only the top 3 entries in the receiver north for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage receiver top 3 entries no-match",
+    "question": "I searched only the top 3 entries in the receiver north for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage storage first row matched",
+    "question": "I searched only the first row in the database north for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage storage first row no-match",
+    "question": "I searched only the first row in the database north for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage storage last record matched",
+    "question": "I searched only the last record in the database north for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage storage last record no-match",
+    "question": "I searched only the last record in the database north for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage storage top 3 entries matched",
+    "question": "I searched only the top 3 entries in the database north for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Scope of reported lookup coverage storage top 3 entries no-match",
+    "question": "I searched only the top 3 entries in the database north for the original decision ID.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "The lookup covered only part o"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Scope of reported lookup pending file BRIEFCASE_EXPORTER=trace.jsonl node --import @briefcase-ai/auto/register app.js.",
+    "question": "The original run used a JSONL file. Its filename is unknown.",
+    "expected": "node_file",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "The original launch was BRIEFCASE_EXPORTER=trace.jsonl node --import @briefcase-ai/auto/register app.js."
+  },
+  {
+    "name": "Scope of reported lookup pending file briefcase-ai exec --to other.jsonl -- python app.py.",
+    "question": "The original run used a JSONL file. Its filename is unknown.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL file f"
+    ],
+    "answer": "The original launch was briefcase-ai exec --to other.jsonl -- python app.py."
+  },
+  {
+    "name": "Scope of reported lookup pending file briefcase-ai exec --to console -- python app.py.",
+    "question": "The original run used a JSONL file. Its filename is unknown.",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to "
+    ],
+    "answer": "The original launch was briefcase-ai exec --to console -- python app.py."
+  },
+  {
+    "name": "Scope of reported lookup pending file briefcase-ai exec --to https://collector.example -- python app.py.",
+    "question": "The original run used a JSONL file. Its filename is unknown.",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to "
+    ],
+    "answer": "The original launch was briefcase-ai exec --to https://collector.example -- python app.py."
+  },
+  {
+    "name": "Scope of reported lookup pending file BRIEFCASE_AUTO=0 BRIEFCASE_EXPORTER=logs.jsonl node --import @briefcase-ai/auto/register app.js.",
+    "question": "The original run used a JSONL file. Its filename is unknown.",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide below to "
+    ],
+    "answer": "The original launch was BRIEFCASE_AUTO=0 BRIEFCASE_EXPORTER=logs.jsonl node --import @briefcase-ai/auto/register app.js."
+  },
+  {
+    "name": "Scope of reported lookup possessive owner",
+    "question": "The original exporter was memory. Our colleague’s command was briefcase-ai exec --to rogue.jsonl -- python app.py.",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memory "
+    ]
+  },
+  {
+    "name": "Scope of reported lookup sample diagnostic",
+    "question": "The original launch was briefcase-ai exec --to otlp -- python app.py. A sample launch printed: briefcase: auto-instrumentation is disabled for this process.",
+    "expected": "otlp",
+    "includes": [
+      "Search the collector's receive"
+    ]
   }
 ]

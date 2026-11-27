@@ -288,6 +288,10 @@
     "confirmation_unresolved_lookup": {
       "kind": "action",
       "text": "The described lookup does not identify its source and target as the original destination and decision. Verify where the lookup ran and which original identifier it searched before reporting a result."
+    },
+    "confirmation_partial": {
+      "kind": "action",
+      "text": "The lookup covered only part of the selected source. Search the remaining entries for the original identifier before reporting that the source has no match."
     }
   },
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
@@ -771,7 +775,7 @@
     "storeQuestion": {
       "scope": "clause",
       "all": [
-        "\\b(?:store|stored|storage|archive|database|downstream|warehouse|durable backend)\\b",
+        "\\b(?:store|stored|storage|downstream archive|database|downstream|warehouse|durable backend)\\b",
         "\\b(?:is|how|could|should|will|want|need|would|whether|can|confirm|check|prove|verify)\\b|\\b(?:no evidence|no proof|not enough (?:information|evidence)|do not know|don.t know|did not observe|didn.t observe|did not see|not clear|not sure|uncertain|unverified|haven.t (?:seen|checked|verified)|have not (?:seen|checked|verified)|couldn.t confirm|cannot confirm|can.t confirm|unconfirmed|unsure|maybe|possibly|might have|would have|no idea|if|whether|never|not (?:received|returned|matched|found|observed|confirmed))\\b"
       ]
     },
@@ -999,7 +1003,7 @@
     "replyOnStderr": {
       "scope": "clause",
       "all": [
-        "\\b(?:printed|wrote|writes|emitted|sent|logged)\\s+(?:(?:its|the|my|our|original|application|app|reply|response|text|message)\\s+){0,5}(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:directly\\s+)?(?:to|on|via)\\s+(?:its\\s+|the\\s+)?(?:stderr|standard error)\\b|\\b(?:application|app)\\s+(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:(?:was|is)\\s+)?(?:printed|written|sent|emitted|logged)\\s+(?:to|on|via)\\s+(?:stderr|standard error)\\b"
+        "\\b(?:printed|wrote|writes|emitted|sent|logged)\\s+(?:(?:its|the|my|our|original|application|app|reply|response|text|message)\\s+){0,5}(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:directly\\s+)?(?:to|on|via)\\s+(?:its\\s+|the\\s+)?(?:stderr|standard error)\\b|\\b(?:application|app)\\s+(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:(?:was|is)\\s+)?(?:printed|written|sent|emitted|logged)\\s+(?:to|on|via)\\s+(?:stderr|standard error)\\b|\\b(?:(?:the |its |our |original |retained |archived |printed |application |app )*(?:reply|response)(?: text)?)\\s+(?:(?:was|is|had been)\\s+)?(?:(?:printed|retained|archived|saved|written|captured|logged|kept|stored|recorded|sent|emitted)\\s+)?(?:on|to|in|at|from|via)\\s+(?:(?:its|the|our|my|retained|archived)\\s+)*(?:stderr|standard error)\\b|\\b(?:stderr|standard error)\\s+(?:(?:archive|stream|log)\\s+)?(?:holds?|contains?|has|had|includes?|captured|retained|recorded|shows?|kept|preserved)\\s+(?:(?:the |its |our |original |retained |archived |printed |application |app )*(?:reply|response)(?: text)?)\\b"
       ],
       "none": [
         "\\b(?:not(?!\\s+(?:stdout|standard output)\\b)|never|might|perhaps|maybe|whether|would|could|if|hypothetical|example)\\b"
@@ -1008,7 +1012,7 @@
     "replyOnStdout": {
       "scope": "clause",
       "all": [
-        "\\b(?:printed|wrote|writes|emitted|sent|logged)\\s+(?:(?:its|the|my|our|original|application|app|reply|response|text|message)\\s+){0,5}(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:directly\\s+)?(?:to|on|via)\\s+(?:its\\s+|the\\s+)?(?:stdout|standard output)\\b|\\b(?:application|app)\\s+(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:(?:was|is)\\s+)?(?:printed|written|sent|emitted|logged)\\s+(?:to|on|via)\\s+(?:stdout|standard output)\\b"
+        "\\b(?:printed|wrote|writes|emitted|sent|logged)\\s+(?:(?:its|the|my|our|original|application|app|reply|response|text|message)\\s+){0,5}(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:directly\\s+)?(?:to|on|via)\\s+(?:its\\s+|the\\s+)?(?:stdout|standard output)\\b|\\b(?:application|app)\\s+(?:reply|response)(?:\\s+(?:text|message))?\\s+(?:(?:was|is)\\s+)?(?:printed|written|sent|emitted|logged)\\s+(?:to|on|via)\\s+(?:stdout|standard output)\\b|\\b(?:(?:the |its |our |original |retained |archived |printed |application |app )*(?:reply|response)(?: text)?)\\s+(?:(?:was|is|had been)\\s+)?(?:(?:printed|retained|archived|saved|written|captured|logged|kept|stored|recorded|sent|emitted)\\s+)?(?:on|to|in|at|from|via)\\s+(?:(?:its|the|our|my|retained|archived)\\s+)*(?:stdout|standard output)\\b|\\b(?:stdout|standard output)\\s+(?:(?:archive|stream|log)\\s+)?(?:holds?|contains?|has|had|includes?|captured|retained|recorded|shows?|kept|preserved)\\s+(?:(?:the |its |our |original |retained |archived |printed |application |app )*(?:reply|response)(?: text)?)\\b"
       ],
       "none": [
         "\\b(?:not(?!\\s+(?:stderr|standard error)\\b)|never|might|perhaps|maybe|whether|would|could|if|hypothetical|example)\\b"
@@ -1042,12 +1046,39 @@
     "bootstrapDisabled": {
       "scope": "clause",
       "all": [
-        "\\b(?:startup|bootstrap|sitecustomize|launcher|runtime)\\b",
+        "\\b(?:startup|bootstrap|sitecustomize|launch|launcher|runtime)\\b",
         "\\b(?:diagnostic|log|message|warning|reported|said|printed|stated|showed)\\b",
         "\\b(?:auto[-\\s]?instrumentation|automatic capture)\\s+(?:is|was|has been)\\s+disabled\\s+(?:for|in)\\s+(?:this|the|that|our|my)\\s+process\\b"
       ],
       "none": [
         "\\b(?:if|hypothetical|example|sample|might|maybe|never|did not|other run|another run)\\b"
+      ]
+    },
+    "decisionOnStderr": {
+      "scope": "clause",
+      "all": [
+        "\\b(?:(?:the |its |our |original |retained |archived |exported |full )*(?:console |SDK )?(?:decision(?: JSON| record| metadata)?|decision_type|token_usage))\\s+(?:(?:was|is|had been)\\s+)?(?:(?:printed|retained|archived|saved|written|captured|logged|kept|stored|recorded|sent|emitted)\\s+)?(?:on|to|in|at|from|via)\\s+(?:(?:its|the|our|my|retained|archived)\\s+)*(?:stderr|standard error)\\b|\\b(?:stderr|standard error)\\s+(?:(?:archive|stream|log)\\s+)?(?:holds?|contains?|has|had|includes?|captured|retained|recorded|shows?|kept|preserved)\\s+(?:(?:the |its |our |original |retained |archived |exported |full )*(?:console |SDK )?(?:decision(?: JSON| record| metadata)?|decision_type|token_usage))\\b"
+      ],
+      "none": [
+        "\\b(?:never|not|might|maybe|perhaps|whether|would|could|if|example|hypothetical)\\b"
+      ]
+    },
+    "decisionOnStdout": {
+      "scope": "clause",
+      "all": [
+        "\\b(?:(?:the |its |our |original |retained |archived |exported |full )*(?:console |SDK )?(?:decision(?: JSON| record| metadata)?|decision_type|token_usage))\\s+(?:(?:was|is|had been)\\s+)?(?:(?:printed|retained|archived|saved|written|captured|logged|kept|stored|recorded|sent|emitted)\\s+)?(?:on|to|in|at|from|via)\\s+(?:(?:its|the|our|my|retained|archived)\\s+)*(?:stdout|standard output)\\b|\\b(?:stdout|standard output)\\s+(?:(?:archive|stream|log)\\s+)?(?:holds?|contains?|has|had|includes?|captured|retained|recorded|shows?|kept|preserved)\\s+(?:(?:the |its |our |original |retained |archived |exported |full )*(?:console |SDK )?(?:decision(?: JSON| record| metadata)?|decision_type|token_usage))\\b"
+      ],
+      "none": [
+        "\\b(?:never|not|might|maybe|perhaps|whether|would|could|if|example|hypothetical)\\b"
+      ]
+    },
+    "decisionOnStorage": {
+      "scope": "clause",
+      "all": [
+        "\\b(?:(?:the |its |our |original |retained |archived |exported |full )*(?:console |SDK )?(?:decision(?: JSON| record| metadata)?|decision_type|token_usage))\\s+(?:(?:was|is|had been)\\s+)?(?:(?:printed|retained|archived|saved|written|captured|logged|kept|stored|recorded|sent|emitted)\\s+)?(?:on|to|in|at|from|via)\\s+(?:(?:its|the|our|my|retained|archived)\\s+)*(?:database|warehouse|downstream (?:store|archive|storage))\\b|\\b(?:database|warehouse|downstream (?:store|archive|storage))\\s+(?:(?:archive|stream|log)\\s+)?(?:holds?|contains?|has|had|includes?|captured|retained|recorded|shows?|kept|preserved)\\s+(?:(?:the |its |our |original |retained |archived |exported |full )*(?:console |SDK )?(?:decision(?: JSON| record| metadata)?|decision_type|token_usage))\\b"
+      ],
+      "none": [
+        "\\b(?:never|not|might|maybe|perhaps|whether|would|could|if|example|hypothetical)\\b"
       ]
     }
   },
@@ -1119,6 +1150,51 @@
       "action": "reply",
       "all": [
         "wantReply"
+      ]
+    },
+    {
+      "action": "console_stdout",
+      "all": [
+        "wantMeta",
+        "decisionOnStdout"
+      ],
+      "none": [
+        "decisionOnStderr",
+        "decisionOnStorage"
+      ]
+    },
+    {
+      "action": "node_console",
+      "all": [
+        "wantMeta",
+        "decisionOnStderr",
+        "node"
+      ],
+      "none": [
+        "decisionOnStdout",
+        "decisionOnStorage"
+      ]
+    },
+    {
+      "action": "console",
+      "all": [
+        "wantMeta",
+        "decisionOnStderr"
+      ],
+      "none": [
+        "decisionOnStdout",
+        "decisionOnStorage"
+      ]
+    },
+    {
+      "action": "query_storage",
+      "all": [
+        "wantMeta",
+        "decisionOnStorage"
+      ],
+      "none": [
+        "decisionOnStderr",
+        "decisionOnStdout"
       ]
     },
     {
@@ -3097,7 +3173,10 @@
       "unclearSource": "\\b(?:unknown|unspecified|unidentified|unrelated|wrong|unconfirmed)\\s+(?:file|path|source|receiver|collector|store|database|location)\\b|\\b(?:file|path|receiver|collector|source|store|database)\\s+(?:name\\s+)?(?:is|was)\\s+(?:unknown|unclear|unconfirmed|unidentified|uncertain)\\b",
       "unclearTarget": "\\b(?:unknown|unidentified|unspecified|unconfirmed|uncertain)\\s+(?:(?:decision|run|trace)\\s+)?(?:ID|identifier|marker)\\b|\\b(?:ID|identifier|marker)\\s+(?:is|was)\\s+(?:unknown|unidentified|unconfirmed|uncertain)\\b",
       "plannedRead": "\\b(?:(?:have yet|plan|planned|intend|intended|hope|expect)\\s+to|would|will|might|may|should|could)\\s+(?:yet\\s+|still\\s+|later\\s+)?(?:look up|read|inspect|query|scan|open|search|check|retrieve)\\b",
-      "sourceReference": "\\b(?:it|that (?:source|destination|file|receiver|store|database)|this (?:source|destination|file|receiver|store|database))\\b"
+      "sourceReference": "\\b(?:it|that (?:source|destination|file|receiver|store|database)|this (?:source|destination|file|receiver|store|database))\\b",
+      "partialCoverage": "\\b(?:only|just|solely|limited (?:the (?:search|query|lookup) )?to)\\s+(?:the\\s+)?(?:(?:first|last|latest|earliest|first few|top|bottom|sample of|subset of|one|a single|\\d+)\\s+)+(?:rows?|entr(?:y|ies)|results?|records?|pages?|lines?|spans?|events?|batches?)\\b|\\b(?:a|the)\\s+(?:sample|subset|portion|part)\\s+of\\s+(?:the\\s+)?(?:rows|entr(?:y|ies)|records|file|results|logs)\\b",
+      "correctedInspection": "\\b(?:(?:actually|instead|mistakenly|accidentally)\\b|(?:then\\s+)?(?:realized|realised|discovered|learned|noticed)\\s+(?:that\\s+)?(?:I|we)\\b|correction\\s*:)",
+      "identifierField": "(?<![\\w./:@+%-])(decision|run|trace)_id(?=\\s*(?:[:=]|\\s+(?:was|is)\\b))"
     }
   },
   "destinationDenied": "\\b(?:i|we|it|they|the (?:job|process|script|application|run|original))\\s+(?:did not|didn.t|does not|doesn.t|was not|wasn.t|never|cannot|could not|couldn.t)\\s+(?:use|choos?e|select|configure|export|launch|run|set|send|inherit|connect)\\w*\\b|\\b(?:did not|didn.t|never|not) (?:use|using|configured for|configured with|selected|choose|send to|export to|set to|the exporter)\\b|\\b(?:uncertain whether|unsure whether|(?:i|we) (?:think|suspect|guess|bet|assume)|maybe|perhaps|might have used|may have used)\\b|\\b(?:exporter|destination|sink|capture|export|protocol)\\s+(?:(?:is|was|had been|has been|remained|stayed)\\s+)?(?:disabled|inactive|switched off|turned off|deactivated|unselected)\\b|\\b(?:disabled|deactivated) (?:the |our |my )?(?:otlp|http|console|memory) exporter\\b",
@@ -3388,6 +3467,10 @@
   ],
   "launchOwner": {
     "other": "\\b(?:(?:my|our|a|the)\\s+)?(?:teammate|coworker|co-worker|colleague|another operator|another developer)\\b",
-    "own": "\\b(?:their|his|her|someone else['’]s)\\s+(?:own\\s+)?(?:run|job|deployment|worker|experiment|test|process|attempt)\\b|\\b(?:a|an|the)\\s+(?:different|separate|other|unrelated)\\s+(?:run|job|worker|application|deployment)\\b"
-  }
+    "own": "\\b(?:their|his|her|someone else['’]s)\\s+(?:own\\s+)?(?:run|job|deployment|worker|experiment|test|process|attempt)\\b|\\b(?:a|an|the)\\s+(?:different|separate|other|unrelated)\\s+(?:run|job|worker|application|deployment)\\b|(?:teammate|coworker|co-worker|colleague|operator|developer)['’]s\\s+(?:(?:original|actual|own|previous)\\s+)*(?:launch|command|job|run|process|worker|invocation|deployment)\\b"
+  },
+  "fileActions": [
+    "jsonl",
+    "node_file"
+  ]
 }

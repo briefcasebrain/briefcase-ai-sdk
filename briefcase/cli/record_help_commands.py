@@ -632,13 +632,14 @@ def _runtime_names(table, clauses):
             and re.search(pattern, clause, re.I)}
 
 
-def _execution_evidence(table, source, inherited=None):
+def _execution_evidence(table, source, inherited=None, guide_origin=None):
     """Resolve launch and explicit application evidence identically for a question or its clarification."""
     inline = table["inlineNode"]
     clauses = re.split(table["split"], _scoped(table, source), flags=re.I)
     runtime = _runtime_names(table, clauses) & {"Python", "Node"}
     commands = []
     wrapper_choices = set()
+    wrapper_receivers = set()
     wrapper_facts = set()
     ambient = (inherited or {}).get("REGISTER_FROM_NODE_OPTIONS")
     for clause in clauses:
@@ -684,6 +685,10 @@ def _execution_evidence(table, source, inherited=None):
                          or (endpoint and not _http_destination(endpoint, allow_insecure=True))):
                 wrapper_facts.add("wrapperRejected")
             direct_url = choice.lower().startswith(("http://", "https://"))
+            direct_valid = (_http_destination(choice) if child.startswith(("python", "pypy"))
+                            else _node_endpoint(choice, allow_insecure=False)) if direct_url else False
+            if direct_valid:
+                wrapper_receivers.add(choice)
             if direct_url and not _http_destination(choice, allow_insecure=True):
                 wrapper_facts.add("wrapperRejected")
             builtin = (reserved or otlp or direct_url or choice.endswith(".jsonl")
@@ -731,6 +736,7 @@ def _execution_evidence(table, source, inherited=None):
             application_clauses[-1] += " and then " + clause[continuation.end():]
         elif clause.strip():
             application_clauses.append(clause.strip())
+    python_choice = None
     for clause in application_clauses:
         worker_call = re.search(selection["workerActor"], clause, re.I)
         before_capture = re.search(selection["before"], clause, re.I) and re.search(selection["actor"], clause, re.I)
@@ -746,15 +752,12 @@ def _execution_evidence(table, source, inherited=None):
             qualified = re.search(r"\bbriefcase\.(?:observe|setup)\(", clause)
             python = runtime == {"Python"} or (runtime != {"Node"} and qualified)
             if python:
-                selected_python = None
                 for call in calls:
                     candidate = _python_choice(table, clause[call.start():])
                     if candidate is not None:
-                        selected_python = candidate
+                        python_choice = candidate
                     elif call.group().endswith("observe("):
-                        selected_python = None
-                if selected_python:
-                    choices.add(selected_python)
+                        python_choice = None
                 continue
             if len(calls) > 1:
                 clause = clause[:calls[0].start()] + clause[calls[-1].start():]
@@ -795,6 +798,10 @@ def _execution_evidence(table, source, inherited=None):
             else:
                 continue
             choices.add((kind, path))
+    if python_choice:
+        choices.add(python_choice)
+    if guide_origin is not None and not choices and len(wrapper_receivers) == 1 and not wrapper_facts:
+        guide_origin.receivers.update(wrapper_receivers)
     if wrapper_choices or any(re.search(inline["wrapperCommand"], clause) for clause in clauses):
         if any(re.search(table["wrapperFailed"], clause, re.I) for clause in clauses):
             wrapper_facts.add("wrapperRejected")
@@ -815,6 +822,7 @@ class _SourceCheck:
     matching_rows: int = 0
     shared_identifier: bool = False
     unresolved_lookup: bool = False
+    partial: bool = False
 
     def compare(self, source, result, action, facts):
         if self.foreign_target:
@@ -831,6 +839,8 @@ class _SourceCheck:
             return "ask_id"
         if self.unresolved_lookup:
             return "confirmation_unresolved_lookup"
+        if self.partial and result == "no-match":
+            return "confirmation_partial"
         if self.ambiguous:
             return "confirmation_ambiguous"
         if self.outcome and result != self.outcome:
@@ -898,12 +908,14 @@ def _report_clauses(table, turns):
     for turn in turns:
         text = re.sub(table["quoteSpans"], lambda match: alias(match.group(match.lastindex)), turn or "")
         text = re.sub(spec["reportURL"], url_alias, text, flags=re.I)
+        text = re.sub(spec["identifierField"], lambda match: match.group(1) + " ID", text, flags=re.I)
         reports.append(re.split(spec["split"], text, flags=re.I))
     return reports, quoted_values
 
 
 @dataclass
 class _GuideOrigin:
+    receivers: Set[str] = field(default_factory=set)
     files: Set[str] = field(default_factory=set)
     identifier: Optional[str] = None
 
@@ -944,6 +956,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     launch_files = guide_origin.files
     destinations = {name: set() for name in spec["sources"]}
     destinations["jsonl"].update(launch_files)
+    destinations["receiver"].update(guide_origin.receivers)
     reports, quoted_values = _report_clauses(table, turns)
     original_ids, shared_ids, shared_unspecified = _report_identities(table, reports, quoted_values)
     if guide_origin.identifier:
@@ -1039,6 +1052,10 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 continue
             if checked and qualified:
                 for target in named:
+                    checks[target].partial = bool(re.search(spec["partialCoverage"], clause, re.I))
+                    corrected = re.search(spec["correctedInspection"], clause, re.I)
+                    if inspected[target] and destinations[target] and corrected:
+                        attempts[origin[target]].correct_instance = inspected[target] == destinations[target]
                     if inspected[target] and destinations[target]:
                         checks[target].correct_instance = (inspected[target] == destinations[target]
                                                            and len(inspected[target]) == 1)
@@ -1047,6 +1064,10 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     checks[target].matching_rows = 0
             if checked and qualified and named:
                 first = min(re.search(spec["sources"][key], source_scope, re.I).start() for key in named)
+                if "jsonl" in named:
+                    filename = re.search(table["fileMentions"], source_scope, re.I)
+                    if filename:
+                        first = min(first, filename.start())
                 gap = clause[checked.end():first]
                 before = re.search(spec["exclusivePrefix"], clause[:checked.start()], re.I)
                 if ((before and re.fullmatch(spec["exclusiveGap"], gap, re.I))
@@ -1234,7 +1255,7 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
             previous_read = file_read
     inline_path = None
     inline = table["inlineNode"]
-    commands, choices, wrapper_facts = _execution_evidence(table, source_question, inherited)
+    commands, choices, wrapper_facts = _execution_evidence(table, source_question, inherited, guide_origin)
     facts.update(wrapper_facts)
     selected = None
     inherited_preload = inherited is not None and bool(re.search(inline["preloadSource"], evidence, re.I))
@@ -1333,6 +1354,9 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
     if guide_origin is not None and shell_path and not facts.intersection(("wrapperRejected", "inlineUnknown")):
         guide_origin.files.update(path_aliases.get(shell_path, {shell_path}))
     key = _select(table, facts)
+    if guide_origin is not None and ("inlineHTTP" not in facts or facts.intersection(
+            ("wrapperRejected", "bootstrapDisabled", "pythonUninstrumented", "inlineUnknown", "loaderOnly"))):
+        guide_origin.receivers.clear()
     if key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value")):
         key = "ask_path"
     action = table["actions"][key]
@@ -1348,6 +1372,7 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
             if _complete_check(table, joined) and table["actions"][joined_key]["kind"] != "ask":
                 if guide_origin is not None:
                     guide_origin.files.update(joined_origin.files)
+                    guide_origin.receivers.update(joined_origin.receivers)
                 return joined_key, joined
     pending_lookup = None
     if "requiredFact" in action:
@@ -1402,6 +1427,11 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
         safe_launch = (key in ("ask_exporter", "ask_protocol") and
                        (len(launches) == 1 or bool(calls or preflight) or shell_reply
                         or (asserted and not safe_choice)))
+        if key == "ask_path" and (launches or calls):
+            # The reply must actually resolve the pending file, even when runtime activation is conditional.
+            reply_origin = _GuideOrigin()
+            resolved, _ = _next_step(table, launch_reply, shell=shell, inherited=inherited, guide_origin=reply_origin)
+            safe_launch = resolved in table["fileActions"] and len(reply_origin.files) == 1
         unsafe_reply = ((_sensitive(table, question) and not (safe_choice or safe_path or safe_launch))
                         or any(value in reply_source for value in raw_private))
         if safe_launch and not unsafe_reply:
