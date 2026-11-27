@@ -51,3 +51,52 @@ def test_private_input_preserves_original_process_scope(reverse, monkeypatch, ca
     assert main(["record-help"]) == 0
     result = capsys.readouterr().out
     assert "stderr" in result and "collector" not in result
+
+
+@pytest.mark.parametrize("observation,expected", [
+    ("A second process opened events.jsonl and found a record containing receipt-718.test.", "reported readback"),
+    ("A second process opened events.jsonl. Only yesterday's token was present.", "found no row"),
+    ("A second process opened events.jsonl and found a record containing receipt-718.test2.", "search locally"),
+    ("A second process opened events.jsonl and found a record containing private invocation marker.", "search locally"),
+    ("No reader has reopened the file.", "search locally"),
+    ("A reader opened other.jsonl and found a row containing receipt-718.test.", "search locally"),
+    ("A reader opened events.jsonl. I deny that it found a row containing receipt-718.test.", "search locally"),
+])
+def test_unique_job_tokens_stay_private_during_file_matching(observation, expected, monkeypatch, capsys):
+    from briefcase.cli.__main__ import main
+
+    question = "Explicit JSONL to events.jsonl. Job token receipt-718.test was unique to this invocation. "
+    monkeypatch.setattr("sys.stdin", StringIO(question + observation + "\n"))
+    assert main(["record-help"]) == 0
+    captured = capsys.readouterr()
+    text = captured.out + captured.err
+    assert "events.jsonl" in text and "job token from your original invocation" in text
+    assert expected in text and "receipt-718" not in text
+
+
+def test_private_marker_cannot_return_as_clarified_id(monkeypatch, capsys):
+    from briefcase.cli.__main__ import main
+
+    question = "I have two identical tickets. Job token repeat-321 was unique to this invocation."
+    monkeypatch.setattr("sys.stdin", StringIO(question + "\nrepeat-321\n"))
+    assert main(["record-help"]) == 0
+    captured = capsys.readouterr()
+    assert "static guide" in captured.out
+    assert "repeat-321" not in captured.out + captured.err
+
+
+@pytest.mark.parametrize("credential", [
+    "My CI job token is", "My workflow credential was", "The delegated job token was",
+])
+@pytest.mark.parametrize("question", [
+    "My original HTTP exporter used https://example.invalid/logs. {label} demo-712. My original marker was demo-712.",
+    "I have two identical tickets. {label} demo-712.\ndemo-712",
+    "{label} demo-712. The original marker was demo-712. The explicit local export was to demo-712.jsonl.",
+])
+def test_credential_relabelled_as_marker_or_file_remains_private(credential, question, monkeypatch, capsys):
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setattr("sys.stdin", StringIO(question.format(label=credential) + "\n"))
+    assert main(["record-help"]) == 0
+    captured = capsys.readouterr()
+    assert "demo-712" not in captured.out + captured.err

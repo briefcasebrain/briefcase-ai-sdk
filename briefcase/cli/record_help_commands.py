@@ -88,7 +88,14 @@ def _entities(table: Dict[str, Any], text: str) -> Dict[str, Dict[str, Any]]:
         if spec.get("scope") == "clause":
             clauses = re.split(table["split"], text, flags=re.I)
             source = "\n".join(clause for clause in clauses if not re.search(spec["exclude"], clause, re.I))
-        entity = _entity(spec, source, table["entityGrammar"])
+        entity = None
+        if spec.get("preferOutside"):
+            clauses = re.split(table["split"], source, flags=re.I)
+            direct = "\n".join(c for c in clauses if not re.search(spec["preferOutside"], c, re.I))
+            if len(clauses) > 1:
+                entity = _entity(spec, direct, table["entityGrammar"])
+        if entity is None:
+            entity = _entity(spec, source, table["entityGrammar"])
         if entity is not None:
             values[name] = entity
     return values
@@ -103,11 +110,23 @@ def _select(table: Dict[str, Any], facts: Set[str]) -> str:
     return table["defaultAction"]
 
 
+def _scoped(table: Dict[str, Any], text: str) -> str:
+    clauses = re.split(table["split"], text, flags=re.I)
+    relevant = [clause for clause in clauses if not _matches(table["excludeClauses"], clause)]
+    return text if len(relevant) == len(clauses) else "\n".join(relevant)
+
+
+def _sensitive(table: Dict[str, Any], text: str) -> bool:
+    spec = table["sensitiveInput"]
+    general = re.sub(table["privateJobMarker"]["declaration"], "", text, flags=re.I)
+    return bool(re.search(spec["pattern"], text, re.I) or re.search(spec["privateLabel"], general, re.I))
+
+
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           shell: Optional[str] = None) -> Tuple[str, str]:
     def preprocess(value: str) -> str:
         sensitive = table["sensitiveInput"]
-        private = bool(re.search(sensitive["pattern"], value, re.I))
+        private = _sensitive(table, value)
 
         def web_label(match: re.Match[str]) -> str:
             url = match.group(1)
@@ -127,11 +146,20 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         return value.strip()
 
     evidence = preprocess(question)
-    clauses = re.split(table["split"], evidence, flags=re.I)
-    relevant = [clause for clause in clauses if not _matches(table["excludeClauses"], clause)]
-    if len(relevant) != len(clauses):
-        evidence = "\n".join(relevant)
-    facts = _collect_facts(table, evidence)
+    disowned = {rule["fact"] for rule in table["disownedObservations"] if re.search(rule["pattern"], evidence, re.I)}
+    evidence = _scoped(table, evidence)
+    marker = table["privateJobMarker"]
+    evidence = re.sub(re.escape(marker["replacement"]), "redacted", evidence, flags=re.I)
+    private_values = {match.group(1) for match in re.finditer(marker["declaration"], evidence, re.I)}
+    if private_values:
+        # Opaque local matching retains only equality, never the job token as a renderable slot.
+        def hide_token(match: re.Match[str]) -> str:
+            if match.group() in private_values:
+                return marker["replacement"] if len(private_values) == 1 else "redacted"
+            return match.group()
+
+        evidence = re.sub(marker["token"], hide_token, evidence)
+    facts = _collect_facts(table, evidence) | disowned
     inline_path = None
     inline = table["inlineNode"]
     commands = list(re.finditer(inline["command"], evidence))
@@ -152,7 +180,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     for comparison in table["comparisons"]:
         original = entities.get(comparison["left"], {})
         observed = entities.get(comparison["right"], {}).get("value")
-        if original.get("independent") and observed:
+        eligible = original.get("independent") or not comparison.get("requiresIndependent", True)
+        if eligible and original.get("value") and observed:
             facts.add(comparison["equal"] if original["value"] == observed else comparison["different"])
     shell_path = inline_path
     if shell and not commands and _matches(table["shell"], evidence):
@@ -169,7 +198,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         key = "ask_path"
     action = table["actions"][key]
     if action["kind"] == "ask" and answer is not None:
-        reply = preprocess(answer)
+        unsafe_reply = _sensitive(table, question) or any(value in answer for value in private_values)
+        reply = "" if unsafe_reply else _scoped(table, preprocess(answer))
         transitions = table["replies"][key]
         valid = next((step for step in transitions if _matches(step, reply)), None)
         contextual_reply = action["replyPrefix"] + reply
@@ -211,7 +241,10 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 return re.sub(table["trimCapture"], "", value).strip()
         return table["defaults"][name]
 
-    return key, re.sub(r"\{(\w+)\}", substitute, template)
+    rendered = re.sub(r"\{(\w+)\}", substitute, template)
+    for value in sorted(private_values, key=len, reverse=True):
+        rendered = rendered.replace(value, "redacted")
+    return key, rendered
 
 
 def _http_destination(url: str, *, allow_insecure: bool = False) -> bool:
@@ -287,7 +320,8 @@ def cmd_record_help(args, store, engine, stack) -> int:
     if not question:
         print(table["guide"])
         return 0
-    shell = _shell_exporter(question) if _matches(table["shell"], question) else None
+    launch = _scoped(table, question)
+    shell = _shell_exporter(launch) if _matches(table["shell"], launch) else None
     key, text = route(table, question, args.answer, shell)
     if table["actions"][key]["kind"] == "ask" and args.answer is None:
         print(text, flush=True)

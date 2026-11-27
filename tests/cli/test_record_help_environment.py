@@ -47,3 +47,17 @@ def test_local_exporter_value_requires_this_shell(monkeypatch, capsys, current):
     text = capsys.readouterr().out
     assert "Which exporter did the original process use?" in text
     assert "laptop.jsonl" not in text
+
+
+def test_other_runtime_cannot_decide_original_shell_configuration(monkeypatch, capsys):
+    from io import StringIO
+
+    from briefcase.cli.__main__ import main
+
+    monkeypatch.setenv("BRIEFCASE_EXPORTER", "otlp")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    question = ("The original job used the default exporter from this shell with unchanged settings. "
+                "A different Node app used console.")
+    assert main(["record-help", question]) == 0
+    assert "original launch configuration" in capsys.readouterr().out

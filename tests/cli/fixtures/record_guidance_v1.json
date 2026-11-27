@@ -1925,5 +1925,290 @@
     "includes": [
       "unidentified"
     ]
+  },
+  {
+    "name": "Unique ticket in a known file",
+    "question": "The launched source explicitly selects local.jsonl. Its original ticket is unique, bench-14. No readback was attempted.",
+    "expected": "jsonl",
+    "includes": [
+      "local.jsonl",
+      "bench-14"
+    ]
+  },
+  {
+    "name": "Reported readback matches private job marker",
+    "question": "Explicit JSONL to demo.jsonl. Job token bench-14 was unique to this invocation. The second process opened demo.jsonl and found a row containing bench-14.",
+    "expected": "private_file_read",
+    "includes": [
+      "demo.jsonl",
+      "reported readback",
+      "job token from your original invocation"
+    ]
+  },
+  {
+    "name": "Reported readback misses private job marker",
+    "question": "Explicit JSONL to demo.jsonl. Job token bench-14 was unique to this invocation. The second process parsed the file. Only a different token was present.",
+    "expected": "private_file_miss",
+    "includes": [
+      "demo.jsonl",
+      "found no row",
+      "job token from your original invocation"
+    ]
+  },
+  {
+    "name": "Readback returned different exact marker",
+    "question": "Explicit JSONL to demo.jsonl. Job token bench-14 was unique to this invocation. The second process opened demo.jsonl and found a row containing bench-142.",
+    "expected": "private_file",
+    "includes": [
+      "demo.jsonl",
+      "search locally"
+    ]
+  },
+  {
+    "name": "Ticket is used only for local-file lookup",
+    "question": "My original HTTP exporter used https://example.invalid/decisions. Its original ticket is unique, bench-14.",
+    "expected": "receiver",
+    "includes": [
+      "original ID"
+    ]
+  },
+  {
+    "name": "Quoted receiver prefix mismatch \"",
+    "question": "The original marker was build-42. The receiver received marker \"build-42 dev\".",
+    "expected": "receipt_unknown",
+    "includes": [
+      "build-42"
+    ]
+  },
+  {
+    "name": "Complete quoted receiver result \"",
+    "question": "The original marker was \"build-42 dev\". The receiver received marker \"build-42 dev\".",
+    "expected": "storage",
+    "includes": [
+      "build-42 dev"
+    ]
+  },
+  {
+    "name": "Quoted receiver prefix mismatch '",
+    "question": "The original marker was build-42. The receiver received marker 'build-42 dev'.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "build-42"
+    ]
+  },
+  {
+    "name": "Complete quoted receiver result '",
+    "question": "The original marker was 'build-42 dev'. The receiver received marker 'build-42 dev'.",
+    "expected": "storage",
+    "includes": [
+      "build-42 dev"
+    ]
+  },
+  {
+    "name": "Quoted receiver prefix mismatch \u201c",
+    "question": "The original marker was build-42. The receiver received marker \u201cbuild-42 dev\u201d.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "build-42"
+    ]
+  },
+  {
+    "name": "Complete quoted receiver result \u201c",
+    "question": "The original marker was \u201cbuild-42 dev\u201d. The receiver received marker \u201cbuild-42 dev\u201d.",
+    "expected": "storage",
+    "includes": [
+      "build-42 dev"
+    ]
+  },
+  {
+    "name": "Quoted receiver prefix mismatch `",
+    "question": "The original marker was build-42. The receiver received marker `build-42 dev`.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "build-42"
+    ]
+  },
+  {
+    "name": "Complete quoted receiver result `",
+    "question": "The original marker was `build-42 dev`. The receiver received marker `build-42 dev`.",
+    "expected": "storage",
+    "includes": [
+      "build-42 dev"
+    ]
+  },
+  {
+    "name": "Quoted database prefix mismatch \"",
+    "question": "The original marker was build-42. The database returned marker \"build-42 dev\".",
+    "expected": "store_missing",
+    "includes": [
+      "build-42"
+    ]
+  },
+  {
+    "name": "Complete quoted database result \"",
+    "question": "The original marker was \"build-42 dev\". The database returned marker \"build-42 dev\".",
+    "expected": "stored",
+    "includes": [
+      "build-42 dev"
+    ]
+  },
+  {
+    "name": "Quoted database prefix mismatch '",
+    "question": "The original marker was build-42. The database returned marker 'build-42 dev'.",
+    "expected": "store_missing",
+    "includes": [
+      "build-42"
+    ]
+  },
+  {
+    "name": "Complete quoted database result '",
+    "question": "The original marker was 'build-42 dev'. The database returned marker 'build-42 dev'.",
+    "expected": "stored",
+    "includes": [
+      "build-42 dev"
+    ]
+  },
+  {
+    "name": "Quoted database prefix mismatch \u201c",
+    "question": "The original marker was build-42. The database returned marker \u201cbuild-42 dev\u201d.",
+    "expected": "store_missing",
+    "includes": [
+      "build-42"
+    ]
+  },
+  {
+    "name": "Complete quoted database result \u201c",
+    "question": "The original marker was \u201cbuild-42 dev\u201d. The database returned marker \u201cbuild-42 dev\u201d.",
+    "expected": "stored",
+    "includes": [
+      "build-42 dev"
+    ]
+  },
+  {
+    "name": "Quoted database prefix mismatch `",
+    "question": "The original marker was build-42. The database returned marker `build-42 dev`.",
+    "expected": "store_missing",
+    "includes": [
+      "build-42"
+    ]
+  },
+  {
+    "name": "Complete quoted database result `",
+    "question": "The original marker was `build-42 dev`. The database returned marker `build-42 dev`.",
+    "expected": "stored",
+    "includes": [
+      "build-42 dev"
+    ]
+  },
+  {
+    "name": "Independent original and different accepted original label",
+    "question": "My original marker was build-42. The receiver log shows it accepted the original decision ID \"build-42 dev\".",
+    "expected": "receipt_unknown",
+    "includes": [
+      "unconfirmed"
+    ]
+  },
+  {
+    "name": "Contraction in storage statement",
+    "question": "My original marker was key-44. The database hasn't returned a row with marker key-44.",
+    "expected": "query_storage",
+    "includes": [
+      "readback"
+    ]
+  },
+  {
+    "name": "Disowned receipt",
+    "question": "My original marker was key-44. The receiver received marker key-44, but that entry belongs to another process.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "unconfirmed"
+    ]
+  },
+  {
+    "name": "Disowned readback",
+    "question": "My original marker was key-44. The database returned marker key-44; the row came from a different job.",
+    "expected": "query_storage",
+    "includes": [
+      "readback"
+    ]
+  },
+  {
+    "name": "Local test launcher is a separate shell user",
+    "question": "The original job used the default exporter. My test script ran in this shell with unchanged settings.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "shell": "laptop.jsonl"
+  },
+  {
+    "name": "Inline grpc with OTEL_EXPORTER_OTLP_ENDPOINT",
+    "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_ENDPOINT=http://collector.invalid:4318 OTEL_EXPORTER_OTLP_PROTOCOL=grpc node --import @briefcase-ai/auto/register app.js 2> actual.err",
+    "expected": "node_console",
+    "includes": [
+      "actual.err"
+    ]
+  },
+  {
+    "name": "Inline grpc with OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+    "question": "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://collector.invalid:4318 OTEL_EXPORTER_OTLP_PROTOCOL=grpc node --import @briefcase-ai/auto/register app.js 2> actual.err",
+    "expected": "node_console",
+    "includes": [
+      "actual.err"
+    ]
+  },
+  {
+    "name": "Unconfirmed exporter reply I think it was OTLP",
+    "question": "Node inherited its unchanged settings. Its original exporter is unknown.",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "I think it was OTLP"
+  },
+  {
+    "name": "Unconfirmed exporter reply A different application used OTLP",
+    "question": "Node inherited its unchanged settings. Its original exporter is unknown.",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "A different application used OTLP"
+  },
+  {
+    "name": "Unconfirmed exporter reply I bet the exporter was console",
+    "question": "Node inherited its unchanged settings. Its original exporter is unknown.",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "I bet the exporter was console"
+  },
+  {
+    "name": "Unconfirmed exporter reply A different job used HTTP",
+    "question": "Node inherited its unchanged settings. Its original exporter is unknown.",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "A different job used HTTP"
+  },
+  {
+    "name": "Unconfirmed exporter reply Could have been memory",
+    "question": "Node inherited its unchanged settings. Its original exporter is unknown.",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "Could have been memory"
+  },
+  {
+    "name": "Unconfirmed exporter reply An unrelated script used console",
+    "question": "Node inherited its unchanged settings. Its original exporter is unknown.",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "An unrelated script used console"
   }
 ]
