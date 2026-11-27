@@ -372,5 +372,375 @@
     "includes": [
       "new run"
     ]
+  },
+  {
+    "name": "A01",
+    "question": "Two rows in refund.jsonl carry the same ticket text. The original decision ID was d-308. How can I pick my row?",
+    "expected": "jsonl",
+    "includes": [
+      "refund.jsonl",
+      "d-308"
+    ]
+  },
+  {
+    "name": "A02 initial",
+    "question": "Our refund case was processed twice. Both entries in night.jsonl contain that ticket. Which was my invocation?",
+    "expected": "ask_id",
+    "includes": []
+  },
+  {
+    "name": "A02",
+    "question": "Our refund case was processed twice. Both entries in night.jsonl contain that ticket. Which was my invocation?",
+    "expected": "jsonl",
+    "includes": [
+      "night.jsonl",
+      "d-401"
+    ],
+    "answer": "I found the original decision ID d-401."
+  },
+  {
+    "name": "A03",
+    "question": "I ran the Python quickstart first_decision.py unchanged. We saved stdout as build.out and stderr as build.err. Where is the printed decision after exit?",
+    "expected": "memory",
+    "includes": [
+      "build.out"
+    ]
+  },
+  {
+    "name": "A04 initial",
+    "question": "I had both the Python quickstart and a worker with a console exporter open. The launcher saved stdout to job.out and stderr to job.err. Which file should I inspect?",
+    "expected": "ask_program",
+    "includes": []
+  },
+  {
+    "name": "A04",
+    "question": "I had both the Python quickstart and a worker with a console exporter open. The launcher saved stdout to job.out and stderr to job.err. Which file should I inspect?",
+    "expected": "console",
+    "includes": [
+      "job.err"
+    ],
+    "answer": "The command in the launcher was python worker.py, the worker with the explicit console exporter."
+  },
+  {
+    "name": "A05",
+    "question": "I submitted the job to the hosted workspace north. My run ID is run-742. Where should I check its result?",
+    "expected": "hosted",
+    "includes": [
+      "north",
+      "run-742"
+    ]
+  },
+  {
+    "name": "A06 initial",
+    "question": "We tried a local SDK job and a hosted submission the same afternoon. I want to track one of them. Where do I check?",
+    "expected": "ask_run",
+    "includes": []
+  },
+  {
+    "name": "A06",
+    "question": "We tried a local SDK job and a hosted submission the same afternoon. I want to track one of them. Where do I check?",
+    "expected": "hosted",
+    "includes": [
+      "east",
+      "run-853"
+    ],
+    "answer": "It was the hosted submission in workspace east, run ID run-853."
+  },
+  {
+    "name": "A07",
+    "question": "I need the application's reply text. The app printed it to stdout, retained in answer.out. The decision trace is in tracing.jsonl. Where do I read the answer?",
+    "expected": "reply",
+    "includes": [
+      "answer.out"
+    ]
+  },
+  {
+    "name": "A08 initial",
+    "question": "The app printed its reply to stdout in response.txt and wrote decision metadata to meta.jsonl. Which file has my output?",
+    "expected": "ask_subject",
+    "includes": []
+  },
+  {
+    "name": "A08",
+    "question": "The app printed its reply to stdout in response.txt and wrote decision metadata to meta.jsonl. Which file has my output?",
+    "expected": "reply",
+    "includes": [
+      "response.txt"
+    ],
+    "answer": "I mean the application reply text."
+  },
+  {
+    "name": "A09",
+    "question": "A separate process parsed archive.jsonl looking for the original unique marker copper-824. Every row has yesterday's marker instead. Did I recover my decision?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "archive.jsonl",
+      "copper-824"
+    ]
+  },
+  {
+    "name": "A10",
+    "question": "The original worker used the explicit console exporter. I launched python worker.py 2>shift.err and kept that file. Where can I check the decision ID?",
+    "expected": "console",
+    "includes": [
+      "shift.err"
+    ]
+  },
+  {
+    "name": "A11",
+    "question": "The collector's receiver log has an entry matching my original decision ID d-933. Does that prove I can retrieve it from storage?",
+    "expected": "storage",
+    "includes": [
+      "d-933"
+    ]
+  },
+  {
+    "name": "A12",
+    "question": "In a separate process I queried downstream storage by original decision ID d-724. It returned exactly that record. What have I verified?",
+    "expected": "stored",
+    "includes": [
+      "d-724"
+    ]
+  },
+  {
+    "name": "B01",
+    "question": "The local exporter appended both attempts with the same request body to order-log.jsonl. My launcher printed decision_id=ord-91 for my attempt. How do I select it?",
+    "expected": "jsonl",
+    "includes": [
+      "order-log.jsonl",
+      "ord-91"
+    ]
+  },
+  {
+    "name": "B02 initial",
+    "question": "In queue.jsonl two decision records share a customer request. How do I tell which is from my failed retry?",
+    "expected": "ask_id",
+    "includes": []
+  },
+  {
+    "name": "B02",
+    "question": "In queue.jsonl two decision records share a customer request. How do I tell which is from my failed retry?",
+    "expected": "jsonl",
+    "includes": [
+      "queue.jsonl",
+      "q-980"
+    ],
+    "answer": "The retry log says decision ID q-980."
+  },
+  {
+    "name": "B03",
+    "question": "My archived command ran the unchanged Python first_decision.py quickstart using memory; stdout went to capture.txt. The console exporter from another program writes elsewhere. Where is this quickstart\u2019s printed decision?",
+    "expected": "memory",
+    "includes": [
+      "capture.txt"
+    ]
+  },
+  {
+    "name": "B04 initial",
+    "question": "The release bundle has a Python memory quickstart and a service that sets a console exporter. I can't tell which was launched. Both streams were kept: stdout in kept.out, stderr in kept.err. Where should I read the decision?",
+    "expected": "ask_program",
+    "includes": []
+  },
+  {
+    "name": "B04",
+    "question": "The release bundle has a Python memory quickstart and a service that sets a console exporter. I can't tell which was launched. Both streams were kept: stdout in kept.out, stderr in kept.err. Where should I read the decision?",
+    "expected": "memory",
+    "includes": [
+      "kept.out"
+    ],
+    "answer": "It was the unchanged Python quickstart, first_decision.py."
+  },
+  {
+    "name": "B05",
+    "question": "The dashboard accepted my hosted submission for agent Atlas in workspace garden and issued run ID host-661. How do I find that job?",
+    "expected": "hosted",
+    "includes": [
+      "garden",
+      "host-661"
+    ]
+  },
+  {
+    "name": "B06 initial",
+    "question": "The operator has a local Python execution and a dashboard submission on the same change. I want to find my run. Which place should I open?",
+    "expected": "ask_run",
+    "includes": []
+  },
+  {
+    "name": "B06",
+    "question": "The operator has a local Python execution and a dashboard submission on the same change. I want to find my run. Which place should I open?",
+    "expected": "hosted",
+    "includes": [
+      "Birch",
+      "hrun-72"
+    ],
+    "answer": "The dashboard submission, workspace Birch and run ID hrun-72."
+  },
+  {
+    "name": "B07",
+    "question": "The console decision includes token usage, but I want the words my application returned. I saved its stdout as message.txt. Where do I look?",
+    "expected": "reply",
+    "includes": [
+      "message.txt"
+    ]
+  },
+  {
+    "name": "B08 initial",
+    "question": "The Node app saved its stdout in chat.out and its console export in chat.err. I want to inspect the result. Which one is it?",
+    "expected": "ask_subject",
+    "includes": []
+  },
+  {
+    "name": "B08",
+    "question": "The Node app saved its stdout in chat.out and its console export in chat.err. I want to inspect the result. Which one is it?",
+    "expected": "node_console",
+    "includes": [
+      "chat.err"
+    ],
+    "answer": "I want decision metadata, specifically token_usage."
+  },
+  {
+    "name": "B09",
+    "question": "The original invocation's unique marker was cedar-808. I reopened session.jsonl after exit: it has only cedar-707 from a previous run. Is the original persisted there?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "session.jsonl",
+      "cedar-808"
+    ]
+  },
+  {
+    "name": "B10",
+    "question": "The batch set its console exporter in code. The launch command was python batch.py 2>trace.log. Where can I verify its original decision?",
+    "expected": "console",
+    "includes": [
+      "trace.log for"
+    ]
+  },
+  {
+    "name": "B11",
+    "question": "An HTTP receiver accepted a batch; I opened its payload and matched the original decision ID h-561. No one has queried the database. How far is this verified?",
+    "expected": "storage",
+    "includes": [
+      "h-561"
+    ]
+  },
+  {
+    "name": "B12",
+    "question": "After the exporter stopped, a downstream archive query for my original decision ID arc-582 returned one matching row. Can I confirm storage?",
+    "expected": "stored",
+    "includes": [
+      "arc-582"
+    ]
+  },
+  {
+    "name": "negative receipt",
+    "question": "The collector never received the original trace ID group-42.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "unconfirmed"
+    ]
+  },
+  {
+    "name": "zero downstream matches",
+    "question": "The database returned zero matching rows for trace ID group-42.",
+    "expected": "store_missing",
+    "includes": [
+      "unverified"
+    ]
+  },
+  {
+    "name": "redacted quoted credentials",
+    "question": "The exporter used https://demo:demo'secret@example.invalid/archive.jsonl and I need receipt.",
+    "expected": "receiver",
+    "includes": [
+      "batch"
+    ]
+  },
+  {
+    "name": "unrelated file before original remote",
+    "question": "I found old.jsonl from another process. My original run used OTLP.",
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ]
+  },
+  {
+    "name": "uncertain identifier",
+    "question": "Two identical tickets in sample.jsonl.",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "maybe"
+  },
+  {
+    "name": "denied path",
+    "question": "Which JSONL file contains marker g-140?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "It was not old.jsonl"
+  },
+  {
+    "name": "inherited path preserving spaces",
+    "question": "Python used the default exporter and inherited the unchanged shell.",
+    "expected": "jsonl",
+    "includes": [
+      "Open run logs/a.jsonl"
+    ],
+    "shell": "run logs/a.jsonl"
+  },
+  {
+    "name": "redirect is not inherited memory exporter",
+    "question": "Node used the default exporter and inherited the unchanged shell. stderr went to debug.jsonl.",
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ],
+    "shell": "memory"
+  },
+  {
+    "name": "launch quoted file and stream redirections",
+    "question": "BRIEFCASE_EXPORTER=\"/tmp/Replay #3/Decisions v2.jsonl\" python collect.py > reply.jsonl 2>> diagnostics.jsonl. Stdout printed decision ID rc-204. Where is the full local decision?",
+    "expected": "jsonl",
+    "includes": [
+      "/tmp/Replay #3/Decisions v2.jsonl",
+      "rc-204"
+    ]
+  },
+  {
+    "name": "Duplicate input without known file",
+    "question": "I have two identical tickets.",
+    "expected": "ask_id",
+    "includes": [
+      "original decision ID"
+    ]
+  },
+  {
+    "name": "Original among unnamed candidates",
+    "question": "I have two identical tickets.",
+    "answer": "id-455",
+    "expected": "match_candidates",
+    "includes": [
+      "id-455",
+      "Exactly one"
+    ]
+  },
+  {
+    "name": "Literal filename punctuation",
+    "question": "My console exporter wrote stderr from my command python proc.py 2> \"run.log!\".",
+    "expected": "console",
+    "includes": [
+      "run.log! for"
+    ]
+  },
+  {
+    "name": "configuration changed since the observed launch",
+    "question": "The default exporter inherited this environment, but the shell settings have changed since launch. It now lists new.jsonl.",
+    "shell": "new.jsonl",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ]
   }
 ]

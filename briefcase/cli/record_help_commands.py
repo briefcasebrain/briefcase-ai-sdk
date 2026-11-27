@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 
 from briefcase.cli import _ux
 
@@ -29,13 +29,29 @@ def register(sub) -> None:
 
 
 def _matches(rule: Dict[str, Any], evidence: str) -> bool:
+    alternatives = rule.get("any", [])
     return (all(re.search(pattern, evidence, re.I) for pattern in rule.get("all", []))
+            and (not alternatives or any(re.search(pattern, evidence, re.I) for pattern in alternatives))
             and not any(re.search(pattern, evidence, re.I) for pattern in rule.get("none", [])))
 
 
-def _select(table: Dict[str, Any], evidence: str) -> str:
-    return next((rule["action"] for rule in table["rules"] if _matches(rule, evidence)),
-                table["defaultAction"])
+def _collect_facts(table: Dict[str, Any], evidence: str) -> Set[str]:
+    clauses = re.split(table["split"], evidence, flags=re.I)
+    facts = set()
+    for name, criterion in table["facts"].items():
+        units = clauses if criterion["scope"] == "clause" else [evidence]
+        if any(_matches(criterion, unit) for unit in units):
+            facts.add(name)
+    return facts
+
+
+def _select(table: Dict[str, Any], facts: Set[str]) -> str:
+    for decision in table["decisions"]:
+        alternatives = decision.get("any", [])
+        if (facts.issuperset(decision.get("all", [])) and facts.isdisjoint(decision.get("none", []))
+                and (not alternatives or not facts.isdisjoint(alternatives))):
+            return decision["action"]
+    return table["defaultAction"]
 
 
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
@@ -46,25 +62,46 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         return value.strip()
 
     evidence = preprocess(question)
+    facts = _collect_facts(table, evidence)
+    shell_path = None
     if shell and _matches(table["shell"], evidence):
-        evidence += "\nInherited exporter: " + preprocess(shell)
-    key = _select(table, evidence)
+        value = preprocess(shell)
+        for kind in table["shellKinds"]:
+            if _matches(kind, value):
+                facts.update(kind["add"])
+                if kind.get("path"):
+                    shell_path = value
+                break
+    key = _select(table, facts)
     action = table["actions"][key]
     if action["kind"] == "ask" and answer is not None:
         reply = preprocess(answer)
-        if reply and not re.fullmatch(table["unknown"], reply, re.I):
-            evidence = action["replyPrefix"] + reply + "\n" + evidence
-            key = _select(table, evidence)
-        if table["actions"][key]["kind"] == "ask":
+        transitions = table["replies"][key]
+        valid = next((step for step in transitions if _matches(step, reply)), None)
+        if not reply or re.fullmatch(table["unknown"], reply, re.I) or valid is None:
             key = table["fallback"]
+        else:
+            if key in ("ask_path", "ask_exporter"):
+                shell_path = None
+            evidence = action["replyPrefix"] + reply + "\n" + evidence
+            facts.difference_update(valid.get("drop", []))
+            facts.update(valid.get("add", []))
+            key = valid.get("action") or _select(table, facts)
+            if table["actions"][key]["kind"] == "ask":
+                key = table["fallback"]
     template = table["actions"][key]["text"]
 
     def substitute(placeholder: re.Match) -> str:
         name = placeholder.group(1)
+        if name == "path" and shell_path:
+            return shell_path
         for pattern in table["extract"][name]:
             match = re.search(pattern, evidence, re.I)
             if match:
-                return match.group(1)
+                value = match.group(1)
+                if any(quote + value + quote in match.group() for quote in ("'", '"', "`")):
+                    return value
+                return re.sub(table["trimCapture"], "", value).strip()
         return table["defaults"][name]
 
     return key, re.sub(r"\{(\w+)\}", substitute, template)
