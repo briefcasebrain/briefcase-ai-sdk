@@ -190,6 +190,11 @@ def _lookup_evidence(table, evidence):
     spec = table["lookupEvidence"]
     facts = set()
     original_event = False
+    for statement in re.split(r"[.;!?]\s+|\n", evidence):
+        retention = re.search(spec["discardContrast"], statement, re.I)
+        if retention and not re.search(spec["denied"], statement[:retention.start()] + statement[retention.end():],
+                                       re.I):
+            facts.add("discardedStderr")
     clauses = [c for c in re.split(table["split"], evidence, flags=re.I) if c.strip()]
     want_first = any(re.search(spec["question"], c, re.I) and re.search(spec["wantFirst"], c, re.I) for c in clauses)
     projected = [_source_text(table, c) for c in clauses]
@@ -202,6 +207,12 @@ def _lookup_evidence(table, evidence):
         if re.search(spec["denied"], source, re.I) or re.search(spec["question"], source, re.I):
             original_event = False
             continue
+        reference = spec["referencedSearch"]
+        attribution = table["confirmation"]["attribution"]
+        if (re.search(reference["reader"], source, re.I) and re.search(attribution["sourceByReference"], source, re.I)
+                and re.search(attribution["lookupTargetRole"], source, re.I)):
+            facts.update(fact for kind, fact in reference["sources"].items()
+                         if re.search(attribution["sources"][kind], source, re.I))
         facts.update(_stream_artifacts(spec["sourceSlots"], source))
         receipt = re.search(spec["originReceipt"], source, re.I)
         for observation in spec["observations"]:
@@ -971,6 +982,10 @@ class _SourceCheck:
     returned_unbound: bool = False
     conflicting_results: bool = False
     unlinked_record: bool = False
+    referenced_check: bool = False
+    clarification_veto: bool = False
+    anonymous_match: bool = False
+    zero_matches: bool = False
     unresolved_detail: bool = False
 
     def compare(self, source, result, action, facts):
@@ -1080,8 +1095,13 @@ def _report_clauses(table, turns):
         for clause in clauses:
             identity = re.search(spec["declaredIdentifier"], clause, re.I)
             tail = re.match(spec["declarationTail"], clause[identity.end():], re.I) if identity else None
-            if identity and tail:
-                separated.extend([clause[:identity.end()], clause[identity.end() + tail.end():]])
+            suffix = clause[identity.end():] if identity else ""
+            independent = identity and re.fullmatch(
+                spec["independentDeclarationPrefix"], clause[:identity.start()], re.I
+            )
+            remainder = suffix.strip() and not re.fullmatch(spec["roleTail"], suffix, re.I)
+            if identity and remainder and (tail or independent):
+                separated.extend([clause[:identity.end()], suffix[tail.end():] if tail else suffix])
             else:
                 separated.append(clause)
         clauses = separated
@@ -1165,6 +1185,8 @@ def _returned_result(spec, clause, roles):
         kind = next((name for name in ("miss", "match", "named", "neutral") if any(
             pattern.fullmatch(operand.strip()) for pattern in _continuation_patterns(fragments, tuple(grammar[name]))
         )), "unknown")
+        if kind == "miss" and re.match(grammar["zero"], operand.strip(), re.I):
+            kind = "zero"
         if kind == "neutral" and any(p.fullmatch(operand.strip()) for p in _continuation_patterns(
             fragments, ("{{singular}}{{recordKind}}",)
         )) and len(operands) == 1:
@@ -1172,12 +1194,16 @@ def _returned_result(spec, clause, roles):
         if kind == "named" and not roles["returnedIdentifier"]:
             kind = "neutral"
         kinds.append(kind)
+    if "unknown" in kinds:
+        return "unknown"
+    if "zero" in kinds:
+        if "match" in kinds:
+            return "conflict"
+        return "unknown" if set(kinds).intersection(("unlinked_record", "neutral")) else "zero"
     if kinds == ["unlinked_record"]:
         return "unlinked_record"
     if "unlinked_record" in kinds:
         return "ambiguous"
-    if "unknown" in kinds:
-        return "unknown"
     if kinds.count("match") > 1:
         return "ambiguous"
     if "match" in kinds:
@@ -1284,6 +1310,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
         if turn_index and not active and action in ("query_storage", "stored") and source == "storage":
             active = {source}
         for clause in clauses:
+            if re.fullmatch(spec["reportIntent"], clause, re.I):
+                continue
             if re.fullmatch(spec["narrativeGap"], clause, re.I):
                 narrative_gap = True
                 continue
@@ -1330,10 +1358,14 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             if exclusive_subject and named and not other_reader:
                 for other in set(origin) - named:
                     attempts[origin[other]].unchecked = True
+            if re.fullmatch(spec["exclusiveReference"], source_scope, re.I):
+                for other in set(origin) - (mentioned or active):
+                    attempts[origin[other]].unchecked = True
             if other_reader:
                 foreign_context = named or active or set(origin)
                 for target in foreign_context:
                     prior = attempts[origin[target]]
+                    prior.clarification_veto = True
                     excluded_reader = re.search(spec["readerExcluded"], source_scope, re.I)
                     if exclusive_subject or excluded_reader or not prior.original_target or (
                         not checked and prior.outcome is None
@@ -1414,6 +1446,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 )):
                     for name in named:
                         checks[name].unaccounted = True
+                        checks[name].clarification_veto = True
                 unbound_details.clear()
             if (bound_before and source_scope.strip() and not inquiry
                     and not roles["declaredIdentifier"]):
@@ -1423,6 +1456,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         checks[name].unaccounted = False
                     elif not permitted:
                         checks[name].unaccounted = True
+                        checks[name].clarification_veto = True
                     if re.search(spec["outsideInstance"], source_scope, re.I):
                         checks[name].correct_instance = False
             # A recognized noun phrase alone cannot certify a record. Index
@@ -1431,6 +1465,10 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             if not owners and re.match(spec["standaloneResult"], source_scope, re.I):
                 owners = named or active or {source}
             result_grammar = spec["resultOperand"]
+            reported_sources = named or active
+            if (reported_sources and source not in reported_sources
+                    and (roles["returnedIdentifier"] or re.match(result_grammar["head"], source_scope, re.I))):
+                attempts[origin[source]].clarification_veto = True
             for result_clause in re.split(result_grammar["combinedRead"], source_scope, flags=re.I) if owners else ():
                 if re.match(result_grammar["implicitReader"], result_clause, re.I):
                     result_clause = "it " + result_clause.lstrip()
@@ -1439,8 +1477,18 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     continue
                 for name in owners:
                     check = checks[name]
-                    if returned in ("match", "miss") and not checked and check.outcome:
-                        check.conflicting_results |= check.outcome != ("matched" if returned == "match" else "no-match")
+                    if returned in ("match", "named", "miss", "zero", "unlinked_record"):
+                        for other in set(origin) - owners:
+                            attempts[origin[other]].clarification_veto = True
+                    if returned == "conflict":
+                        check.conflicting_results = True
+                    if returned == "zero":
+                        check.zero_matches = True
+                        check.conflicting_results |= (check.anonymous_match or check.matching_rows > 0
+                                                      or bool(original_ids.intersection(roles["returnedIdentifier"])))
+                    if returned == "match":
+                        check.conflicting_results |= check.zero_matches
+                        check.anonymous_match = True
                     if (returned == "named" and check.outcome == "matched"
                             and re.search(spec["returnAdditiveNamed"], result_clause, re.I)
                             and original_ids.intersection(roles["returnedIdentifier"])):
@@ -1449,17 +1497,18 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         check.ambiguous = True
                     elif returned == "unknown":
                         check.unaccounted = True
+                        check.clarification_veto = True
                     elif returned in ("neutral", "unlinked_record"):
                         check.unlinked_record = returned == "unlinked_record"
                         check.returned_unbound = True
-                    elif returned in ("match", "miss"):
+                    elif returned in ("match", "miss", "zero"):
                         if returned == "match" and check.outcome == "matched" and re.match(
                             spec["additionalResult"], result_clause, re.I
                         ):
                             check.ambiguous = True
                         check.outcome = "matched" if returned == "match" else "no-match"
                         check.returned_unbound = False
-                    if returned == "miss":
+                    if returned in ("miss", "zero"):
                         meaning.add("differentTarget")
             if re.search(spec["resultOperand"]["comparisonComplete"], source_scope, re.I):
                 for name in named or active:
@@ -1503,6 +1552,10 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 continue
             if checked and qualified:
                 for target in named:
+                    if re.search(spec["sourceByReference"], clause, re.I) and re.search(
+                        spec["lookupTargetRole"], clause, re.I
+                    ):
+                        checks[target].referenced_check = True
                     checks[target].partial = bool(re.search(spec["partialCoverage"], clause, re.I))
                     checks[target].unresolved_detail = False
                     corrected = re.search(spec["correctedInspection"], clause, re.I)
@@ -1645,7 +1698,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         check.matching_rows += count
                         if check.matching_rows > 1:
                             check.ambiguous = True
-                        check.outcome = "matched" if check.matching_rows else "no-match"
+                        check.conflicting_results |= check.zero_matches and check.matching_rows > 0
+                        check.outcome = "matched" if check.matching_rows or check.anonymous_match else "no-match"
                     elif qualified and re.search(spec["originalMatch"], clause, re.I):
                         check.outcome = "matched"
                     elif re.search(spec["exclusiveOther"], clause, re.I):
@@ -1665,10 +1719,14 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
         elif "storageIDMismatch" in facts:
             check.outcome = "no-match"
     conflict = check.compare(source, result, action, facts)
-    if narrative_gap and any(not kinds or source in kinds for kinds, _ in unbound_details):
-        return conflict or "confirmation_unresolved_lookup"
     accounted_result = check.original_target and check.outcome == result
-    if narrative_gap and not conflict and result != "unverified" and not accounted_result:
+    needs_binding = narrative_gap or (check.referenced_check and check.outcome is None)
+    unexplained = any(not kinds or source in kinds for kinds, _ in unbound_details)
+    if (check.clarification_veto or unexplained) and (conflict == "ask_evidence" or (
+        needs_binding and not accounted_result
+    )):
+        return "confirmation_unresolved_lookup" if conflict in (None, "ask_evidence") else conflict
+    if needs_binding and not conflict and result != "unverified" and not accounted_result:
         return "ask_evidence"
     return conflict
 
@@ -1911,7 +1969,9 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
     if guide_origin is not None and ("inlineHTTP" not in facts or facts.intersection(
             ("wrapperRejected", "bootstrapDisabled", "pythonUninstrumented", "inlineUnknown", "loaderOnly"))):
         guide_origin.receivers.clear()
-    if key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value")):
+    if key in table["requiresPath"] and not (
+        shell_path or entities.get("path", {}).get("value") or "referencedFileSearch" in facts
+    ):
         key = "ask_path"
     action = table["actions"][key]
     slot = action.get("slot")
@@ -2219,6 +2279,11 @@ def _session(table, args, turns):
                 pair[option] = values[0]
     lines = ([args.question] if args.question is not None else []) + [line for line in turns if line.strip()]
     replies = list(getattr(args, "evidence_reply", None) or [])
+    # A final bare response is valid only after the observation it answers.
+    if len(lines) >= 2 and lines[-1] in table["confirmation"]["clarification"]["choices"] and (
+        pair or _confirmation(table, lines[-2])
+    ):
+        replies.append(lines.pop())
     for index, line in enumerate(list(lines)):
         if re.match(r"^evidence(?:\s|$)", line, re.I):
             if index != len(lines) - 1 or len(line.split()) != 2:

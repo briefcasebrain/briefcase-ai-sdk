@@ -35953,5 +35953,3097 @@
     "includes": [
       "Inspect retained stderr for"
     ]
+  },
+  {
+    "name": "Configured lookup link jsonl matched False opening",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Configured lookup link jsonl matched False None",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl matched False yes",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl matched False no",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl matched False unsure",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl matched False known",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned exactly one matching record."
+  },
+  {
+    "name": "Configured lookup link jsonl matched False foreign",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the file without me."
+  },
+  {
+    "name": "Configured lookup link jsonl no-match False opening",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Configured lookup link jsonl no-match False None",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl no-match False yes",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match aft"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl no-match False no",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl no-match False unsure",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl no-match False known",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match aft"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned no matching records."
+  },
+  {
+    "name": "Configured lookup link jsonl no-match False foreign",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the file without me."
+  },
+  {
+    "name": "Configured lookup link jsonl matched True opening",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Configured lookup link jsonl matched True None",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl matched True yes",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl matched True no",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl matched True unsure",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl matched True known",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned exactly one matching record."
+  },
+  {
+    "name": "Configured lookup link jsonl matched True foreign",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the file without me."
+  },
+  {
+    "name": "Configured lookup link jsonl no-match True opening",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL f"
+    ]
+  },
+  {
+    "name": "Configured lookup link jsonl no-match True None",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl no-match True yes",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match aft"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl no-match True no",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl no-match True unsure",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link jsonl no-match True known",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match aft"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned no matching records."
+  },
+  {
+    "name": "Configured lookup link jsonl no-match True foreign",
+    "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the file without me."
+  },
+  {
+    "name": "Configured lookup link receiver matched False opening",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "storage",
+    "includes": [
+      "A receiver entry that mat"
+    ]
+  },
+  {
+    "name": "Configured lookup link receiver matched False None",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver matched False yes",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching e"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver matched False no",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver matched False unsure",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver matched False known",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching e"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned exactly one matching record."
+  },
+  {
+    "name": "Configured lookup link receiver matched False foreign",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the receiver without me."
+  },
+  {
+    "name": "Configured lookup link receiver no-match False opening",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "storage",
+    "includes": [
+      "A receiver entry that mat"
+    ]
+  },
+  {
+    "name": "Configured lookup link receiver no-match False None",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver no-match False yes",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no match in "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver no-match False no",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver no-match False unsure",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver no-match False known",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no match in "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned no matching records."
+  },
+  {
+    "name": "Configured lookup link receiver no-match False foreign",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the receiver without me."
+  },
+  {
+    "name": "Configured lookup link receiver matched True opening",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "storage",
+    "includes": [
+      "A receiver entry that mat"
+    ]
+  },
+  {
+    "name": "Configured lookup link receiver matched True None",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver matched True yes",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching e"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver matched True no",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver matched True unsure",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver matched True known",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching e"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned exactly one matching record."
+  },
+  {
+    "name": "Configured lookup link receiver matched True foreign",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the receiver without me."
+  },
+  {
+    "name": "Configured lookup link receiver no-match True opening",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "storage",
+    "includes": [
+      "A receiver entry that mat"
+    ]
+  },
+  {
+    "name": "Configured lookup link receiver no-match True None",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver no-match True yes",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no match in "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver no-match True no",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver no-match True unsure",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link receiver no-match True known",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no match in "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned no matching records."
+  },
+  {
+    "name": "Configured lookup link receiver no-match True foreign",
+    "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the receiver without me."
+  },
+  {
+    "name": "Configured lookup link storage matched False opening",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstream sto"
+    ]
+  },
+  {
+    "name": "Configured lookup link storage matched False None",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link storage matched False yes",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching r"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link storage matched False no",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link storage matched False unsure",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link storage matched False known",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching r"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned exactly one matching record."
+  },
+  {
+    "name": "Configured lookup link storage matched False foreign",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the store without me."
+  },
+  {
+    "name": "Configured lookup link storage no-match False opening",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstream sto"
+    ]
+  },
+  {
+    "name": "Configured lookup link storage no-match False None",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link storage no-match False yes",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no match in "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link storage no-match False no",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link storage no-match False unsure",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link storage no-match False known",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no match in "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned no matching records."
+  },
+  {
+    "name": "Configured lookup link storage no-match False foreign",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the store without me."
+  },
+  {
+    "name": "Configured lookup link storage matched True opening",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstream sto"
+    ]
+  },
+  {
+    "name": "Configured lookup link storage matched True None",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link storage matched True yes",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching r"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link storage matched True no",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link storage matched True unsure",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link storage matched True known",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching r"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned exactly one matching record."
+  },
+  {
+    "name": "Configured lookup link storage matched True foreign",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the store without me."
+  },
+  {
+    "name": "Configured lookup link storage no-match True opening",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstream sto"
+    ]
+  },
+  {
+    "name": "Configured lookup link storage no-match True None",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally search"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Configured lookup link storage no-match True yes",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no match in "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Configured lookup link storage no-match True no",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Configured lookup link storage no-match True unsure",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you se"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Configured lookup link storage no-match True known",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no match in "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "The query returned no matching records."
+  },
+  {
+    "name": "Configured lookup link storage no-match True foreign",
+    "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended sourc"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "answer": "My colleague queried the store without me."
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 0 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The query returned a limerick.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 0 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a limerick. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 1 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The receiver returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 1 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The receiver returned one matching record. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 2 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The only returned record bore ID pine-19.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 2 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The only returned record bore ID pine-19. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 3 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The returned object might be a preview.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 3 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The returned object might be a preview. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 4 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. My original decision ID was oak-17 beside a redacted placeholder.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 4 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My original decision ID was oak-17 beside a redacted placeholder. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 5 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. A coworker queried the original JSONL file.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched disallowed 5 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "A coworker queried the original JSONL file. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched result 0",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The only returned record bore ID pine-19.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched result 1",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "The receiver returned one matching record. It was the only source that returned a record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched result 2",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned one matching record and no matching records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched result 3",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching "
+    ],
+    "answer": "The query returned one matching record. It also returned a record with ID pine-19.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched result 4",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching "
+    ],
+    "answer": "The query returned a record with ID pine-19. It also returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl matched result 5",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching "
+    ],
+    "answer": "My query was pending. The file query has now finished. The file returned a full record with that same ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match disallowed 0 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The query returned a limerick.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match disallowed 0 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a limerick. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match disallowed 1 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The receiver returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match disallowed 1 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The receiver returned one matching record. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match disallowed 3 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The returned object might be a preview.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match disallowed 3 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The returned object might be a preview. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match disallowed 4 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. My original decision ID was oak-17 beside a redacted placeholder.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match disallowed 4 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My original decision ID was oak-17 beside a redacted placeholder. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match disallowed 5 False",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. A coworker queried the original JSONL file.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match disallowed 5 True",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "A coworker queried the original JSONL file. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match result 0",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "You reported no match afte"
+    ],
+    "answer": "The only returned record bore ID pine-19.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match result 1",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "The receiver returned one matching record. It was the only source that returned a record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match result 2",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned one matching record and no matching records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match result 3",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned one matching record. It also returned a record with ID pine-19.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match result 4",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned a record with ID pine-19. It also returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome jsonl no-match result 5",
+    "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "My query was pending. The file query has now finished. The file returned a full record with that same ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 0 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The query returned a limerick.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 0 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a limerick. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 1 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The store returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 1 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The store returned one matching record. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 2 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The only returned record bore ID pine-19.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 2 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The only returned record bore ID pine-19. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 3 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The returned object might be a preview.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 3 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The returned object might be a preview. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 4 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. My original decision ID was oak-17 beside a redacted placeholder.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 4 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My original decision ID was oak-17 beside a redacted placeholder. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 5 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. A coworker queried the intended receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched disallowed 5 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "A coworker queried the intended receiver. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched result 0",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The only returned record bore ID pine-19.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched result 1",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "The store returned one matching record. It was the only source that returned a record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched result 2",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned one matching record and no matching records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched result 3",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching en"
+    ],
+    "answer": "The query returned one matching record. It also returned a record with ID pine-19.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched result 4",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching en"
+    ],
+    "answer": "The query returned a record with ID pine-19. It also returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver matched result 5",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matching en"
+    ],
+    "answer": "My query was pending. The receiver query has now finished. The receiver returned a full record with that same ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match disallowed 0 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The query returned a limerick.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match disallowed 0 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a limerick. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match disallowed 1 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The store returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match disallowed 1 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The store returned one matching record. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match disallowed 3 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The returned object might be a preview.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match disallowed 3 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The returned object might be a preview. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match disallowed 4 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. My original decision ID was oak-17 beside a redacted placeholder.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match disallowed 4 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My original decision ID was oak-17 beside a redacted placeholder. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match disallowed 5 False",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. A coworker queried the intended receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match disallowed 5 True",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "A coworker queried the intended receiver. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match result 0",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "You reported no match in t"
+    ],
+    "answer": "The only returned record bore ID pine-19.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match result 1",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "The store returned one matching record. It was the only source that returned a record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match result 2",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned one matching record and no matching records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match result 3",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned one matching record. It also returned a record with ID pine-19.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match result 4",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned a record with ID pine-19. It also returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome receiver no-match result 5",
+    "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "My query was pending. The receiver query has now finished. The receiver returned a full record with that same ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 0 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The query returned a limerick.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 0 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a limerick. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 1 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The receiver returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 1 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The receiver returned one matching record. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 2 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The only returned record bore ID pine-19.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 2 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The only returned record bore ID pine-19. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 3 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The returned object might be a preview.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 3 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The returned object might be a preview. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 4 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. My original decision ID was oak-17 beside a redacted placeholder.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 4 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My original decision ID was oak-17 beside a redacted placeholder. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 5 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. A coworker queried the intended downstream store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched disallowed 5 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "A coworker queried the intended downstream store. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched result 0",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The only returned record bore ID pine-19.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched result 1",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "The receiver returned one matching record. It was the only source that returned a record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched result 2",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned one matching record and no matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched result 3",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching re"
+    ],
+    "answer": "The query returned one matching record. It also returned a record with ID pine-19.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched result 4",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching re"
+    ],
+    "answer": "The query returned a record with ID pine-19. It also returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage matched result 5",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching re"
+    ],
+    "answer": "My query was pending. The store query has now finished. The store returned a full record with that same ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match disallowed 0 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The query returned a limerick.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match disallowed 0 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The query returned a limerick. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match disallowed 1 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The receiver returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match disallowed 1 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The receiver returned one matching record. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match disallowed 3 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. The returned object might be a preview.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match disallowed 3 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "The returned object might be a preview. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match disallowed 4 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. My original decision ID was oak-17 beside a redacted placeholder.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match disallowed 4 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My original decision ID was oak-17 beside a redacted placeholder. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match disallowed 5 False",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "My written notes do not specify which identifier I searched. A coworker queried the intended downstream store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match disallowed 5 True",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source you sea"
+    ],
+    "answer": "A coworker queried the intended downstream store. My written notes do not specify which identifier I searched.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match result 0",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no match in y"
+    ],
+    "answer": "The only returned record bore ID pine-19.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match result 1",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source"
+    ],
+    "answer": "The receiver returned one matching record. It was the only source that returned a record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match result 2",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned one matching record and no matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match result 3",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned one matching record. It also returned a record with ID pine-19.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match result 4",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "The query returned a record with ID pine-19. It also returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome storage no-match result 5",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts w"
+    ],
+    "answer": "My query was pending. The store query has now finished. The store returned a full record with that same ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source-bound outcome implicit discard",
+    "question": "Yesterday I ran the published Node demo with default capture and console destination. I kept stdout but not stderr. I want the token count.",
+    "expected": "console_discarded_metadata",
+    "includes": [
+      "Check any other saved copy"
+    ]
+  },
+  {
+    "name": "Source-bound outcome trailing time",
+    "question": "The original Python application called observe(\"chain::memory:\") before recording. The process exited. I want the local decision record.",
+    "expected": "memory_lost",
+    "includes": [
+      "If the original process is"
+    ]
+  },
+  {
+    "name": "Coverage count with unresolved operand 0",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned no matching records and an archived checksum.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Coverage count with unresolved operand 1",
+    "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned a row and no matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
   }
 ]

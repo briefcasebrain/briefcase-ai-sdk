@@ -644,3 +644,17 @@ def test_evidence_reply_flags_validate_entire_session(reply, detail, tail, valid
     output = capsys.readouterr()
     assert output.out.count("You reported") == int(valid and reply == "yes")
     assert "private-19" not in output.err + output.out
+
+
+@pytest.mark.parametrize("reply", ["yes", "no", "unsure"])
+@pytest.mark.parametrize("read_only_row", [True, False])
+def test_piped_answer_to_displayed_evidence_question(reply, read_only_row, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli.__main__ import main
+
+    detail = "The query returned a row." if read_only_row else "The only returned row bore ID pine-19."
+    session = ["My original decision ID was oak-17. I queried the intended store for the original decision ID.",
+               detail, "storage matched me original original", reply]
+    monkeypatch.setattr("sys.stdin", StringIO("\n".join(session)))
+    assert main(["record-help"]) == (0 if read_only_row else 2)
+    assert capsys.readouterr().out.count("You reported") == int(read_only_row and reply == "yes")
