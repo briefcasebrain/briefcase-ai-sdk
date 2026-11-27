@@ -146,4 +146,4 @@ def test_status_hook(runs, capsys):
     assert replay_commands.status()["state"] == "off"
     cli(["replay", "run", str(runs), "--executor", "cassette"])
     state = replay_commands.status()
-    assert state["state"] == "on" and "2 matched" in state["summary"]
+    assert state["state"] == "on" and "2 matched" in state["detail"]

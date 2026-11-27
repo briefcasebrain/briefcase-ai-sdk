@@ -152,10 +152,10 @@ def test_status_hook(home, monkeypatch):
     import datetime
     monkeypatch.setattr(pc, "_today", lambda: datetime.date.fromisoformat(pr.load().generated_at))
     s = pc.status()
-    assert s["state"] == "ok" and s["summary"] == "39 models priced, 39 unverified, data is 0 days old"
+    assert s["state"] == "on" and s["detail"] == "39 models priced, 39 unverified, data is 0 days old"
     rec = home / ".briefcase" / "receiver" / "records.jsonl"
     rec.parent.mkdir(parents=True)
     rec.write_text(json.dumps({"inputs": {"model": "o3"}}) + "\n")
     s = pc.status()
-    assert s["state"] == "attention" and s["unpriced"] == ["o3"] and "o3" in s["summary"]
+    assert s["state"] == "attention" and s["unpriced"] == ["o3"] and "o3" in s["detail"]
     assert "pricing check --records" in s["next"]

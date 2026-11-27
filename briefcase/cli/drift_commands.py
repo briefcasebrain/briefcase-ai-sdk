@@ -296,18 +296,19 @@ def cmd_baselines(args, store=None, engine=None, stack=None) -> int:
 
 def status() -> Dict[str, Any]:
     """Last drift check, for ``briefcase-ai status`` (content-free)."""
+    base = {"id": "drift-baseline", "title": "Baseline drift checks"}
     try:
         data = json.loads(_state_path().read_text())
     except (OSError, ValueError):
-        return {"feature": "drift-baseline", "state": "off", "summary": "no drift check yet",
+        return {**base, "state": "off", "detail": "no drift check yet",
                 "next": "briefcase-ai drift baseline save prod --from runs.jsonl"}
     state = data.get("state")
     flagged = data.get("attention") or []
     return {
-        "feature": "drift-baseline",
+        **base,
         "state": "attention" if state == "attention" else "on",
-        "summary": f"last check {data.get('at')} against {data.get('baseline')!r}: {state}"
-                   + (f" ({', '.join(flagged)})" if flagged else ""),
+        "detail": f"last check {data.get('at')} against {data.get('baseline')!r}: {state}"
+                  + (f" ({', '.join(flagged)})" if flagged else ""),
         "next": f"briefcase-ai drift check {data.get('baseline')} --from FILE",
     }
 

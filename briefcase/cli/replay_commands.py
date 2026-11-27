@@ -430,20 +430,21 @@ def cmd_replay_diff(args, store=None, engine=None, stack=None) -> int:
 
 def status() -> Dict[str, Any]:
     """Last replay run, for ``briefcase-ai status`` (content-free)."""
+    base = {"id": "replay-recorded", "title": "Replay recorded LLM calls"}
     try:
         data = json.loads(_state_path().read_text())
     except (OSError, ValueError):
-        return {"feature": "replay-recorded", "state": "off",
-                "summary": "no replay run yet",
+        return {**base, "state": "off",
+                "detail": "no replay run yet",
                 "next": "briefcase-ai replay explain runs.jsonl"}
     counts = (data.get("summary") or {}).get("status") or {}
     attention = counts.get("changed", 0) or counts.get("error", 0)
     return {
-        "feature": "replay-recorded",
+        **base,
         "state": "attention" if attention else "on",
-        "summary": f"last replay {data.get('at')} ({data.get('executor')}, {data.get('file')}): "
-                   + ", ".join(f"{counts.get(s, 0)} {s}" for s in
-                               ("matched", "changed", "not_replayable", "error")),
+        "detail": f"last replay {data.get('at')} ({data.get('executor')}, {data.get('file')}): "
+                  + ", ".join(f"{counts.get(s, 0)} {s}" for s in
+                              ("matched", "changed", "not_replayable", "error")),
         "next": "briefcase-ai replay diff report.jsonl" if attention else "briefcase-ai replay run FILE",
     }
 
