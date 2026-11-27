@@ -3,7 +3,7 @@
   "actions": {
     "fresh": {
       "kind": "action",
-      "text": "The original run cannot be singled out from the surviving evidence. Use {path} as the file in both commands of the static JSONL example. Write a new run with a fresh unique marker, exit, then reopen that file in a second process. Match exactly one row and read its decision_id. The new ID identifies only the new run."
+      "text": "If no original ID or run-unique marker survives, the original run cannot be singled out. Check the original launch log for a retained identifier. Use {path} as the file in both commands of the static JSONL example. Write a new run with a fresh unique marker, exit, then reopen that file in a second process. Match exactly one row and read its decision_id. The new ID identifies only the new run."
     },
     "memory_lost": {
       "kind": "action",
@@ -39,7 +39,7 @@
     },
     "hosted": {
       "kind": "action",
-      "text": "Open the receiving workspace {workspace}, select the agent {agent}, and look up the hosted run ID {correlation}."
+      "text": "Open the receiving workspace {workspace}, select the agent {agent}, and look up the hosted run ID on the original submission receipt."
     },
     "receiver": {
       "kind": "action",
@@ -199,6 +199,14 @@
     "confirmed_storage_unverified": {
       "kind": "action",
       "text": "Downstream persistence remains unverified. Run an independent query at the intended store and compare the returned record with the original decision ID or run-unique marker."
+    },
+    "surviving_marker": {
+      "kind": "action",
+      "text": "Retrieve the surviving run-unique marker from the original launch evidence. Open {path} and search all rows for it. Exactly one matching row identifies the decision. Read its decision_id."
+    },
+    "inactive_preload": {
+      "kind": "action",
+      "text": "The disabled Node preload does not call observe(). Check whether the application separately enabled capture and which exporter it selected. A configured exporter alone does not verify a record."
     }
   },
   "extract": {
@@ -246,7 +254,7 @@
       "\\b(?:i|we|they|someone)\\s+(?:subsequently |then |later |since |recently |have |had )*(?:switched|changed|moved|reconfigured|replaced|overrode|unset|reset)\\b[^.!?;\\n]{0,65}\\b(?:exporter|configuration|settings?|environment|variables?|destination)s?\\b"
     ]
   },
-  "revision": 12,
+  "revision": 13,
   "preprocess": [
     {
       "pattern": "\\bOTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(?:\"https?://[^\"\\n]+\"|\\x27https?://[^\\x27\\n]+\\x27|https?://[^\\s\"\\x27`<>;]+)",
@@ -297,13 +305,13 @@
       ]
     },
     "memory": {
-      "scope": "clause",
+      "scope": "destination",
       "all": [
         "\\bmemory\\b"
       ]
     },
     "console": {
-      "scope": "clause",
+      "scope": "destination",
       "all": [
         "\\bconsole (?:export(?:er)?|destination)|\\bdefault console|(?:source|exporter|observe\\()[^.;\\n]{0,18}[\"\\x27]?console\\b|Inherited exporter: console|(?:configured|configured for|sets?|specified|emits? (?:using|through|via)|uses?) (?:the )?console\\b|console (?:sink|writer|stream|output)"
       ],
@@ -363,7 +371,7 @@
     "lostEvidence": {
       "scope": "clause",
       "all": [
-        "\\b(?:survives?|unrecoverable|lost|cannot recover|not retained|irretrievable|never saved|gone)\\b"
+        "\\b(?:unrecoverable|lost|cannot recover|not retained|irretrievable|never saved|gone)\\b|\\b(?:no|nothing|neither|without)\\b[^.;!?\\n]{0,90}\\b(?:survives?|remains?)\\b"
       ]
     },
     "alternateScript": {
@@ -505,7 +513,7 @@
       ]
     },
     "fileExporter": {
-      "scope": "clause",
+      "scope": "destination",
       "all": [
         "(?:(?:observe\\(|explicit|exporter|file export|writes?|saved (?:the )?decision|appended|BRIEFCASE_EXPORTER=|Inherited exporter:).{0,120}\\.jsonl\\b|\\.jsonl\\b.{0,25}(?:was the exporter|as the exporter))"
       ],
@@ -529,13 +537,13 @@
       ]
     },
     "http": {
-      "scope": "clause",
+      "scope": "destination",
       "all": [
         "\\bhttp\\b|received batch|webhook endpoint"
       ]
     },
     "otlp": {
-      "scope": "clause",
+      "scope": "destination",
       "all": [
         "\\botlp\\b|briefcase\\.decision span"
       ]
@@ -710,7 +718,7 @@
       ]
     },
     "originalHTTP": {
-      "scope": "clause",
+      "scope": "destination",
       "all": [
         "\\bHTTP endpoint\\b",
         "(?:observe\\(|BRIEFCASE_EXPORTER\\s*=|explicit|exporter|launch|original|using|configured|set to|used)"
@@ -736,7 +744,7 @@
       ]
     },
     "originalMemory": {
-      "scope": "clause",
+      "scope": "destination",
       "any": [
         "\\bobserve\\(\\s*[\"\\x27`]memory[\"\\x27`]\\s*\\)|\\bexplicit(?:ly)? (?:chose|selected|sets?|uses?|used|configured)?\\s*(?:the )?memory(?: exporter)?\\b|\\b(?:program|source|application|script|worker|run|process)\\s+(?:uses?|selected|sets?|chose|configured) (?:the )?memory exporter"
       ],
@@ -778,7 +786,7 @@
       ]
     },
     "explicitWeb": {
-      "scope": "clause",
+      "scope": "destination",
       "all": [
         "\\bexplicit valid web exporter\\b"
       ]
@@ -826,7 +834,7 @@
       ]
     },
     "boundOriginalOTLP": {
-      "scope": "clause",
+      "scope": "destination",
       "all": [
         "\\b(?:my|the|our) (?:actual|original|target) (?:app(?:lication)?|engine|service|workflow|task|container|invocation|execution|attempt|run|program|process|script|job|worker|deployment|machine|runtime|project)\\b[^.;!?\\n]{0,45}\\b(?:used|uses|selected|configured|exported|sent|wrote)\\b[^.;!?\\n]{0,35}\\botlp\\b"
       ],
@@ -864,9 +872,38 @@
       "all": [
         "^original exporter unknown$"
       ]
+    },
+    "deniedDestination": {
+      "scope": "clause",
+      "all": [
+        "\\b(?:i|we|it|they|the (?:job|process|script|application|run|original))\\s+(?:did not|didn.t|does not|doesn.t|was not|wasn.t|never|cannot|could not|couldn.t)\\s+(?:use|choos?e|select|configure|export|launch|run|set|send|inherit|connect)\\w*\\b|\\b(?:did not|didn.t|never|not) (?:use|using|configured for|configured with|selected|choose|send to|export to|set to|the exporter)\\b|\\b(?:uncertain whether|unsure whether|i think|i suspect|maybe|perhaps|might have used|may have used)\\b",
+        "\\b(?:otlp|otel|http|console|memory|exporter)\\b"
+      ]
+    },
+    "survivingMarker": {
+      "scope": "clause",
+      "all": [
+        "\\b(?:unique|original|correlation|decision)\\b[^.;!?\\n]{0,30}\\b(?:marker|identifier|id|value|correlation)\\b",
+        "\\b(?:survives?|remains?|is (?:still )?(?:available|retained|recorded)|can be recovered|was saved|saved in|retained in)\\b"
+      ],
+      "none": [
+        "\\b(?:no|not|neither|unknown|unclear|unavailable|cannot|never|if|maybe|whether)\\b"
+      ]
+    },
+    "survivingMarkerSubject": {
+      "scope": "clause",
+      "all": [
+        "(?<!not )\\b(?:a|the|one|our|my|its)\\s+(?:run[- ]unique|unique|original|correlation|decision)\\s+(?:marker|identifier|id|value)\\s+(?:still\\s+)?(?:survives?|remains? available|was retained|is available|was saved)\\b"
+      ]
     }
   },
   "decisions": [
+    {
+      "action": "inactive_preload",
+      "all": [
+        "inactivePreload"
+      ]
+    },
     {
       "action": "ask_exporter",
       "all": [
@@ -1139,6 +1176,19 @@
       "all": [
         "file",
         "privateJobMarker"
+      ]
+    },
+    {
+      "action": "surviving_marker",
+      "all": [
+        "file"
+      ],
+      "none": [
+        "hasID"
+      ],
+      "any": [
+        "survivingMarker",
+        "survivingMarkerSubject"
       ]
     },
     {
@@ -1611,6 +1661,12 @@
       "action": "ask_exporter",
       "all": [
         "launchQuestion"
+      ]
+    },
+    {
+      "action": "ask_exporter",
+      "all": [
+        "deniedDestination"
       ]
     }
   ],
@@ -2335,7 +2391,8 @@
     "node_file",
     "private_file",
     "private_file_read",
-    "private_file_miss"
+    "private_file_miss",
+    "surviving_marker"
   ],
   "sensitiveInput": {
     "pattern": "(?:\\b(?:api[ _-]*(?:token|key|credential|secret)|(?:access|refresh|session|personal|identity|security|authentication|authorization|bearer)[ _-]+(?:token|key|credential)|password|passphrase|client[ _-]*secret|private[ _-]*key)\\b|\\b(?:[\\w-]*?(?:token|password|passwd|secret|api[_-]?key|authorization|credential|cookie)|(?:otel_exporter_[\\w_]+_headers))[\"']?\\s*[:=]|(?:^|\\s)--[\\w-]*(?:auth|token|secret|passw|credential|key|cookie|bearer|header|login)[\\w-]*\\b|\\b(?:bearer|basic)\\s+[a-z0-9+/_=-]{4,})",
@@ -2399,6 +2456,12 @@
     "assignment": "([A-Z_][A-Z0-9_]*)=(?:\"([^\"\\n]*)\"|\\x27([^\\x27\\n]*)\\x27|([^\\s\"\\x27`;|&]+))",
     "rules": [
       {
+        "fact": "inactivePreload",
+        "all": [
+          "(?:^|\\n)BRIEFCASE_AUTO=(?:0|false)(?=\\n|$)"
+        ]
+      },
+      {
         "fact": "inlineMemory",
         "all": [
           "(?:^|\\n)BRIEFCASE_EXPORTER=memory(?=\\n|$)"
@@ -2458,7 +2521,8 @@
     "keys": [
       "BRIEFCASE_EXPORTER",
       "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
-      "OTEL_EXPORTER_OTLP_PROTOCOL"
+      "OTEL_EXPORTER_OTLP_PROTOCOL",
+      "BRIEFCASE_AUTO"
     ]
   },
   "privateJobMarker": {
@@ -2540,10 +2604,40 @@
       "otlp": "receiver",
       "stored": "storage",
       "query_storage": "storage",
-      "store_missing": "storage"
+      "store_missing": "storage",
+      "surviving_marker": "jsonl"
     },
     "instruction": "Optional confirmation: report only a check you performed for the original decision ID or run-unique marker. Supply both --source and --result, for example --source jsonl --result matched, or pipe the source and result on their own final line after any clarification. See --help for the available choices."
   },
-  "redirectToken": "(?<![\\w&>])([12]?)(?:>>|>)\\s*(?:&([12])\\b|\"([^\"\\n]+)\"|\\x27([^\\x27\\n]+)\\x27|([^\\s;&|<>\"\\x27`]+))|\"(?:\\\\.|[^\"\\\\\\n])*\"|\\x27[^\\x27\\n]*\\x27|(&&|\\|\\||\\|)",
-  "retainedCandidate": "\\b(?:i|we|the launcher)\\s+(?:also )?(?:retained|saved|kept|archived)\\s+([^\\s;,\"\\x27`<>]+\\.(?:err|out|log))\\b"
+  "redirectToken": "(?<![\\w&>])([12]?)(?:>>|>)\\s*(?:&([12])\\b|\"([^\"\\n]+)\"|\\x27([^\\x27\\n]+)\\x27|([^\\s;&|<>\"\\x27`]+))|\"(?:\\\\.|[^\"\\\\\\n])*\"|\\x27[^\\x27\\n]*\\x27|(&&|\\|\\||\\||(?<!\\S)#)",
+  "retainedCandidate": "\\b(?:i|we|the launcher)\\s+(?:also )?(?:retained|saved|kept|archived)\\s+([^\\s;,\"\\x27`<>]+\\.(?:err|out|log))\\b",
+  "tokenRole": "\\btokens?\\b",
+  "usageTerms": "\\b(?:tokens? (?:counts?|usage|accounting|consumption|limits?|totals?)|(?:input|output|total|prompt|completion|used|generated) tokens)\\b",
+  "unconfirmedStream": "\\b(?:never|not|didn.t|wasn.t|haven.t|couldn.t|don.t|did not|was not|have not|cannot|without)\\s+(?:(?:even|actually|ever|yet|been)\\s+)*(?:sav(?:e|ed)|retain(?:ed)?|captur(?:e|ed)|archiv(?:e|ed)|redirect(?:ed)?|writ(?:e|ten)|ke(?:ep|pt)|used?)\\b|\\b(?:might|maybe|perhaps|unsure whether|do not know whether)\\b",
+  "destinationDenied": "\\b(?:i|we|it|they|the (?:job|process|script|application|run|original))\\s+(?:did not|didn.t|does not|doesn.t|was not|wasn.t|never|cannot|could not|couldn.t)\\s+(?:use|choos?e|select|configure|export|launch|run|set|send|inherit|connect)\\w*\\b|\\b(?:did not|didn.t|never|not) (?:use|using|configured for|configured with|selected|choose|send to|export to|set to|the exporter)\\b|\\b(?:uncertain whether|unsure whether|i think|i suspect|maybe|perhaps|might have used|may have used)\\b",
+  "shellContinuity": {
+    "all": [
+      "unchanged|stayed (?:the same|identical)|same (?:shell (?:configuration|settings)|exporter settings|environment|configuration) (?:as|since|through)|(?:no (?:exporter |environment )?changes?|never changed) (?:since|between)",
+      "\\b(?:exporter|export|environment|shell|terminal|launch|defaults?|preload|process|python|node)\\b"
+    ],
+    "none": [
+      "\\b(?:editor|display|keyboard|theme|unrelated|other application|different project)\\b"
+    ]
+  },
+  "protectedEntities": [
+    "correlation",
+    "businessTicket",
+    "receiverObservation",
+    "storageObservation"
+  ],
+  "protectedLiterals": [
+    "\\b(?:(?:decision|trace|run|ticket|request)[_ -]?(?:id|identifier)|identifiers?|ids?|markers?|correlation(?: value)?|tickets?|(?:job |trace )?tokens?)\\b\\s*(?:(?:was|is|were|are|value|named|equals?|listed|recorded|assigned|reported|set|unique|set to|set as|reported as)\\s+){0,5}[:=#,]?\\s*[\"“]([^\"”\\n]+)[\"”]",
+    "\\b(?:(?:decision|trace|run|ticket|request)[_ -]?(?:id|identifier)|identifiers?|ids?|markers?|correlation(?: value)?|tickets?|(?:job |trace )?tokens?)\\b\\s*(?:(?:was|is|were|are|value|named|equals?|listed|recorded|assigned|reported|set|unique|set to|set as|reported as)\\s+){0,5}[:=#,]?\\s*[\\x27‘]([^\\x27’\\n]+)[\\x27’]",
+    "\\b(?:(?:decision|trace|run|ticket|request)[_ -]?(?:id|identifier)|identifiers?|ids?|markers?|correlation(?: value)?|tickets?|(?:job |trace )?tokens?)\\b\\s*(?:(?:was|is|were|are|value|named|equals?|listed|recorded|assigned|reported|set|unique|set to|set as|reported as)\\s+){0,5}[:=#,]?\\s*`([^`\\n]+)`",
+    "\\b(?:(?:decision|trace|run|ticket|request)[_ -]?(?:id|identifier)|identifiers?|ids?|markers?|correlation(?: value)?|tickets?|(?:job |trace )?tokens?)\\b\\s*(?:(?:was|is|were|are|value|named|equals?|listed|recorded|assigned|reported|set|unique|set to|set as|reported as)\\s+){0,5}[:=#,]?\\s*\\(?([a-z0-9_-]+(?:[.:/@+%-][a-z0-9_:-]+)*)",
+    "\\b(?:(?:decision|trace|run|ticket|request)[_ -]?(?:id|identifier)|identifiers?|ids?|markers?|correlation(?: value)?|tickets?|(?:job |trace )?tokens?)\\b\\s*(?:(?:was|is|were|are|value|named|equals?|listed|recorded|assigned|reported|set|unique|set to|set as|reported as)\\s+){0,5}[:=#,]?\\s*[\"\\x27`(]?[\\w.:-]+[\"\\x27`)]?\\s+(?:or|versus|vs\\.?)\\s+[\"\\x27`(]?([\\w.:-]+)"
+  ],
+  "locatorWords": "[a-z0-9_]+(?:[-_.:+@%][a-z0-9_]+)*",
+  "locatorOpaque": "[0-9]|[-_:+@%]|^(?=[a-z])(?=.*[A-Z])[A-Za-z]{5,}$",
+  "locatorAssignment": "(?:^\\s*|\\b(?:(?:handle|label|tag|code|key|reference|word|value|fingerprint|nonce|identifier)\\s+(?:is|was)|equals?|named|called|labeled|labelled|tagged|listed as|recorded as)\\s+)[“\"\\x27`]?([a-z][a-z0-9_-]{2,})[”\"\\x27`]?(?=\\s*(?:[.?!;,]|$))"
 }

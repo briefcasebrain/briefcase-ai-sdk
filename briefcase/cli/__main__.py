@@ -284,7 +284,12 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
     if _IMPORT_ERROR is not None:  # not a hook: the failure is the error
         raise _IMPORT_ERROR
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args, extra = parser.parse_known_args(argv)
+    if extra:
+        if args.command == "record-help":
+            print("Unexpected record-help argument. Quote the question or pipe it on one line.", file=sys.stderr)
+            return 2
+        parser.error("unrecognized arguments: " + " ".join(extra))
     _ux.set_debug(args.debug)
     _ux.set_no_input(args.no_input)
     if _ux.debug_enabled():

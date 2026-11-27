@@ -50,7 +50,8 @@ def _collect_facts(table: Dict[str, Any], evidence: str) -> Set[str]:
             match = re.search(pattern, clause, re.I)
             if match and not re.search(request_scopes["negatedBefore"], clause[:match.start()], re.I):
                 requested.append(re.split(request_scopes["cut"], match.group(1), flags=re.I, maxsplit=1)[0])
-    scopes = {"clause": clauses, "text": [evidence], "request": requested}
+    destinations = [clause for clause in clauses if not re.search(table["destinationDenied"], clause, re.I)]
+    scopes = {"clause": clauses, "text": [evidence], "request": requested, "destination": destinations}
     facts = set()
     for name, criterion in table["facts"].items():
         units = scopes[criterion["scope"]]
@@ -106,6 +107,31 @@ def _entities(table: Dict[str, Any], text: str) -> Dict[str, Dict[str, Any]]:
     return values
 
 
+def _protected_identifiers(table: Dict[str, Any], texts: Tuple[str, ...]) -> Set[str]:
+    """Collect every candidate for output suppression. Attribution considers only eligible evidence separately."""
+    values: Set[str] = set()
+    grammar = table["entityGrammar"]
+    for name in table["protectedEntities"]:
+        spec = table["entities"][name]
+        for tier in spec["tiers"]:
+            for expression in tier["patterns"]:
+                pattern = re.sub(r"\{\{(\w+)\}\}", lambda m: grammar[m.group(1)], expression)
+                for text in texts:
+                    for m in re.finditer(pattern, text, re.I):
+                        value = m.group(1).strip()
+                        if value and not any(re.search(r, value, re.I) for r in spec["reject"]):
+                            values.add(value.casefold())
+    rejected = table["entities"]["correlation"]["reject"]
+    for text in texts:
+        text = re.sub(table["usageTerms"], "", text, flags=re.I)
+        for pattern in table["protectedLiterals"]:
+            for m in re.finditer(pattern, text, re.I):
+                value = m.group(1).strip()
+                if value and not any(re.search(r, value, re.I) for r in rejected):
+                    values.add(value.casefold())
+    return values
+
+
 def _select(table: Dict[str, Any], facts: Set[str]) -> str:
     for decision in table["decisions"]:
         alternatives = decision.get("any", [])
@@ -127,10 +153,18 @@ def _sensitive(table: Dict[str, Any], text: str) -> bool:
     return bool(re.search(spec["pattern"], text, re.I) or re.search(spec["privateLabel"], general, re.I))
 
 
+def _shell_matches(table: Dict[str, Any], launch: str) -> bool:
+    return _matches(table["shell"], launch) and any(
+        _matches(table["shellContinuity"], clause) for clause in re.split(table["split"], launch, flags=re.I)
+    )
+
+
 def _streams(table: Dict[str, Any], evidence: str) -> Dict[str, str]:
     """Duplication copies the destination at that point in the command."""
     observed: Dict[str, Set[str]] = {"stdout": set(), "stderr": set()}
     for clause in re.split(table["split"], evidence, flags=re.I):
+        if re.search(table["unconfirmedStream"], clause, re.I):
+            continue
         streams: Dict[str, str] = {}
         for match in re.finditer(table["redirectToken"], clause):
             if match.group(6):
@@ -157,7 +191,9 @@ def _streams(table: Dict[str, Any], evidence: str) -> Dict[str, str]:
                         observed[name].add(value)
     bound = {name: next(iter(values)) if len(values) == 1 else table["defaults"][name]
              for name, values in observed.items()}
-    candidate = re.search(table["retainedCandidate"], evidence, re.I)
+    affirmative = "\n".join(c for c in re.split(table["split"], evidence, flags=re.I)
+                            if not re.search(table["unconfirmedStream"], c, re.I))
+    candidate = re.search(table["retainedCandidate"], affirmative, re.I)
     if candidate and not any(observed.values()):
         for name in bound:
             bound[name] += f" (check whether {candidate.group(1)} contains {name})"
@@ -237,7 +273,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             if key not in inline["keys"]:
                 continue
             raw = next((v for v in match.groups()[1:] if v is not None), "")
-            if key == "BRIEFCASE_EXPORTER":
+            if key in ("BRIEFCASE_EXPORTER", "BRIEFCASE_AUTO"):
                 settings[key] = raw.strip()
             else:
                 # Node selects the first nonempty raw protocol before trimming it.
@@ -265,7 +301,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         if eligible and original.get("value") and observed:
             facts.add(comparison["equal"] if original["value"] == observed else comparison["different"])
     shell_path = inline_path
-    if shell and not commands and _matches(table["shell"], evidence):
+    if shell and not commands and _shell_matches(table, evidence):
         value = preprocess(shell)
         for kind in table["shellKinds"]:
             if _matches(kind, value):
@@ -278,8 +314,12 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     if key in table["requiresPath"] and not (shell_path or entities.get("path", {}).get("value")):
         key = "ask_path"
     action = table["actions"][key]
+    id_reply = key == "ask_id" and answer is not None
     if action["kind"] == "ask" and answer is not None:
-        unsafe_reply = _sensitive(table, question) or any(value in answer for value in raw_private)
+        safe_choice = key in ("ask_exporter", "ask_protocol") and any(
+            re.fullmatch(pattern, answer.strip(), re.I) for pattern in table["exporterReplies"].values())
+        unsafe_reply = ((_sensitive(table, question) and not safe_choice)
+                        or any(value in answer for value in raw_private))
         reply_source = answer
         if _sensitive(table, answer) or re.search(table["privateWebAddress"], answer, re.I):
             reply_source = "\n".join(c for c in re.split(table["split"], answer, flags=re.I)
@@ -315,24 +355,51 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     if confirmation:
         source, result = confirmation
         key = table["confirmation"]["outcomes"].get(source, {}).get(result, key)
+    token_role = any(re.search(table["tokenRole"], re.sub(table["usageTerms"], "", raw, flags=re.I), re.I)
+                     for raw in (question, answer or "", *privacy_notes))
     template = table["actions"][key]["text"]
 
-    def substitute(placeholder: re.Match) -> str:
-        name = placeholder.group(1)
-        if private_rendering:
+    def field(name: str) -> str:
+        if name == "correlation":
+            if key in table["businessTicketActions"] and entities.get("businessTicket") and "hasID" not in facts:
+                return "the original ticket value, if it was unique to this invocation"
+            return table["defaults"]["correlation"]
+        opaque_local = name == "path" and key in ("private_file", "private_file_read", "private_file_miss")
+        if private_rendering or (token_role and not opaque_local):
             return table["defaults"][name]
         if name == "path" and shell_path:
             return shell_path
-        if name == "correlation" and name not in entities and key in table["businessTicketActions"]:
-            return entities.get("businessTicket", {}).get("value", table["defaults"][name])
         if name in table["entities"]:
             return entities.get(name, {}).get("value", table["defaults"][name])
         return _streams(table, evidence).get(name, table["defaults"][name])
 
-    rendered = re.sub(r"\{(\w+)\}", substitute, template)
-    for value in sorted(raw_private, key=len, reverse=True):
-        rendered = rendered.replace(value, "redacted")
-    return key, rendered
+    protected = {value.casefold() for value in raw_private}
+    turns = (question, answer or "", *privacy_notes)
+    if "{" in template:
+        if id_reply:
+            turns += (action["replyPrefix"] + (answer or ""),)
+        protected.update(_protected_identifiers(table, turns))
+
+    def substitute(placeholder: re.Match) -> str:
+        name = placeholder.group(1)
+        value = field(name)
+        if name == "correlation" or value == table["defaults"][name]:
+            return value
+        folded = value.casefold()
+        if any(identifier in folded for identifier in protected):
+            return table["defaults"][name]
+        # An opaque component repeated outside a locator can identify the run even without a known label.
+        # Remove exact locator mentions before comparing other tokens, so an independent path stays usable.
+        for turn in turns:
+            outside = re.sub(re.escape(value), " ", turn, flags=re.I)
+            if any(m.group(1).casefold() in folded for m in re.finditer(table["locatorAssignment"], outside, re.I)):
+                return table["defaults"][name]
+            for token in re.findall(table["locatorWords"], outside, re.I):
+                if len(token) >= 3 and re.search(table["locatorOpaque"], token) and token.casefold() in folded:
+                    return table["defaults"][name]
+        return value
+
+    return key, re.sub(r"\{(\w+)\}", substitute, template)
 
 
 def _http_destination(url: str, *, allow_insecure: bool = False) -> bool:
@@ -427,7 +494,7 @@ def cmd_record_help(args, store, engine, stack) -> int:
             # Some embedded callers supply a disabled stdin rather than an empty pipe.
             pass
     question = args.question
-    if question is None and lines:
+    if question is None and lines and not (confirmation and _confirmation(table, lines[0])):
         question = lines.pop(0)
     if question is None and not confirmation and interactive:
         question = _line("What are you trying to find, and what do you know about the original run? ", True)
@@ -441,11 +508,13 @@ def cmd_record_help(args, store, engine, stack) -> int:
                               or re.search(table["runtimeDenied"], clause, re.I))]
     runtime = " ".join(name for name, pattern in table["runtimeSource"].items()
                        if any(re.search(pattern, clause, re.I) for clause in launch_clauses))
-    shell = _shell_exporter(runtime) if _matches(table["shell"], launch) else None
+    shell = _shell_exporter(runtime) if _shell_matches(table, launch) else None
     inherited = None
     if shell is not None:
         # Node overlays command assignments on the launch environment. Only exporter vocabulary is needed here.
         inherited = {}
+        if os.environ.get("BRIEFCASE_AUTO", "").strip().lower() in ("0", "false"):
+            inherited["BRIEFCASE_AUTO"] = "0"
         for key in ("OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"):
             protocol = os.environ.get(key, "")
             if protocol:
@@ -453,6 +522,13 @@ def cmd_record_help(args, store, engine, stack) -> int:
         choice = os.environ.get("BRIEFCASE_EXPORTER", "").strip()
         if choice in ("memory", "console") or choice.lower() in ("otel", "otlp"):
             inherited["BRIEFCASE_EXPORTER"] = choice
+    while lines and not lines[-1].strip():
+        lines.pop()
+    reported = [(i, pair) for i, line in enumerate(lines) if (pair := _confirmation(table, line)) is not None]
+    if ((args.answer and _confirmation(table, args.answer)) or
+            (reported and (confirmation or len(reported) != 1 or reported[0][0] != len(lines) - 1))):
+        print("Supply one source and result together, once, at the end of the session.", file=sys.stderr)
+        return 2
     answer = args.answer
     notes = tuple(lines)
     key, text = route(table, question, answer, shell, inherited, confirmation, notes)
@@ -470,7 +546,7 @@ def cmd_record_help(args, store, engine, stack) -> int:
         key, text = route(table, question, answer, shell, inherited, confirmation, notes)
     if not confirmation and lines:
         confirmation = _confirmation(table, lines[-1]) if len(lines) == 1 else None
-    elif not confirmation and interactive and ask and key in table["confirmation"]["next"]:
+    elif not confirmation and interactive and key in table["confirmation"]["next"]:
         print(table["confirmation"]["instruction"])
         response = _line("Optional source and result (Enter to skip): ", True)
         notes += (response,)

@@ -19,6 +19,8 @@ def test_shared_record_guidance(case):
     assert action == case["expected"]
     for fragment in case["includes"]:
         assert fragment in text
+    for value in case.get("omits", []):
+        assert value.casefold() not in text.casefold()
 
 
 def test_piped_clarification_uses_the_original_path(monkeypatch, capsys):
@@ -31,7 +33,7 @@ def test_piped_clarification_uses_the_original_path(monkeypatch, capsys):
     result = capsys.readouterr().out
     assert result.count("What JSONL path") == 1
     assert "/tmp/my runs/a.jsonl" in result
-    assert "job-31" in result
+    assert "job-31" not in result
 
 
 def test_unknown_displays_same_guide_as_static(monkeypatch, capsys):
@@ -75,6 +77,7 @@ def _paraphrases():
                 "answer": template.get("answer", "").format_map(slots) or None,
                 "expected": template["expected"],
                 "includes": [s.format_map(slots) for s in template["includes"]],
+                "omits": [s.format_map(slots) for s in template.get("omits", [])],
             }
 
 
@@ -153,3 +156,39 @@ def test_terminal_accepts_confirmation_after_path_clarification(monkeypatch, cap
     output = capsys.readouterr().out
     assert "Optional source and result" in output and "Reader-confirmed absence" in output
     assert "audit.jsonl" not in output
+
+
+@pytest.mark.parametrize("flag_pair", [True, False])
+@pytest.mark.parametrize("last", ["jsonl matched", "jsonl no-match"])
+def test_duplicate_and_conflicting_session_reports_are_rejected(flag_pair, last, monkeypatch, capsys):
+    from io import StringIO
+
+    from briefcase.cli.__main__ import main
+
+    question = "Where is the JSONL for marker visit-671?"
+    args = ["record-help", question]
+    if flag_pair:
+        args.extend(["--source", "jsonl", "--result", "matched"])
+        data = last
+    else:
+        data = "jsonl matched\n" + last
+    monkeypatch.setattr("sys.stdin", StringIO(data + "\n"))
+    assert main(args) == 2
+    captured = capsys.readouterr()
+    assert "once" in captured.err
+    assert "Reader-confirmed" not in captured.out and "visit-671" not in captured.err + captured.out
+
+
+def test_terminal_confirmation_after_answer_option(monkeypatch, capsys):
+    from io import StringIO
+
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    terminal = StringIO("jsonl no-match\n")
+    monkeypatch.setattr(terminal, "isatty", lambda: True)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: True)
+    monkeypatch.setattr("sys.stdin", terminal)
+    assert main(["record-help", "Where is the JSONL for marker visit-671?", "--answer", "audit.jsonl"]) == 0
+    result = capsys.readouterr().out
+    assert "Reader-confirmed absence" in result and "visit-671" not in result and "audit.jsonl" not in result

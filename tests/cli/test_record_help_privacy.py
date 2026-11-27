@@ -160,3 +160,23 @@ def test_positional_and_piped_question_share_second_turn_privacy(label, argument
     assert main(["record-help"] + ([question] if argument else [])) == 0
     output = capsys.readouterr()
     assert "collector" in output.out and "visit-671" not in output.out + output.err
+
+
+@pytest.mark.parametrize("argument", [True, False])
+@pytest.mark.parametrize("label", ["The token for this job was", "That job's token was", "The original job token was"])
+def test_token_word_order_does_not_authorize_literal_output(label, argument, monkeypatch, capsys):
+    from briefcase.cli.__main__ import main
+
+    q = "Original marker probe-229. My run used OTLP."
+    monkeypatch.setattr("sys.stdin", StringIO(("" if argument else q + "\n") + label + " probe-229.\n"))
+    assert main(["record-help"] + ([q] if argument else [])) == 0
+    result = capsys.readouterr()
+    assert "collector" in result.out and "probe-229" not in result.out + result.err
+
+
+def test_unexpected_argument_does_not_echo_identifier(capsys):
+    from briefcase.cli.__main__ import main
+
+    assert main(["record-help", "Original ID private-229.", "private-229"]) == 2
+    output = capsys.readouterr()
+    assert "Unexpected record-help argument" in output.err and "private-229" not in output.out + output.err

@@ -23,10 +23,12 @@
     "question": "Which file should I inspect for ticket birch-63? Process used observe() in this directory with this shell's unchanged exporter settings. birch-63 is unique to the original job; no file has yet been read.",
     "expected": "jsonl",
     "includes": [
-      "ingest.jsonl",
-      "birch-63"
+      "ingest.jsonl"
     ],
-    "shell": "ingest.jsonl"
+    "shell": "ingest.jsonl",
+    "omits": [
+      "birch-63"
+    ]
   },
   {
     "name": "H05",
@@ -52,10 +54,12 @@
     "question": "Where is the JSONL for ticket T-145?",
     "expected": "jsonl",
     "includes": [
-      "/tmp/run logs/a.jsonl",
-      "T-145"
+      "/tmp/run logs/a.jsonl"
     ],
-    "answer": "/tmp/run logs/a.jsonl"
+    "answer": "/tmp/run logs/a.jsonl",
+    "omits": [
+      "T-145"
+    ]
   },
   {
     "name": "missing path",
@@ -88,9 +92,12 @@
     "question": "Two identical tickets in local.jsonl.",
     "expected": "jsonl",
     "includes": [
-      "original-01"
+      "original"
     ],
-    "answer": "original-01"
+    "answer": "original-01",
+    "omits": [
+      "original-01"
+    ]
   },
   {
     "name": "receipt",
@@ -152,7 +159,9 @@
     "question": "Both entries in inbox.jsonl share the ticket. The original decision ID was trace-714.",
     "expected": "jsonl",
     "includes": [
-      "inbox.jsonl",
+      "inbox.jsonl"
+    ],
+    "omits": [
       "trace-714"
     ]
   },
@@ -214,8 +223,10 @@
     "expected": "jsonl_stale",
     "includes": [
       "events.jsonl",
-      "job-231",
       "no readback"
+    ],
+    "omits": [
+      "job-231"
     ]
   },
   {
@@ -224,8 +235,10 @@
     "expected": "storage",
     "includes": [
       "receipt",
-      "group-42",
       "unverified"
+    ],
+    "omits": [
+      "group-42"
     ]
   },
   {
@@ -233,7 +246,9 @@
     "question": "The warehouse query returned exactly the matching decision for trace ID group-42.",
     "expected": "stored",
     "includes": [
-      "storage",
+      "storage"
+    ],
+    "omits": [
       "group-42"
     ]
   },
@@ -378,7 +393,9 @@
     "question": "Two rows in refund.jsonl carry the same ticket text. The original decision ID was d-308. How can I pick my row?",
     "expected": "jsonl",
     "includes": [
-      "refund.jsonl",
+      "refund.jsonl"
+    ],
+    "omits": [
       "d-308"
     ]
   },
@@ -393,10 +410,12 @@
     "question": "Our refund case was processed twice. Both entries in night.jsonl contain that ticket. Which was my invocation?",
     "expected": "jsonl",
     "includes": [
-      "night.jsonl",
-      "d-401"
+      "night.jsonl"
     ],
-    "answer": "I found the original decision ID d-401."
+    "answer": "I found the original decision ID d-401.",
+    "omits": [
+      "d-401"
+    ]
   },
   {
     "name": "A03",
@@ -426,7 +445,9 @@
     "question": "I submitted the job to the hosted workspace north. My run ID is run-742. Where should I check its result?",
     "expected": "hosted",
     "includes": [
-      "north",
+      "north"
+    ],
+    "omits": [
       "run-742"
     ]
   },
@@ -441,10 +462,12 @@
     "question": "We tried a local SDK job and a hosted submission the same afternoon. I want to track one of them. Where do I check?",
     "expected": "hosted",
     "includes": [
-      "east",
-      "run-853"
+      "east"
     ],
-    "answer": "It was the hosted submission in workspace east, run ID run-853."
+    "answer": "It was the hosted submission in workspace east, run ID run-853.",
+    "omits": [
+      "run-853"
+    ]
   },
   {
     "name": "A07",
@@ -474,7 +497,9 @@
     "question": "A separate process parsed archive.jsonl looking for the original unique marker copper-824. Every row has yesterday's marker instead. Did I recover my decision?",
     "expected": "jsonl_stale",
     "includes": [
-      "archive.jsonl",
+      "archive.jsonl"
+    ],
+    "omits": [
       "copper-824"
     ]
   },
@@ -491,6 +516,9 @@
     "question": "The collector's receiver log has an entry matching my original decision ID d-933. Does that prove I can retrieve it from storage?",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "d-933"
     ]
   },
@@ -499,6 +527,9 @@
     "question": "In a separate process I queried downstream storage by original decision ID d-724. It returned exactly that record. What have I verified?",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "d-724"
     ]
   },
@@ -507,7 +538,9 @@
     "question": "The local exporter appended both attempts with the same request body to order-log.jsonl. My launcher printed decision_id=ord-91 for my attempt. How do I select it?",
     "expected": "jsonl",
     "includes": [
-      "order-log.jsonl",
+      "order-log.jsonl"
+    ],
+    "omits": [
       "ord-91"
     ]
   },
@@ -522,10 +555,12 @@
     "question": "In queue.jsonl two decision records share a customer request. How do I tell which is from my failed retry?",
     "expected": "jsonl",
     "includes": [
-      "queue.jsonl",
-      "q-980"
+      "queue.jsonl"
     ],
-    "answer": "The retry log says decision ID q-980."
+    "answer": "The retry log says decision ID q-980.",
+    "omits": [
+      "q-980"
+    ]
   },
   {
     "name": "B03",
@@ -555,7 +590,9 @@
     "question": "The dashboard accepted my hosted submission for agent Atlas in workspace garden and issued run ID host-661. How do I find that job?",
     "expected": "hosted",
     "includes": [
-      "garden",
+      "garden"
+    ],
+    "omits": [
       "host-661"
     ]
   },
@@ -570,10 +607,12 @@
     "question": "The operator has a local Python execution and a dashboard submission on the same change. I want to find my run. Which place should I open?",
     "expected": "hosted",
     "includes": [
-      "Birch",
-      "hrun-72"
+      "Birch"
     ],
-    "answer": "The dashboard submission, workspace Birch and run ID hrun-72."
+    "answer": "The dashboard submission, workspace Birch and run ID hrun-72.",
+    "omits": [
+      "hrun-72"
+    ]
   },
   {
     "name": "B07",
@@ -603,7 +642,9 @@
     "question": "The original invocation's unique marker was cedar-808. I reopened session.jsonl after exit: it has only cedar-707 from a previous run. Is the original persisted there?",
     "expected": "jsonl_stale",
     "includes": [
-      "session.jsonl",
+      "session.jsonl"
+    ],
+    "omits": [
       "cedar-808"
     ]
   },
@@ -620,6 +661,9 @@
     "question": "An HTTP receiver accepted a batch; I opened its payload and matched the original decision ID h-561. No one has queried the database. How far is this verified?",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "h-561"
     ]
   },
@@ -628,6 +672,9 @@
     "question": "After the exporter stopped, a downstream archive query for my original decision ID arc-582 returned one matching row. Can I confirm storage?",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "arc-582"
     ]
   },
@@ -704,7 +751,9 @@
     "question": "BRIEFCASE_EXPORTER=\"/tmp/Replay #3/Decisions v2.jsonl\" python collect.py > reply.jsonl 2>> diagnostics.jsonl. Stdout printed decision ID rc-204. Where is the full local decision?",
     "expected": "jsonl",
     "includes": [
-      "/tmp/Replay #3/Decisions v2.jsonl",
+      "/tmp/Replay #3/Decisions v2.jsonl"
+    ],
+    "omits": [
       "rc-204"
     ]
   },
@@ -722,8 +771,10 @@
     "answer": "id-455",
     "expected": "match_candidates",
     "includes": [
-      "id-455",
       "Exactly one"
+    ],
+    "omits": [
+      "id-455"
     ]
   },
   {
@@ -748,7 +799,9 @@
     "question": "An overnight Python worker wrote two decisions to ledger.jsonl for the same ticket. The origin log recorded my decision ID as debit-197. Which entry do I retrieve?",
     "expected": "jsonl",
     "includes": [
-      "ledger.jsonl",
+      "ledger.jsonl"
+    ],
+    "omits": [
       "debit-197"
     ]
   },
@@ -763,10 +816,12 @@
     "question": "I can see the ticket twice in visits.jsonl, once for each invocation. Is there a way to tell which row belongs to my call?",
     "expected": "jsonl",
     "includes": [
-      "visits.jsonl",
-      "visit-62"
+      "visits.jsonl"
     ],
-    "answer": "The original decision ID from my invocation is visit-62."
+    "answer": "The original decision ID from my invocation is visit-62.",
+    "omits": [
+      "visit-62"
+    ]
   },
   {
     "name": "C03",
@@ -797,7 +852,9 @@
     "expected": "hosted",
     "includes": [
       "cobalt",
-      "invoice",
+      "invoice"
+    ],
+    "omits": [
       "hosted-413"
     ]
   },
@@ -812,10 +869,12 @@
     "question": "The same test was run from my laptop with the SDK and submitted in our hosted dashboard. I need to locate my run. Which should I inspect?",
     "expected": "hosted",
     "includes": [
-      "nightly",
-      "hosted-702"
+      "nightly"
     ],
-    "answer": "I mean the hosted run. The receipt has workspace nightly and run ID hosted-702."
+    "answer": "I mean the hosted run. The receipt has workspace nightly and run ID hosted-702.",
+    "omits": [
+      "hosted-702"
+    ]
   },
   {
     "name": "C07",
@@ -845,7 +904,9 @@
     "question": "The worker assigned our run the unique marker blue-186. I parsed lastnight.jsonl after it exited. There is one old record for blue-115 and no row for blue-186. What does that show?",
     "expected": "scanned_missing",
     "includes": [
-      "lastnight.jsonl",
+      "lastnight.jsonl"
+    ],
+    "omits": [
       "blue-186"
     ]
   },
@@ -862,6 +923,9 @@
     "question": "The receiver log contains a matching entry for our original decision ID web-281. We have no readback from storage yet. Is the record persisted?",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "web-281"
     ]
   },
@@ -870,6 +934,9 @@
     "question": "I searched the downstream store for the original decision ID log-442 after the exporter exited. The query returned one row with that exact ID. Is this enough to confirm storage?",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "log-442"
     ]
   },
@@ -910,8 +977,10 @@
     "question": "Searching the archive for original ID box-202 yielded nothing.",
     "expected": "store_missing",
     "includes": [
-      "box-202",
       "unverified"
+    ],
+    "omits": [
+      "box-202"
     ]
   },
   {
@@ -925,8 +994,10 @@
     "question": "Two rows in audit.jsonl share ticket T-145. My original decision ID was recorded as new-751.",
     "expected": "jsonl",
     "includes": [
-      "new-751",
       "audit.jsonl"
+    ],
+    "omits": [
+      "new-751"
     ]
   },
   {
@@ -995,6 +1066,9 @@
     "question": "Two decisions in payments.jsonl share invoice 32. The unique marker for my attempt was \"paid-in-full\".",
     "expected": "jsonl",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "paid-in-full"
     ]
   },
@@ -1003,6 +1077,9 @@
     "question": "I examined all records in check.jsonl for my marker call-44. An older row has call-11 and no entries for call-44.",
     "expected": "jsonl_stale",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "call-44"
     ]
   },
@@ -1011,8 +1088,10 @@
     "question": "I inspected the warehouse for my original run ID set-94. That search yielded the same decision.",
     "expected": "stored",
     "includes": [
-      "set-94",
       "storage"
+    ],
+    "omits": [
+      "set-94"
     ]
   },
   {
@@ -1020,6 +1099,9 @@
     "question": "I plan to query the database to see whether it returns my original ID req-45. Can I verify storage?",
     "expected": "query_storage",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "req-45"
     ]
   },
@@ -1036,7 +1118,9 @@
     "question": "Different calls wrote the same ticket text to status.jsonl. I copied the original decision ID (bill-710) from my run. How do I identify the right row?",
     "expected": "jsonl",
     "includes": [
-      "status.jsonl",
+      "status.jsonl"
+    ],
+    "omits": [
       "bill-710"
     ]
   },
@@ -1051,10 +1135,12 @@
     "question": "Three rows in jobs.jsonl have the same ticket text from three attempts. Which one corresponds to my run?",
     "expected": "jsonl",
     "includes": [
-      "jobs.jsonl",
-      "job-53"
+      "jobs.jsonl"
     ],
-    "answer": "I recovered the original decision ID job-53 from that run."
+    "answer": "I recovered the original decision ID job-53 from that run.",
+    "omits": [
+      "job-53"
+    ]
   },
   {
     "name": "D03",
@@ -1085,7 +1171,9 @@
     "expected": "hosted",
     "includes": [
       "forest",
-      "booking",
+      "booking"
+    ],
+    "omits": [
       "book-770"
     ]
   },
@@ -1100,10 +1188,12 @@
     "question": "There was a local SDK execution and a hosted dashboard run for our build. I need to find my run. Where should I start?",
     "expected": "hosted",
     "includes": [
-      "lake",
-      "cloud-404"
+      "lake"
     ],
-    "answer": "I mean the hosted dashboard run. Its workspace is lake and its run ID is cloud-404."
+    "answer": "I mean the hosted dashboard run. Its workspace is lake and its run ID is cloud-404.",
+    "omits": [
+      "cloud-404"
+    ]
   },
   {
     "name": "D07",
@@ -1133,7 +1223,9 @@
     "question": "My independent scan of delta.jsonl found no record matching the original unique marker sky-701. It contained a previous run tagged sky-698. Does this file verify my decision?",
     "expected": "scanned_missing",
     "includes": [
-      "delta.jsonl",
+      "delta.jsonl"
+    ],
+    "omits": [
       "sky-701"
     ]
   },
@@ -1150,6 +1242,9 @@
     "question": "The received HTTP batch contains a record matching original decision ID net-720. I have the receiver log but no separate downstream readback. Can I claim storage?",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "net-720"
     ]
   },
@@ -1158,6 +1253,9 @@
     "question": "A separate query of the downstream archive returned the record with the original decision ID store-911. Does this demonstrate persistence there?",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "store-911"
     ]
   },
@@ -1166,7 +1264,9 @@
     "question": "I need the hosted run. Its workspace might be lake. My run ID is task-358.",
     "expected": "hosted",
     "includes": [
-      "workspace identified by",
+      "workspace identified by"
+    ],
+    "omits": [
       "task-358"
     ]
   },
@@ -1191,6 +1291,9 @@
     "question": "My original decision ID was (tx-99). There are two rows in orders.jsonl for the same ticket.",
     "expected": "jsonl",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "tx-99"
     ]
   },
@@ -1233,8 +1336,10 @@
     "question": "The receiver received other-88 instead of the original group-42.",
     "expected": "receipt_unknown",
     "includes": [
-      "group-42",
       "unconfirmed"
+    ],
+    "omits": [
+      "group-42"
     ]
   },
   {
@@ -1242,8 +1347,10 @@
     "question": "The database returned every row except the original trace ID group-42.",
     "expected": "store_missing",
     "includes": [
-      "group-42",
       "unverified"
+    ],
+    "omits": [
+      "group-42"
     ]
   },
   {
@@ -1285,7 +1392,9 @@
     "question": "The JSONL exporter appended two identical tickets to billing.jsonl. The decision ID for my original run was invoice-88. How do I check which one is mine?",
     "expected": "jsonl",
     "includes": [
-      "billing.jsonl",
+      "billing.jsonl"
+    ],
+    "omits": [
       "invoice-88"
     ]
   },
@@ -1300,10 +1409,12 @@
     "question": "In review.jsonl I found multiple rows with the same ticket, from separate invocations. How do I choose the original one?",
     "expected": "jsonl",
     "includes": [
-      "review.jsonl",
-      "rev-602"
+      "review.jsonl"
     ],
-    "answer": "I found the original decision ID rev-602."
+    "answer": "I found the original decision ID rev-602.",
+    "omits": [
+      "rev-602"
+    ]
   },
   {
     "name": "E03",
@@ -1334,7 +1445,9 @@
     "expected": "hosted",
     "includes": [
       "harbor",
-      "routing",
+      "routing"
+    ],
+    "omits": [
       "work-913"
     ]
   },
@@ -1349,10 +1462,12 @@
     "question": "We had both a local SDK run and a hosted dashboard run for this release. Where should I check my run?",
     "expected": "hosted",
     "includes": [
-      "violet",
-      "run-906"
+      "violet"
     ],
-    "answer": "I want the hosted submission in workspace violet, run ID run-906."
+    "answer": "I want the hosted submission in workspace violet, run ID run-906.",
+    "omits": [
+      "run-906"
+    ]
   },
   {
     "name": "E07",
@@ -1382,7 +1497,9 @@
     "question": "After the process exited I checked history.jsonl for my original unique marker red-901. The only row belongs to yesterday, red-670; there is no match for red-901. Can I verify my run there?",
     "expected": "scanned_missing",
     "includes": [
-      "history.jsonl",
+      "history.jsonl"
+    ],
+    "omits": [
       "red-901"
     ]
   },
@@ -1399,6 +1516,9 @@
     "question": "The collector receiver has a matching entry for the original decision ID collect-58. We have not checked downstream storage. What has been verified?",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "collect-58"
     ]
   },
@@ -1407,6 +1527,9 @@
     "question": "I queried downstream storage by the original decision ID save-641 after the writer exited. The storage query returned the matching decision. What does that establish?",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "save-641"
     ]
   },
@@ -1439,7 +1562,9 @@
     "question": "The original decision ID is group-42. I have no evidence the receiver received trace ID group-42.",
     "expected": "receipt_unknown",
     "includes": [
-      "unconfirmed",
+      "unconfirmed"
+    ],
+    "omits": [
       "group-42"
     ]
   },
@@ -1448,7 +1573,9 @@
     "question": "The original decision ID is group-42. I do not know if the database returned a row with ID group-42.",
     "expected": "query_storage",
     "includes": [
-      "downstream readback",
+      "downstream readback"
+    ],
+    "omits": [
       "group-42"
     ]
   },
@@ -1508,7 +1635,9 @@
     "question": "We retried the same ticket twice. The two records in attempts.jsonl have different IDs. My original decision ID is op-729. Which record should I use?",
     "expected": "jsonl",
     "includes": [
-      "attempts.jsonl",
+      "attempts.jsonl"
+    ],
+    "omits": [
       "op-729"
     ]
   },
@@ -1523,10 +1652,12 @@
     "question": "We reused the same ticket on two runs and both appended to match.jsonl. How can I identify my original invocation?",
     "expected": "jsonl",
     "includes": [
-      "match.jsonl",
-      "tag-43"
+      "match.jsonl"
     ],
-    "answer": "My original decision ID was tag-43."
+    "answer": "My original decision ID was tag-43.",
+    "omits": [
+      "tag-43"
+    ]
   },
   {
     "name": "G03",
@@ -1557,7 +1688,9 @@
     "expected": "hosted",
     "includes": [
       "support",
-      "shore",
+      "shore"
+    ],
+    "omits": [
       "host-892"
     ]
   },
@@ -1572,10 +1705,12 @@
     "question": "We ran a local SDK example and a hosted submission for the same ticket. Where can I look up my run?",
     "expected": "hosted",
     "includes": [
-      "mineral",
-      "job-357"
+      "mineral"
     ],
-    "answer": "It was the hosted submission, workspace mineral, run ID job-357."
+    "answer": "It was the hosted submission, workspace mineral, run ID job-357.",
+    "omits": [
+      "job-357"
+    ]
   },
   {
     "name": "G07",
@@ -1605,7 +1740,9 @@
     "question": "I reopened batch.jsonl in a separate process and searched for the original unique marker acorn-901. No matching record was found; only acorn-801 from the previous run was present. Does this verify my original?",
     "expected": "jsonl_stale",
     "includes": [
-      "batch.jsonl",
+      "batch.jsonl"
+    ],
+    "omits": [
       "acorn-901"
     ]
   },
@@ -1622,6 +1759,9 @@
     "question": "The receiver log has a matching entry for the original decision ID ship-68. We have not queried the downstream store. Does the receiver entry establish persistence?",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "ship-68"
     ]
   },
@@ -1630,6 +1770,9 @@
     "question": "A downstream storage query by the original decision ID arch-218 returned exactly the matching record after the process exited. What has been verified?",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "arch-218"
     ]
   },
@@ -1638,8 +1781,10 @@
     "question": "The claim that the receiver received trace ID group-42 is false. My original trace ID was group-42.",
     "expected": "receipt_unknown",
     "includes": [
-      "group-42",
       "unconfirmed"
+    ],
+    "omits": [
+      "group-42"
     ]
   },
   {
@@ -1647,8 +1792,10 @@
     "question": "I deny that the database returned the row with ID group-42. My original trace ID was group-42.",
     "expected": "query_storage",
     "includes": [
-      "group-42",
       "downstream readback"
+    ],
+    "omits": [
+      "group-42"
     ]
   },
   {
@@ -1732,7 +1879,9 @@
     "question": "Our support worker wrote multiple decisions with the same ticket to support.jsonl. The original decision ID was desk-705. Which row is ours?",
     "expected": "jsonl",
     "includes": [
-      "support.jsonl",
+      "support.jsonl"
+    ],
+    "omits": [
       "desk-705"
     ]
   },
@@ -1747,10 +1896,12 @@
     "question": "The same ticket appears twice in repeat.jsonl, from two different runs. Which entry belongs to my original invocation?",
     "expected": "jsonl",
     "includes": [
-      "repeat.jsonl",
-      "call-818"
+      "repeat.jsonl"
     ],
-    "answer": "My original decision ID is call-818."
+    "answer": "My original decision ID is call-818.",
+    "omits": [
+      "call-818"
+    ]
   },
   {
     "name": "J03",
@@ -1781,7 +1932,9 @@
     "expected": "hosted",
     "includes": [
       "west",
-      "ledger",
+      "ledger"
+    ],
+    "omits": [
       "host-283"
     ]
   },
@@ -1796,10 +1949,12 @@
     "question": "There were two executions, a local SDK run and a hosted dashboard submission. I need to check my run. Which one should I open?",
     "expected": "hosted",
     "includes": [
-      "pine",
-      "job-248"
+      "pine"
     ],
-    "answer": "I mean the hosted submission in workspace pine, run ID job-248."
+    "answer": "I mean the hosted submission in workspace pine, run ID job-248.",
+    "omits": [
+      "job-248"
+    ]
   },
   {
     "name": "J07",
@@ -1829,7 +1984,9 @@
     "question": "A separate process checked morning.jsonl for the original unique marker fog-448. No matching record was found. The only entry is older and has marker fog-447. What does that prove?",
     "expected": "jsonl_stale",
     "includes": [
-      "morning.jsonl",
+      "morning.jsonl"
+    ],
+    "omits": [
       "fog-448"
     ]
   },
@@ -1846,6 +2003,9 @@
     "question": "The receiver log contains a matching entry for our original decision ID rx-604. Downstream storage has not been queried. What can we verify?",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "rx-604"
     ]
   },
@@ -1854,6 +2014,9 @@
     "question": "A separate downstream storage query returned a matching record for my original decision ID db-483 after the job exited. Can I verify it reached storage?",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "db-483"
     ]
   },
@@ -1931,7 +2094,9 @@
     "question": "The launched source explicitly selects local.jsonl. Its original ticket is unique, bench-14. No readback was attempted.",
     "expected": "jsonl",
     "includes": [
-      "local.jsonl",
+      "local.jsonl"
+    ],
+    "omits": [
       "bench-14"
     ]
   },
@@ -1977,6 +2142,9 @@
     "question": "The original marker was build-42. The receiver received marker \"build-42 dev\".",
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "build-42"
     ]
   },
@@ -1985,6 +2153,9 @@
     "question": "The original marker was \"build-42 dev\". The receiver received marker \"build-42 dev\".",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "build-42 dev"
     ]
   },
@@ -1993,6 +2164,9 @@
     "question": "The original marker was build-42. The receiver received marker 'build-42 dev'.",
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "build-42"
     ]
   },
@@ -2001,6 +2175,9 @@
     "question": "The original marker was 'build-42 dev'. The receiver received marker 'build-42 dev'.",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "build-42 dev"
     ]
   },
@@ -2009,6 +2186,9 @@
     "question": "The original marker was build-42. The receiver received marker \u201cbuild-42 dev\u201d.",
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "build-42"
     ]
   },
@@ -2017,6 +2197,9 @@
     "question": "The original marker was \u201cbuild-42 dev\u201d. The receiver received marker \u201cbuild-42 dev\u201d.",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "build-42 dev"
     ]
   },
@@ -2025,6 +2208,9 @@
     "question": "The original marker was build-42. The receiver received marker `build-42 dev`.",
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "build-42"
     ]
   },
@@ -2033,6 +2219,9 @@
     "question": "The original marker was `build-42 dev`. The receiver received marker `build-42 dev`.",
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "build-42 dev"
     ]
   },
@@ -2041,6 +2230,9 @@
     "question": "The original marker was build-42. The database returned marker \"build-42 dev\".",
     "expected": "store_missing",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "build-42"
     ]
   },
@@ -2049,6 +2241,9 @@
     "question": "The original marker was \"build-42 dev\". The database returned marker \"build-42 dev\".",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "build-42 dev"
     ]
   },
@@ -2057,6 +2252,9 @@
     "question": "The original marker was build-42. The database returned marker 'build-42 dev'.",
     "expected": "store_missing",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "build-42"
     ]
   },
@@ -2065,6 +2263,9 @@
     "question": "The original marker was 'build-42 dev'. The database returned marker 'build-42 dev'.",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "build-42 dev"
     ]
   },
@@ -2073,6 +2274,9 @@
     "question": "The original marker was build-42. The database returned marker \u201cbuild-42 dev\u201d.",
     "expected": "store_missing",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "build-42"
     ]
   },
@@ -2081,6 +2285,9 @@
     "question": "The original marker was \u201cbuild-42 dev\u201d. The database returned marker \u201cbuild-42 dev\u201d.",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "build-42 dev"
     ]
   },
@@ -2089,6 +2296,9 @@
     "question": "The original marker was build-42. The database returned marker `build-42 dev`.",
     "expected": "store_missing",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "build-42"
     ]
   },
@@ -2097,6 +2307,9 @@
     "question": "The original marker was `build-42 dev`. The database returned marker `build-42 dev`.",
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "build-42 dev"
     ]
   },
@@ -2271,8 +2484,10 @@
     "expected": "scanned_missing",
     "includes": [
       "runlog.jsonl",
-      "sand-456",
       "Other destinations remain unknown"
+    ],
+    "omits": [
+      "sand-456"
     ]
   },
   {
@@ -2325,6 +2540,9 @@
     "question": "Original marker run-864. The receiver received marker run-864, but it belongs to another process.",
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "run-864"
     ]
   },
@@ -2333,6 +2551,9 @@
     "question": "Original marker run-864. The receiver received marker run-864, but this was for a different run.",
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "run-864"
     ]
   },
@@ -2341,6 +2562,9 @@
     "question": "Original marker run-864. The receiver received marker run-864, but that actually came from the other worker.",
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "run-864"
     ]
   },
@@ -2349,6 +2573,9 @@
     "question": "Original marker run-864. The database returned marker run-864, but it belongs to another process.",
     "expected": "query_storage",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "run-864"
     ]
   },
@@ -2357,6 +2584,9 @@
     "question": "Original marker run-864. The database returned marker run-864, but this was for a different run.",
     "expected": "query_storage",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "run-864"
     ]
   },
@@ -2365,6 +2595,9 @@
     "question": "Original marker run-864. The database returned marker run-864, but that actually came from the other worker.",
     "expected": "query_storage",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "run-864"
     ]
   },
@@ -2568,6 +2801,9 @@
     "question": "Original marker job-99. The receiver received marker job-99, but it was written by another process.",
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "job-99"
     ]
   },
@@ -2576,6 +2812,9 @@
     "question": "Original marker job-99. The receiver received marker job-99, but the row was generated by a different worker.",
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "job-99"
     ]
   },
@@ -2584,6 +2823,9 @@
     "question": "Original marker job-99. The receiver received marker job-99, but that entry was produced by an unrelated application.",
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "job-99"
     ]
   },
@@ -2592,6 +2834,9 @@
     "question": "Original marker job-99. The database returned marker job-99, but it was written by another process.",
     "expected": "query_storage",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "job-99"
     ]
   },
@@ -2600,6 +2845,9 @@
     "question": "Original marker job-99. The database returned marker job-99, but the row was generated by a different worker.",
     "expected": "query_storage",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "job-99"
     ]
   },
@@ -2608,6 +2856,9 @@
     "question": "Original marker job-99. The database returned marker job-99, but that entry was produced by an unrelated application.",
     "expected": "query_storage",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "job-99"
     ]
   },
@@ -2851,6 +3102,197 @@
     "expected": "console",
     "includes": [
       "Inspect retained stderr"
+    ]
+  },
+  {
+    "name": "Surviving marker overrides missing printed ID",
+    "question": "Explicit JSONL to runs.jsonl. No original ID was printed. A unique marker survives in the launch log.",
+    "expected": "surviving_marker",
+    "includes": [
+      "runs.jsonl",
+      "Retrieve the surviving run-unique marker"
+    ],
+    "omits": []
+  },
+  {
+    "name": "Unquoted shell comment cannot redirect stderr",
+    "question": "The console exporter was used. python app.py 2>run.err # 2>ignored.err",
+    "expected": "console",
+    "includes": [
+      "run.err"
+    ],
+    "omits": [
+      "ignored.err"
+    ]
+  },
+  {
+    "name": "Negated stderr retention has no stream binding",
+    "question": "The console exporter was used. I never saved stderr to old.err.",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "old.err"
+    ]
+  },
+  {
+    "name": "Negated protocol before original console",
+    "question": "I did not use OTLP. My run used the console exporter.",
+    "expected": "console",
+    "includes": [
+      "stderr"
+    ],
+    "omits": [
+      "collector"
+    ]
+  },
+  {
+    "name": "Safe categorical answer after credential",
+    "question": "My CI job token was probe-229. Which exporter did my original process use?",
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ],
+    "omits": [
+      "probe-229"
+    ],
+    "answer": "OTLP"
+  },
+  {
+    "name": "Editor continuity cannot establish exporter continuity",
+    "question": "The original job inherited the default exporter from this shell. My unrelated editor settings are unchanged.",
+    "expected": "ask_exporter",
+    "includes": [
+      "original process"
+    ],
+    "omits": [
+      "today.jsonl"
+    ],
+    "shell": "today.jsonl"
+  },
+  {
+    "name": "Explicit disabled preload 0",
+    "question": "BRIEFCASE_AUTO=0 BRIEFCASE_EXPORTER=audit.jsonl node --import @briefcase-ai/auto/register app.js",
+    "expected": "inactive_preload",
+    "includes": [
+      "separately enabled capture"
+    ],
+    "omits": [
+      "Open audit.jsonl"
+    ]
+  },
+  {
+    "name": "Explicit disabled preload false",
+    "question": "BRIEFCASE_AUTO=false BRIEFCASE_EXPORTER=audit.jsonl node --import @briefcase-ai/auto/register app.js",
+    "expected": "inactive_preload",
+    "includes": [
+      "separately enabled capture"
+    ],
+    "omits": [
+      "Open audit.jsonl"
+    ]
+  },
+  {
+    "name": "Explicit disabled preload \" FALSE \"",
+    "question": "BRIEFCASE_AUTO=\" FALSE \" BRIEFCASE_EXPORTER=audit.jsonl node --import @briefcase-ai/auto/register app.js",
+    "expected": "inactive_preload",
+    "includes": [
+      "separately enabled capture"
+    ],
+    "omits": [
+      "Open audit.jsonl"
+    ]
+  },
+  {
+    "name": "Private run ID in JSONL name",
+    "question": "My original decision ID was book-301. My original run explicitly used logs/book-301.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL path"
+    ],
+    "omits": [
+      "book-301"
+    ]
+  },
+  {
+    "name": "Opaque ID reused under an unfamiliar label",
+    "question": "Its reconciliation handle was TRACE72X. My original process selected /tmp/TRACE72X/archive.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL path"
+    ],
+    "omits": [
+      "TRACE72X"
+    ]
+  },
+  {
+    "name": "Plain reference reused inside path",
+    "question": "The lookup handle was walnut. Explicit JSONL to kept-walnut.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL path"
+    ],
+    "omits": [
+      "walnut"
+    ]
+  },
+  {
+    "name": "Unrelated locator still usable",
+    "question": "The lookup handle was TX4810. Explicit JSONL to November-Replay/observed.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "November-Replay/observed.jsonl"
+    ],
+    "omits": [
+      "TX4810"
+    ]
+  },
+  {
+    "name": "Superseded candidate cannot be used inside path",
+    "question": "My original marker was work-88. Another process used marker old-31. Explicit JSONL to old-31-cache.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL path"
+    ],
+    "omits": [
+      "work-88",
+      "old-31"
+    ]
+  },
+  {
+    "name": "Hosted marker inside workspace name",
+    "question": "My hosted run was submitted under workspace delta-run-87 for agent helper. Its run ID was run-87.",
+    "expected": "hosted",
+    "includes": [
+      "workspace identified by",
+      "helper"
+    ],
+    "omits": [
+      "run-87"
+    ]
+  },
+  {
+    "name": "Qualified ticket inside stream destination",
+    "question": "My original ticket was fox-127. The console exporter was used. python app.py 2>retained-fox-127.err",
+    "expected": "console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "fox-127"
+    ]
+  },
+  {
+    "name": "Separate pieces of evidence in one sentence",
+    "question": "Explicit JSONL to runs.jsonl. No original decision ID was printed, and a unique marker survives in the original log.",
+    "expected": "surviving_marker",
+    "includes": [
+      "runs.jsonl",
+      "surviving run-unique marker"
+    ],
+    "omits": [
+      "Write a new run"
     ]
   }
 ]

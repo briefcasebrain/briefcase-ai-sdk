@@ -31,8 +31,7 @@
     "question": "I submitted the hosted job to workspace {name}. Its run ID is req-64.",
     "expected": "hosted",
     "includes": [
-      "workspace Team Lake",
-      "req-64"
+      "workspace Team Lake"
     ],
     "variants": {
       "name": [
@@ -43,15 +42,17 @@
         "\u201cTeam Lake\u201d",
         "\u2018Team Lake\u2019"
       ]
-    }
+    },
+    "omits": [
+      "req-64"
+    ]
   },
   {
     "name": "Original identifier binding",
     "question": "Two rows in tasks.jsonl have the same input. My original {label}{join}{token}. Which is mine?",
     "expected": "jsonl",
     "includes": [
-      "tasks.jsonl",
-      "rose-880"
+      "tasks.jsonl"
     ],
     "variants": {
       "label": [
@@ -73,7 +74,10 @@
         "`rose-880`",
         "\u201crose-880\u201d"
       ]
-    }
+    },
+    "omits": [
+      "rose-880"
+    ]
   },
   {
     "name": "Completed local missing readback",
@@ -81,7 +85,6 @@
     "expected": "scanned_missing",
     "includes": [
       "tasks.jsonl",
-      "rose-880",
       "found no matching"
     ],
     "variants": {
@@ -97,15 +100,17 @@
         "yielded no entry with",
         "found no line for"
       ]
-    }
+    },
+    "omits": [
+      "rose-880"
+    ]
   },
   {
     "name": "Hypothetical local readback",
     "question": "The original marker is rose-880. I have not checked tasks.jsonl. If the lookup {miss} the original ID, what should I check?",
     "expected": "jsonl",
     "includes": [
-      "tasks.jsonl",
-      "rose-880"
+      "tasks.jsonl"
     ],
     "variants": {
       "miss": [
@@ -113,15 +118,17 @@
         "returned zero rows for",
         "yielded no line for"
       ]
-    }
+    },
+    "omits": [
+      "rose-880"
+    ]
   },
   {
     "name": "Missing or uncertain hosted slot",
     "question": "I submitted a hosted job. The workspace {missing}. Its run ID is req-64.",
     "expected": "hosted",
     "includes": [
-      "workspace identified by",
-      "req-64"
+      "workspace identified by"
     ],
     "variants": {
       "missing": [
@@ -133,7 +140,10 @@
         "is listed on the receipt",
         "is possibly lake"
       ]
-    }
+    },
+    "omits": [
+      "req-64"
+    ]
   },
   {
     "name": "Hosted reply provides authoritative slot",
@@ -141,8 +151,7 @@
     "answer": "I mean the hosted run. Its workspace{join}{token} and its run ID is proof-650.",
     "expected": "hosted",
     "includes": [
-      "workspace North",
-      "proof-650"
+      "workspace North"
     ],
     "variants": {
       "join": [
@@ -155,14 +164,16 @@
         "(North)",
         "\u201cNorth\u201d"
       ]
-    }
+    },
+    "omits": [
+      "proof-650"
+    ]
   },
   {
     "name": "Receiver mismatch",
     "question": "My {origin} was origin-530. The {source} {verb} trace ID other-91.",
     "expected": "receipt_unknown",
     "includes": [
-      "origin-530",
       "unconfirmed"
     ],
     "variants": {
@@ -179,14 +190,16 @@
         "received",
         "recorded"
       ]
-    }
+    },
+    "omits": [
+      "origin-530"
+    ]
   },
   {
     "name": "Confirmed downstream observation",
     "question": "My {origin} was origin-530. The {source} returned a row with ID origin-530.",
     "expected": "stored",
     "includes": [
-      "origin-530",
       "storage"
     ],
     "variants": {
@@ -199,14 +212,16 @@
         "warehouse",
         "downstream archive"
       ]
-    }
+    },
+    "omits": [
+      "origin-530"
+    ]
   },
   {
     "name": "Actual downstream mismatch",
     "question": "My {origin} was origin-530. The {source} returned a row with ID other-91.",
     "expected": "store_missing",
     "includes": [
-      "origin-530",
       "unverified"
     ],
     "variants": {
@@ -219,7 +234,10 @@
         "warehouse",
         "downstream archive"
       ]
-    }
+    },
+    "omits": [
+      "origin-530"
+    ]
   },
   {
     "name": "Rejected alternate destination",
@@ -268,8 +286,10 @@
     },
     "expected": "jsonl",
     "includes": [
-      "proof-673",
       "batch.jsonl"
+    ],
+    "omits": [
+      "proof-673"
     ]
   },
   {
@@ -321,9 +341,11 @@
     },
     "expected": "storage",
     "includes": [
-      "event-665",
       "receipt",
       "unverified"
+    ],
+    "omits": [
+      "event-665"
     ]
   },
   {
@@ -380,8 +402,10 @@
     },
     "expected": "receipt_unknown",
     "includes": [
-      "source-93",
       "unconfirmed"
+    ],
+    "omits": [
+      "source-93"
     ]
   },
   {
@@ -403,8 +427,10 @@
     },
     "expected": "query_storage",
     "includes": [
-      "source-93",
       "readback"
+    ],
+    "omits": [
+      "source-93"
     ]
   },
   {
@@ -442,7 +468,9 @@
     },
     "expected": "jsonl",
     "includes": [
-      "audit/replies.jsonl",
+      "audit/replies.jsonl"
+    ],
+    "omits": [
       "run-93"
     ]
   },
@@ -525,6 +553,9 @@
     },
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "unit-42.prod"
     ]
   },
@@ -541,6 +572,9 @@
     },
     "expected": "storage",
     "includes": [
+      "original decision ID"
+    ],
+    "omits": [
       "{marker}"
     ]
   },
@@ -557,6 +591,9 @@
     },
     "expected": "receipt_unknown",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "{marker}"
     ]
   },
@@ -574,6 +611,9 @@
     },
     "expected": "store_missing",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "unit-42.prod"
     ]
   },
@@ -590,6 +630,9 @@
     },
     "expected": "stored",
     "includes": [
+      "original ID"
+    ],
+    "omits": [
       "{marker}"
     ]
   },
@@ -606,6 +649,9 @@
     },
     "expected": "store_missing",
     "includes": [
+      "original"
+    ],
+    "omits": [
       "{marker}"
     ]
   },
