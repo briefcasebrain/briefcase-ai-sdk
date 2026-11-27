@@ -77,16 +77,15 @@ Select a repository using `OCI_JJ_REPO` or `--repo`. For managed image pushes, `
 - A real lazy mount needs the engine's snapshotter (Linux, FUSE); `env mount` shows its plan.
 - The engine's own "undo the last operation" is not always the newest operation id, so
   `env undo` without `--op` shows the newest one and asks (`--yes` to skip), then names it.
-- The gateway refuses pushes outside your namespace and pushes with a read-only token
-  (`docker push failed`, see `briefcase-ai engine logs gateway`).
+- A push requires write access to the repository in your workspace registry. Check the tenant namespace and token permissions if the registry denies it.
 
 ## Troubleshooting
 
 | Symptom | Do this |
 | --- | --- |
 | `engine not installed` (exit 3) | [Configure managed access](https://observe.briefcasebrain.io/engine) |
-| `docker login ... failed` | `briefcase-ai engine status`: is the gateway up? Is `OCI_JJ_AUTH_TOKEN` a tenant token? |
-| `docker push failed` | Name it `<your tenant>/<image>`; use a tenant (not read-only) token |
+| `registry login failed` | Verify your workspace’s `BRIEFCASE_ENGINE_GATEWAY` value and `OCI_JJ_AUTH_TOKEN` credentials. |
+| `docker push failed` | Use `<your tenant>/<image>` and a tenant token with write access. |
 | `cannot tell your registry namespace` | `--as <tenant>/<image>:<tag>` |
 | `requires a newer engine` | Contact your workspace administrator about service availability |
 | `the oci-bai client ... is not installed` | Contact the workspace administrator |
