@@ -113,9 +113,7 @@ mcp = ["mcp>=1.2,<3"]
 run = ["grpcio>=1.60,<2", "grpcio-reflection>=1.60,<2", "protobuf>=4.25"]
 # `briefcase-ai engine` / `graph` / `env`: the gRPC client for the Briefcase engine (oci-jj), built from
 # the vendored Apache-2.0 contract in briefcase/engine/_proto (no reflection needed). The engine
-# itself is proprietary and is NOT a dependency: `briefcase-ai engine install` gets it from the gated
-# portal and verifies its ECDSA P-256 release signatures with `cryptography` (without it, the
-# installer needs `cosign` on PATH instead).
+# is operated by Briefcase. Cryptography also verifies retained legacy releases offline.
 engine = ["grpcio>=1.60,<2", "protobuf>=4.25", "cryptography>=42"]
 # `briefcase-ai receive` decodes OTLP/JSON with the stdlib. This extra adds OTLP/protobuf decoding,
 # which Codex and Copilot send; Claude Code is configured for http/json by `briefcase-ai connect`

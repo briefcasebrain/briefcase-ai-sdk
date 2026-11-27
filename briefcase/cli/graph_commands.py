@@ -5,7 +5,7 @@
     briefcase-ai graph provenance cand
 
 Every subcommand is one ``oci_jj.v1.VcsService`` call over gRPC (named in its ``--help``);
-nothing runs locally. Needs the engine (``briefcase-ai engine install``) and the ``engine`` extra.
+nothing runs locally. Needs managed engine access and the ``engine`` extra.
 """
 from __future__ import annotations
 

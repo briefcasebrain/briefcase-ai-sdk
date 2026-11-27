@@ -10,7 +10,7 @@ fetch, and move bookmarks with an undo that never rewrites history.
 briefcase-ai env push my-env:latest
 ```
 
-Real output against an engine built from oci-jj be043d9 (`briefcase-ai engine up`):
+Real output against an engine built from oci-jj be043d9 (a managed test endpoint):
 
 ```text
 $ briefcase-ai env push rl-env:base
@@ -83,9 +83,9 @@ Repository `OCI_JJ_REPO` / `--repo`; gateway `BRIEFCASE_ENGINE_GATEWAY` (default
 
 | Symptom | Do this |
 | --- | --- |
-| `engine not installed` (exit 3) | `briefcase-ai engine install` |
+| `engine not installed` (exit 3) | [Configure managed access](https://observe.briefcasebrain.io/engine) |
 | `docker login ... failed` | `briefcase-ai engine status`: is the gateway up? Is `OCI_JJ_AUTH_TOKEN` a tenant token? |
 | `docker push failed` | Name it `<your tenant>/<image>`; use a tenant (not read-only) token |
 | `cannot tell your registry namespace` | `--as <tenant>/<image>:<tag>` |
-| `requires a newer engine` | `briefcase-ai engine upgrade` once a release adds it |
-| `the oci-bai client ... is not installed` | `briefcase-ai engine install` (it installs `oci-bai`) |
+| `requires a newer engine` | Contact your workspace administrator about service availability |
+| `the oci-bai client ... is not installed` | Contact the workspace administrator |

@@ -62,7 +62,7 @@ def test_publish_reports_a_stopped_engine(local_engine, tmp_path, capsys, monkey
     data.write_text("x,target\n1,0\n")
     assert main(["dataset", "publish", "d", str(data)]) == 1
     err = capsys.readouterr().err
-    assert "minio" in err and "Fix: briefcase-ai engine up" in err
+    assert "minio" in err and "Fix: Check the legacy source" in err
     assert Store().get_dataset("d") is None
 
 

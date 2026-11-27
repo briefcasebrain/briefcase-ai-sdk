@@ -317,7 +317,7 @@ Evaluate: datasets, secrets and evaluation runs
   dataset     Register and list datasets.
   secret      Store and list secrets.
   run         Submit and manage evaluation runs.
-  stack       Manage the bundled engine stack (docker compose).
+  engine      Managed engine access and legacy migration.
 
 Global options:
   -h, --help       show this help message and exit

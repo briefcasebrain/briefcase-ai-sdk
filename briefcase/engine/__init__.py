@@ -1,26 +1,4 @@
-"""The Briefcase engine (oci-jj): local install state, client settings and the install gate.
-
-The engine is proprietary and is NOT part of this package. What ships here is the open part:
-the gRPC contract (``briefcase/engine/_proto``, Apache-2.0, vendored from oci-jj ``proto/``),
-the client, the release keys this SDK trusts (``briefcase/engine/keys``) and the installer that
-gets the engine from the gated Briefcase portal and verifies it (``briefcase-ai engine install``).
-Nothing in this package contains engine binaries, images, source or credentials.
-
-Install state lives under ``~/.briefcase/engine`` (``$BRIEFCASE_HOME/engine``)::
-
-    installed.json          which versions are installed and which one is current
-    engine.env              per-install secrets (DB passwords, gRPC tokens), mode 0600
-    <version>/engine-manifest.json(.sig)   the verified, signed release manifest
-    <version>/bin/oci-bai   the client binary (heavy local work: cohort push), when the release
-                            has a build for this OS; otherwise it runs from the server image
-    <version>/docker-compose.yml   the single-box stack on the verified images
-    tls/                    optional self-signed certificate (``engine install --tls``)
-
-Every engine command calls :func:`gate` first. Without an install (and without an explicit
-``BRIEFCASE_ENGINE_ADDR`` / ``OCI_JJ_SERVER`` pointing at an engine someone else runs), the
-command prints one line and exits with :data:`EXIT_NOT_INSTALLED` (3) instead of failing
-somewhere deep in a gRPC call.
-"""
+"""Managed engine client settings and legacy migration state."""
 from __future__ import annotations
 
 import json
@@ -30,12 +8,11 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
 
 EXIT_NOT_INSTALLED = 3
-NOT_INSTALLED = "engine not installed — `briefcase-ai engine install`"
-HELP_SUFFIX = " (engine not installed — `briefcase-ai engine install`)"
+MANAGED_ACCESS = "https://observe.briefcasebrain.io/engine"
+NOT_INSTALLED = f"Managed engine access is not configured. Visit {MANAGED_ACCESS}"
+HELP_SUFFIX = " (requires managed engine access)"
 
 ENV_ADDR = "BRIEFCASE_ENGINE_ADDR"
-ENV_LICENSE = "BRIEFCASE_LICENSE_TOKEN"
-ENV_PLATFORM = "BRIEFCASE_PLATFORM_URL"
 # oci-jj's own client settings (ojj-proto auth.rs / go grpcauth), honoured as before.
 ENV_SERVER = "OCI_JJ_SERVER"
 ENV_TOKEN = "OCI_JJ_AUTH_TOKEN"
@@ -117,7 +94,7 @@ def installed(env: Optional[Mapping[str, str]] = None) -> bool:
 
 
 def configured_address(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
-    """An engine address the user set explicitly (an engine they run themselves)."""
+    """An engine address the user set explicitly (the managed endpoint their administrator supplied)."""
     env = os.environ if env is None else env
     return env.get(ENV_ADDR) or env.get(ENV_SERVER) or None
 
@@ -204,7 +181,7 @@ def not_installed(as_json: bool = False) -> int:
     """Print the not-installed line and return :data:`EXIT_NOT_INSTALLED`."""
     if as_json:
         print(json.dumps({"error": "engine_not_installed", "message": NOT_INSTALLED,
-                          "fix": "briefcase-ai engine install"}))
+                          "fix": MANAGED_ACCESS}))
     else:
         print(f"error: {NOT_INSTALLED}", file=sys.stderr)
     return EXIT_NOT_INSTALLED
@@ -224,7 +201,7 @@ def gate(args: Any = None, engine: Any = None) -> Optional[int]:
 
 
 def status_row(feature_id: str, title: str, detail_on: str,
-               next_off: str = "briefcase-ai engine install") -> Dict[str, Any]:
+               next_off: str = MANAGED_ACCESS) -> Dict[str, Any]:
     """A ``briefcase-ai status`` row for a feature that needs the engine."""
     if available():
         return {"id": feature_id, "title": title, "state": "on", "detail": detail_on, "next": None}

@@ -11,11 +11,11 @@ whether each feature is on for you, is in your terminal: `briefcase-ai features`
 | Feature | What it gives you | First command | Status |
 | --- | --- | --- | --- |
 | [Adapter conformance checks](../../docs/features/adapter-conformance.md) | Know when a coding tool update breaks its briefcase connection. | `briefcase-ai doctor --connect` | experimental |
-| [Briefcase engine (oci-jj) install](../../docs/features/engine.md) | Install the licensed engine from the portal, verified against a pinned key. | `briefcase-ai engine install` | experimental |
 | [Connect coding tools](../../docs/integrations/README.md) | Point Claude Code, Codex, Cursor and Copilot at briefcase in one command. | `briefcase-ai connect` | experimental |
 | [Cursor hooks](../../docs/integrations/README.md#cursor) | Record Cursor sessions, prompts and tool calls through its hook system. | `briefcase-ai connect cursor` | experimental |
 | [Guided setup and status](../../docs/features/cli-shell.md) | One command to get started and one screen that shows what is on. | `briefcase-ai setup` | experimental |
 | [Local receiver](../../docs/integrations/README.md#the-receiver) | Turn what your coding tools send into decision records on your own machine. | `briefcase-ai receive --detach` | experimental |
+| [Managed engine access](../../docs/features/engine.md) | Check managed access and retire an existing local engine. | `briefcase-ai engine status` | experimental |
 | [Managed rollout for a team](../../docs/features/managed-rollout.md) | Generate the files an admin deploys to set up briefcase on every machine. | `briefcase-ai connect --managed --out ./briefcase-rollout` | experimental |
 | [MCP server install](../../docs/integrations/README.md#mcp-server-copy-paste-and-one-click-installs) | Register the briefcase MCP server with your coding tools, or print a link. | `briefcase-ai mcp install` | experimental |
 | [Plugins from other packages](../../docs/features/plugins.md) | Add exporters, backends, commands and checks from other packages. | `briefcase-ai plugins list` | experimental |

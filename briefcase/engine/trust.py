@@ -129,7 +129,7 @@ def pinned_key(key_id: str, keys: Sequence[ReleaseKey]) -> ReleaseKey:
     raise TrustError(
         f"signed by key {key_id}, which this SDK does not trust (pinned: {pinned})",
         fix="pip install -U 'briefcase-ai[engine]'   # a newer SDK may carry the new release key; "
-            "if it is already current, do not install this file")
+            "if it is already current, contact the workspace administrator")
 
 
 # --------------------------------------------------------------------------- signatures
@@ -343,7 +343,7 @@ class Manifest:
         have = sorted({f"{b['os']}/{b['arch']}" for b in self.data["binaries"]})
         raise TrustError(f"engine {self.version} has no oci-bai build for {os_name}/{arch} "
                          f"(available: {', '.join(have) or 'none'})",
-                         fix="run the engine on a supported OS/architecture")
+                         fix="check the platform in the retained release manifest")
 
     def bundle_for(self, arch: str) -> Optional[Dict[str, Any]]:
         for entry in self.data["bundles"]:
@@ -357,7 +357,7 @@ class Manifest:
 
 def _fail_schema(what: str) -> TrustError:
     return TrustError(f"the engine manifest is malformed: {what}",
-                      fix="download the manifest again from the portal; do not install this one")
+                      fix="use a matching retained signed manifest for migration")
 
 
 def _file_entry(entry: Any, where: str, need_os: bool) -> None:
@@ -452,7 +452,7 @@ def load_manifest(raw: bytes, signature: bytes, keys: Optional[Sequence[ReleaseK
     if not verify_blob(raw, signature, key, **kw):
         raise TrustError(f"the engine manifest's signature does not verify with pinned key {key_id}: "
                          "the file was changed after it was signed, or the signature belongs to another file",
-                         fix="download the manifest and its .sig again from the portal; do not install this one")
+                         fix="verify the original retained manifest and its signature")
     validate_manifest(data)
     check_sdk_version(data, running_sdk)
     return Manifest(data=data, raw=raw, key=key)
@@ -466,16 +466,16 @@ def check_file(path: Path, entry: Mapping[str, Any], manifest: Manifest, signatu
     size = path.stat().st_size
     if size != entry["size"]:
         raise TrustError(f"{path.name}: size {size} does not match the signed manifest ({entry['size']})",
-                         fix="download it again; do not install this file")
+                         fix="use the original retained file and matching signed manifest")
     actual = sha256_file(path)
     if actual != entry["sha256"]:
         raise TrustError(f"{path.name}: sha256 {actual} does not match the signed manifest ({entry['sha256']})",
-                         fix="download it again; do not install this file")
+                         fix="use the original retained file and matching signed manifest")
     if signature is None:
         return "sha256"
     if not verify_blob(path, signature, manifest.key, **kw):
         raise TrustError(f"{path.name}: its signature does not verify with pinned key {manifest.key_id}",
-                         fix="download the file and its .sig again; do not install this file")
+                         fix="use the original retained file and its matching signature")
     return "signature"
 
 

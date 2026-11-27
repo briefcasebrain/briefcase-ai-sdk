@@ -7,7 +7,7 @@
 Most subcommands are one ``oci_jj.v1.VcsService`` call over gRPC (named in their ``--help``).
 Two do heavy work on this machine instead: ``push`` (``docker push`` through the engine's
 registry gateway, which records the commit) and ``cohort`` (the ``oci-bai`` client chunks the
-images locally and uploads only new segments). Needs the engine (``briefcase-ai engine install``).
+images locally and uploads only new segments). Needs managed engine access.
 """
 from __future__ import annotations
 
@@ -187,15 +187,15 @@ def cmd_cohort(args, store, engine, stack) -> int:
                         code=2)
     sub = OciJJEngine(server=getattr(args, "server", None),
                       repo=getattr(args, "engine_repo", None) or getattr(args, "repo", None))
-    argv = sub._base() + ["cohort", "push", os.path.abspath(args.dir) if sub.container else args.dir]
+    argv = sub._base() + ["cohort", "push", args.dir]
     if getattr(args, "env_dry_run", False) or getattr(args, "dry_run", False):
-        print(" ".join(sub.command(argv)))
+        print(" ".join(argv))
         return 0
     try:
         result = sub.exec(argv)
     except FileNotFoundError:
-        return _ux.fail(f"the oci-bai client ({'docker' if sub.container else sub.binary}) is not installed",
-                        fix="briefcase-ai engine install   # installs it under ~/.briefcase/engine")
+        return _ux.fail(f"the oci-bai client ({sub.binary}) is not installed",
+                        fix="Contact your managed workspace administrator")
     code = getattr(result, "returncode", 1)
     if code != 0:
         return _ux.fail(f"oci-bai cohort push failed (exit {code})", fix="briefcase-ai engine doctor")

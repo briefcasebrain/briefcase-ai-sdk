@@ -257,7 +257,7 @@ def test_unimplemented_rpc_says_upgrade(engine, capsys):
     engine.unimplemented.add("Fsck")
     assert main(["verify", "--graph", "cand"]) == 1
     err = capsys.readouterr().err
-    assert "not available on this engine" in err and "Fix: briefcase-ai engine upgrade" in err
+    assert "not available on this engine" in err and "Fix: Contact your managed workspace administrator" in err
 
 
 def test_wrong_token_is_explained(engine, capsys, monkeypatch):

@@ -238,8 +238,8 @@ def cmd_run_logs(args, store, engine, stack=None) -> int:
     from briefcase.cli import engine_commands
 
     if os.environ.get("BRIEFCASE_OCIJJ_COMPOSE"):
-        print("note: BRIEFCASE_OCIJJ_COMPOSE is no longer read; `run logs` uses the engine installed with "
-              "`briefcase-ai engine install`", file=sys.stderr)
+        print("note: BRIEFCASE_OCIJJ_COMPOSE is no longer read; `run logs` reads the existing legacy project",
+              file=sys.stderr)
     record = _engine.current_install() or {}
     try:
         compose_text = Path(record["compose"]).read_text(encoding="utf-8") if record.get("compose") else None
@@ -399,7 +399,7 @@ def cmd_dataset_publish(args, store, engine, stack=None) -> int:
     if result.returncode != 0:
         detail = (result.stderr or b"").decode("utf-8", "replace").strip()[:300]
         return _ux.fail(f"upload failed ({detail or 'exit ' + str(result.returncode)})",
-                        fix="briefcase-ai engine up   # MinIO must be running")
+                        fix="Check the legacy source or contact your managed workspace administrator")
     rec = store.register_dataset(args.name, uri)
     if getattr(args, "json", False):
         return _ux.print_json({**rec, "sha256": digest, "size": path.stat().st_size})
