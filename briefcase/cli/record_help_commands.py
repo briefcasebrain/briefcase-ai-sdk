@@ -62,6 +62,10 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         return value.strip()
 
     evidence = preprocess(question)
+    clauses = re.split(table["split"], evidence, flags=re.I)
+    relevant = [clause for clause in clauses if not _matches(table["excludeClauses"], clause)]
+    if len(relevant) != len(clauses):
+        evidence = "\n".join(relevant)
     facts = _collect_facts(table, evidence)
     shell_path = None
     if shell and _matches(table["shell"], evidence):

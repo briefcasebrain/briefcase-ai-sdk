@@ -742,5 +742,293 @@
     "includes": [
       "original process"
     ]
+  },
+  {
+    "name": "C01",
+    "question": "An overnight Python worker wrote two decisions to ledger.jsonl for the same ticket. The origin log recorded my decision ID as debit-197. Which entry do I retrieve?",
+    "expected": "jsonl",
+    "includes": [
+      "ledger.jsonl",
+      "debit-197"
+    ]
+  },
+  {
+    "name": "C02 initial",
+    "question": "I can see the ticket twice in visits.jsonl, once for each invocation. Is there a way to tell which row belongs to my call?",
+    "expected": "ask_id",
+    "includes": []
+  },
+  {
+    "name": "C02",
+    "question": "I can see the ticket twice in visits.jsonl, once for each invocation. Is there a way to tell which row belongs to my call?",
+    "expected": "jsonl",
+    "includes": [
+      "visits.jsonl",
+      "visit-62"
+    ],
+    "answer": "The original decision ID from my invocation is visit-62."
+  },
+  {
+    "name": "C03",
+    "question": "We kept only stdout in results.out from the Python quickstart. I ran first_decision.py unchanged and it has already exited. Where can I look for the printed ticket decision?",
+    "expected": "memory",
+    "includes": [
+      "results.out"
+    ]
+  },
+  {
+    "name": "C04 initial",
+    "question": "Our deployment has the unchanged Python quickstart and a worker configured for console. We archived stdout in one.txt and stderr in two.txt. Which of those has the record from my run?",
+    "expected": "ask_program",
+    "includes": []
+  },
+  {
+    "name": "C04",
+    "question": "Our deployment has the unchanged Python quickstart and a worker configured for console. We archived stdout in one.txt and stderr in two.txt. Which of those has the record from my run?",
+    "expected": "console",
+    "includes": [
+      "two.txt"
+    ],
+    "answer": "The launch command ran telemetry_worker.py, our worker with the explicit console exporter."
+  },
+  {
+    "name": "C05",
+    "question": "My submission receipt names hosted workspace cobalt, agent invoice and run ID hosted-413. Where do I check this run?",
+    "expected": "hosted",
+    "includes": [
+      "cobalt",
+      "invoice",
+      "hosted-413"
+    ]
+  },
+  {
+    "name": "C06 initial",
+    "question": "The same test was run from my laptop with the SDK and submitted in our hosted dashboard. I need to locate my run. Which should I inspect?",
+    "expected": "ask_run",
+    "includes": []
+  },
+  {
+    "name": "C06",
+    "question": "The same test was run from my laptop with the SDK and submitted in our hosted dashboard. I need to locate my run. Which should I inspect?",
+    "expected": "hosted",
+    "includes": [
+      "nightly",
+      "hosted-702"
+    ],
+    "answer": "I mean the hosted run. The receipt has workspace nightly and run ID hosted-702."
+  },
+  {
+    "name": "C07",
+    "question": "I want the app reply text from our Node demo, not its token counts. The launcher saved stdout in bot.out and stderr in bot.err. Which one should I open?",
+    "expected": "reply",
+    "includes": [
+      "bot.out"
+    ]
+  },
+  {
+    "name": "C08 initial",
+    "question": "Our Node demo wrote reply text to stdout, saved as body.txt, and the console exporter wrote metadata to stderr, saved as usage.txt. Where is my result?",
+    "expected": "ask_subject",
+    "includes": []
+  },
+  {
+    "name": "C08",
+    "question": "Our Node demo wrote reply text to stdout, saved as body.txt, and the console exporter wrote metadata to stderr, saved as usage.txt. Where is my result?",
+    "expected": "node_console",
+    "includes": [
+      "usage.txt"
+    ],
+    "answer": "The decision metadata. I want the decision type and token count."
+  },
+  {
+    "name": "C09",
+    "question": "The worker assigned our run the unique marker blue-186. I parsed lastnight.jsonl after it exited. There is one old record for blue-115 and no row for blue-186. What does that show?",
+    "expected": "jsonl_stale",
+    "includes": [
+      "lastnight.jsonl",
+      "blue-186"
+    ]
+  },
+  {
+    "name": "C10",
+    "question": "The original process selected the console exporter in code. The shell launched python sync.py 2>sync-errors.txt from the job directory. What should I inspect for that decision?",
+    "expected": "console",
+    "includes": [
+      "sync-errors.txt"
+    ]
+  },
+  {
+    "name": "C11",
+    "question": "The receiver log contains a matching entry for our original decision ID web-281. We have no readback from storage yet. Is the record persisted?",
+    "expected": "storage",
+    "includes": [
+      "web-281"
+    ]
+  },
+  {
+    "name": "C12",
+    "question": "I searched the downstream store for the original decision ID log-442 after the exporter exited. The query returned one row with that exact ID. Is this enough to confirm storage?",
+    "expected": "stored",
+    "includes": [
+      "log-442"
+    ]
+  },
+  {
+    "name": "file from unrelated process",
+    "question": "The exporter for another process was old.jsonl. My original run used OTLP.",
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ]
+  },
+  {
+    "name": "different job first",
+    "question": "A different job used /mnt/prior.jsonl. The original process wrote its decisions to our.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open our.jsonl"
+    ]
+  },
+  {
+    "name": "receiver negative perfect tense",
+    "question": "The receiver has not received the original trace ID group-42.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "unconfirmed"
+    ]
+  },
+  {
+    "name": "empty storage object",
+    "question": "The database returned an empty result for the original trace ID group-42.",
+    "expected": "store_missing",
+    "includes": [
+      "unverified"
+    ]
+  },
+  {
+    "name": "lookup found nothing",
+    "question": "Searching the archive for original ID box-202 yielded nothing.",
+    "expected": "store_missing",
+    "includes": [
+      "box-202",
+      "unverified"
+    ]
+  },
+  {
+    "name": "reused ticket resembles ID",
+    "question": "Two rows in audit.jsonl share ticket T-145. Which belongs to me?",
+    "expected": "ask_id",
+    "includes": []
+  },
+  {
+    "name": "ID in log despite shared ticket",
+    "question": "Two rows in audit.jsonl share ticket T-145. My original decision ID was recorded as new-751.",
+    "expected": "jsonl",
+    "includes": [
+      "new-751",
+      "audit.jsonl"
+    ]
+  },
+  {
+    "name": "lost is not an identifier",
+    "question": "There are two identical tickets in demo.jsonl.",
+    "expected": "fallback",
+    "includes": [],
+    "answer": "lost"
+  },
+  {
+    "name": "alternatives are not a file",
+    "question": "I need the JSONL path for marker job-2.",
+    "expected": "fallback",
+    "includes": [],
+    "answer": "old.jsonl or new.jsonl"
+  },
+  {
+    "name": "inherited OTLP before stream filename",
+    "question": "Node inherited the unchanged default exporter. stderr was saved into debug.jsonl.",
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ],
+    "shell": "otlp"
+  },
+  {
+    "name": "inherited HTTP before stream filename",
+    "question": "Node inherited the unchanged default exporter. stderr was saved into debug.jsonl.",
+    "expected": "receiver",
+    "includes": [
+      "batch"
+    ],
+    "shell": "https://redacted.invalid/spans"
+  },
+  {
+    "name": "script presence is not execution",
+    "question": "The deployment includes a tutorial quickstart and a wrapper that uses the console sink. Both logs survive.",
+    "expected": "ask_program",
+    "includes": []
+  },
+  {
+    "name": "confirmed wrapper as a launch command",
+    "question": "The deployment includes a tutorial quickstart and a wrapper that uses the console sink. stderr was archived in wrap.err.",
+    "expected": "console",
+    "includes": [
+      "wrap.err"
+    ],
+    "answer": "python run_wrapper.py"
+  },
+  {
+    "name": "confirmed stock command overrides alternatives",
+    "question": "Our repo has a worker with console output and the quickstart. Shell history: python first_decision.py >job.log 2>console.log.",
+    "expected": "memory",
+    "includes": [
+      "job.log"
+    ]
+  },
+  {
+    "name": "repeated invoice input",
+    "question": "We reused the invoice value for each execution recorded in payments.jsonl.",
+    "expected": "ask_id",
+    "includes": []
+  },
+  {
+    "name": "quoted marker without digits",
+    "question": "Two decisions in payments.jsonl share invoice 32. The unique marker for my attempt was \"paid-in-full\".",
+    "expected": "jsonl",
+    "includes": [
+      "paid-in-full"
+    ]
+  },
+  {
+    "name": "stale file with distinct ticket IDs",
+    "question": "I examined all records in check.jsonl for my marker call-44. An older row has call-11 and no entries for call-44.",
+    "expected": "jsonl_stale",
+    "includes": [
+      "call-44"
+    ]
+  },
+  {
+    "name": "completed warehouse query",
+    "question": "I inspected the warehouse for my original run ID set-94. That search yielded the same decision.",
+    "expected": "stored",
+    "includes": [
+      "set-94",
+      "storage"
+    ]
+  },
+  {
+    "name": "future archive lookup is not evidence",
+    "question": "I plan to query the database to see whether it returns my original ID req-45. Can I verify storage?",
+    "expected": "query_storage",
+    "includes": [
+      "req-45"
+    ]
+  },
+  {
+    "name": "unlabelled token is not assigned correlation",
+    "question": "My receiver has HTTP configured. A component version is component-744. What should I check?",
+    "expected": "receiver",
+    "includes": [
+      "original ID or unique marker"
+    ]
   }
 ]
