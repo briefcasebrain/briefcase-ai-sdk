@@ -132,33 +132,76 @@ def _positive_destinations(table, clauses):
             if any(re.search(pattern, clause, re.I) for clause in clauses for pattern in assertions)}
 
 
+def _stream_artifacts(spec, clause):
+    """Bind each artifact to its stream operand, including when two streams are described together."""
+    bindings = set()
+    mentions = sorted((token.start(), token.end(), name) for name, pattern in spec["streams"].items()
+                      for token in re.finditer(pattern, clause, re.I))
+    for i, (start, end, stream) in enumerate(mentions):
+        left = clause[mentions[i - 1][1] if i else 0:start]
+        right = clause[end:mentions[i + 1][0] if i + 1 < len(mentions) else len(clause)]
+        forward = re.match(spec["forward"], right, re.I)
+        backward = re.search(spec["backward"], left, re.I)
+        operands = []
+        if forward:
+            operands.append(re.split(spec["cut"], forward.group(1), maxsplit=1, flags=re.I)[0])
+        if backward:
+            operands.append(re.split(spec["cut"], left[:backward.start()], flags=re.I)[-1])
+        for artifact, pattern in spec["artifacts"].items():
+            if any(re.search(pattern, operand, re.I) for operand in operands):
+                bindings.add(artifact + "On" + stream)
+    return bindings
+
+
+def _receiver_readback(spec, clauses):
+    """Bind a receiver inspection and matching entry, allowing either reporting order."""
+    roles = []
+    for clause in clauses:
+        invalid = (re.search(spec["denied"], clause, re.I) or re.search(spec["observationDenial"], clause, re.I)
+                   or re.search(spec["otherObservationSource"], clause, re.I)
+                   or re.search(spec["question"], clause, re.I))
+        inspected = not invalid and _matches(spec["receiverRead"], clause)
+        identity = (re.search(spec["idRole"], clause, re.I) and re.search(spec["originReceipt"], clause, re.I)
+                    and re.search(spec["receiverRecordRelation"], clause, re.I))
+        record = (re.search(spec["receiverRecordNoun"], clause, re.I)
+                  or re.match(spec["receiverReference"], clause, re.I))
+        entry = not invalid and (_matches(spec["receiverRecord"], clause) or (identity and record))
+        roles.append((inspected, entry))
+    return any(read and any(entry for _, entry in roles[max(0, i - 1):i + 2]) for i, (read, _) in enumerate(roles))
+
+
 def _lookup_evidence(table, evidence):
     """Extract source, actor and action separately before asking whether a lookup still lacks information."""
     spec = table["lookupEvidence"]
     facts = set()
-    receiver_read = False
-    for clause in re.split(table["split"], evidence, flags=re.I):
-        if not clause.strip():
+    original_event = False
+    clauses = [c for c in re.split(table["split"], evidence, flags=re.I) if c.strip()]
+    want_first = any(re.search(spec["question"], c, re.I) and re.search(spec["wantFirst"], c, re.I) for c in clauses)
+    projected = [_source_text(table, c) for c in clauses]
+    if _receiver_readback(spec, projected):
+        facts.add("retainedReceiverEntry")
+    for clause, source in zip(clauses, projected):
+        if re.search(spec["denied"], source, re.I) or re.search(spec["question"], source, re.I):
+            original_event = False
             continue
-        if re.search(spec["denied"], clause, re.I) or re.search(spec["question"], clause, re.I):
-            receiver_read = False
-            continue
-        source = _source_text(table, clause)
-        current_read = _matches(spec["receiverRead"], source)
-        continuation = receiver_read and re.match(spec["receiverContinuation"], source, re.I)
-        if ((current_read or continuation) and _matches(spec["receiverRecord"], source)
-                and not re.search(spec["otherObservationSource"], source, re.I)):
-            facts.add("retainedReceiverEntry")
-        receiver_read = current_read
+        facts.update(_stream_artifacts(spec["sourceSlots"], source))
+        receipt = re.search(spec["originReceipt"], source, re.I)
         for observation in spec["observations"]:
             if _matches(observation, source):
                 facts.update(observation["add"])
+        if re.search(spec["exportedDecisionToConsole"], source, re.I):
+            facts.add("consoleDecisionExport")
         roles = {name for name in ("originalActor", "emission", "idRole", "runtimeActor", "configure",
                                    "consoleRole", "reader") if re.search(spec[name], source, re.I)}
-        if {"originalActor", "emission", "idRole"} <= roles:
+        linked_event = original_event and re.search(spec["eventLink"], source, re.I)
+        actor = "originalActor" in roles or receipt or linked_event or (want_first and re.search(
+            spec["earlierActor"], source, re.I))
+        declared = re.search(spec["declaredReceiptID"], source, re.I)
+        if actor and ("idRole" in roles or declared) and ("emission" in roles or receipt or declared):
             identity = _entities(table, clause).get("correlation", {})
             if identity.get("value"):
                 facts.update(("originalEmittedID", "hasID"))
+        original_event = "originalActor" in roles or bool(receipt)
         if {"runtimeActor", "configure", "consoleRole"} <= roles and not re.search(spec["packageOnly"], source, re.I):
             facts.update(("consoleInstalled", "console"))
         if "reader" in roles and any(_file_read_operand(table, clause[:match.start()])
@@ -870,6 +913,7 @@ class _SourceCheck:
     shared_identifier: bool = False
     unresolved_lookup: bool = False
     partial: bool = False
+    unresolved_detail: bool = False
 
     def compare(self, source, result, action, facts):
         if self.foreign_target:
@@ -884,7 +928,7 @@ class _SourceCheck:
             return "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
         if action == "ask_id" or "unresolvedOriginal" in facts or self.shared_identifier:
             return "ask_id"
-        if self.unresolved_lookup:
+        if self.unresolved_lookup or self.unresolved_detail:
             return "confirmation_unresolved_lookup"
         if self.partial and result == "no-match":
             return "confirmation_partial"
@@ -1039,6 +1083,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
         for clause in clauses:
             roles, source_scope = _report_roles(spec, clause, quoted_values)
             checked = re.search(spec["lookupPerformed"], source_scope, re.I)
+            if active and re.match(spec["resultContinuation"], source_scope, re.I):
+                checked = None
             denied_check = (re.search(spec["unchecked"], source_scope, re.I)
                             or re.search(spec["unseenResult"], source_scope, re.I))
             reported = checked or re.search(spec["resultActor"], source_scope, re.I)
@@ -1054,6 +1100,10 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             named = {key for key, pattern in spec["sources"].items() if re.search(pattern, source_scope, re.I)}
             if (checked or denied_check) and re.search(spec["fileReference"], source_scope, re.I):
                 named.add("jsonl")
+            details = {role for role, pattern in spec["detailRoles"].items() if re.search(pattern, source_scope, re.I)}
+            if details and not (named or active):
+                # A standalone result qualifier still constrains the submitted report.
+                active = {source}
             if other_reader:
                 foreign_context = named or active or set(origin)
                 for target in foreign_context:
@@ -1061,7 +1111,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     if not prior.original_target or (not checked and prior.outcome is None):
                         prior.unchecked = True
                 continue
-            if checked:
+            if checked or re.search(spec["detailSelf"], source_scope, re.I):
                 foreign_context = set()
             elif foreign_context and (not named or named <= foreign_context):
                 continue
@@ -1138,6 +1188,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             if checked and qualified:
                 for target in named:
                     checks[target].partial = bool(re.search(spec["partialCoverage"], clause, re.I))
+                    checks[target].unresolved_detail = False
                     corrected = re.search(spec["correctedInspection"], clause, re.I)
                     if inspected[target] and destinations[target] and corrected:
                         attempts[origin[target]].correct_instance = inspected[target] == destinations[target]
@@ -1161,6 +1212,36 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     check.outcome = "no-match"
                 elif qualified and re.search(spec["equalIdentifiers"], clause, re.I):
                     check.outcome = "matched"
+            # Structured fields may supply an unreported result. If the reader
+            # describes one, interpret that detail on the same observation. An
+            # unrecognized qualifier cannot authorize a stronger claim.
+            for target in (named or active) if details else ():
+                check = checks[target]
+                if "comparison" in details:
+                    if re.search(spec["detailMismatch"], clause, re.I):
+                        check.outcome = "no-match"
+                    elif not (re.search(spec["equalIdentifiers"], clause, re.I)
+                              or re.search(spec["exclusiveOther"], clause, re.I)):
+                        check.unresolved_detail = True
+                if "assessment" in details and not details.intersection(("comparison", "progress", "identity")):
+                    understood = (roles["returnedIdentifier"] or any(re.search(spec[name], clause, re.I) for name in
+                                  ("match", "miss", "originalMatch", "equalIdentifiers", "identifierComparison",
+                                   "detailAffirmativeIdentity", "detailNeutral", "detailComplete")))
+                    if not understood:
+                        check.unresolved_detail = True
+                if "identity" in details:
+                    identified = (roles["returnedIdentifier"]
+                                  or re.search(spec["detailAffirmativeIdentity"], clause, re.I))
+                    if re.search(spec["detailNoID"], clause, re.I) or not identified:
+                        check.unresolved_detail = True
+                if "source" in details and (re.search(spec["excludedOriginalSource"], clause, re.I)
+                                            or not re.search(spec["detailOriginalSource"], clause, re.I)):
+                    check.correct_instance = False
+                if "progress" in details:
+                    if re.search(spec["detailLimited"], clause, re.I):
+                        check.partial = True
+                    elif not re.search(spec["detailComplete"], clause, re.I):
+                        check.unchecked = True
             if checked and qualified and named:
                 positions = [m.start() for key in named for m in [re.search(spec["sources"][key], source_scope, re.I)]
                              if m is not None]
@@ -1357,6 +1438,8 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
         facts = (facts & set(table["rawFacts"])) | _collect_facts(table, _scoped(table, source))
     facts.update(disowned)
     facts.update(_lookup_evidence(table, evidence))
+    if {"consoleDecisionExport", "redirectErr"} <= facts and facts.isdisjoint(("decisionOnStdout", "consoleStdout")):
+        facts.add("decisionOnStderr")
     if ("storeQuestion" in facts or re.search(table["readbackPair"]["source"], source_question, re.I)):
         readback = _storage_lookup(table, question) if not _sensitive(table, question) else None
         if readback:
@@ -1604,6 +1687,12 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
                 setattr(guide_origin, slot["origin"], reply_id.get("value"))
             entities.update(reply_entities)
             evidence = contextual_reply + "\n" + evidence
+            if action.get("artifactSlot") and not valid.get("action"):
+                goal_facts = (facts - set(valid.get("drop", []))) | set(valid.get("add", []))
+                for choice in table["decisions"]:
+                    if (choice.get("resolvesArtifact") and goal_facts.issuperset(choice["all"])
+                            and goal_facts.isdisjoint(choice.get("none", []))):
+                        return choice["action"], goal_facts
             if key in ("ask_subject", "ask_run") and not valid.get("action"):
                 facts.update(_collect_facts(table, _scoped(table, preprocess(projected))))
                 facts.update(preflight)

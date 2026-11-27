@@ -84,7 +84,8 @@
     "ask_subject": {
       "kind": "ask",
       "text": "Which artifact do you want to inspect: the application reply text, a local SDK decision with usage metadata, or a submitted dashboard run?",
-      "replyPrefix": "Original artifact: "
+      "replyPrefix": "Original artifact: ",
+      "artifactSlot": true
     },
     "ask_exporter": {
       "kind": "ask",
@@ -421,7 +422,8 @@
         "\\b(?:tickets?|inputs?|texts?|request(?:s| body)?|payloads?|rows?|records?|bodies|business values?|entries|attempts?)\\b|\\b(?:invoices?|customer requests?|request bodies|orders?|messages?|questions?|business key|invocations?|retries|retry)\\b|\\b(?:identifiers?|business ids?|orders?|questions?|transcripts?|payload|purchase|value|email)\\b"
       ],
       "none": [
-        "(?:same|identical) (?:shell|settings|configuration)|independent query"
+        "(?:same|identical) (?:shell|settings|configuration)|independent query",
+        "\\b(?:one|a single|the only)\\s+matching\\s+(?:record|row|entry|decision|span)\\s+(?:with|bearing|carrying|showing|containing)\\s+(?:the\\s+)?same\\s+(?:(?:decision|run|trace)\\s+)?(?:id|identifier|marker)\\b"
       ]
     },
     "multiple": {
@@ -547,7 +549,7 @@
     "genericResult": {
       "scope": "clause",
       "all": [
-        "\\b(?:result|output|answer|outcome)\\b"
+        "\\b(?:results?|outputs?|answers?|outcomes?)\\b"
       ],
       "none": [
         "empty (?:inputs|maps)|both maps empty"
@@ -1108,6 +1110,17 @@
       ]
     },
     {
+      "action": "hosted",
+      "all": [
+        "requestedHosted",
+        "hosted"
+      ],
+      "none": [
+        "wantReply",
+        "wantMeta"
+      ]
+    },
+    {
       "action": "bootstrap_off",
       "all": [
         "bootstrapDisabled"
@@ -1168,7 +1181,8 @@
       "action": "reply",
       "all": [
         "wantReply"
-      ]
+      ],
+      "resolvesArtifact": true
     },
     {
       "action": "console_stdout",
@@ -1179,7 +1193,8 @@
       "none": [
         "decisionOnStderr",
         "decisionOnStorage"
-      ]
+      ],
+      "resolvesArtifact": true
     },
     {
       "action": "node_console",
@@ -1191,7 +1206,8 @@
       "none": [
         "decisionOnStdout",
         "decisionOnStorage"
-      ]
+      ],
+      "resolvesArtifact": true
     },
     {
       "action": "console",
@@ -1202,7 +1218,8 @@
       "none": [
         "decisionOnStdout",
         "decisionOnStorage"
-      ]
+      ],
+      "resolvesArtifact": true
     },
     {
       "action": "query_storage",
@@ -1213,7 +1230,8 @@
       "none": [
         "decisionOnStderr",
         "decisionOnStdout"
-      ]
+      ],
+      "resolvesArtifact": true
     },
     {
       "action": "preload_startup",
@@ -1388,6 +1406,19 @@
       ],
       "none": [
         "stockRan"
+      ]
+    },
+    {
+      "action": "ask_subject",
+      "all": [
+        "replyOnStdout",
+        "decisionOnStderr",
+        "genericResult"
+      ],
+      "none": [
+        "wantReply",
+        "wantMeta",
+        "requestedHosted"
       ]
     },
     {
@@ -2662,6 +2693,13 @@
         },
         {
           "patterns": [
+            "\\b(?:receipt|confirmation)\\s+(?:identifies|identified|names|named|labels|labelled|lists|listed|gives|gave)\\s+(?:(?:its|this|that|the|our|my)\\s+)?(?:decision|invocation|run)\\s+(?:as|by)\\s+({{nameToken}})"
+          ],
+          "fact": "",
+          "independent": false
+        },
+        {
+          "patterns": [
             "(?:{{decisionID}}){{idLink}}\\(?\\s*\"([^\"\"\\n]{1,120})\"\\s*\\)?",
             "(?:{{decisionID}}){{idLink}}\\(?\\s*'([^''\\n]{1,120})'\\s*\\)?",
             "(?:{{decisionID}}){{idLink}}\\(?\\s*`([^``\\n]{1,120})`\\s*\\)?",
@@ -3196,14 +3234,14 @@
       "reportRef": "\\b(?:that|this|the (?:reported|same|new|corrected))\\s+(?:lookup|query|check|observation|result|report|entry|row|record|match)|\\b(?:rechecked|repeated|corrected|correction)\\b",
       "runlessReport": "\\b(?:this|my|our|the)\\s+(?:reported\\s+)?(?:result|report|observation|check)\\s+(?:i am (?:reporting|submitting)\\s+|we are reporting\\s+)?(?:is|was|belongs)\\b",
       "miss": "\\b(?:no|zero|0|without any)\\s+(?:matching\\s+)?(?:rows?|records?|entries|matches|results?)\\b|\\b(?:found|returned|yielded) (?:nothing|none)\\b|\\b(?:did not|didn.t) (?:find|return|identify) (?:a |any )?match|\\b(?:no|zero)\\s+(?:matching|corresponding)\\s+(?:decision|entry|row|record|item)s?\\b|\\b(?:did not|didn[\\x27’]t|could not|couldn[\\x27’]t)\\s+(?:find|locate|retrieve|identify)\\s+(?:it|that (?:record|decision|identifier|entry)|the (?:original|matching) (?:record|decision|identifier|entry))\\b",
-      "match": "\\b(?:returned|found|retrieved|verified|got|obtained|saw)\\s+(?:(?:the|a|an|exact|single|full|one|only|original)\\s+)*(?:matching\\s+(?:record|row|entry|result|decision)|match)\\b|\\b(?:row|record|entry|result) (?:matched|matches)\\b|\\b(?:a|one|the)\\s+matching\\s+(?:row|entry|record|decision)\\s+(?:was|has been)\\s+(?:found|returned|retrieved)\\b",
+      "match": "\\b(?:read|returned|found|retrieved|verified|got|obtained|saw)\\s+(?:(?:the|a|an|exact|single|full|one|only|original)\\s+)*(?:matching\\s+(?:record|row|entry|result|decision)|match)\\b|\\b(?:row|record|entry|result) (?:matched|matches)\\b|\\b(?:a|one|the)\\s+matching\\s+(?:row|entry|record|decision)\\s+(?:was|has been)\\s+(?:found|returned|retrieved)\\b|\\b(?:outcome|result|readback)\\s+(?:was|is)\\s+(?:an?\\s+|one\\s+)?(?:(?:exact|single|unique)\\s+)*match(?:ing (?:record|row|entry|decision))?\\b",
       "readerContext": "\\b(?:from|in|with|using|by)\\s+(?:(?:an?|the|my|our)\\s+)?(?:second|separate|another|different|independent|new)\\s+(?:reader|process|session)\\b",
       "originalMarker": "\\boriginal\\s+(?:(?:run|invocation|decision)(?:.s)?\\s+)?(?:unique\\s+)?(?:marker|identifier|id)\\b|\\b(?:marker|identifier|id)\\s+(?:unique\\s+to|for)\\s+(?:the\\s+)?original\\s+(?:run|invocation|decision)\\b",
       "lookupPerformed": "\\b(?:searched|scanned|queried|requeried|rechecked|checked|looked up|opened|reopened|inspected|read|examined)\\b",
       "reportedForeign": "\\b(?:report|reporting|submitting|confirming|attesting|observation)\\b|\\b(?:the|this|that|my|our)\\s+(?:(?:file|jsonl|receiver|collector|storage|database)\\s+)?(?:query|lookup|check|search|result)\\s+(?:itself\\s+)?(?:was|is|belongs)\\s+(?:actually\\s+)?(?:for|about|to)\\b|\\b(?:want|wish|mean|intend)\\s+to\\s+(?:confirm|report|submit|attest)\\b",
       "foreignLookup": "\\b(?:searched|scanned|queried|rechecked|checked|looked up|examined|inspected)\\s+(?:(?:only|for|the|an?|a)\\s+)*(?:another|different|other|unrelated|previous|second)\\s+(?:decision|invocation|run|id|marker|identifier|job)\\b|\\b(?:searched|checked|queried|scanned|rechecked|looked)\\b(?:(?!\\b(?:and|returned|found|showed|only contained|contained)\\b)[^.!?;\\n]){0,80}?\\bfor\\s+(?:(?:the|an?|our|my)\\s+)?(?:other|another|different|unrelated|previous|second)\\s+(?:decision|id|invocation|marker|attempt|run|job)\\b",
       "returnedContents": "\\b(?:returned|yielded|contained|contains|contains? only|had|has|held|found|listed|showed|included|includes|saw|got|entries|rows|records|one older|older entry|older record)\\b|\\b(?:a|an|one|the|another|each)\\s+(?:(?:older|prior|earlier|returned|retrieved|inspected)\\s+)*(?:row|entry|record)\\b",
-      "exclusiveOther": "\\b(?:only|exclusively|solely|all (?:the )?(?:entries|rows|records) (?:were|are))\\b[^.!?;\\n]{0,120}\\b(?:another|previous|older|prior|different|other|unrelated|stale)\\b",
+      "exclusiveOther": "\\b(?:only|exclusively|solely|all (?:the )?(?:entries|rows|records) (?:were|are))\\b[^.!?;\\n]{0,120}\\b(?:another|previous|older|prior|different|other|unrelated|stale)\\b|\\b(?:all|only|exclusively)\\s+(?:(?:much|previously|clearly)\\s+)?(?:older|previous|prior|stale|unrelated|other)\\s+(?:rows|records|entries|decisions|spans)\\b",
       "originalMatch": "\\b(?:found|returned|retrieved|verified|got|obtained|saw)\\s+(?:(?:the|a|full|single|one|exact)\\s+)*(?:(?:matching\\s+)?original\\s+(?:decision|record|row|entry|id)|(?:record|decision|entry|row)\\s+(?:matching|with)\\s+(?:(?:my|the|our)\\s+)?original\\s+(?:decision|id|marker))\\b|\\b(?:one|a|the)\\s+(?:row|record|entry)\\s+matched\\s+(?:(?:my|the|our)\\s+)?original\\s+(?:id|marker|decision)\\b",
       "lookupIdentifier": "\\b(?:looked\\s+up\\s+|(?:checked|queried|searched|inspected|rechecked)\\s+(?:only\\s+)?|(?:searched|scanned|queried|rechecked|checked|inspected)\\b(?:(?!\\b(?:returned|found|got|showed|contained)\\b)[^;\\n])*?\\bfor\\s+)(?:(?:the|my|our)\\s+)?(?:original\\s+)?(?:(?:decision|run|unique)\\s+)?(?:id|identifier|marker)\\s*(?:[:=]\\s*|\\s+)(?!(?:and|or|but|was|is|at|on|in|from|using|for|by|with|then)\\b)([\\w][\\w.:/@+%-]*[\\w-]|\\w)\\b",
       "unchecked": "\\b(?:never|not|(?:has|have|had|is|was|were|did|do|does)n['’]t)\\s+(?:(?:yet|actually|ever|independently|been)\\s+)*(?:quer(?:y|ied)|(?:re)?open(?:ed)?|check(?:ed)?|inspect(?:ed)?|search(?:ed)?|read|scan(?:ned)?|look(?:ed)? up)\\b|\\b(?:without|before)\\s+(?:checking|searching|querying|inspecting)\\b|\\b(?:never|not|didn['’]t)\\s+(?:personally\\s+)?(?:do|perform|conduct|carry out|complete)\\s+(?:that|the|this|an?|any)\\s+(?:lookup|search|check|read|inspection|query)\\b",
@@ -3214,7 +3252,7 @@
       "fileContext": "\\b(?:original\\s+(?:process|run|job|application|exporter|destination|file)|exporter\\s+(?:was|used|wrote)|BRIEFCASE_EXPORTER\\s*=)\\b",
       "additionalIdentifier": "^\\s*(?:,\\s*(?:and\\s+)?|(?:and|or)\\s+)(?:(?:another|a|the|one|a second)\\s+(?:row|entry|record|span)\\s+(?:with|bearing|for)\\s+)?(?:decision\\s+|run\\s+|trace\\s+)?(?:id|marker|identifier)\\s*[:=]?\\s+([\\w][\\w.:/@+%-]*[\\w-]|\\w)\\b",
       "originalFile": "\\b(?:the|my|our)\\s+original\\s+(?:jsonl\\s+)?file\\b",
-      "readFailed": "\\b(?:permission (?:was )?denied|access (?:was )?denied|not authorized|unauthorized|forbidden|connection (?:was )?refused|(?:read|query|lookup|inspection) (?:failed|timed out))\\b|\\b(?:could not|couldn['’]t|unable to|failed to)\\s+(?:open|query|read|inspect|access|connect)\\b",
+      "readFailed": "\\b(?:permission (?:was )?denied|access (?:was )?denied|not authorized|unauthorized|forbidden|connection (?:was )?refused|(?:read|query|lookup|inspection|search|scan|check) (?:failed|timed out))\\b|\\b(?:could not|couldn['’]t|unable to|failed to)\\s+(?:open|query|read|inspect|access|connect)\\b",
       "attempted": "\\b(?:tried|attempted)\\s+to\\s+(?:open|query|read|inspect|search|access|connect)\\b",
       "instanceContext": "\\b(?:original (?:process|run|job|application|exporter|destination)|original\\s+(?:receiver|database|store|warehouse)|actual destination)\\b",
       "namedInstances": {
@@ -3251,8 +3289,24 @@
       "unseenResult": "\\b(?:I|we)\\s+(?:(?:have|had|did|could)\\s+not|never|(?:did|had|have|could)n['’]t)\\s+(?:personally\\s+)?(?:see|seen|view|viewed|read|receive|received|observe|observed|inspect|inspected|get|got)\\s+(?:(?:the|any|its|that|their|a|returned|query|lookup|actual|matching)\\s+)*(?:results?|response|records?|output|rows?|entry|match)\\b",
       "returnedObject": "\\b(?:returned|retrieved|received|yielded|found|showed|displayed|contained|gave|got|response|result|returned (?:record|row))\\b",
       "identifierComparison": "\\b(?:the\\s+)?(?:(?:two|both|returned|original|compared|observed|receipt|their|these|those)\\s+)*(?:ids?|identifiers?|markers?|correlations?)\\s+(?:(?:on (?:the )?(?:record|receipt)|in (?:the )?result)\\s+)?(?:(?:were|was|are|is|did|do|does|have|had)\\s+)?(?:different|unequal|distinct|mismatched|not (?:the same|equal|identical|match(?:ed|ing)?)|didn['’]t match|differ(?:ed|s)?)\\b",
-      "equalIdentifiers": "\\b(?:both|the two|these|those|the returned and original)\\s+(?:ids|identifiers|markers)\\s+(?:(?:were|are)\\s+(?:equal|identical|the same)|matched|agreed)\\b",
-      "resultActor": "\\b(?:found|saw|observed|retrieved|received|identified|located|verified)\\b"
+      "equalIdentifiers": "\\b(?:both|the two|these|those|the returned and original)\\s+(?:ids|identifiers|markers)\\s+(?:(?:were|are)\\s+(?:equal|identical|the same)|matched|agreed)\\b|^\\s*(?:they|both)\\s+(?:matched|agreed|were (?:equal|the same|identical))\\b",
+      "resultActor": "\\b(?:found|saw|observed|retrieved|received|identified|located|verified)\\b",
+      "detailRoles": {
+        "comparison": "^\\s*(?:(?:they|the two|both|their (?:values|identifiers)|(?:these|those) (?:IDs|identifiers))\\s+(?:did|do|were|are|were not|didn['’]t|differ|matched|agreed)|(?:the|its)\\s+(?:(?:returned|observed|reported|matching)\\s+)?(?:id|identifier|marker)\\s+(?:was|is|seems|appears|cannot|could|looked))\\b",
+        "identity": "\\b(?:returned|received|retrieved|found|inspected|matching)\\s+(?:record|row|decision|entry|payload|span)\\s+(?:(?:did|does|would|could)\\s+not|(?:did|does|would|could)n['’]t|lacks?|has|had|contains?|contained|carries|carried|provides?|omits?|shows?)\\b",
+        "source": "\\b(?:connection|lookup|query|search|endpoint|route|client)\\s+(?:(?:actually|really|instead|apparently)\\s+)*(?:pointed|points|connected|resolved|redirected|redirects|targeted|ended up|went)\\b",
+        "progress": "\\b(?:(?:(?:my|our|the|this|that)\\s+)?(?:own\\s+)?(?:query|search|lookup|readback|scan|check)\\s+(?:(?:was|is|has|had|seems?|appears?|still|only|actually|already|not|never|been)\\s+)*(?:pending|waiting|running|unfinished|incomplete|interrupted|aborted|timed|stalled|queued|failed|finished|completed|succeeded)|(?:I|we|the (?:scan|search|query))\\s+(?:(?:had|have|was|were)\\s+)?(?:stopped|quit|paused|bailed|interrupted|aborted|finished|completed)\\b)",
+        "assessment": "^\\s*(?:(?:my|our|the|its|that|this|these|those|their)\\s+)?(?:(?:own|reported|returned|compared|observed|two|matching|query|lookup|search|readback)\\s+)*(?:results?|outcomes?|records?|responses?|identifiers?|IDs?|markers?|lookup|query|scan|search|readback)\\s+(?:is|was|were|are|appears?|appeared|seems?|seemed|remains?|remained|turned out to be)\\b"
+      },
+      "detailMismatch": "\\b(?:did not|do not|does not|didn['’]t|don['’]t|doesn['’]t|never)\\s+(?:match|agree|align|correspond)|\\b(?:were|are)\\s+(?:different|unequal|distinct)\\b",
+      "detailNoID": "\\b(?:no|without (?:an? |the |its )?|missing|unknown|unidentified)\\s*(?:(?:decision|trace|run|unique)\\s+)?(?:id|identifier|marker)\\b|\\b(?:lacks?|omits?)\\s+(?:(?:the|its|an?|required|original|decision|trace|run)\\s+)*(?:id|identifier|marker)\\b",
+      "detailComplete": "\\b(?:completed|finished|succeeded)\\b",
+      "detailLimited": "\\b(?:before|partway|halfway|short of|early|without (?:finishing|reaching|completing))\\b",
+      "detailSelf": "^\\s*(?:I|we|my (?:own )?(?:query|lookup|search|result)|our (?:own )?(?:query|lookup|search|result))\\b",
+      "detailAffirmativeIdentity": "\\b(?:correct|same|exact|original)\\s+(?:(?:decision|run|trace|unique)\\s+)?(?:id|identifier|marker)\\b",
+      "detailOriginalSource": "\\b(?:to|at)\\s+(?:(?:the|our|my)\\s+)?(?:correct|original|intended)\\s+(?:store|database|receiver|collector|file|endpoint|destination|source)\\b",
+      "resultContinuation": "^\\s*(?:I|we)\\s+(?:(?:personally|then|also|actually|independently)\\s+)*(?:read|opened|inspected|examined)\\s+(?:(?:an?|one|the|that|a single|matching|returned|complete|full|original)\\s+)+(?:row|record|entry|span|decision)\\b",
+      "detailNeutral": "\\b(?:for|about|from|at|of|on)\\s+(?:(?:my|our|the|that|this|an?)\\s+)?(?:original|intended|correct|same|different|another|previous|other|unrelated)\\s+(?:run|lookup|decision|source|receiver|file|store|database|invocation|id|identifier|marker)\\b"
     },
     "observation": {
       "reader": {
@@ -3468,8 +3522,8 @@
   },
   "lookupEvidence": {
     "denied": "\\b(?:if|would|might|maybe|perhaps|hypothetical|example|sample|documentation|could have|not|never|didn['’]t|wasn['’]t|isn['’]t|unsure|plan(?:ning)? to|intend to|want to|hope to|will|should)\\b|\\b(?:another|different|unrelated|previous|other)\\s+(?:run|invocation|job|worker|application|decision|attempt)\\b",
-    "originalActor": "\\b(?:original|actual|target)\\s+(?:(?:python|node|local)\\s+)?(?:invocation|run|job|attempt|process|worker|app(?:lication)?|program)\\b",
-    "emission": "\\b(?:printed|emitted|logged|displayed|generated|gave|returned|saved|recorded|provided|listed|showed|produced|assigned)\\b",
+    "originalActor": "\\b(?:original|actual|target|first|initial)\\s+(?:(?:python|node|local)\\s+)?(?:invocation|run|job|attempt|process|worker|app(?:lication)?|program)\\b",
+    "emission": "\\b(?:states?|carried|contained|bears?|shows?|gave|printed|emitted|logged|displayed|generated|gave|returned|saved|recorded|provided|listed|showed|produced|assigned)\\b",
     "idRole": "\\b(?:decision|run|trace)\\s+id\\b|\\b(?:unique marker|identifier|correlation id)\\b",
     "runtimeActor": "\\b(?:process|job|application|app|worker|runtime|program|script|launcher|launch|invocation)\\b",
     "configure": "\\b(?:installed|configured|enabled|selected|set|used|registered|activated|initialized|initialised)\\b",
@@ -3500,7 +3554,7 @@
     ],
     "receiverRead": {
       "all": [
-        "\\b(?:receiver|collector|ingress)\\b",
+        "\\b(?:receiver|collector|ingress|receiving (?:service|endpoint|system))\\b",
         "\\b(?:I|we|the reader|our operator)\\s+(?:(?:personally|directly|also|already|independently|subsequently|then|have|had|actually)\\s+)*(?:checked|inspected|searched|read|examined|opened|looked (?:in|at|through))\\b"
       ],
       "none": [
@@ -3516,8 +3570,30 @@
         "\\b(?:no|zero|might|different|another|unrelated|sample|failed|denied)\\b"
       ]
     },
-    "receiverContinuation": "^\\s*(?:(?:its|that|this|the|a matching|an incoming|my|our)\\s+(?:(?:incoming|logged|matching|returned|received|retained)\\s+)*(?:entry|span|event|receipt|record|payload|batch)|(?:the|my|our|this|that)\\s+(?:lookup|inspection|query|search)|(?:I|we)\\s+(?:(?:personally|then|also|actually)\\s+)*(?:found|saw|retrieved|read|observed))\\b",
-    "otherObservationSource": "\\b(?:downstream|database|warehouse|jsonl|stdout|stderr|storage)\\b"
+    "otherObservationSource": "\\b(?:downstream|database|warehouse|jsonl|stdout|stderr|storage)\\b",
+    "originReceipt": "\\b(?:receipt|confirmation)\\s+(?:for|of|from|issued for|belonging to)\\s+(?:(?:my|our|the|this|that)\\s+)?(?:original|first|initial|target)\\s+(?:launch|invocation|call|run|attempt|job)\\b|\\b(?:first|initial|target|original)\\s+(?:(?:launch|invocation|call|run|attempt|job)(?:['’]s)?\\s+)?(?:receipt|confirmation)\\b",
+    "sourceSlots": {
+      "streams": {
+        "Stdout": "\\b(?:stdout|standard output)\\b",
+        "Stderr": "\\b(?:stderr|standard error)\\b"
+      },
+      "artifacts": {
+        "decision": "\\b(?:decision(?:[_ ]type)?|token[_ ]usage|(?:usage|SDK) metadata)\\b",
+        "reply": "\\b(?:reply|response text|app(?:lication)? output)\\b"
+      },
+      "forward": "^\\s*(?:(?:stream|log|file|archive|output)\\s+)?(?:with|containing|carrying|holding|including|showing|for|which (?:held|contained)|(?:holds?|contains?|includes?))\\s+([^,;.!?\\n]+)",
+      "backward": "(?:\\s+(?:(?:was|is|had been|was being)\\s+)?(?:(?:kept|archived|retained|printed|logged|stored|saved|redirected|written|emitted|captured)\\s+)?(?:on|in|to|via|at|from)\\s+(?:the |our |my )?)$",
+      "cut": "\\b(?:and|while|whereas|but|instead|rather than|or)\\b|[,;.!?\\n]"
+    },
+    "receiverRecordNoun": "\\b(?:incoming|received|retained|logged|matching|original|accepted)?\\s*(?:entries|records?|rows?|batches|entry|spans?|payloads?|events?)\\b",
+    "receiverReference": "^\\s*(?:(?:one|it|this|that|they|these|those)\\s+(?:(?:of (?:the|those|these) (?:entries|records|rows)\\s+)?(?:had|has|contained|contains|included|carried|bore|showed|matched)|(?:of (?:them|those|these))\\b)|(?:the|a|an|that|this|one)\\s+(?:(?:incoming|matching|received|returned|logged|actual)\\s+)*(?:entry|record|row|batch|span|payload|event)\\b)",
+    "eventLink": "^\\s*(?:it|this|that|the (?:receipt|record|entry|id|identifier)|that (?:receipt|record|entry|id|identifier))\\b",
+    "earlierActor": "\\b(?:earlier|preceding)\\s+(?:invocation|launch|call|run|attempt)\\b",
+    "wantFirst": "\\b(?:first|earliest|initial)\\s+(?:invocation|launch|call|run|attempt)\\b",
+    "declaredReceiptID": "\\b(?:receipt|confirmation)\\s+(?:identifies|identified|names|named|labels|labelled|lists|listed|gives|gave)\\s+(?:(?:its|this|that|the|our|my)\\s+)?(?:decision|invocation|run)\\s+(?:as|by)\\s+",
+    "exportedDecisionToConsole": "\\b(?:export(?:s|ed)?|emit(?:s|ted)?|sent|sends?|wrote|writes?|logged)\\s+(?:(?:its|a|the|our|original|full|SDK)\\s+)*(?:decision|decision record|metadata)\\s+(?:to|via|through|using|with)\\s+(?:the\\s+)?console\\b",
+    "receiverRecordRelation": "\\b(?:exact|original|same|matching|matched|bears?|bore|carried|carrying|bearing|contained|contained in|with)\\b",
+    "observationDenial": "\\b(?:not|never|no|zero|maybe|hypothetical|example|if|possibly|unsure|foreign|unrelated|someone else|another (?:run|launch|process|receiver|store)|different (?:run|launch|process|receiver|store))\\b"
   },
   "completeChecks": [
     {

@@ -26329,5 +26329,1449 @@
       "targetMatch": "original",
       "coverage": "complete"
     }
+  },
+  {
+    "name": "Composed investigation roles review 0",
+    "question": "I queried the intended downstream store for the original decision ID. I compared the returned ID with the original receipt. They did not match.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Composed investigation roles review 1",
+    "question": "I queried the intended downstream store for the original decision ID. The returned record has no decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Composed investigation roles review 2",
+    "question": "I queried the intended downstream store for the original decision ID. The connection actually pointed to staging, not the intended store.",
+    "expected": "confirmation_other_source",
+    "includes": [
+      "The source you inspected diffe"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Composed investigation roles review 3",
+    "question": "I queried the intended downstream store for the original decision ID. My teammate queried the same store and found one matching row. My own query is still pending.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Composed investigation roles review 4",
+    "question": "The original run used a JSONL file. Its filename is unknown. I searched the original file for the original decision ID. I stopped before reaching the end of the file.",
+    "expected": "confirmation_partial",
+    "includes": [
+      "A source-wide absence requires"
+    ],
+    "answer": "amber.jsonl",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Composed investigation roles review 5",
+    "question": "The original run used a JSONL file. Its filename is unknown. I searched the original file for the original decision ID. The search timed out.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "answer": "amber.jsonl",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Composed investigation roles review 6",
+    "question": "My original launch was briefcase-ai exec --to https://orchid.invalid -- python app.py. I checked the intended receiver for the original decision ID. The returned record has no decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Composed investigation roles review 7",
+    "question": "My original launch was briefcase-ai exec --to amber.jsonl -- python app.py. The same run submitted a hosted dashboard run. I need the hosted dashboard run.",
+    "expected": "hosted",
+    "includes": [
+      "Open the receiving workspace a"
+    ]
+  },
+  {
+    "name": "Composed investigation roles AG01",
+    "question": "My second invocation reused the first ticket, so there are two equally plausible rows in our original JSONL export. The first invocation printed decision ID birr-502 on its receipt. How should I identify its record?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles AG08",
+    "question": "We kept stdout with the Node application reply and stderr with the console exporter decision from the same invocation. Where should I look for the result?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to "
+    ]
+  },
+  {
+    "name": "Composed investigation roles AG08 reply",
+    "question": "We kept stdout with the Node application reply and stderr with the console exporter decision from the same invocation. Where should I look for the result?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for de"
+    ],
+    "answer": "I am looking for total token usage from the SDK metadata."
+  },
+  {
+    "name": "Composed investigation roles AG11",
+    "question": "I checked the original deployment configuration to identify its receiver, then personally opened that receiver’s incoming records. One contained the exact decision ID maple-132 from my original launch receipt. I have not looked in downstream storage. What has been verified?",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 0",
+    "question": "The original JSONL export contains two rows with identical tickets. The earlier invocation printed decision ID jade-73 on its receipt. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 1",
+    "question": "The earlier invocation printed decision ID jade-73 on its receipt. The original JSONL export contains two rows with identical tickets. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 2",
+    "question": "The original JSONL export contains two rows with identical tickets. I copied decision ID jade-73 from my original launch receipt. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 3",
+    "question": "I copied decision ID jade-73 from my original launch receipt. The original JSONL export contains two rows with identical tickets. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 4",
+    "question": "The original JSONL export contains two rows with identical tickets. My initial run's receipt identifies its decision as jade-73. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 5",
+    "question": "My initial run's receipt identifies its decision as jade-73. The original JSONL export contains two rows with identical tickets. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 6",
+    "question": "My retry wrote the same business ticket to a second row in the JSONL file. The earlier invocation printed decision ID jade-73 on its receipt. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 7",
+    "question": "The earlier invocation printed decision ID jade-73 on its receipt. My retry wrote the same business ticket to a second row in the JSONL file. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 8",
+    "question": "My retry wrote the same business ticket to a second row in the JSONL file. I copied decision ID jade-73 from my original launch receipt. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 9",
+    "question": "I copied decision ID jade-73 from my original launch receipt. My retry wrote the same business ticket to a second row in the JSONL file. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 10",
+    "question": "My retry wrote the same business ticket to a second row in the JSONL file. My initial run's receipt identifies its decision as jade-73. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 11",
+    "question": "My initial run's receipt identifies its decision as jade-73. My retry wrote the same business ticket to a second row in the JSONL file. How do I tell which record belongs to the first invocation?",
+    "expected": "jsonl_candidates",
+    "includes": [
+      "Compare the original decision "
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 12",
+    "question": "The Node application's reply went to stdout. I retained stderr from the same invocation, which exported its decision to the console. Which of these two outputs should I open?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for de"
+    ],
+    "answer": "I need the SDK token usage."
+  },
+  {
+    "name": "Composed investigation roles development roles 13",
+    "question": "I retained stderr from the same invocation, which exported its decision to the console. The Node application's reply went to stdout. Which of these two outputs should I open?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for de"
+    ],
+    "answer": "I need the SDK token usage."
+  },
+  {
+    "name": "Composed investigation roles development roles 14",
+    "question": "The application reply text was captured from stdout. I retained stderr from the same invocation, which exported its decision to the console. Which of these two outputs should I open?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ],
+    "answer": "I need the SDK token usage."
+  },
+  {
+    "name": "Composed investigation roles development roles 15",
+    "question": "I retained stderr from the same invocation, which exported its decision to the console. The application reply text was captured from stdout. Which of these two outputs should I open?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ],
+    "answer": "I need the SDK token usage."
+  },
+  {
+    "name": "Composed investigation roles development roles 16",
+    "question": "The Node application's reply went to stdout. I retained stderr from the same invocation, which exported its decision to the console. Which of these two outputs should I open?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for de"
+    ],
+    "answer": "Show me decision metadata and token counts."
+  },
+  {
+    "name": "Composed investigation roles development roles 17",
+    "question": "I retained stderr from the same invocation, which exported its decision to the console. The Node application's reply went to stdout. Which of these two outputs should I open?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for de"
+    ],
+    "answer": "Show me decision metadata and token counts."
+  },
+  {
+    "name": "Composed investigation roles development roles 18",
+    "question": "The application reply text was captured from stdout. I retained stderr from the same invocation, which exported its decision to the console. Which of these two outputs should I open?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ],
+    "answer": "Show me decision metadata and token counts."
+  },
+  {
+    "name": "Composed investigation roles development roles 19",
+    "question": "I retained stderr from the same invocation, which exported its decision to the console. The application reply text was captured from stdout. Which of these two outputs should I open?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ],
+    "answer": "Show me decision metadata and token counts."
+  },
+  {
+    "name": "Composed investigation roles development roles 20",
+    "question": "The Node application's reply went to stdout. I retained stderr from the same invocation, which exported its decision to the console. Which of these two outputs should I open?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for de"
+    ],
+    "answer": "The usage totals for the decision are what I want."
+  },
+  {
+    "name": "Composed investigation roles development roles 21",
+    "question": "I retained stderr from the same invocation, which exported its decision to the console. The Node application's reply went to stdout. Which of these two outputs should I open?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr for de"
+    ],
+    "answer": "The usage totals for the decision are what I want."
+  },
+  {
+    "name": "Composed investigation roles development roles 22",
+    "question": "The application reply text was captured from stdout. I retained stderr from the same invocation, which exported its decision to the console. Which of these two outputs should I open?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ],
+    "answer": "The usage totals for the decision are what I want."
+  },
+  {
+    "name": "Composed investigation roles development roles 23",
+    "question": "I retained stderr from the same invocation, which exported its decision to the console. The application reply text was captured from stdout. Which of these two outputs should I open?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ],
+    "answer": "The usage totals for the decision are what I want."
+  },
+  {
+    "name": "Composed investigation roles development roles 24",
+    "question": "I personally inspected the receiving service from the original launch configuration. I saw an incoming entry with the exact decision ID jade-73 from my original receipt. What did the receiver check establish? I have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 25",
+    "question": "I saw an incoming entry with the exact decision ID jade-73 from my original receipt. I personally inspected the receiving service from the original launch configuration. What did the receiver check establish? I have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 26",
+    "question": "I personally inspected the receiving service from the original launch configuration. One entry there matched the decision ID on the original launch receipt. What did the receiver check establish? I have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 27",
+    "question": "One entry there matched the decision ID on the original launch receipt. I personally inspected the receiving service from the original launch configuration. What did the receiver check establish? I have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 28",
+    "question": "I opened the incoming records at the receiver configured by my original process. I saw an incoming entry with the exact decision ID jade-73 from my original receipt. What did the receiver check establish? I have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 29",
+    "question": "I saw an incoming entry with the exact decision ID jade-73 from my original receipt. I opened the incoming records at the receiver configured by my original process. What did the receiver check establish? I have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 30",
+    "question": "I opened the incoming records at the receiver configured by my original process. One entry there matched the decision ID on the original launch receipt. What did the receiver check establish? I have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Composed investigation roles development roles 31",
+    "question": "One entry there matched the decision ID on the original launch receipt. I opened the incoming records at the receiver configured by my original process. What did the receiver check establish? I have not queried downstream storage.",
+    "expected": "storage",
+    "includes": [
+      "If a receiver entry matches th"
+    ]
+  },
+  {
+    "name": "Composed investigation roles reported result 0",
+    "question": "The original run wrote slate.jsonl. I searched the original file for the original decision ID. I read one matching record with the same decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 1",
+    "question": "The original run wrote slate.jsonl. I searched the original file for the original decision ID. I compared the returned ID with my launch receipt. The two identifiers did not match.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 2",
+    "question": "The original run wrote slate.jsonl. I searched the original file for the original decision ID. The returned record did not include a decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 3",
+    "question": "The original run wrote slate.jsonl. I searched the original file for the original decision ID. My own lookup is still running. The other analyst found a matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 4",
+    "question": "The original run wrote slate.jsonl. I searched the original file for the original decision ID. The query failed before it could return a result.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 5",
+    "question": "The original worker sent its decision to a receiver. I searched the intended receiver for the original decision ID. I read one matching record with the same decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 6",
+    "question": "The original worker sent its decision to a receiver. I searched the intended receiver for the original decision ID. I compared the returned ID with my launch receipt. The two identifiers did not match.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 7",
+    "question": "The original worker sent its decision to a receiver. I searched the intended receiver for the original decision ID. The returned record did not include a decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 8",
+    "question": "The original worker sent its decision to a receiver. I searched the intended receiver for the original decision ID. My own lookup is still running. The other analyst found a matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 9",
+    "question": "The original worker sent its decision to a receiver. I searched the intended receiver for the original decision ID. The query failed before it could return a result.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 10",
+    "question": "The original deployment used downstream storage. I searched the intended downstream store for the original decision ID. I read one matching record with the same decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 11",
+    "question": "The original deployment used downstream storage. I searched the intended downstream store for the original decision ID. I compared the returned ID with my launch receipt. The two identifiers did not match.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 12",
+    "question": "The original deployment used downstream storage. I searched the intended downstream store for the original decision ID. The returned record did not include a decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 13",
+    "question": "The original deployment used downstream storage. I searched the intended downstream store for the original decision ID. My own lookup is still running. The other analyst found a matching record.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles reported result 14",
+    "question": "The original deployment used downstream storage. I searched the intended downstream store for the original decision ID. The query failed before it could return a result.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account jsonl/0/0",
+    "question": "I checked the original JSONL file for the original decision ID. The result was inconclusive.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account jsonl/0/1",
+    "question": "I checked the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "answer": "The result was inconclusive.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account jsonl/1/0",
+    "question": "I checked the original JSONL file for the original decision ID. My own lookup is still waiting.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account jsonl/1/1",
+    "question": "I checked the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "answer": "My own lookup is still waiting.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account jsonl/2/0",
+    "question": "I checked the original JSONL file for the original decision ID. The returned record has an unclassified identifier.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account jsonl/2/1",
+    "question": "I checked the original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "answer": "The returned record has an unclassified identifier.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account jsonl/3/0",
+    "question": "I checked the original JSONL file for the original decision ID. The returned record had the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account jsonl/3/1",
+    "question": "I checked the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "answer": "The returned record had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account jsonl/4/0",
+    "question": "I checked the original JSONL file for the original decision ID. ",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account jsonl/4/1",
+    "question": "I checked the original JSONL file for the original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for the"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account receiver/0/0",
+    "question": "I checked the intended receiver for the original decision ID. The result was inconclusive.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account receiver/0/1",
+    "question": "I checked the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "answer": "The result was inconclusive.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account receiver/1/0",
+    "question": "I checked the intended receiver for the original decision ID. My own lookup is still waiting.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account receiver/1/1",
+    "question": "I checked the intended receiver for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "answer": "My own lookup is still waiting.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account receiver/2/0",
+    "question": "I checked the intended receiver for the original decision ID. The returned record has an unclassified identifier.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account receiver/2/1",
+    "question": "I checked the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "answer": "The returned record has an unclassified identifier.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account receiver/3/0",
+    "question": "I checked the intended receiver for the original decision ID. The returned record had the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account receiver/3/1",
+    "question": "I checked the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "answer": "The returned record had the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account receiver/4/0",
+    "question": "I checked the intended receiver for the original decision ID. ",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account receiver/4/1",
+    "question": "I checked the intended receiver for the original decision ID.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt for t"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account storage/0/0",
+    "question": "I checked the intended downstream store for the original decision ID. The result was inconclusive.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account storage/0/1",
+    "question": "I checked the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "answer": "The result was inconclusive.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account storage/1/0",
+    "question": "I checked the intended downstream store for the original decision ID. My own lookup is still waiting.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account storage/1/1",
+    "question": "I checked the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selec"
+    ],
+    "answer": "My own lookup is still waiting.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account storage/2/0",
+    "question": "I checked the intended downstream store for the original decision ID. The returned record has an unclassified identifier.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account storage/2/1",
+    "question": "I checked the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not "
+    ],
+    "answer": "The returned record has an unclassified identifier.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account storage/3/0",
+    "question": "I checked the intended downstream store for the original decision ID. The returned record had the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account storage/3/1",
+    "question": "I checked the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "answer": "The returned record had the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account storage/4/0",
+    "question": "I checked the intended downstream store for the original decision ID. ",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Composed investigation roles bounded account storage/4/1",
+    "question": "I checked the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistence f"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "reader": "me"
+    }
+  },
+  {
+    "name": "Scoped investigation control first or other 0",
+    "question": "The original JSONL export contains two rows with the same ticket. The second attempt printed decision ID test-12 on its receipt. Which record belongs to the first invocation?",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID or m"
+    ]
+  },
+  {
+    "name": "Scoped investigation control first or other 1",
+    "question": "The original JSONL export contains two rows with the same ticket. The first invocation might have printed decision ID test-12 on its receipt. Which record belongs to the first invocation?",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID or m"
+    ]
+  },
+  {
+    "name": "Scoped investigation control first or other 2",
+    "question": "The original JSONL export contains two rows with the same ticket. The other invocation printed decision ID test-12 on its receipt. Which record belongs to the first invocation?",
+    "expected": "ask_id",
+    "includes": [
+      "What original decision ID or m"
+    ]
+  },
+  {
+    "name": "Scoped investigation control uninspected or other 0",
+    "question": "The receiver was merely configured for this deployment. One contained the exact decision ID root-59 from my original receipt. What did it verify?",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send "
+    ]
+  },
+  {
+    "name": "Scoped investigation control uninspected or other 1",
+    "question": "I have not opened the records at the receiver. One contained the exact decision ID root-59 from my original receipt. What did it verify?",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send "
+    ]
+  },
+  {
+    "name": "Scoped investigation control uninspected or other 2",
+    "question": "I opened the incoming records at another receiver. One contained the exact decision ID root-59 from my original receipt. What did it verify?",
+    "expected": "ask_protocol",
+    "includes": [
+      "Did the original process send "
+    ]
+  },
+  {
+    "name": "Scoped investigation control ambiguous 0",
+    "question": "The stdout stream contains the application reply and stderr contains the decision JSON. Which output should I read?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to "
+    ]
+  },
+  {
+    "name": "Scoped investigation control requested reply 0",
+    "question": "The stdout stream contains the application reply and stderr contains the decision JSON. Which output should I read?",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for the a"
+    ],
+    "answer": "I need the reply text."
+  },
+  {
+    "name": "Scoped investigation control requested metadata 0",
+    "question": "The stdout stream contains the application reply and stderr contains the decision JSON. Which output should I read?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ],
+    "answer": "I need decision metadata and token usage."
+  },
+  {
+    "name": "Scoped investigation control ambiguous 1",
+    "question": "The stderr stream contains decision metadata and stdout contains the application reply. Which output should I read?",
+    "expected": "ask_subject",
+    "includes": [
+      "Which artifact do you want to "
+    ]
+  },
+  {
+    "name": "Scoped investigation control requested reply 1",
+    "question": "The stderr stream contains decision metadata and stdout contains the application reply. Which output should I read?",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout for the a"
+    ],
+    "answer": "I need the reply text."
+  },
+  {
+    "name": "Scoped investigation control requested metadata 1",
+    "question": "The stderr stream contains decision metadata and stdout contains the application reply. Which output should I read?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stderr for th"
+    ],
+    "answer": "I need decision metadata and token usage."
+  },
+  {
+    "name": "Unbound result detail jsonl The returned record contains an unknown tag.",
+    "question": "The returned record contains an unknown tag.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not id"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail jsonl The result was unclassified.",
+    "question": "The result was unclassified.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not id"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail jsonl They did not match.",
+    "question": "They did not match.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wi"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail jsonl My own lookup is still queued.",
+    "question": "My own lookup is still queued.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selecte"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail jsonl The two identifiers were equal.",
+    "question": "The two identifiers were equal.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wi"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail storage The returned record contains an unknown tag.",
+    "question": "The returned record contains an unknown tag.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not id"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail storage The result was unclassified.",
+    "question": "The result was unclassified.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not id"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail storage They did not match.",
+    "question": "They did not match.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail storage My own lookup is still queued.",
+    "question": "My own lookup is still queued.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selecte"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail storage The two identifiers were equal.",
+    "question": "The two identifiers were equal.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail receiver The returned record contains an unknown tag.",
+    "question": "The returned record contains an unknown tag.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not id"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail receiver The result was unclassified.",
+    "question": "The result was unclassified.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "The described lookup does not id"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail receiver They did not match.",
+    "question": "They did not match.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail receiver My own lookup is still queued.",
+    "question": "My own lookup is still queued.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "A personal lookup at the selecte"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Unbound result detail receiver The two identifiers were equal.",
+    "question": "The two identifiers were equal.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflicts wi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
   }
 ]
