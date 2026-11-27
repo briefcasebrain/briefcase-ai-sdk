@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [5.1.0] - 2026-11-27
+## [6.0.0] - 2026-11-27
 
 ### Added
 - Use `briefcase-ai record-help` to choose the next check for a missing decision.
@@ -18,6 +18,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--static` for the complete offline guide.
 
 ### Changed
+- **Breaking:** Briefcase AI operates the licensed engine as a managed service.
+  The SDK removes `briefcase-ai engine install`, `engine up` and `engine
+  upgrade`, including offline bundle loading. For a legacy deployment, back up
+  data and confirm managed access before shutdown. Use `engine down --dry-run`
+  and `engine uninstall --dry-run` to preview cleanup. Ordinary removal retains
+  volumes and secrets. Free capture, storage, replay and the local receiver
+  remain available. [Migration guide](docs/features/engine.md)
 - `briefcase-ai status` follows the path chosen during setup. Use `--all` for
   the full inventory or `--json` for the existing machine-readable report.
 
