@@ -324,9 +324,11 @@ def _python_choice(table, clause):
             return unknown
         value = target.value
         if not value.lower().startswith(("http://", "https://")):
-            empty_options = {"Constant(value=None)", "Constant(value='')", "Dict(keys=[], values=[])"}
-            if any(ast.dump(bound[key]) not in empty_options for key in ("token", "headers") if key in bound):
-                return unknown
+            for option in (bound[k] for k in ("token", "headers") if k in bound):
+                if isinstance(option, ast.Constant) and option.value in (None, ""):
+                    continue
+                if not isinstance(option, ast.Dict) or option.keys:
+                    return unknown
         if value in ("console", "memory"):
             return ("pythonConsole" if value == "console" else "inlineMemory", None)
         if value.lower().startswith(("http://", "https://")):
