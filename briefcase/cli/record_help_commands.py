@@ -38,6 +38,9 @@ def register(sub) -> None:
     parser.add_argument("--answer", action="append", help="Answer to the guide's one clarification.")
     parser.add_argument("--evidence-reply", action="append", metavar="{yes,no,unsure}",
                         help="Answer to the follow-up about your reported lookup. Use only if the command asks.")
+    parser.add_argument("--verify-jsonl", metavar="FILE", action="append",
+                        help="Check a local JSONL file for the original decision ID. Enter the ID at the hidden prompt "
+                             "or send it as one line on stdin.")
     parser.add_argument("--static", action="store_true", help="Print the complete offline guide.")
     parser.add_argument("--source", metavar="{jsonl,receiver,storage}", action="append",
                         help="Source inspected for the original decision ID or run-unique marker. Pair with --result.")
@@ -287,7 +290,8 @@ def _storage_lookup(table, evidence):
             intervening_status.add(index)
             continue
         stages = attribution["rowStages"]
-        if lookups and re.match(stages["resultReference"], clause.strip(), re.I):
+        if lookups and (re.match(stages["resultReference"], clause.strip(), re.I)
+                        or re.search(stages["objectReference"], clause, re.I)):
             named = {kind for kind, pattern in attribution["sources"].items() if re.search(pattern, clause, re.I)}
             if named and "storage" not in named:
                 records.clear()
@@ -1044,12 +1048,14 @@ class _SourceCheck:
             return "confirmation_unresolved_lookup"
         if self.partial and result == "no-match":
             return "confirmation_partial"
-        if self.conflicting_results:
+        if self.conflicting_results or (self.zero_matches and (self.matched_objects or self.matching_rows)):
             return "confirmation_inconsistent"
-        if self.ambiguous or self.matched_objects > 1:
+        if self.ambiguous or self.matched_objects + self.matching_rows > 1:
             return "confirmation_ambiguous"
         # A nonmatching returned row does not erase another row that matched the same lookup.
-        observed = "matched" if self.matched_objects and self.other_objects else self.outcome
+        observed = self.outcome
+        if self.other_objects and (self.matched_objects or self.matching_rows):
+            observed = "matched"
         if observed and result != observed:
             return "confirmation_inconsistent"
         if self.unlinked_record and self.returned_unbound and self.original_target and not self.unaccounted:
@@ -1304,7 +1310,8 @@ def _lookup_account(table, turns):
                     continue
                 facts.update(role["facts"])
                 if "target" in role["facts"]:
-                    identifiers.update(match[1] for match in values.finditer(clause))
+                    identifiers.update(next(value for value in match.groups() if value is not None)
+                                       for match in values.finditer(clause))
                 if "jsonl" in role["facts"]:
                     files.update(match.group() for match in paths.finditer(clause))
                 seen_results.extend(set(role["facts"]).intersection(("match", "miss", "unlinked")))
@@ -1324,6 +1331,8 @@ def _lookup_account(table, turns):
 def _returned_result(spec, clause, roles):
     """Parse the returned object independently from the reader's lookup target."""
     grammar = spec["resultOperand"]
+    if re.fullmatch(spec["rowStages"]["unlinkedIdentifier"], clause, re.I):
+        return "unlinked_record"
     head = re.match(grammar["head"], clause, re.I)
     if not head:
         return None
@@ -1431,13 +1440,16 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts):
         for check in owners:
             check.personal_gap = True
     reference = re.match(stages["resultReference"], clause, re.I)
-    if reference and named:
+    inverse = re.search(stages["objectReference"], clause, re.I)
+    if (reference or inverse) and named:
         # A back-reference describes the immediately preceding observation. A
         # second source's mention is not a second independent lookup.
         for kind in previous - named:
             check = attempts[current[kind]]
             if check.latest_object or check.zero_matches:
-                if re.match(stages["originPredicate"], clause[reference.end():], re.I):
+                attributed = ((reference and re.match(stages["originPredicate"], clause[reference.end():], re.I))
+                              or re.search(stages["sourceOfResult"], clause, re.I))
+                if attributed:
                     check.relocated = True
                 else:
                     check.uncertain_origin = True
@@ -1706,12 +1718,20 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     if returned in ("match", "miss", "unlinked_record"):
                         check.add_object(returned)
                         returned = check.latest_object
+                    if returned == "named":
+                        returned_ids = roles["returnedIdentifier"]
+                        if returned_ids and len(unique_ids) == 1:
+                            check.latest_object = "match" if returned_ids[-1] in unique_ids else "miss"
+                    if (returned in ("match", "miss", "named", "zero", "unlinked_record") and check.original_target
+                            and re.match(spec["rowStages"]["completedReturn"], result_clause.strip(), re.I)):
+                        check.pending = False
                     if returned in ("match", "named", "miss", "zero", "unlinked_record"):
                         for other in set(origin) - owners:
                             attempts[origin[other]].clarification_veto = True
                     if returned == "conflict":
                         check.conflicting_results = True
                     if returned == "zero":
+                        check.latest_object = "zero"
                         check.zero_matches = True
                         check.conflicting_results |= (check.anonymous_match or check.matching_rows > 0
                                                       or bool(original_ids.intersection(roles["returnedIdentifier"])))
@@ -2019,7 +2039,10 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 # A recognized record cannot resolve an unconsumed qualification of that lookup.
                 if conflict in (None, "ask_evidence"):
                     conflict = "confirmation_unresolved_lookup"
-            elif account and account.accounted and account.result != "unknown" and result != "unverified":
+            elif (account and account.accounted and account.result != "unknown" and result != "unverified"
+                  and conflict in (None, "ask_evidence", "confirmation_unresolved_lookup")):
+                # Only a fully consumed account can resolve a previously unknown observation.
+                # A separately established conflict in source, target, multiplicity or scope always stands.
                 kind, observed = account.source, account.result
                 if source != kind:
                     conflict = "confirmation_unchecked"
@@ -2607,8 +2630,47 @@ def _session_environment(table, question):
     return shell, inherited
 
 
+def _verify_local_file(table, args):
+    from briefcase.cli._record_file import verify
+
+    incompatible = ("static", "answer", "source", "result", "reader", "source_match", "target_match",
+                    "coverage", "evidence_reply")
+    if (len(args.verify_jsonl) != 1 or args.question is not None
+            or any(getattr(args, opt, None) for opt in incompatible)):
+        raise _SessionError("Invalid record-help arguments. See record-help --help.")
+    spec = table["localFileCheck"]
+    limit = spec["limits"]["lineBytes"]
+    original_id = ""
+    try:
+        if sys.stdin.isatty():
+            import getpass
+            import warnings
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", getpass.GetPassWarning)
+                original_id = getpass.getpass("Original decision ID (input hidden): ")
+        else:
+            stream = getattr(sys.stdin, "buffer", sys.stdin)
+            raw = stream.readline(limit + 3)
+            line = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+            if line.endswith("\n"):
+                line = line[:-1].removesuffix("\r")
+            if not stream.read(1):
+                original_id = line
+        if not original_id or len(original_id.encode("utf-8")) > limit:
+            raise ValueError
+    except (EOFError, OSError, UnicodeError, ValueError, Warning):
+        print(spec["actions"]["file_check_incomplete"])
+        return 1
+    result = verify(args.verify_jsonl[0], original_id, spec["limits"])
+    print(spec["actions"][result])
+    return int(result == "file_check_incomplete")
+
+
 def _guide_session(args) -> int:
     table = json.loads(_TABLE.read_text(encoding="utf-8"))
+    if getattr(args, "verify_jsonl", None):
+        return _verify_local_file(table, args)
     interactive = _ux.is_interactive() and sys.stdin.isatty()
     turns: List[str] = []
 
@@ -2652,8 +2714,14 @@ def _guide_session(args) -> int:
         return 0
     shell, inherited = _session_environment(table, question)
     key, text = route(table, question, None, shell, inherited)
+
+    def show_action(action, message):
+        print(message, flush=True)
+        if action in table["localFileCheck"]["eligibleActions"]:
+            print(table["localFileCheck"]["cliDiscovery"], flush=True)
+
     if not confirmation and not args.answer and table["actions"][key]["kind"] == "ask":
-        print(text, flush=True)
+        show_action(key, text)
         if answer is None:
             if not interactive:
                 return 0
@@ -2664,13 +2732,13 @@ def _guide_session(args) -> int:
     prompted = not confirmation and interactive and not eof and key in table["confirmation"]["next"]
     previous_key = key
     if prompted:
-        print(text, flush=True)
+        show_action(key, text)
         print(table["confirmation"]["instruction"])
         question, answer, confirmation = read_turn(f"Report your lookup or end input ({eof_hint}): ")
         if answer and not confirmation and not eof and turns[-1].strip():
             applied, instruction = route(table, question, answer, shell, inherited)
             if applied != previous_key:
-                print(instruction, flush=True)
+                show_action(applied, instruction)
                 previous_key = applied
             question, answer, confirmation = read_turn(f"Confirm what you found or end input ({eof_hint}): ")
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
@@ -2692,7 +2760,7 @@ def _guide_session(args) -> int:
         question, answer, confirmation = finish_report()
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
     if (not prompted or confirmation or key != previous_key) and not (evidence_prompted and key == "ask_evidence"):
-        print(text)
+        show_action(key, text)
         if key == "ask_evidence":
             print(table["confirmation"]["clarification"]["help"])
     if not prompted and key in table["confirmation"]["next"]:

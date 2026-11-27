@@ -322,7 +322,7 @@
   "unknown": "^(?:nope|nah|unknown|unsure|not sure|none|n/?a|no|idk|i (?:don.t|do not) know|can.t tell|not available)(?:[.!?])?$",
   "fallback": "fallback",
   "defaultAction": "ask_subject",
-  "guide": "Find the original record\n\nStart with the original decision ID or a value unique to that invocation. If several runs reused a ticket, obtain the original ID from a launch log or retained output. The ticket alone cannot identify the original.\n\nWhich Python script ran? The Python quickstart uses memory and prints its decision to stdout. After exit, check retained stdout. The console exporter writes decision JSON to stderr. For a redirected stream, inspect the file named by the original launch command.\n\nWhich output do you want? The Node demo prints the app reply to stdout. Its console decision on stderr contains decision_type and token_usage.total_tokens. An explicitly selected or inherited JSONL exporter sends that metadata to its file. For a hosted submission, match its run ID in the receiving workspace and agent.\n\nCheck the original exporter and working directory. An explicit in-code exporter takes precedence over an inherited default. For JSONL, reopen the file in a separate process and inspect every row for the original ID or unique marker. Zero matches, multiple matches or unreadable lines leave attribution unresolved.\n\nFor HTTP, find the original ID in a received batch. For OTLP, find its briefcase.decision span using the original trace correlation. A URL or HTTP status leaves receipt unverified. A matching receiver entry proves receipt. Query downstream storage separately for that same ID. If you already retrieved the full row for that ID from the storage system, that readback verifies the decision was stored there. A query with zero matches leaves storage unverified.\n\nVerify a new local run with these two Python commands from the same directory. Enter the same JSONL path at both prompts, or press Enter at both to use record-check.jsonl. The writer appends a new decision and prints the synthetic marker. Paste it when the second asks. A unique match proves only the new run.\n\npython -c 'import uuid, briefcase; from pathlib import Path; marker=str(uuid.uuid4()); briefcase.observe(str(Path(input(\"JSONL path [record-check.jsonl]: \").strip() or \"record-check.jsonl\").resolve())); briefcase.capture(lambda ticket: \"ok\")(marker); print(marker)'\n\npython -c 'import json; path=input(\"JSONL path [record-check.jsonl]: \").strip() or \"record-check.jsonl\"; marker=input(\"New marker: \").strip(); rows=[json.loads(line) for line in open(path, encoding=\"utf-8\")]; hits=[r for r in rows if marker and r.get(\"inputs\", {}).get(\"args\") == repr((marker,))]; print(\"Matches:\", len(hits), [r.get(\"decision_id\") for r in hits])'\n\nOptional confirmation\nAfter checking the original source for the exact decision ID or a run-unique marker, report who performed the lookup, the source and identifier checked, and the observed result. For example, after personally matching the original ID at the intended receiver, use --source receiver --result matched --reader me --source-match original --target-match original. An independent storage lookup is still needed to verify persistence. For a source-wide absence, report --result no-match and --coverage complete only after searching the entire relevant source. Choose unverified for an incomplete or ambiguous check. In a pipe, put the question first and any answer to the opening question on its own next line. Report the observation on the next line as source result reader source-match target-match [coverage]. If the command asks a follow-up about that lookup, add evidence yes, evidence no or evidence unsure on a final line.",
+  "guide": "Find the original record\n\nStart with the original decision ID or a value unique to that invocation. If several runs reused a ticket, obtain the original ID from a launch log or retained output. The ticket alone cannot identify the original.\n\nWhich Python script ran? The Python quickstart uses memory and prints its decision to stdout. After exit, check retained stdout. The console exporter writes decision JSON to stderr. For a redirected stream, inspect the file named by the original launch command.\n\nWhich output do you want? The Node demo prints the app reply to stdout. Its console decision on stderr contains decision_type and token_usage.total_tokens. An explicitly selected or inherited JSONL exporter sends that metadata to its file. For a hosted submission, match its run ID in the receiving workspace and agent.\n\nCheck the original exporter and working directory. An explicit in-code exporter takes precedence over an inherited default. For JSONL, reopen the file in a separate process and inspect every row for the original ID or unique marker. Zero matches, multiple matches or unreadable lines leave attribution unresolved.\n\nFor HTTP, find the original ID in a received batch. For OTLP, find its briefcase.decision span using the original trace correlation. A URL or HTTP status leaves receipt unverified. A matching receiver entry proves receipt. Query downstream storage separately for that same ID. If you already retrieved the full row for that ID from the storage system, that readback verifies the decision was stored there. A query with zero matches leaves storage unverified.\n\nVerify a new local run with these two Python commands from the same directory. Enter the same JSONL path at both prompts, or press Enter at both to use record-check.jsonl. The writer appends a new decision and prints the synthetic marker. Paste it when the second asks. A unique match proves only the new run.\n\npython -c 'import uuid, briefcase; from pathlib import Path; marker=str(uuid.uuid4()); briefcase.observe(str(Path(input(\"JSONL path [record-check.jsonl]: \").strip() or \"record-check.jsonl\").resolve())); briefcase.capture(lambda ticket: \"ok\")(marker); print(marker)'\n\npython -c 'import json; path=input(\"JSONL path [record-check.jsonl]: \").strip() or \"record-check.jsonl\"; marker=input(\"New marker: \").strip(); rows=[json.loads(line) for line in open(path, encoding=\"utf-8\")]; hits=[r for r in rows if marker and r.get(\"inputs\", {}).get(\"args\") == repr((marker,))]; print(\"Matches:\", len(hits), [r.get(\"decision_id\") for r in hits])'\n\nOptional confirmation\nAfter checking the original source for the exact decision ID or a run-unique marker, report who performed the lookup, the source and identifier checked, and the observed result. For example, after personally matching the original ID at the intended receiver, use --source receiver --result matched --reader me --source-match original --target-match original. An independent storage lookup is still needed to verify persistence. For a source-wide absence, report --result no-match and --coverage complete only after searching the entire relevant source. Choose unverified for an incomplete or ambiguous check. In a pipe, put the question first and any answer to the opening question on its own next line. Report the observation on the next line as source result reader source-match target-match [coverage]. If the command asks a follow-up about that lookup, add evidence yes, evidence no or evidence unsure on a final line.\n\nTo check the original JSONL file locally, run briefcase-ai record-help --verify-jsonl FILE and enter the original decision ID. The check matches the top-level decision_id exactly in the file you select.",
   "shell": {
     "all": [
       "unchanged|stayed (?:the same|identical)|same (?:shell (?:configuration|settings)|exporter settings|environment|configuration) (?:as|since|through)|(?:no (?:exporter |environment )?changes?|never changed) (?:since|between)",
@@ -369,7 +369,7 @@
       "replacement": "I retained stderr. I discarded stdout"
     },
     {
-      "pattern": "\\b(?:I|we)\\s+(?:saved|kept|retained|archived)\\s+(?:the )?stdout\\s+but\\s+(?:discarded|dropped|deleted)\\s+(?:the )?stderr\\b",
+      "pattern": "\\b(?:I|we)\\s+(?:saved|kept|retained|archived)\\s+(?:the )?stdout\\s+(?:but|and)\\s+(?:discarded|dropped|deleted)\\s+(?:the )?stderr\\b",
       "replacement": "I retained stdout. I discarded stderr"
     }
   ],
@@ -563,7 +563,7 @@
     "wantMeta": {
       "scope": "clause",
       "all": [
-        "\\b(?:want|need|looking for|read|find|after|where (?:is|are)|show me|get back|trying to (?:locate|recover|inspect))\\b[^.;?!\\n]{0,75}(?:decision[_ ]json|metadata|decision[_ ]type|usage[_ ]count|token[_ ](?:usage|count)|full (?:local )?decision)|record with the usage count|both maps empty|empty inputs and outputs|\\b(?:want|need|show me)\\s+(?:the |my |original )*(?:SDK )?decision(?: record)? on (?:stderr|stdout)\\b|\\b(?:want|need)\\s+(?:the |my |original )*SDK decision\\b"
+        "\\b(?:want|need|looking for|read|find|after|where (?:is|are)|show me|get back|trying to (?:locate|recover|inspect))\\b[^.;?!\\n]{0,75}(?:decision[_ ]json|metadata|decision[_ ]type|usage[_ ]count|token[_ ](?:usage|count)|full (?:local )?decision)|record with the usage count|both maps empty|empty inputs and outputs|\\b(?:want|need|show me)\\s+(?:the |my |original )*(?:SDK )?decision(?: record)? on (?:stderr|stdout)\\b|\\b(?:want|need)\\s+(?:the |my |original )*SDK decision\\b|\\b(?:want|need)s?\\s+(?:the |its |original )*(?:decision type|token (?:usage|count)|usage metadata)\\b"
       ],
       "none": [
         "reply or|could mean"
@@ -1210,6 +1210,33 @@
       "none": [
         "\\b(?:not|if|never|perhaps|possibly|might|discarded)\\b"
       ]
+    },
+    "explicitDemoArtifact": {
+      "scope": "request",
+      "any": [
+        "^\\s*(?:(?:the|my|our|its|original)\\s+)*(?:SDK |local )?decision(?: (?:record|JSON))?\\b"
+      ],
+      "none": [
+        "\\b(?:or|hosted|ID)\\b"
+      ]
+    },
+    "explicitDemoStdout": {
+      "scope": "request",
+      "any": [
+        "^\\s*(?:the |my |original )*(?:stdout|standard output)\\b"
+      ],
+      "none": [
+        "\\b(?:or|stderr|decision)\\b"
+      ]
+    },
+    "stdoutMergedIntoStderr": {
+      "scope": "clause",
+      "all": [
+        "\\b(?:I|we|the launcher)\\s+(?:redirected|merged|combined|sent)\\s+(?:the )?(?:stdout|standard output)\\s+(?:to|into|with)\\s+(?:the )?(?:stderr|standard error)\\b"
+      ],
+      "none": [
+        "\\b(?:not|if|never|perhaps|possibly|might)\\b"
+      ]
     }
   },
   "decisions": [
@@ -1217,6 +1244,58 @@
       "action": "wrapper_startup",
       "all": [
         "wrapperRejected"
+      ]
+    },
+    {
+      "action": "reply_stderr",
+      "all": [
+        "wantReply",
+        "stdoutMergedIntoStderr",
+        "retainedCombinedStream"
+      ],
+      "none": [
+        "wantMeta"
+      ]
+    },
+    {
+      "action": "node_console",
+      "all": [
+        "node",
+        "stdoutMergedIntoStderr",
+        "retainedCombinedStream"
+      ],
+      "any": [
+        "wantMeta",
+        "explicitDemoArtifact"
+      ],
+      "none": [
+        "wantReply"
+      ]
+    },
+    {
+      "action": "node_console",
+      "all": [
+        "ranDefaultNodeDemo",
+        "explicitDemoArtifact"
+      ],
+      "none": [
+        "discardedStderr",
+        "unretainedStderr",
+        "inlineMemory",
+        "fileExporter",
+        "wantReply"
+      ]
+    },
+    {
+      "action": "reply",
+      "all": [
+        "ranDefaultNodeDemo",
+        "explicitDemoStdout"
+      ],
+      "none": [
+        "discardedStdout",
+        "stdoutMergedIntoStderr",
+        "wantMeta"
       ]
     },
     {
@@ -3044,7 +3123,8 @@
             "(?:^|[.!?;]\\s+|\\n)\\s*\"([^\"\\n]{1,120})\"\\s+(?:is|was)\\s+(?:my|our|the)\\s+(?:{{originalID}})(?=\\s*[,.;!?]|\\s*$)",
             "(?:^|[.!?;]\\s+|\\n)\\s*'([^'\\n]{1,120})'\\s+(?:is|was)\\s+(?:my|our|the)\\s+(?:{{originalID}})(?=\\s*[,.;!?]|\\s*$)",
             "(?:^|[.!?;]\\s+|\\n)\\s*“([^”\\n]{1,120})”\\s+(?:is|was)\\s+(?:my|our|the)\\s+(?:{{originalID}})(?=\\s*[,.;!?]|\\s*$)",
-            "{{originalID}}\\s*,\\s*({{nameToken}})\\s*,"
+            "{{originalID}}\\s*,\\s*({{nameToken}})\\s*,",
+            "\\b(?:the |my |our |an? )?(?:decision ID|identifier|run-unique marker) (?:of|from|for) (?:the |my |our )?(?:first|original|initial) (?:run|attempt|invocation|launch)\\s*(?:[:=]|(?:was|is)(?: reported as)?)\\s*({{nameToken}})"
           ],
           "fact": "hasID",
           "independent": true
@@ -3929,7 +4009,11 @@
         "unknownResult": "^\\s*(?:(?:the|that|this|its|their|my|our|an?|another|some|those|remaining|additional|other|second|last)\\s+)*(?:(?:original|returned|retrieved|matching|observed|checked|earlier|later|remaining|additional|extra|resulting|source|material|search|query|row|lookup)\\s+)*(?:rows?|entr(?:y|ies)|records?|results?|identifiers?|IDs?|receipts?|comparisons?|coverage|pages?|shards?|partitions?|checks?)\\b",
         "resultReference": "^(?:(?:that|this|the|its|those|these)\\s+(?:(?:same|empty|matching|returned|retrieved|preceding|previous|original|positive|negative)\\s+)*(?:rows?|results?|decisions?|records?|entr(?:y|ies)|responses?|match(?:es)?|absence|outcomes?)|it)\\s+",
         "originPredicate": "^(?:(?:was|is|had been|has been)\\s+)?(?:(?:actually|really|originally|instead)\\s+)*(?:(?:came|comes)\\s+(?:(?:solely|only|originally|directly|exclusively|actually)\\s+)*from|belonged to|belongs to|from|(?:read|returned|retrieved|obtained|observed|found|located)\\s+(?:in|at|from|by))\\b",
-        "remainingPortion": "\\b(?:the (?:rest|remainder)|(?:remaining|unread|unexamined|unsearched|uninspected|outstanding|skipped)\\s+(?:entries|rows|pages|records|partitions|shards)|(?:entries|rows|pages|records|partitions|shards)\\s+(?:left|remaining|outstanding))\\b"
+        "remainingPortion": "\\b(?:the (?:rest|remainder)|(?:remaining|unread|unexamined|unsearched|uninspected|outstanding|skipped)\\s+(?:entries|rows|pages|records|partitions|shards)|(?:entries|rows|pages|records|partitions|shards)\\s+(?:left|remaining|outstanding))\\b",
+        "sourceOfResult": "\\b(?:was|is|became|served as)\\s+(?:(?:actually|really|originally|the|its|only|true|actual)\\s+)*(?:source|origin|location)\\s+(?:of|for)\\s+(?:the|that|this|those|these)\\s+(?:(?:same|empty|returned|matching)\\s+)*(?:results?|rows?|records?|entr(?:y|ies)|matches?|response)\\b",
+        "objectReference": "\\b(?:of|for|behind|underlying|associated with|to)\\s+(?:that|this|those|these)\\s+(?:(?:empty|matching|returned|observed)\\s+)*(?:results?|rows?|records?|entr(?:y|ies)|responses?)\\b",
+        "completedReturn": "^\\s*(?:it|the (?:query|lookup|search|scan))\\s+(?:(?:then|later|finally|subsequently|eventually|actually|also)\\s+)*(?:returned|yielded|produced)\\b",
+        "unlinkedIdentifier": "^(?:I|we|the query|the lookup|it)\\s+(?:(?:personally|actually|then|independently)\\s+)*(?:found|returned|read|retrieved|obtained)\\s+(?:a|one|a single)\\s+(?:full |complete )?(?:row|entry|record|decision)\\s+(?:with|containing|bearing|carrying) (?:a|an) (?:decision |trace |run )?(?:ID|identifier|marker)$"
       }
     },
     "observation": {
@@ -4040,7 +4124,7 @@
     "\\b(?:[\\w -]{0,24}(?:token|password|secret|credential)|(?:\\w+[ -])?(?:opaque value|field value|identifier|marker|token|handle|nickname|credential)|api[ _-]+key|ticket(?: number| value)?|(?:decision|run|trace)[ _-]+id|(?:original|unique) (?:marker|id|identifier|correlation))\\s*(?:(?:is set to|was set to|is|was|equals|set to|assigned to|recorded as)\\s+|[:=#]\\s*)+(\"[^\"\\n]*\"|'[^'\\n]*'|[^\\s,;]+)",
     "\\b(?:decision[_ -]id|trace[_ -]id|run[_ -]id|correlation(?: id)?|identifier|marker)\\b\\s+(?:for|from|of|on|belonging to|tied to|associated with|linked to|specific to|corresponding to|assigned to|issued for|recorded for|generated for|identifying|that identifies|which identifies)\\s+(?:(?:my|our|this|that|the)\\s+(?:(?:specific|particular|original|target|intended|failed|initial|actual|submitted|current|selected)\\s+){0,3}|(?:this|that)\\s+one\\b|the\\s+(?:run|job|call)\\s+i\\s+(?:launched|submitted|made)\\b)(?:invocation|attempt|run|retry|call|request|launch|process|execution|job|submission|decision|test)\\b\\s+(?:was|is)\\s+(\"[^\"\\n]*\"|'[^'\\n]*'|[^\\s,;]+)",
     "\\b(?:workspace|agent)(?:\\s+(?:name|label|identifier|id))?\\s*(?:(?:is|was|called|named|labeled|labelled|equals)\\s+|[:=]\\s*)(\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s,;]+)",
-    "\\b(?!stderr\\s+(?:to|into|with)\\s+(?:the )?stdout(?=\\s*[.!?;](?:\\s|$)|\\s*$))(?!stderr\\s+(?:to|into|with)\\s+(?:the )?stdout\\s+and\\s+(?:(?:I|we)\\s+)?(?:saved|kept|retained|archived)\\s+(?:(?:the|that|combined|merged|resulting)\\s+)*(?:stream|output|log)\\b)(?:stdout|stderr|standard output|standard error)\\s+(?:(?:was|is|went|saved|written|captured|retained|archived|redirected|to|into|in|at|as|the|original|file|path|log)\\s+)+(\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s,;]+)",
+    "\\b(?!stderr\\s+(?:to|into|with)\\s+(?:the )?stdout(?=\\s*[.!?;](?:\\s|$)|\\s*$))(?!stderr\\s+(?:to|into|with)\\s+(?:the )?stdout\\s+and\\s+(?:(?:I|we)\\s+)?(?:saved|kept|retained|archived)\\s+(?:(?:the|that|combined|merged|resulting)\\s+)*(?:stream|output|log)\\b)(?!stdout\\s+(?:to|into|with)\\s+(?:the )?stderr(?=[.!?;]|\\s+and\\s+(?:(?:I|we)\\s+)?(?:saved|kept|retained|archived)\\b|\\s*$))(?:stdout|stderr|standard output|standard error)\\s+(?:(?:was|is|went|saved|written|captured|retained|archived|redirected|to|into|in|at|as|the|original|file|path|log)\\s+)+(\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s,;]+)",
     "(?:^|\\s)[12]?>>?\\s*(\"[^\"\\n]*\"|\\x27[^\\x27\\n]*\\x27|[^\\s,;]+)"
   ],
   "rawFacts": [
@@ -4360,7 +4444,11 @@
       "originRel": "\\s+(?:(?:named |configured |identified )?(?:in|for|from|by)|using) {{origin}}",
       "marker": "{{det}}(?:(?:unique|original|decision|lookup)\\s+)+(?:marker|ID|identifier)(?: {{id}})?(?: from {{det}}(?:original )?(?:launch )?receipt)?",
       "object": "{{det}}(?:(?:single|one|complete|full|incoming|matching)\\s+)*(?:entry|decision|record|row)",
-      "linkage": "\\s+(?:with|bearing|carrying|containing) {{det}}(?:(?:same|exact|original|decision)\\s+)+(?:ID|identifier|marker)"
+      "linkage": "\\s+(?:with|bearing|carrying|containing) {{det}}(?:(?:same|exact|original)\\s+)+(?:decision )?(?:ID|identifier|marker)",
+      "timeLead": "(?:(?:at handoff|after exit|after (?:the |my |our )?(?:job|process|writer|worker) (?:stopped|exited|ended)),?\\s+)?",
+      "attempt": "(?:(?:the|my|our|its)\\s+)?(?:first|original|initial)\\s+(?:run|attempt|invocation|launch|job)",
+      "configuration": "(?:(?:that|the|its|original|our|my)\\s+)*(?:launch|writer|worker|deployment)\\s+(?:configuration|config|settings)",
+      "rowType": "(?:entr(?:y|ies)|rows?|records?|decisions?)"
     },
     "productions": [
       {
@@ -4591,13 +4679,105 @@
         "facts": [
           "question"
         ]
+      },
+      {
+        "pattern": "(?:for (?:this|that|the original) (?:run|invocation|attempt) )?{{self}}(?:copied|retained|kept|saved) {{det}}(?:unique|original) (?:decision ID|marker)\\s+\\(?{{id}}\\)?\\s+from {{det}}original (?:launch )?receipt",
+        "facts": [
+          "target"
+        ]
+      },
+      {
+        "pattern": "{{timeLead}}{{self}}(?:opened|reopened|read|inspected) {{det}}JSONL file (?:specified|configured|named|identified) in {{configuration}},?\\s+{{name}},?(?:\\s+(?:under|in|from) {{det}}(?:recorded|original|launch) working directory)?",
+        "facts": [
+          "reader",
+          "origin",
+          "jsonl"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:checked|read|scanned|inspected|searched) (?:every|all (?:the )?) {{rowType}}",
+        "facts": [
+          "reader",
+          "complete"
+        ]
+      },
+      {
+        "pattern": "(?:all|every row|every record) (?:parsed|was readable|parsed correctly|parsed without errors?)",
+        "facts": [
+          "complete"
+        ]
+      },
+      {
+        "pattern": "(?:(?:some (?:were|belonged to) (?:older|earlier|previous) (?:runs|attempts) and )?none (?:had|contained|matched|carried) (?:that|the original|the supplied) (?:marker|ID|identifier))",
+        "facts": [
+          "miss"
+        ]
+      },
+      {
+        "pattern": "{{timeLead}}{{self}}(?:opened|inspected|read|checked) {{receiver}} (?:used|configured|selected) by {{attempt}}(?:,?\\s+using {{det}}destination from {{det}}launch config(?:uration)?)?",
+        "facts": [
+          "reader",
+          "origin",
+          "receiver"
+        ]
+      },
+      {
+        "pattern": "(?:exactly )?one (?:incoming |receiver )?{{rowType}} matched (?:the )?(?:decision ID|identifier|marker) {{id}} (?:on|from) {{det}}original (?:launch )?receipt",
+        "facts": [
+          "match",
+          "target"
+        ]
+      },
+      {
+        "pattern": "(?:the team|we|I) (?:has|have|had) not (?:read|queried|inspected|checked) {{storage}}",
+        "facts": [
+          "unreadStorage"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:made|ran|performed) an? (?:independent|separate) (?:downstream|storage|database) (?:query|lookup|search){{phase}}",
+        "facts": [
+          "reader",
+          "storage"
+        ]
+      },
+      {
+        "pattern": "{{self}}used {{det}}(?:store|database|warehouse|storage) (?:identified|specified|named|configured) (?:by|in|for) {{origin}}",
+        "facts": [
+          "origin",
+          "storage"
+        ]
+      },
+      {
+        "pattern": "(?:my|our|the) original (?:decision|launch|run) receipt (?:says|lists|names|identifies) {{id}}",
+        "facts": [
+          "target"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:obtained|received|retrieved) {{object}}",
+        "facts": [
+          "unlinked"
+        ]
+      },
+      {
+        "pattern": "(?:is there evidence for (?:this|that|the original) run in (?:that|this|the) file|can I say (?:the decision|it) (?:arrived|was stored)|what can (?:this|that|the) (?:readback|lookup|query) tell (?:me|us))",
+        "facts": [
+          "question"
+        ]
+      },
+      {
+        "pattern": "{{self}}(?:found|read|retrieved|obtained) {{object}} with (?:a|an) (?:decision |trace |run )?(?:ID|identifier|marker)",
+        "facts": [
+          "unlinked"
+        ]
       }
     ],
     "sentences": "(?:[.!?;](?=\\s|$)|\\n+)",
-    "clause": ",?\\s+and\\s+(?=(?:I|we|the query|searched|scanned|saw|found)\\b)|\\s+while\\s+(?=investigating\\b)",
-    "implicit": "^(?:searched|scanned|saw|found)\\b",
+    "clause": ",?\\s+and\\s+(?=(?:I|we|the query|searched|scanned|saw|found|obtained|received|retrieved)\\b)|\\s+while\\s+(?=investigating\\b)",
+    "implicit": "^(?:searched|scanned|saw|found|obtained|received|retrieved)\\b",
     "investigator": "^investigating\\s+",
-    "targetValue": "\\b(?:marker|ID|identifier)\\s+(?!(?:was|from|on|for|in|is|of|to|as)\\b)({{id}})\\b",
+    "targetValue": "\\b(?:marker|ID|identifier)\\s+(?!(?:was|from|on|for|in|is|of|to|as)\\b)({{id}})\\b|\\b(?:decision|launch|run) receipt (?:says|lists|names|identifies) ({{id}})\\b|\\b(?:marker|ID)\\s+\\(({{id}})\\)",
     "routes": {
       "jsonl": {
         "match": "jsonl",
@@ -4627,7 +4807,7 @@
       "ask_id",
       "fallback"
     ],
-    "originalTarget": "\\boriginal\\s+(?:(?:decision|lookup|launch|run|unique)\\s+)*(?:ID|identifier|marker|receipt)\\b|\\b(?:ID|identifier|marker)(?:\\s+[a-z0-9_-]+)?\\s+from\\s+(?:my|the|our)\\s+(?:original\\s+)?(?:launch\\s+)?receipt\\b",
+    "originalTarget": "\\boriginal\\s+(?:(?:decision|lookup|launch|run|unique)\\s+)*(?:ID|identifier|marker|receipt)\\b|\\b(?:ID|identifier|marker)(?:\\s+[a-z0-9_-]+)?\\s+from\\s+(?:my|the|our)\\s+(?:original\\s+)?(?:launch\\s+)?receipt\\b|\\boriginal (?:decision|launch|run) receipt\\b",
     "location": {
       "result": "\\b(?:found|saw|retrieved|observed|returned|contained|showed|yielded|appeared|located|came\\s+(?:(?:solely|only|exclusively)\\s+)?from)\\b|\\b(?:matching|matched)\\s+(?:entry|record|row)\\b",
       "object": "\\b(?:records?|rows?|entr(?:y|ies)|decision|match|it|one)\\b",
@@ -4641,5 +4821,35 @@
       "negative": "\\b(?:zero|no|without any|not a single)\\s+(?:(?:matching|original|corresponding)\\s+)*(?:records?|rows?|entr(?:y|ies)|matches?|hits?)\\b|\\bnothing matched\\b|\\beverywhere (?:except|but)\\b",
       "sourceQuestion": "(?:(?:what|how much) (?:can|could) (?:I|we) (?:verify|establish|confirm|learn|see|check) (?:from|using|at|in|about) (?:(?:the|my|our|original|configured|intended|local|downstream|export|incoming)\\s+)*(?:JSONL(?: file)?|receiver(?: log)?|store|storage|database|archive)|where (?:is|was|can (?:I|we) (?:find|locate)) (?:(?:the|my|our|original|configured|intended|local|downstream|export|incoming)\\s+)*(?:JSONL(?: file)?|receiver(?: log)?|store|storage|database|archive)|(?:which|what) (?:(?:the|my|our|original|configured|intended|local|downstream|export|incoming)\\s+)*(?:JSONL(?: file)?|receiver(?: log)?|store|storage|database|archive) (?:should|can) (?:I|we) (?:check|open|inspect|search))(?:\\s+(?:for|using)\\s+(?:(?:the|my|our|original|decision|lookup|unique)\\s+)*(?:ID|identifier|marker)(?:\\s+[\\w.:-]+)?)?"
     }
+  },
+  "localFileCheck": {
+    "limits": {
+      "fileBytes": 33554432,
+      "lineBytes": 1048576,
+      "rows": 100000,
+      "depth": 128
+    },
+    "actions": {
+      "file_check_none": "No records in the selected file match the supplied decision ID.",
+      "file_check_one": "One record in the selected file matches the supplied decision ID.",
+      "file_check_multiple": "More than one record in the selected file matches the supplied decision ID.",
+      "file_check_incomplete": "The check could not read and validate the entire selected file. The result is unknown."
+    },
+    "cliDiscovery": "To check the original JSONL file locally, run briefcase-ai record-help --verify-jsonl FILE and enter the original decision ID. The check matches the top-level decision_id exactly in the file you select.",
+    "eligibleActions": [
+      "jsonl",
+      "node_file",
+      "jsonl_stale",
+      "scanned_missing",
+      "jsonl_candidates",
+      "match_candidates",
+      "private_file",
+      "private_file_read",
+      "private_file_miss",
+      "ask_path",
+      "confirmed_jsonl_matched",
+      "confirmed_jsonl_no_match",
+      "confirmed_jsonl_unverified"
+    ]
   }
 }

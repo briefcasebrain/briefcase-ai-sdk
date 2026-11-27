@@ -1,0 +1,158 @@
+[
+  {
+    "name": "empty",
+    "id": "unique-01",
+    "expected": "file_check_none",
+    "body": ""
+  },
+  {
+    "name": "exact",
+    "id": "one",
+    "expected": "file_check_one",
+    "body": "{\"decision_id\": \"one\", \"ticket\": \"retry\"}\n"
+  },
+  {
+    "name": "case significant",
+    "id": "one",
+    "expected": "file_check_none",
+    "body": "{\"decision_id\": \"ONE\", \"ticket\": \"retry\"}"
+  },
+  {
+    "name": "no trimming",
+    "id": " one ",
+    "expected": "file_check_one",
+    "body": "{\"decision_id\": \" one \", \"ticket\": \"retry\"}\r\n"
+  },
+  {
+    "name": "equal ticket is not identity",
+    "id": "one",
+    "expected": "file_check_none",
+    "body": "{\"decision_id\": \"first\", \"ticket\": \"one\"}\n{\"decision_id\": \"retry\", \"ticket\": \"one\"}"
+  },
+  {
+    "name": "retry first",
+    "id": "first",
+    "expected": "file_check_one",
+    "body": "{\"decision_id\": \"first\", \"ticket\": \"retry\"}\n{\"decision_id\": \"retry\", \"ticket\": \"retry\"}"
+  },
+  {
+    "name": "retry duplicate",
+    "id": "first",
+    "expected": "file_check_multiple",
+    "body": "{\"decision_id\": \"first\", \"ticket\": \"retry\"}\n{\"decision_id\": \"retry\", \"ticket\": \"retry\"}\n{\"decision_id\": \"first\", \"ticket\": \"retry\"}"
+  },
+  {
+    "name": "blank line",
+    "id": "first",
+    "expected": "file_check_incomplete",
+    "body": "{\"decision_id\": \"first\", \"ticket\": \"retry\"}\n\n"
+  },
+  {
+    "name": "malformed before match",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "{\n{\"decision_id\": \"one\", \"ticket\": \"retry\"}"
+  },
+  {
+    "name": "malformed after match",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "{\"decision_id\": \"one\", \"ticket\": \"retry\"}\n{"
+  },
+  {
+    "name": "malformed after duplicates",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "{\"decision_id\": \"one\", \"ticket\": \"retry\"}\n{\"decision_id\": \"one\", \"ticket\": \"retry\"}\nX"
+  },
+  {
+    "name": "missing ID",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "{\"inputs\":{\"decision_id\":\"one\"}}"
+  },
+  {
+    "name": "non-object",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "[\"one\"]"
+  },
+  {
+    "name": "null ID",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "{\"decision_id\":null}"
+  },
+  {
+    "name": "numeric ID",
+    "id": "1",
+    "expected": "file_check_incomplete",
+    "body": "{\"decision_id\":1}"
+  },
+  {
+    "name": "empty ID",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "{\"decision_id\":\"\"}"
+  },
+  {
+    "name": "duplicate ID key",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "{\"decision_id\":\"other\",\"decision_id\":\"one\"}"
+  },
+  {
+    "name": "nested duplicate key",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "{\"decision_id\":\"one\",\"inputs\":{\"x\":1,\"\\u0078\":2}}"
+  },
+  {
+    "name": "number lexical exponent",
+    "id": "one",
+    "expected": "file_check_one",
+    "body": "{\"decision_id\":\"one\",\"score\":1e999}"
+  },
+  {
+    "name": "not JSON number",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "{\"decision_id\":\"one\",\"cost\":Infinity}"
+  },
+  {
+    "name": "escaped ID",
+    "id": "snow☃",
+    "expected": "file_check_one",
+    "body": "{\"decision_id\":\"snow\\u2603\"}"
+  },
+  {
+    "name": "literal Unicode",
+    "id": "Bär",
+    "expected": "file_check_one",
+    "body": "{\"decision_id\": \"Bär\", \"ticket\": \"retry\"}"
+  },
+  {
+    "name": "invalid utf8",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "bytesHex": "7b226465636973696f6e5f6964223a22ff227d"
+  },
+  {
+    "name": "UTF-8 BOM",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "bytesHex": "efbbbf7b226465636973696f6e5f6964223a20226f6e65222c20227469636b6574223a20227265747279227d"
+  },
+  {
+    "name": "JSON nesting depth 128",
+    "id": "one",
+    "expected": "file_check_one",
+    "body": "{\"decision_id\":\"one\",\"payload\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[\"quoted \\\" [ {\"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}"
+  },
+  {
+    "name": "JSON nesting depth 129",
+    "id": "one",
+    "expected": "file_check_incomplete",
+    "body": "{\"decision_id\":\"one\",\"payload\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[\"quoted \\\" [ {\"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}"
+  }
+]

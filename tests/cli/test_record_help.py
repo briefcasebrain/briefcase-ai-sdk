@@ -662,3 +662,19 @@ def test_piped_answer_to_displayed_evidence_question(reply, read_only_row, monke
     monkeypatch.setattr("sys.stdin", StringIO("\n".join(session)))
     assert main(["record-help"]) == (0 if read_only_row else 2)
     assert capsys.readouterr().out.count("You reported") == int(read_only_row and reply == "yes")
+
+
+@pytest.mark.parametrize("conflict", [
+    "confirmation_other_source", "confirmation_other_run", "confirmation_ambiguous",
+    "confirmation_inconsistent", "confirmation_partial", "confirmation_unchecked",
+])
+def test_complete_language_account_preserves_independent_veto(monkeypatch, conflict):
+    from briefcase.cli import record_help_commands as guidance
+
+    incident = ("I reopened entries.jsonl from the original launch. I looked up my original decision ID. "
+                "I read one record with the original ID.")
+    account = guidance._lookup_account(TABLE, (incident,))
+    assert account and account.accounted and account.result == "match"
+    monkeypatch.setattr(guidance, "_confirmation_conflict", lambda *args, **kwargs: conflict)
+    report = dict(source="jsonl", result="matched", reader="me", sourceMatch="original", targetMatch="original")
+    assert route(TABLE, incident, confirmation=report)[0] == conflict
