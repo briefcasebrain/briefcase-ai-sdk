@@ -11,6 +11,10 @@ import pytest
     'API_KEY="demo-712 secondary-906"',
     "access_token: demo-712",
     "--password demo-712",
+    "--api-token demo-712",
+    "--provider-auth-token=demo-712",
+    "--clientSecret demo-712",
+    "--http-authorization-header demo-712",
 ])
 def test_credentials_are_never_used_as_correlation(credential, monkeypatch, capsys):
     from briefcase.cli.__main__ import main

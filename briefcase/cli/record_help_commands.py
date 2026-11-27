@@ -45,6 +45,42 @@ def _collect_facts(table: Dict[str, Any], evidence: str) -> Set[str]:
     return facts
 
 
+def _entity(spec: Dict[str, Any], text: str, grammar: Dict[str, str]) -> Optional[Dict[str, Any]]:
+    """Use the most specific supported source. Conflicting values stay unknown."""
+    def expand_fragment(key: re.Match[str]) -> str:
+        return grammar[key.group(1)]
+
+    for tier in spec["tiers"]:
+        values = set()
+        ambiguous = False
+        for expression in tier["patterns"]:
+            pattern = re.sub(r"\{\{(\w+)\}\}", expand_fragment, expression)
+            for match in re.finditer(pattern, text, re.I):
+                if re.search(spec["negatedBefore"], text[:match.start()], re.I):
+                    continue
+                value = match.group(1).strip()
+                if not value or any(re.search(test, value, re.I) for test in spec["reject"]):
+                    continue
+                values.add(value)
+                if re.match(spec["ambiguousTail"], text[match.end():], re.I):
+                    ambiguous = True
+        if values:
+            if len(values) != 1 or ambiguous:
+                return {}
+            return {"value": values.pop(), "fact": tier.get("fact", ""),
+                    "independent": tier.get("independent", False)}
+    return None
+
+
+def _entities(table: Dict[str, Any], text: str) -> Dict[str, Dict[str, Any]]:
+    values = {}
+    for name, spec in table["entities"].items():
+        entity = _entity(spec, text, table["entityGrammar"])
+        if entity is not None:
+            values[name] = entity
+    return values
+
+
 def _select(table: Dict[str, Any], facts: Set[str]) -> str:
     for decision in table["decisions"]:
         alternatives = decision.get("any", [])
@@ -67,11 +103,19 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     if len(relevant) != len(clauses):
         evidence = "\n".join(relevant)
     facts = _collect_facts(table, evidence)
+    entities = _entities(table, evidence)
+    facts.update(value["fact"] for value in entities.values() if value.get("fact"))
+    for comparison in table["comparisons"]:
+        original = entities.get(comparison["left"], {})
+        observed = entities.get(comparison["right"], {}).get("value")
+        if original.get("independent") and observed:
+            facts.add(comparison["equal"] if original["value"] == observed else comparison["different"])
     shell_path = None
     if shell and _matches(table["shell"], evidence):
         value = preprocess(shell)
         for kind in table["shellKinds"]:
             if _matches(kind, value):
+                facts.difference_update(kind.get("drop", []))
                 facts.update(kind["add"])
                 if kind.get("path"):
                     shell_path = value
@@ -82,12 +126,20 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         reply = preprocess(answer)
         transitions = table["replies"][key]
         valid = next((step for step in transitions if _matches(step, reply)), None)
-        if not reply or re.fullmatch(table["unknown"], reply, re.I) or valid is None:
+        contextual_reply = action["replyPrefix"] + reply
+        reply_entities = _entities(table, contextual_reply)
+        reply_id = reply_entities.get("correlation", {})
+        repeated = not facts.isdisjoint(("sharedInput", "multiple"))
+        shared_value = entities.get("correlation", {}).get("value")
+        valid_id = key != "ask_id" or (reply_id.get("fact") == "hasID"
+                                       and not (repeated and reply_id.get("value") == shared_value))
+        if not reply or re.fullmatch(table["unknown"], reply, re.I) or valid is None or not valid_id:
             key = table["fallback"]
         else:
             if key in ("ask_path", "ask_exporter"):
                 shell_path = None
-            evidence = action["replyPrefix"] + reply + "\n" + evidence
+            entities.update(reply_entities)
+            evidence = contextual_reply + "\n" + evidence
             facts.difference_update(valid.get("drop", []))
             facts.update(valid.get("add", []))
             key = valid.get("action") or _select(table, facts)
@@ -97,6 +149,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
 
     def substitute(placeholder: re.Match) -> str:
         name = placeholder.group(1)
+        if name in table["entities"]:
+            return entities.get(name, {}).get("value", table["defaults"][name])
         if name == "path" and shell_path:
             return shell_path
         for pattern in table["extract"][name]:

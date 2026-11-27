@@ -57,3 +57,25 @@ def test_url_credentials_never_appear_in_piped_result(monkeypatch, capsys):
     assert "receiver" in result
     assert "fixture-secret" not in result
     assert "key=private" not in result
+
+
+def _paraphrases():
+    from itertools import product
+
+    templates = Path(__file__).parent / "fixtures/record_guidance_variants_v1.json"
+    for template in json.loads(templates.read_text()):
+        axes = template["variants"]
+        for values in product(*axes.values()):
+            slots = dict(zip(axes, values))
+            yield {
+                "name": template["name"] + " " + "/".join(values),
+                "question": template["question"].format_map(slots),
+                "answer": template.get("answer", "").format_map(slots) or None,
+                "expected": template["expected"],
+                "includes": [s.format_map(slots) for s in template["includes"]],
+            }
+
+
+@pytest.mark.parametrize("case", list(_paraphrases()), ids=lambda row: row["name"])
+def test_paraphrases_keep_the_same_action_and_artifacts(case):
+    test_shared_record_guidance(case)

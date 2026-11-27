@@ -843,7 +843,7 @@
   {
     "name": "C09",
     "question": "The worker assigned our run the unique marker blue-186. I parsed lastnight.jsonl after it exited. There is one old record for blue-115 and no row for blue-186. What does that show?",
-    "expected": "jsonl_stale",
+    "expected": "scanned_missing",
     "includes": [
       "lastnight.jsonl",
       "blue-186"
@@ -1029,6 +1029,255 @@
     "expected": "receiver",
     "includes": [
       "original ID or unique marker"
+    ]
+  },
+  {
+    "name": "D01",
+    "question": "Different calls wrote the same ticket text to status.jsonl. I copied the original decision ID (bill-710) from my run. How do I identify the right row?",
+    "expected": "jsonl",
+    "includes": [
+      "status.jsonl",
+      "bill-710"
+    ]
+  },
+  {
+    "name": "D02 initial",
+    "question": "Three rows in jobs.jsonl have the same ticket text from three attempts. Which one corresponds to my run?",
+    "expected": "ask_id",
+    "includes": []
+  },
+  {
+    "name": "D02",
+    "question": "Three rows in jobs.jsonl have the same ticket text from three attempts. Which one corresponds to my run?",
+    "expected": "jsonl",
+    "includes": [
+      "jobs.jsonl",
+      "job-53"
+    ],
+    "answer": "I recovered the original decision ID job-53 from that run."
+  },
+  {
+    "name": "D03",
+    "question": "I launched the unmodified Python quickstart first_decision.py. Its stdout was redirected to session.out and the job has exited. Where can I find what it printed?",
+    "expected": "memory",
+    "includes": [
+      "session.out"
+    ]
+  },
+  {
+    "name": "D04 initial",
+    "question": "The launcher can run either first_decision.py from the Python quickstart or a worker using the console exporter. It saved stdout in a.out and stderr in a.err. Which one should I inspect?",
+    "expected": "ask_program",
+    "includes": []
+  },
+  {
+    "name": "D04",
+    "question": "The launcher can run either first_decision.py from the Python quickstart or a worker using the console exporter. It saved stdout in a.out and stderr in a.err. Which one should I inspect?",
+    "expected": "console",
+    "includes": [
+      "a.err"
+    ],
+    "answer": "It ran console_worker.py, the worker that sets its console exporter explicitly."
+  },
+  {
+    "name": "D05",
+    "question": "My hosted job is in workspace forest, agent booking, and the submission receipt shows run ID book-770. Where do I check the run?",
+    "expected": "hosted",
+    "includes": [
+      "forest",
+      "booking",
+      "book-770"
+    ]
+  },
+  {
+    "name": "D06 initial",
+    "question": "There was a local SDK execution and a hosted dashboard run for our build. I need to find my run. Where should I start?",
+    "expected": "ask_run",
+    "includes": []
+  },
+  {
+    "name": "D06",
+    "question": "There was a local SDK execution and a hosted dashboard run for our build. I need to find my run. Where should I start?",
+    "expected": "hosted",
+    "includes": [
+      "lake",
+      "cloud-404"
+    ],
+    "answer": "I mean the hosted dashboard run. Its workspace is lake and its run ID is cloud-404."
+  },
+  {
+    "name": "D07",
+    "question": "In the Node demo I want the application reply, rather than the SDK decision. Stdout is saved as stdout.log and stderr as stderr.log. Which log should I open?",
+    "expected": "reply",
+    "includes": [
+      "stdout.log"
+    ]
+  },
+  {
+    "name": "D08 initial",
+    "question": "The Node demo retained stdout in print.log and console decision metadata on stderr in record.log. Which output do I need to see the result?",
+    "expected": "ask_subject",
+    "includes": []
+  },
+  {
+    "name": "D08",
+    "question": "The Node demo retained stdout in print.log and console decision metadata on stderr in record.log. Which output do I need to see the result?",
+    "expected": "reply",
+    "includes": [
+      "print.log"
+    ],
+    "answer": "I want the reply text the application printed."
+  },
+  {
+    "name": "D09",
+    "question": "My independent scan of delta.jsonl found no record matching the original unique marker sky-701. It contained a previous run tagged sky-698. Does this file verify my decision?",
+    "expected": "scanned_missing",
+    "includes": [
+      "delta.jsonl",
+      "sky-701"
+    ]
+  },
+  {
+    "name": "D10",
+    "question": "My original Python process used the console exporter. The command was python agent.py 2>observe.err and I saved that stream. Where can I verify its record?",
+    "expected": "console",
+    "includes": [
+      "observe.err"
+    ]
+  },
+  {
+    "name": "D11",
+    "question": "The received HTTP batch contains a record matching original decision ID net-720. I have the receiver log but no separate downstream readback. Can I claim storage?",
+    "expected": "storage",
+    "includes": [
+      "net-720"
+    ]
+  },
+  {
+    "name": "D12",
+    "question": "A separate query of the downstream archive returned the record with the original decision ID store-911. Does this demonstrate persistence there?",
+    "expected": "stored",
+    "includes": [
+      "store-911"
+    ]
+  },
+  {
+    "name": "unknown workspace clause",
+    "question": "I need the hosted run. Its workspace might be lake. My run ID is task-358.",
+    "expected": "hosted",
+    "includes": [
+      "workspace identified by",
+      "task-358"
+    ]
+  },
+  {
+    "name": "two possible workspaces",
+    "question": "I need the hosted run. The receipt might refer to workspace lake or dune. Run ID exec-72.",
+    "expected": "hosted",
+    "includes": [
+      "workspace identified by"
+    ]
+  },
+  {
+    "name": "competing receipts",
+    "question": "I have a hosted run receipt naming workspace lake and workspace dune. I know the run ID task-358.",
+    "expected": "hosted",
+    "includes": [
+      "workspace identified by"
+    ]
+  },
+  {
+    "name": "explicit ID inside matched parentheses",
+    "question": "My original decision ID was (tx-99). There are two rows in orders.jsonl for the same ticket.",
+    "expected": "jsonl",
+    "includes": [
+      "tx-99"
+    ]
+  },
+  {
+    "name": "negated workspace before true one",
+    "question": "My hosted run was not in the workspace ember. The receipt names workspace juniper, run ID tx-99.",
+    "expected": "hosted",
+    "includes": [
+      "workspace juniper"
+    ]
+  },
+  {
+    "name": "Known ticket supplied again",
+    "question": "Two decisions in rows.jsonl share ticket T-145. Which is mine?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "T-145"
+  },
+  {
+    "name": "Disproved JSONL path",
+    "question": "Which JSONL file holds original marker task-321?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "I ruled out old.jsonl"
+  },
+  {
+    "name": "Separate unrelated job path",
+    "question": "The exporter for a separate process was old.jsonl. My original run used OTLP.",
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ]
+  },
+  {
+    "name": "Receiver observed different identifier",
+    "question": "The receiver received other-88 instead of the original group-42.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "group-42",
+      "unconfirmed"
+    ]
+  },
+  {
+    "name": "Downstream excludes original",
+    "question": "The database returned every row except the original trace ID group-42.",
+    "expected": "store_missing",
+    "includes": [
+      "group-42",
+      "unverified"
+    ]
+  },
+  {
+    "name": "Explicit remote before stderr extension",
+    "question": "My original Node process used an explicit HTTPS exporter https://fake.invalid/events. Its stderr was redirected to debug.jsonl.",
+    "expected": "receiver",
+    "includes": [
+      "batch"
+    ]
+  },
+  {
+    "name": "Resolved Node console overrides OTLP setting label",
+    "question": "Node used the default exporter and inherited the unchanged shell. BRIEFCASE_EXPORTER=otlp; stderr went to debug.jsonl.",
+    "expected": "node_console",
+    "includes": [
+      "debug.jsonl",
+      "token_usage"
+    ],
+    "shell": "console"
+  },
+  {
+    "name": "Candidate row has unrelated identifier",
+    "question": "Rows in rows.jsonl share the same ticket. One row contains decision ID candidate-91. Which is mine?",
+    "expected": "ask_id",
+    "includes": [
+      "original decision ID"
+    ]
+  },
+  {
+    "name": "Separate original script",
+    "question": "A separate script used observe() with the console destination at launch. The command was python worker.py 2>worker.err and the file is retained.",
+    "expected": "console",
+    "includes": [
+      "worker.err"
     ]
   }
 ]
