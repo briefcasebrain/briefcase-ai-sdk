@@ -72,8 +72,11 @@ def _source_text(table, text):
                         spans.add(found.span(1))
     for path in re.finditer(table["fileMentions"], text, re.I):
         start, end = path.span()
-        clause = re.split(table["split"], text[:start], flags=re.I)[-1]
-        if not (re.search(table["fileRoleBefore"], clause, re.I)
+        clauses = re.split(table["split"], text[:start], flags=re.I)
+        clause = clauses[-1]
+        continued = (len(clauses) > 1 and re.search(table["filePathContinuation"], clause, re.I)
+                     and re.fullmatch(table["filePathAntecedent"], clauses[-2], re.I))
+        if not (continued or re.search(table["fileRoleBefore"], clause, re.I)
                 or re.search(table["fileRoleAfter"], text[end:], re.I)):
             spans.add((start, end))
     chars = list(text)
@@ -532,6 +535,7 @@ def _execution_evidence(table, source, inherited=None):
                         settings[spec["flags"][name]] = value
                         if name == "--to":
                             destination = operand
+            from briefcase._observe import _plugin_name
             from briefcase.cli.exec_commands import _capture_configuration_problem
 
             if invalid_flag or _capture_configuration_problem(settings):
@@ -549,6 +553,10 @@ def _execution_evidence(table, source, inherited=None):
                 wrapper_facts.add("wrapperRejected")
             direct_url = choice.lower().startswith(("http://", "https://"))
             if direct_url and not _http_destination(choice, allow_insecure=True):
+                wrapper_facts.add("wrapperRejected")
+            builtin = (reserved or otlp or direct_url or choice.endswith(".jsonl")
+                       or (choice.startswith("chain:") and choice[6:].strip()))
+            if choice and not builtin and _plugin_name(choice) is None:
                 wrapper_facts.add("wrapperRejected")
             if child.startswith("python"):
                 from briefcase.cli.exec_commands import blocking_python_flags
@@ -652,6 +660,8 @@ def _execution_evidence(table, source, inherited=None):
             else:
                 continue
             choices.add((kind, path))
+    if choices:
+        wrapper_facts.discard("pythonUninstrumented")
     return commands, choices or wrapper_choices, wrapper_facts
 
 
@@ -659,29 +669,65 @@ def _confirmation_conflict(table, source, result, turns):
     """Bind an observation to its source and target before interpreting a structured outcome."""
     spec = table["confirmation"]["attribution"]
     denied = set()
+    unchecked = set()
     original_checks = set()
     observed = {}
     active = set()
     original_marker = False
     original_ids = set()
-    for turn in turns:
-        text = re.sub(table["quoteSpans"], " ", turn or "")
-        for clause in re.split(spec["split"], text, flags=re.I):
+    quoted_ids = {}
+    quoted_values = {}
+    prefix = "quoted:"
+    while any(prefix in (turn or "") for turn in turns):
+        prefix += "q:"
+
+    def quoted_id(match):
+        value = match.group(match.lastindex)
+        if value not in quoted_ids:
+            alias = prefix + str(len(quoted_ids))
+            quoted_ids[value] = alias
+            quoted_values[alias] = value
+        return quoted_ids[value]
+
+    reports = [re.split(spec["split"], re.sub(table["quoteSpans"], quoted_id, turn or ""), flags=re.I)
+               for turn in turns]
+    for clauses in reports:
+        for clause in clauses:
+            if re.search(spec["originalMarker"], clause, re.I) and not re.search(spec["uncertain"], clause, re.I):
+                identity = _entities(table, clause).get("correlation", {})
+                if identity.get("independent") and identity.get("value"):
+                    original_ids.add(quoted_values.get(identity["value"], identity["value"]))
+    for clauses in reports:
+        for clause in clauses:
             checked = re.search(spec["lookupPerformed"], clause, re.I)
             original = re.search(spec["original"], clause, re.I)
             qualified = not re.search(spec["uncertain"], clause, re.I)
-            marker = re.search(spec["originalMarker"], clause, re.I)
-            if marker and qualified:
+            if re.search(spec["originalMarker"], clause, re.I) and qualified:
                 original_marker = True
-                identity = _entities(table, clause).get("correlation", {})
-                if identity.get("independent") and identity.get("value"):
-                    original_ids.add(identity["value"])
-            named = {key for key, pattern in spec["sources"].items() if re.search(pattern, clause, re.I)}
+            source_scope = clause
+            for role in ("lookupIdentifier", "returnedIdentifier"):
+                source_scope = re.sub(spec[role], lambda match: match.group(0)[:match.start(1) - match.start()]
+                                      + " " * len(match.group(1)), source_scope, flags=re.I)
+            named = {key for key, pattern in spec["sources"].items() if re.search(pattern, source_scope, re.I)}
+            if named and re.search(spec["unchecked"], clause, re.I):
+                active = named
+                unchecked.update(named)
+                original_checks.difference_update(named)
+                for target in named:
+                    observed.pop(target, None)
+                continue
+            if checked and qualified and named:
+                first = min(re.search(spec["sources"][key], source_scope, re.I).start() for key in named)
+                if re.search(spec["exclusiveSource"], clause[:first], re.I):
+                    unchecked.update(set(spec["sources"]) - named)
+                unchecked.difference_update(named)
             if named and (checked or re.search(spec["observation"], clause, re.I)):
                 active = named
             targets = named or active or set(spec["sources"])
             if not named and re.search(spec["runlessReport"], clause, re.I):
                 targets = set(spec["sources"])
+            if checked and qualified and (named or re.search(spec["reportRef"], clause, re.I)):
+                unchecked.difference_update(targets)
             attribution = re.sub(spec["readerContext"], "", clause, flags=re.I)
             attribution = re.sub(spec["notForeign"], "", attribution, flags=re.I)
             foreign = re.search(spec["foreign"], attribution, re.I)
@@ -689,17 +735,23 @@ def _confirmation_conflict(table, source, result, turns):
                         or re.search(spec["foreignLookup"], clause, re.I))
             lookup = re.search(spec["lookupIdentifier"], attribution, re.I)
             query_id = lookup.group(1) if lookup else ""
+            row = re.search(spec["returnedIdentifier"], clause, re.I)
+            row_id = row.group(1) if row else ""
             comparable = original_ids and query_id and re.search(r"[0-9.:_-]", query_id)
+            query_id = quoted_values.get(query_id, query_id)
+            row_id = quoted_values.get(row_id, row_id)
             if comparable and original_ids != {query_id}:
                 foreign, explicit = True, True
-            if checked and qualified and (original or original_marker) and not (foreign and explicit):
+            original_target = original or original_marker or (comparable and original_ids == {query_id})
+            if checked and qualified and original_target and not (foreign and explicit):
                 original_checks.update(targets)
             if not (checked or re.search(spec["observation"], clause, re.I)
                     or re.search(spec["exclusiveOther"], clause, re.I)):
                 continue
             for target in targets:
                 # Foreign rows can be returned by a search for the original identifier.
-                contents = target in original_checks and re.search(spec["returnedContents"], clause, re.I)
+                contents = target in original_checks and (re.search(spec["returnedContents"], clause, re.I)
+                                                          or re.search(spec["reportedContents"], clause, re.I))
                 if foreign and (explicit or not contents):
                     denied.add(target)
                     original_checks.discard(target)
@@ -713,6 +765,8 @@ def _confirmation_conflict(table, source, result, turns):
                 if target not in denied and target in original_checks:
                     if re.search(spec["miss"], clause, re.I):
                         observed[target] = "no-match"
+                    elif qualified and len(original_ids) == 1 and row_id:
+                        observed[target] = "matched" if row_id in original_ids else "no-match"
                     elif qualified and re.search(spec["originalMatch"], clause, re.I):
                         observed[target] = "matched"
                     elif re.search(spec["exclusiveOther"], clause, re.I):
@@ -721,6 +775,8 @@ def _confirmation_conflict(table, source, result, turns):
                         observed[target] = "matched"
     if source in denied:
         return "confirmation_other_run"
+    if source in unchecked and result != "unverified":
+        return "confirmation_unchecked"
     if observed.get(source) and result != "unverified" and result != observed[source]:
         return "confirmation_inconsistent"
     return None
@@ -983,7 +1039,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             if key in ("ask_subject", "ask_run") and not valid.get("action"):
                 facts.update(_collect_facts(table, _scoped(table, preprocess(projected))))
                 facts.update(preflight)
-                if len(launches) == 1 or calls:
+                if len(launches) == 1 or calls or not facts.isdisjoint(("file", "jsonl")):
                     combined, text = route(table, question + "\n" + launch_reply, shell=shell, inherited=inherited)
                     if table["actions"][combined]["kind"] != "ask":
                         return combined, text

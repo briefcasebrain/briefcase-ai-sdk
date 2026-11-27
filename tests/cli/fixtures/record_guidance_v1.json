@@ -9398,5 +9398,1662 @@
     "includes": [
       "Reader-confirmed absence of"
     ]
+  },
+  {
+    "name": "Source inspection roles review 0",
+    "question": "The original exporter was OTLP. The original decision ID was cerulean-86. I checked only decision ID violet-94 at the receiver and in downstream storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles review 1",
+    "question": "The original exporter was OTLP. I checked only the receiver. Downstream storage has never been checked.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles review 2",
+    "question": "The original run used a JSONL file at aspen-Q65.jsonl. I scanned the original file for the original decision ID and found no matching rows.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles review 3",
+    "question": "The original exporter was OTLP. My original decision ID was cerulean-86. I independently queried downstream storage. The downstream store returned a full row with decision ID cerulean-86.",
+    "expected": "stored",
+    "includes": [
+      "If you have a returned down"
+    ]
+  },
+  {
+    "name": "Source inspection roles review 4",
+    "question": "BRIEFCASE_EXPORTER=memory node --import @briefcase-ai/auto/register app.js\nI copied that line from the documentation. I never launched it.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did the orig"
+    ]
+  },
+  {
+    "name": "Source inspection roles review 5",
+    "question": "briefcase-ai exec --to x -- python app.py\nBefore recording the decision, the original Python application called briefcase.observe(\"memory\").",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcas"
+    ]
+  },
+  {
+    "name": "Source inspection roles review 6",
+    "question": "briefcase-ai exec --to console --allow-uninstrumented -- python -I app.py\nBefore recording the decision, the original Python application called briefcase.observe(\"memory\").",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Source inspection roles review 7",
+    "question": "Where did my original decision go?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSONL fil"
+    ],
+    "answer": "The local SDK decision. The original exporter was JSONL. The path was aspen-Q65.jsonl."
+  },
+  {
+    "name": "Source inspection roles review 8",
+    "question": "I reopened batch.jsonl in a separate process and searched for the original unique marker acorn-901. No matching record was found; only acorn-801 from the previous run was present. Does this verify my original?",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 0 initial matched",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 0 initial no-match",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 0 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "I checked only decision ID teal-39 at jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 0 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "I checked only decision ID teal-39 at jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 1 initial matched",
+    "question": "My original decision ID was teal-34. jsonl has never been checked.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 1 initial no-match",
+    "question": "My original decision ID was teal-34. jsonl has never been checked.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 1 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "jsonl has never been checked.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 1 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "jsonl has never been checked.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 2 initial matched",
+    "question": "My original decision ID was teal-34. I did not query jsonl.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 2 initial no-match",
+    "question": "My original decision ID was teal-34. I did not query jsonl.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 2 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "I did not query jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 2 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "I did not query jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 3 initial matched",
+    "question": "My original decision ID was teal-34. jsonl has never been checked. I later checked jsonl for the original decision ID. A matching record was found.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 3 initial no-match",
+    "question": "My original decision ID was teal-34. jsonl has never been checked. I later checked jsonl for the original decision ID. A matching record was found.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 3 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for "
+    ],
+    "answer": "jsonl has never been checked. I later checked jsonl for the original decision ID. A matching record was found.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 3 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "jsonl has never been checked. I later checked jsonl for the original decision ID. A matching record was found.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 4 initial matched",
+    "question": "My original decision ID was teal-34. I searched jsonl for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 4 initial no-match",
+    "question": "My original decision ID was teal-34. I searched jsonl for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 4 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I searched jsonl for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 4 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "answer": "I searched jsonl for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 5 initial matched",
+    "question": "My original decision ID was teal-34. I searched jsonl for the original decision ID. The jsonl returned a full row with decision ID teal-34.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 5 initial no-match",
+    "question": "My original decision ID was teal-34. I searched jsonl for the original decision ID. The jsonl returned a full row with decision ID teal-34.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 5 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for "
+    ],
+    "answer": "I searched jsonl for the original decision ID. The jsonl returned a full row with decision ID teal-34.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 5 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I searched jsonl for the original decision ID. The jsonl returned a full row with decision ID teal-34.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 6 initial matched",
+    "question": "My original decision ID was teal-34. I searched jsonl for the original decision ID. The jsonl returned only one older row with decision ID teal-39.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 6 initial no-match",
+    "question": "My original decision ID was teal-34. I searched jsonl for the original decision ID. The jsonl returned only one older row with decision ID teal-39.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 6 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I searched jsonl for the original decision ID. The jsonl returned only one older row with decision ID teal-39.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 6 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "answer": "I searched jsonl for the original decision ID. The jsonl returned only one older row with decision ID teal-39.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 7 initial matched",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at jsonl. I rechecked jsonl for the original decision ID and found no matching rows.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 7 initial no-match",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at jsonl. I rechecked jsonl for the original decision ID and found no matching rows.",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 7 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I checked only decision ID teal-39 at jsonl. I rechecked jsonl for the original decision ID and found no matching rows.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles jsonl 7 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_jsonl_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "answer": "I checked only decision ID teal-39 at jsonl. I rechecked jsonl for the original decision ID and found no matching rows.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 0 initial matched",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 0 initial no-match",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 0 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "I checked only decision ID teal-39 at receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 0 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "I checked only decision ID teal-39 at receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 1 initial matched",
+    "question": "My original decision ID was teal-34. receiver has never been checked.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 1 initial no-match",
+    "question": "My original decision ID was teal-34. receiver has never been checked.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 1 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "receiver has never been checked.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 1 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "receiver has never been checked.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 2 initial matched",
+    "question": "My original decision ID was teal-34. I did not query receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 2 initial no-match",
+    "question": "My original decision ID was teal-34. I did not query receiver.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 2 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "I did not query receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 2 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "I did not query receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 3 initial matched",
+    "question": "My original decision ID was teal-34. receiver has never been checked. I later checked receiver for the original decision ID. A matching record was found.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt fo"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 3 initial no-match",
+    "question": "My original decision ID was teal-34. receiver has never been checked. I later checked receiver for the original decision ID. A matching record was found.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 3 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt fo"
+    ],
+    "answer": "receiver has never been checked. I later checked receiver for the original decision ID. A matching record was found.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 3 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "receiver has never been checked. I later checked receiver for the original decision ID. A matching record was found.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 4 initial matched",
+    "question": "My original decision ID was teal-34. I searched receiver for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 4 initial no-match",
+    "question": "My original decision ID was teal-34. I searched receiver for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 4 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I searched receiver for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 4 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "answer": "I searched receiver for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 5 initial matched",
+    "question": "My original decision ID was teal-34. I searched receiver for the original decision ID. The receiver returned a full row with decision ID teal-34.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt fo"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 5 initial no-match",
+    "question": "My original decision ID was teal-34. I searched receiver for the original decision ID. The receiver returned a full row with decision ID teal-34.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 5 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt fo"
+    ],
+    "answer": "I searched receiver for the original decision ID. The receiver returned a full row with decision ID teal-34.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 5 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I searched receiver for the original decision ID. The receiver returned a full row with decision ID teal-34.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 6 initial matched",
+    "question": "My original decision ID was teal-34. I searched receiver for the original decision ID. The receiver returned only one older row with decision ID teal-39.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 6 initial no-match",
+    "question": "My original decision ID was teal-34. I searched receiver for the original decision ID. The receiver returned only one older row with decision ID teal-39.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 6 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I searched receiver for the original decision ID. The receiver returned only one older row with decision ID teal-39.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 6 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "answer": "I searched receiver for the original decision ID. The receiver returned only one older row with decision ID teal-39.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 7 initial matched",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at receiver. I rechecked receiver for the original decision ID and found no matching rows.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 7 initial no-match",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at receiver. I rechecked receiver for the original decision ID and found no matching rows.",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 7 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I checked only decision ID teal-39 at receiver. I rechecked receiver for the original decision ID and found no matching rows.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles receiver 7 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_receiver_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "answer": "I checked only decision ID teal-39 at receiver. I rechecked receiver for the original decision ID and found no matching rows.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 0 initial matched",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 0 initial no-match",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 0 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "I checked only decision ID teal-39 at storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 0 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "I checked only decision ID teal-39 at storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 1 initial matched",
+    "question": "My original decision ID was teal-34. storage has never been checked.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 1 initial no-match",
+    "question": "My original decision ID was teal-34. storage has never been checked.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 1 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "storage has never been checked.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 1 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "storage has never been checked.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 2 initial matched",
+    "question": "My original decision ID was teal-34. I did not query storage.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 2 initial no-match",
+    "question": "My original decision ID was teal-34. I did not query storage.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 2 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "I did not query storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 2 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "The described source has no"
+    ],
+    "answer": "I did not query storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 3 initial matched",
+    "question": "My original decision ID was teal-34. storage has never been checked. I later checked storage for the original decision ID. A matching record was found.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 3 initial no-match",
+    "question": "My original decision ID was teal-34. storage has never been checked. I later checked storage for the original decision ID. A matching record was found.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 3 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ],
+    "answer": "storage has never been checked. I later checked storage for the original decision ID. A matching record was found.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 3 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "storage has never been checked. I later checked storage for the original decision ID. A matching record was found.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 4 initial matched",
+    "question": "My original decision ID was teal-34. I searched storage for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 4 initial no-match",
+    "question": "My original decision ID was teal-34. I searched storage for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 4 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I searched storage for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 4 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "answer": "I searched storage for the original decision ID. No matching record was found. Only teal-39 from the previous run was present.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 5 initial matched",
+    "question": "My original decision ID was teal-34. I searched storage for the original decision ID. The storage returned a full row with decision ID teal-34.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 5 initial no-match",
+    "question": "My original decision ID was teal-34. I searched storage for the original decision ID. The storage returned a full row with decision ID teal-34.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 5 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ],
+    "answer": "I searched storage for the original decision ID. The storage returned a full row with decision ID teal-34.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 5 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I searched storage for the original decision ID. The storage returned a full row with decision ID teal-34.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 6 initial matched",
+    "question": "My original decision ID was teal-34. I searched storage for the original decision ID. The storage returned only one older row with decision ID teal-39.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 6 initial no-match",
+    "question": "My original decision ID was teal-34. I searched storage for the original decision ID. The storage returned only one older row with decision ID teal-39.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 6 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I searched storage for the original decision ID. The storage returned only one older row with decision ID teal-39.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 6 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "answer": "I searched storage for the original decision ID. The storage returned only one older row with decision ID teal-39.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 7 initial matched",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at storage. I rechecked storage for the original decision ID and found no matching rows.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 7 initial no-match",
+    "question": "My original decision ID was teal-34. I checked only decision ID teal-39 at storage. I rechecked storage for the original decision ID and found no matching rows.",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 7 clarification matched",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "The selected result conflic"
+    ],
+    "answer": "I checked only decision ID teal-39 at storage. I rechecked storage for the original decision ID and found no matching rows.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Source inspection roles storage 7 clarification no-match",
+    "question": "My original decision ID was teal-34. ",
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "Reader-confirmed absence of"
+    ],
+    "answer": "I checked only decision ID teal-39 at storage. I rechecked storage for the original decision ID and found no matching rows.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match"
+    }
+  },
+  {
+    "name": "Reported evidence order jsonlbeforefern-19",
+    "question": "My original decision ID was \"fern-16\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "I checked only decision ID \"fern-19\" at jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order jsonlbeforefern-16",
+    "question": "My original decision ID was \"fern-16\".",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for "
+    ],
+    "answer": "I checked only decision ID \"fern-16\" at jsonl.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order jsonlafterfern-19",
+    "question": "I checked only decision ID \"fern-19\" at jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "My original decision ID was \"fern-16\".",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order jsonlafterfern-16",
+    "question": "I checked only decision ID \"fern-16\" at jsonl.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "Reader-confirmed match for "
+    ],
+    "answer": "My original decision ID was \"fern-16\".",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order storagebeforefern-19",
+    "question": "My original decision ID was \"fern-16\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "I checked only decision ID \"fern-19\" at storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order storagebeforefern-16",
+    "question": "My original decision ID was \"fern-16\".",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ],
+    "answer": "I checked only decision ID \"fern-16\" at storage.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order storageafterfern-19",
+    "question": "I checked only decision ID \"fern-19\" at storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "My original decision ID was \"fern-16\".",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order storageafterfern-16",
+    "question": "I checked only decision ID \"fern-16\" at storage.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ],
+    "answer": "My original decision ID was \"fern-16\".",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order receiverbeforefern-19",
+    "question": "My original decision ID was \"fern-16\".",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "I checked only decision ID \"fern-19\" at receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order receiverbeforefern-16",
+    "question": "My original decision ID was \"fern-16\".",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt fo"
+    ],
+    "answer": "I checked only decision ID \"fern-16\" at receiver.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order receiverafterfern-19",
+    "question": "I checked only decision ID \"fern-19\" at receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "answer": "My original decision ID was \"fern-16\".",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order receiverafterfern-16",
+    "question": "I checked only decision ID \"fern-16\" at receiver.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt fo"
+    ],
+    "answer": "My original decision ID was \"fern-16\".",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order 5observe(\"memory\")initial",
+    "question": "briefcase-ai exec --to x -- python app.py\nBefore recording the decision, the original Python application called briefcase.observe(\"memory\").",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcas"
+    ]
+  },
+  {
+    "name": "Reported evidence order 5observe(\"memory\")clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcas"
+    ],
+    "answer": "briefcase-ai exec --to x -- python app.py\nBefore recording the decision, the original Python application called briefcase.observe(\"memory\")."
+  },
+  {
+    "name": "Reported evidence order 5setup(exporter=MemoryExporter())initial",
+    "question": "briefcase-ai exec --to x -- python app.py\nBefore recording the decision, the original Python application called briefcase.setup(exporter=MemoryExporter()).",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcas"
+    ]
+  },
+  {
+    "name": "Reported evidence order 5setup(exporter=MemoryExporter())clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "wrapper_startup",
+    "includes": [
+      "Check the original briefcas"
+    ],
+    "answer": "briefcase-ai exec --to x -- python app.py\nBefore recording the decision, the original Python application called briefcase.setup(exporter=MemoryExporter())."
+  },
+  {
+    "name": "Reported evidence order 6observe(\"memory\")initial",
+    "question": "briefcase-ai exec --to console --allow-uninstrumented -- python -I app.py\nBefore recording the decision, the original Python application called briefcase.observe(\"memory\").",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Reported evidence order 6observe(\"memory\")clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ],
+    "answer": "briefcase-ai exec --to console --allow-uninstrumented -- python -I app.py\nBefore recording the decision, the original Python application called briefcase.observe(\"memory\")."
+  },
+  {
+    "name": "Reported evidence order 6setup(exporter=MemoryExporter())initial",
+    "question": "briefcase-ai exec --to console --allow-uninstrumented -- python -I app.py\nBefore recording the decision, the original Python application called briefcase.setup(exporter=MemoryExporter()).",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ]
+  },
+  {
+    "name": "Reported evidence order 6setup(exporter=MemoryExporter())clarification",
+    "question": "Which exporter did my original process use?",
+    "expected": "memory_only",
+    "includes": [
+      "If this process used a memo"
+    ],
+    "answer": "briefcase-ai exec --to console --allow-uninstrumented -- python -I app.py\nBefore recording the decision, the original Python application called briefcase.setup(exporter=MemoryExporter())."
+  },
+  {
+    "name": "Reported evidence order Source labels inside checked ID jsonl''",
+    "question": "The original decision ID was tag-11. I checked only decision ID storage-481 at the jsonl.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Foreign original checked at jsonl''",
+    "question": "The original decision ID was tag-11. I checked only decision ID storage-481 at the jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Source labels inside checked ID jsonl'\"'",
+    "question": "The original decision ID was tag-11. I checked only decision ID \"storage-481\" at the jsonl.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Foreign original checked at jsonl'\"'",
+    "question": "The original decision ID was tag-11. I checked only decision ID \"storage-481\" at the jsonl.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Source labels inside checked ID storage''",
+    "question": "The original decision ID was tag-11. I checked only decision ID receiver-481 at the storage.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt fo"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Foreign original checked at storage''",
+    "question": "The original decision ID was tag-11. I checked only decision ID receiver-481 at the storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Source labels inside checked ID storage'\"'",
+    "question": "The original decision ID was tag-11. I checked only decision ID \"receiver-481\" at the storage.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "Reader-confirmed receipt fo"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Foreign original checked at storage'\"'",
+    "question": "The original decision ID was tag-11. I checked only decision ID \"receiver-481\" at the storage.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Source labels inside checked ID receiver''",
+    "question": "The original decision ID was tag-11. I checked only decision ID storage-481 at the receiver.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Foreign original checked at receiver''",
+    "question": "The original decision ID was tag-11. I checked only decision ID storage-481 at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Source labels inside checked ID receiver'\"'",
+    "question": "The original decision ID was tag-11. I checked only decision ID \"storage-481\" at the receiver.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "Reader-confirmed persistenc"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched"
+    }
+  },
+  {
+    "name": "Reported evidence order Foreign original checked at receiver'\"'",
+    "question": "The original decision ID was tag-11. I checked only decision ID \"storage-481\" at the receiver.",
+    "expected": "confirmation_other_run",
+    "includes": [
+      "Check the original decision"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched"
+    }
   }
 ]
