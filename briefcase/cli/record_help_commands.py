@@ -2876,11 +2876,14 @@ def _guide_session(args) -> int:
                 previous_key = applied
             question, answer, confirmation = read_turn(f"Confirm what you found or end input ({eof_hint}): ")
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
-    if interactive and confirmation and not turns and key != "ask_evidence":
+    if sys.stdin.isatty() and confirmation and not turns and not (interactive and key == "ask_evidence"):
         queued = _queued_terminal_lines(sys.stdin)
         if queued:
             turns.extend(queued)
             question, answer, confirmation = _session(table, args, turns)
+            shell, inherited = _session_environment(table, question)
+            if answer and table["actions"][route(table, question, None, shell, inherited)[0]]["kind"] == "ask":
+                shell, inherited = _session_environment(table, question + "\n" + answer)
             key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
             # A completed flag invocation consumes submitted input without
             # waiting for a second end-of-input gesture.
