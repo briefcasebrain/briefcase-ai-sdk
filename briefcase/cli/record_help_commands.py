@@ -457,6 +457,16 @@ def _complete_check(table, facts):
 
 
 def _select(table: Dict[str, Any], facts: Set[str]) -> str:
+    stream = table["requestedDemoStream"]
+    goals = [name for fact, name in stream["goals"].items() if fact in facts]
+    if len(goals) == 1 and not facts.isdisjoint(stream["launch"]) and facts.isdisjoint(stream["incompatible"]):
+        original = goals[0]
+        sink = original
+        if stream["merges"][original] in facts and "retainedCombinedStream" in facts:
+            sink = "stderr" if original == "stdout" else "stdout"
+        if stream["discarded"][sink] in facts:
+            sink = "discarded"
+        return stream["actions"][original][sink]
     for decision in table["decisions"]:
         alternatives = decision.get("any", [])
         if (facts.issuperset(decision.get("all", [])) and facts.isdisjoint(decision.get("none", []))
@@ -1274,6 +1284,64 @@ class _LookupAccount:
     unknown_clause: bool
 
 
+@lru_cache(maxsize=2)
+def _role_lexicon(lexemes):
+    return re.compile(r"(?<![\w-])(?:" + "|".join(f"(?P<{key}>{pattern})" for key, pattern in lexemes)
+                      + r")(?![\w-])", re.I)
+
+
+def _phrase_observation(table, turns):
+    """Attribute only complete clauses whose noun and verb roles have a defined relation."""
+    spec = table["lookupLanguage"]["phraseRoles"]
+    lex = _role_lexicon(tuple(tuple(item) for item in spec["lexemes"]))
+    facts = set()
+    ids = set()
+    files = set()
+    outcomes = []
+    unknown = False
+    for turn in turns:
+        for clause in re.split(spec["split"], turn or "", flags=re.I):
+            if not clause.strip():
+                continue
+            tokens = []
+            cursor = 0
+            values = {}
+            for match in lex.finditer(clause):
+                if clause[cursor:match.start()].strip(" ,"):
+                    tokens.append("?")
+                key = match.lastgroup
+                if key != "IGNORE":
+                    tokens.append(key)
+                    value = match.group()
+                    if key in ("TARGET", "MARKER"):
+                        value = re.sub(spec["valuePrefix"], "", value, flags=re.I).strip('"“”')
+                        if re.fullmatch(spec["unsupportedValue"], value, re.I):
+                            tokens[-1] = "?"
+                    values.setdefault(key, []).append(value)
+                cursor = match.end()
+            if clause[cursor:].strip(" ,"):
+                tokens.append("?")
+            encoded = " ".join(tokens)
+            roles = next((facts for shape, facts in spec["shapes"].items() if re.fullmatch(shape, encoded)), None)
+            if roles is None:
+                unknown = True
+                if re.search(spec["denial"], clause, re.I) and re.search(spec["sourceNoun"], clause, re.I):
+                    facts.add("unresolvedProvenance")
+                continue
+            facts.update(roles)
+            if any("jsonl" in value.lower() for value in values.get("ORIGINALFILE", [])):
+                facts.add("jsonl")
+            if "source" in roles:
+                facts.add("receiver" if "RECEIVER" in values else "storage")
+            if "target" in roles:
+                ids.update(values.get("TARGET", []))
+            files.update(values.get("FILE", []))
+            outcomes.extend(role for role in roles if role in ("match", "miss", "unlinked"))
+    if "corroborates" in facts and outcomes == ["unlinked"]:
+        outcomes = ["match"]
+    return facts, ids, files, outcomes, unknown
+
+
 def _lookup_account(table, turns):
     """Consume a firsthand lookup as source, search target, coverage and result roles."""
     grammar = table["lookupLanguage"]
@@ -1432,19 +1500,39 @@ def _context_statement(table, clause):
             and bool(re.fullmatch(r"[\w.:-]+" + spec["roleTail"], remaining, re.I)))
 
 
-def _stage_row_detail(spec, clause, named, previous, current, attempts):
+def _stage_row_detail(spec, clause, named, previous, current, attempts, original_ids, quoted_values):
     """Refine the previous returned object or describe an additional object of that lookup."""
     stages = spec["rowStages"]
     owners = [attempts[current[kind]] for kind in previous]
     if re.search(stages["personalGap"], clause, re.I):
         for check in owners:
             check.personal_gap = True
+    multiple = re.match(stages["multiplicityHead"], clause, re.I)
+    if multiple:
+        count = re.search(r"\d+", multiple.group())
+        if not count or count.group().lstrip("0") not in ("", "1"):
+            identity = clause[multiple.end():]
+            original = re.fullmatch(stages["multipleOriginal"], identity, re.I)
+            explicit = re.fullmatch(stages["multipleNamed"], identity, re.I)
+            value = quoted_values.get(explicit[1], explicit[1]) if explicit else None
+            for check in owners:
+                if original or (value and value in original_ids):
+                    check.ambiguous = True
+                elif value and original_ids:
+                    check.other_objects += 2
+                else:
+                    check.unresolved_detail = True
+            return True
     reference = re.match(stages["resultReference"], clause, re.I)
     inverse = re.search(stages["objectReference"], clause, re.I)
     if (reference or inverse) and named:
         # A back-reference describes the immediately preceding observation. A
         # second source's mention is not a second independent lookup.
-        for kind in previous - named:
+        cited = named
+        if inverse and inverse.start():
+            subject = clause[:inverse.start()]
+            cited = {kind for kind in named if re.search(spec["sources"][kind], subject, re.I)} or named
+        for kind in previous - cited:
             check = attempts[current[kind]]
             if check.latest_object or check.zero_matches:
                 attributed = ((reference and re.match(stages["originPredicate"], clause[reference.end():], re.I))
@@ -1453,7 +1541,7 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts):
                     check.relocated = True
                 else:
                     check.uncertain_origin = True
-        if previous - named:
+        if previous - cited:
             return False
     equality = next((kind for kind in ("different", "same") if any(
         re.fullmatch(pattern, clause, re.I) for pattern in stages[kind]
@@ -1566,7 +1654,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             named = {key for key, pattern in spec["sources"].items() if re.search(pattern, source_scope, re.I)}
             if (checked or denied_check) and re.search(spec["fileReference"], source_scope, re.I):
                 named.add("jsonl")
-            if _stage_row_detail(spec, source_scope.strip(), named, active or {source}, current, attempts):
+            if _stage_row_detail(spec, source_scope.strip(), named, active or {source}, current, attempts,
+                                 unique_ids, quoted_values):
                 continue
             details = {role for role, pattern in spec["detailRoles"].items() if re.search(pattern, source_scope, re.I)}
             if (details or re.search(spec["standaloneResult"], source_scope, re.I)) and not (named or active):
@@ -2014,7 +2103,22 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
     origin = _GuideOrigin()
     key, facts = _next_step(table, question, answer, shell, inherited, privacy_notes, origin)
-    account = _lookup_account(table, (question, answer))
+    turns = (question, answer)
+    account = _lookup_account(table, turns)
+    roles, target_ids, paths, results, unknown = _phrase_observation(table, turns)
+    available_id = "availableExactID" in roles or ("receiptID" in roles and len(target_ids) == 1)
+    if (roles >= {"assignedFile", "availableFile"} and "jsonl" in (facts | roles) and available_id and len(paths) <= 1
+            and len(target_ids) <= 1 and not roles.intersection(("unresolvedProvenance", "absentID"))):
+        if key in table["lookupLanguage"]["missingActions"] or key == "fallback":
+            key = "jsonl"
+    if "consoleDemo" in roles and "wantMeta" in facts and key in ("ask_subject", "ask_exporter"):
+        key = _select(table, facts | {"nodeDemoConsole", "node", "metadata"})
+    if {"uniqueMarker", "absentID"} <= roles and key in ("ask_id", "fallback", "jsonl_candidates"):
+        key = "surviving_marker"
+    sources = roles.intersection(("jsonl", "receiver", "storage"))
+    if (not unknown and "contraryID" not in roles and len(sources) == 1 and len(results) == len(target_ids) == 1
+            and {"reader", "origin", "target"} <= roles and not (account and account.disputed)):
+        account = _LookupAccount(next(iter(sources)), results[0], True, False, False)
     if account:
         language = table["lookupLanguage"]
         if not account.disputed and ((account.accounted and account.result != "unknown")
@@ -2033,7 +2137,9 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             missing = _observation_action(report)
             conflict = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin,
                                               eligible=not missing)
-            if account and account.disputed and result != "unverified":
+            if ("contraryID" in roles and source in sources and "reader" in roles and result == "matched"):
+                conflict = "confirmation_inconsistent"
+            elif account and account.disputed and result != "unverified":
                 conflict = "confirmation_ambiguous"
             elif account and account.unknown_clause and account.result != "unknown" and result != "unverified":
                 # A recognized record cannot resolve an unconsumed qualification of that lookup.

@@ -48741,5 +48741,1908 @@
     "includes": [
       "Read retained st"
     ]
+  },
+  {
+    "name": "Role composition AP02",
+    "question": "We retried the same ticket and now its label is on two decisions. I need to tell the two apart. The writer’s JSONL volume is offline; the only local file is a coworker’s copy without the original job path. What information can identify my first attempt?",
+    "expected": "surviving_marker",
+    "includes": [
+      "Retrieve the "
+    ],
+    "answer": "The first attempt used the run-unique marker thatch-864. I do not have its raw decision ID."
+  },
+  {
+    "name": "Role composition AP09",
+    "question": "My original launch receipt gives decision ID Plover-703 and the original writer config specifies rainline.jsonl. I have that exact file from its working directory. The export contains older runs too. Does that file contain my original decision?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ]
+  },
+  {
+    "name": "Role composition AP11",
+    "question": "I personally opened the incoming log of the receiver configured by the original deployment. Exactly one entry matched decision ID pearl-604 on the original receipt. Nobody queried the downstream store. What can our incident note say about receipt and storage?",
+    "expected": "storage",
+    "includes": [
+      "A receiver en"
+    ]
+  },
+  {
+    "name": "Role composition AP11 report",
+    "question": "I personally opened the incoming log of the receiver configured by the original deployment. Exactly one entry matched decision ID pearl-604 on the original receipt. Nobody queried the downstream store. What can our incident note say about receipt and storage?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition AP12",
+    "question": "I queried the independent store from the original deployment configuration after the writer exited, and got a full record back. My original launch receipt names decision ID rill-938. What does that tell me about this run?",
+    "expected": "query_storage",
+    "includes": [
+      "Search the do"
+    ]
+  },
+  {
+    "name": "Role composition AP12 report",
+    "question": "I queried the independent store from the original deployment configuration after the writer exited, and got a full record back. My original launch receipt names decision ID rill-938. What does that tell me about this run?",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you perso"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition available file 0 0",
+    "question": "The original receipt provides decision ID Heron. The original writer config identifies demo.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "I have the same file from its working directory."
+  },
+  {
+    "name": "Role composition available file 0 1",
+    "question": "I have the same file from its working directory. The original writer config identifies demo.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "The original receipt provides decision ID Heron."
+  },
+  {
+    "name": "Role composition available file 1 0",
+    "question": "The original receipt provides decision ID Heron. The original writer config identifies demo.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "That exact file was retained by me."
+  },
+  {
+    "name": "Role composition available file 1 1",
+    "question": "That exact file was retained by me. The original writer config identifies demo.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "The original receipt provides decision ID Heron."
+  },
+  {
+    "name": "Role composition available file 2 0",
+    "question": "The original receipt provides decision ID Heron. demo.jsonl was selected by the original deployment.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "I have the same file from its working directory."
+  },
+  {
+    "name": "Role composition available file 2 1",
+    "question": "I have the same file from its working directory. demo.jsonl was selected by the original deployment.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "The original receipt provides decision ID Heron."
+  },
+  {
+    "name": "Role composition available file 3 0",
+    "question": "The original receipt provides decision ID Heron. demo.jsonl was selected by the original deployment.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "That exact file was retained by me."
+  },
+  {
+    "name": "Role composition available file 3 1",
+    "question": "That exact file was retained by me. demo.jsonl was selected by the original deployment.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "The original receipt provides decision ID Heron."
+  },
+  {
+    "name": "Role composition available file 4 0",
+    "question": "Decision ID Heron on the original launch receipt. The original writer config identifies demo.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "I have the same file from its working directory."
+  },
+  {
+    "name": "Role composition available file 4 1",
+    "question": "I have the same file from its working directory. The original writer config identifies demo.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "Decision ID Heron on the original launch receipt."
+  },
+  {
+    "name": "Role composition available file 5 0",
+    "question": "Decision ID Heron on the original launch receipt. The original writer config identifies demo.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "That exact file was retained by me."
+  },
+  {
+    "name": "Role composition available file 5 1",
+    "question": "That exact file was retained by me. The original writer config identifies demo.jsonl.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "Decision ID Heron on the original launch receipt."
+  },
+  {
+    "name": "Role composition available file 6 0",
+    "question": "Decision ID Heron on the original launch receipt. demo.jsonl was selected by the original deployment.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "I have the same file from its working directory."
+  },
+  {
+    "name": "Role composition available file 6 1",
+    "question": "I have the same file from its working directory. demo.jsonl was selected by the original deployment.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "Decision ID Heron on the original launch receipt."
+  },
+  {
+    "name": "Role composition available file 7 0",
+    "question": "Decision ID Heron on the original launch receipt. demo.jsonl was selected by the original deployment.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "That exact file was retained by me."
+  },
+  {
+    "name": "Role composition available file 7 1",
+    "question": "That exact file was retained by me. demo.jsonl was selected by the original deployment.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ],
+    "answer": "Decision ID Heron on the original launch receipt."
+  },
+  {
+    "name": "Role composition receiver read 0 0",
+    "question": "I inspected the receiver named by the original deployment.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported "
+    ],
+    "answer": "Exactly one row matched decision ID mango on the original receipt.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 0 0 The returned row had a",
+    "question": "I inspected the receiver named by the original deployment.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": "Exactly one row matched decision ID mango on the original receipt. The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 0 0 The row was from my co",
+    "question": "I inspected the receiver named by the original deployment.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": "Exactly one row matched decision ID mango on the original receipt. The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver read 0 1",
+    "question": "Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported "
+    ],
+    "answer": "I inspected the receiver named by the original deployment.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 0 1 The returned row had a",
+    "question": "Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": "I inspected the receiver named by the original deployment. The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 0 1 The row was from my co",
+    "question": "Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": "I inspected the receiver named by the original deployment. The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver read 0 2",
+    "question": "I inspected the receiver named by the original deployment. Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 0 2 The returned row had a",
+    "question": "I inspected the receiver named by the original deployment. Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": " The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 0 2 The row was from my co",
+    "question": "I inspected the receiver named by the original deployment. Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": " The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver read 1 0",
+    "question": "The receiver selected by the original configuration was opened by me.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported "
+    ],
+    "answer": "Exactly one row matched decision ID mango on the original receipt.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 1 0 The returned row had a",
+    "question": "The receiver selected by the original configuration was opened by me.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": "Exactly one row matched decision ID mango on the original receipt. The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 1 0 The row was from my co",
+    "question": "The receiver selected by the original configuration was opened by me.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": "Exactly one row matched decision ID mango on the original receipt. The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver read 1 1",
+    "question": "Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported "
+    ],
+    "answer": "The receiver selected by the original configuration was opened by me.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 1 1 The returned row had a",
+    "question": "Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": "The receiver selected by the original configuration was opened by me. The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 1 1 The row was from my co",
+    "question": "Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": "The receiver selected by the original configuration was opened by me. The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver read 1 2",
+    "question": "The receiver selected by the original configuration was opened by me. Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 1 2 The returned row had a",
+    "question": "The receiver selected by the original configuration was opened by me. Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": " The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition receiver disputed 1 2 The row was from my co",
+    "question": "The receiver selected by the original configuration was opened by me. Exactly one row matched decision ID mango on the original receipt.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": " The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage read 0 0",
+    "question": "I queried the intended store from the original deployment.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you perso"
+    ],
+    "answer": "My original receipt lists decision ID mango. I got a complete row back.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 0 0 The returned row had a",
+    "question": "I queried the intended store from the original deployment.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": "My original receipt lists decision ID mango. I got a complete row back. The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 0 0 The row was from my co",
+    "question": "I queried the intended store from the original deployment.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": "My original receipt lists decision ID mango. I got a complete row back. The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage corroboration 0 0",
+    "question": "I queried the intended store from the original deployment.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported "
+    ],
+    "answer": "My original receipt lists decision ID mango. I got a complete row back. The returned row carried the same ID as the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage read 0 1",
+    "question": "My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you perso"
+    ],
+    "answer": "I queried the intended store from the original deployment.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 0 1 The returned row had a",
+    "question": "My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": "I queried the intended store from the original deployment. The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 0 1 The row was from my co",
+    "question": "My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": "I queried the intended store from the original deployment. The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage corroboration 0 1",
+    "question": "My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported "
+    ],
+    "answer": "I queried the intended store from the original deployment. The returned row carried the same ID as the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage read 0 2",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you perso"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 0 2 The returned row had a",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": " The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 0 2 The row was from my co",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": " The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage corroboration 0 2",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported "
+    ],
+    "answer": " The returned row carried the same ID as the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage read 1 0",
+    "question": "The independent store named in the original configuration was inspected by me.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you perso"
+    ],
+    "answer": "My original receipt lists decision ID mango. I got a complete row back.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 1 0 The returned row had a",
+    "question": "The independent store named in the original configuration was inspected by me.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": "My original receipt lists decision ID mango. I got a complete row back. The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 1 0 The row was from my co",
+    "question": "The independent store named in the original configuration was inspected by me.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": "My original receipt lists decision ID mango. I got a complete row back. The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage corroboration 1 0",
+    "question": "The independent store named in the original configuration was inspected by me.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported "
+    ],
+    "answer": "My original receipt lists decision ID mango. I got a complete row back. The returned row carried the same ID as the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage read 1 1",
+    "question": "My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you perso"
+    ],
+    "answer": "The independent store named in the original configuration was inspected by me.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 1 1 The returned row had a",
+    "question": "My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": "The independent store named in the original configuration was inspected by me. The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 1 1 The row was from my co",
+    "question": "My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": "The independent store named in the original configuration was inspected by me. The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage corroboration 1 1",
+    "question": "My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported "
+    ],
+    "answer": "The independent store named in the original configuration was inspected by me. The returned row carried the same ID as the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage read 1 2",
+    "question": "The independent store named in the original configuration was inspected by me. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you perso"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 1 2 The returned row had a",
+    "question": "The independent store named in the original configuration was inspected by me. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selectio"
+    ],
+    "answer": " The returned row had a different ID than the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage disputed 1 2 The row was from my co",
+    "question": "The independent store named in the original configuration was inspected by me. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which s"
+    ],
+    "answer": " The row was from my colleague's lookup.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition storage corroboration 1 2",
+    "question": "The independent store named in the original configuration was inspected by me. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported "
+    ],
+    "answer": " The returned row carried the same ID as the original receipt.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review count 0 0",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Both rows had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review count 0 1",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row with ID quartz-64.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Both rows had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review count 1 0",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Each of the two records had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review count 1 1",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row with ID quartz-64.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Each of the two records had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review count 2 0",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "All 3 entries had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review count 2 1",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row with ID quartz-64.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "All 3 entries had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review count 3 0",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Two decisions had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review count 3 1",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row with ID quartz-64.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Two decisions had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review count 4 0",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Both returned records had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review count 4 1",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row with ID quartz-64.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Both returned records had the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition review object storage matched supplied True",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The receiver supplied that row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage matched supplied False",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID. The receiver supplied that row.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage matched indexed True",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The receiver indexed that row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage matched indexed False",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID. The receiver indexed that row.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage matched processed True",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The receiver processed that row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage matched processed False",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID. The receiver processed that row.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage no-match supplied True",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "answer": "The receiver supplied that result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage no-match supplied False",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records. The receiver supplied that result.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage no-match indexed True",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "answer": "The receiver indexed that result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage no-match indexed False",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records. The receiver indexed that result.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage no-match processed True",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "answer": "The receiver processed that result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object storage no-match processed False",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records. The receiver processed that result.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver matched supplied True",
+    "question": "I searched the intended receiver for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The downstream store supplied that row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver matched supplied False",
+    "question": "I searched the intended receiver for the original decision ID. The query returned a record with the original ID. The downstream store supplied that row.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver matched indexed True",
+    "question": "I searched the intended receiver for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The downstream store indexed that row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver matched indexed False",
+    "question": "I searched the intended receiver for the original decision ID. The query returned a record with the original ID. The downstream store indexed that row.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver matched processed True",
+    "question": "I searched the intended receiver for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The downstream store processed that row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver matched processed False",
+    "question": "I searched the intended receiver for the original decision ID. The query returned a record with the original ID. The downstream store processed that row.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver no-match supplied True",
+    "question": "I searched the intended receiver for the original decision ID. The query returned zero matching records.",
+    "answer": "The downstream store supplied that result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver no-match supplied False",
+    "question": "I searched the intended receiver for the original decision ID. The query returned zero matching records. The downstream store supplied that result.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver no-match indexed True",
+    "question": "I searched the intended receiver for the original decision ID. The query returned zero matching records.",
+    "answer": "The downstream store indexed that result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver no-match indexed False",
+    "question": "I searched the intended receiver for the original decision ID. The query returned zero matching records. The downstream store indexed that result.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver no-match processed True",
+    "question": "I searched the intended receiver for the original decision ID. The query returned zero matching records.",
+    "answer": "The downstream store processed that result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object receiver no-match processed False",
+    "question": "I searched the intended receiver for the original decision ID. The query returned zero matching records. The downstream store processed that result.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl matched supplied True",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The receiver supplied that row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl matched supplied False",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned a record with the original ID. The receiver supplied that row.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl matched indexed True",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The receiver indexed that row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl matched indexed False",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned a record with the original ID. The receiver indexed that row.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl matched processed True",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned a record with the original ID.",
+    "answer": "The receiver processed that row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl matched processed False",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned a record with the original ID. The receiver processed that row.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl no-match supplied True",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned zero matching records.",
+    "answer": "The receiver supplied that result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl no-match supplied False",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned zero matching records. The receiver supplied that result.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl no-match indexed True",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned zero matching records.",
+    "answer": "The receiver indexed that result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl no-match indexed False",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned zero matching records. The receiver indexed that result.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl no-match processed True",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned zero matching records.",
+    "answer": "The receiver processed that result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review object jsonl no-match processed False",
+    "question": "I searched entries.jsonl for the original decision ID. The query returned zero matching records. The receiver processed that result.",
+    "answer": null,
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which "
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Role composition review stream 0 0",
+    "question": "I ran the published Node demo with the console exporter. I redirected stdout to stderr and kept that combined stream. Show me stdout.",
+    "expected": "reply_stderr",
+    "includes": [
+      "Read retained"
+    ]
+  },
+  {
+    "name": "Role composition review default 0 0",
+    "question": "I ran the published Node demo using its defaults. Show me stdout.",
+    "expected": "reply",
+    "includes": [
+      "Read retained"
+    ]
+  },
+  {
+    "name": "Role composition review stream 0 1",
+    "question": "I ran the published Node demo with the console exporter. I redirected stdout to stderr and kept that combined stream. Show me standard output.",
+    "expected": "reply_stderr",
+    "includes": [
+      "Read retained"
+    ]
+  },
+  {
+    "name": "Role composition review default 0 1",
+    "question": "I ran the published Node demo using its defaults. Show me standard output.",
+    "expected": "reply",
+    "includes": [
+      "Read retained"
+    ]
+  },
+  {
+    "name": "Role composition review stream 1 0",
+    "question": "I ran the published Node demo with the console exporter. I redirected stderr to stdout and kept that combined stream. Show me stderr.",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retai"
+    ]
+  },
+  {
+    "name": "Role composition review default 1 0",
+    "question": "I ran the published Node demo using its defaults. Show me stderr.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retai"
+    ]
+  },
+  {
+    "name": "Role composition review stream 1 1",
+    "question": "I ran the published Node demo with the console exporter. I redirected stderr to stdout and kept that combined stream. Show me standard error.",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retai"
+    ]
+  },
+  {
+    "name": "Role composition review default 1 1",
+    "question": "I ran the published Node demo using its defaults. Show me standard error.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retai"
+    ]
+  },
+  {
+    "name": "Role composition final file 0",
+    "question": "I have the JSONL export from the original run and the original decision ID. Can you help me check the file?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ]
+  },
+  {
+    "name": "Role composition final file 1",
+    "question": "I exported to JSONL. I have the original file and decision ID. Where do I search?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ]
+  },
+  {
+    "name": "Role composition final file 2",
+    "question": "I have the original decision ID. I have the original JSONL file. Can you check?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ]
+  },
+  {
+    "name": "Role composition final file 3",
+    "question": "I have the original decision ID and original file. Where should I check my JSONL?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the orig"
+    ]
+  },
+  {
+    "name": "Role composition final field 0",
+    "question": "My node demo used the console exporter. Where is token_usage.total_tokens?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retai"
+    ]
+  },
+  {
+    "name": "Role composition final field 1",
+    "question": "My Node demo used the console sink. I need the token count.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retai"
+    ]
+  },
+  {
+    "name": "Role composition final disowned 0",
+    "question": "My colleague used the Node demo with the console exporter. Which exporter did my original run use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporte"
+    ]
+  },
+  {
+    "name": "Role composition final disowned 1",
+    "question": "I read the Node demo with its console exporter. Which exporter did my original run use?",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporte"
+    ]
+  },
+  {
+    "name": "Role composition final explicit qty 0 records",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Each of two records carried decision ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition final explicit qty 0 rows",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Each of two rows carried decision ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition final explicit qty 1 records",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "All 010 records carried decision ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition final explicit qty 1 rows",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "All 010 rows carried decision ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition final explicit qty 2 records",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Both records carried decision ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition final explicit qty 2 rows",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Both rows carried decision ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition final explicit qty 3 records",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Each of the two records carried decision ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Role composition final explicit qty 3 rows",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup ha"
+    ],
+    "answer": "Each of the two rows carried decision ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
   }
 ]
