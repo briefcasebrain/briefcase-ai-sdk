@@ -1239,6 +1239,8 @@ def _located_results(table, reports, quoted):
         for clause in report:
             roles, scope = _report_roles(spec, clause, quoted)
             named = {key for key, pattern in spec["sources"].items() if re.search(pattern, scope, re.I)}
+            if re.fullmatch(table["lookupLanguage"]["phraseRoles"]["inactiveInspection"], scope.strip(), re.I):
+                continue
             if named and re.search(language["phase"], scope, re.I):
                 owner = named
             acquisition = re.search(language["phase"], scope, re.I) and _accounted_read(
@@ -1327,7 +1329,8 @@ def _phrase_observation(table, turns):
             roles = next((facts for shape, facts in spec["shapes"].items() if re.fullmatch(shape, encoded)), None)
             if roles is None:
                 unknown = True
-                if re.search(spec["denial"], clause, re.I) and re.search(spec["sourceNoun"], clause, re.I):
+                attribution = re.sub(spec["candidatePopulation"], "", clause, flags=re.I)
+                if re.search(spec["denial"], attribution, re.I) and re.search(spec["sourceNoun"], attribution, re.I):
                     facts.add("unresolvedProvenance")
                 continue
             facts.update(roles)
@@ -1521,10 +1524,11 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
             original = re.fullmatch(stages["multipleOriginal"], identity, re.I)
             explicit = re.fullmatch(stages["multipleNamed"], identity, re.I)
             value = quoted_values.get(explicit[1], explicit[1]) if explicit else None
+            prior = re.fullmatch(stages["priorID"], identity, re.I)
             for check in owners:
-                if original or (value and value in original_ids):
+                if original or (value and value in original_ids) or (prior and check.latest_object == "match"):
                     check.ambiguous = True
-                elif value and original_ids:
+                elif (value and original_ids) or (prior and check.latest_object == "miss"):
                     check.other_objects += 2
                 else:
                     check.unresolved_detail = True
@@ -1641,12 +1645,15 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
         if turn_index and not active and action in ("query_storage", "stored") and source == "storage":
             active = {source}
         for clause in clauses:
+            if re.fullmatch(table["lookupLanguage"]["phraseRoles"]["neutralReadQuestion"], clause.strip(), re.I):
+                continue
             if re.fullmatch(spec["reportIntent"], clause, re.I):
                 continue
             if re.fullmatch(spec["narrativeGap"], clause, re.I):
                 narrative_gap = True
                 continue
             roles, source_scope = _report_roles(spec, clause, quoted_values)
+            source_scope = re.sub(spec["rowStages"]["completedAspect"], r"\1", source_scope.strip(), flags=re.I)
             # The writer's output and a retained ID describe the evidence used for
             # a lookup. Neither assertion reports that the reader inspected a row.
             background = spec["backgroundRoles"]
@@ -1900,7 +1907,9 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     attempts[origin[possible]].unchecked = True
             if failed or uncertain_read or denied_check:
                 blocked = named or active
-                active = set(blocked)
+                if not re.fullmatch(table["lookupLanguage"]["phraseRoles"]["inactiveInspection"],
+                                    source_scope.strip(), re.I):
+                    active = set(blocked)
                 for target in blocked:
                     wanted = destinations[target]
                     if inspected[target] and wanted and inspected[target].isdisjoint(wanted):
@@ -2137,6 +2146,18 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             and ("wantMeta" in facts or facts.intersection(("askedStderr", "askedStdout",
                                                            "explicitDemoStderr", "explicitDemoStdout")))):
         key = _select(table, facts | {"nodeDemoConsole", "node", "metadata"})
+    if ({"readOnlyAccount", "consoleDemo"} <= roles and key == "node_console" and "node" in facts
+            and facts.isdisjoint(("inlineConsole", "resolvedConsole", "ranDefaultNodeDemo"))):
+        key = "ask_exporter"
+    elif ({"consoleDemo", "onlyStdout"} <= roles and ("wantsMetadata" in roles or "wantMeta" in facts)
+          and "node" in facts and "disownedDemo" not in roles
+          and key in ("ask_exporter", "ask_subject", "node_console", "console", "console_unretained",
+                      "console_discarded_metadata")):
+        key = "node_stdout_only_metadata"
+    elif ("wantsBothStreams" in roles and "ranDefaultNodeDemo" in facts
+          and facts.isdisjoint(("discardedStdout", "discardedStderr",
+                                "stdoutMergedIntoStderr", "stderrMergedIntoStdout"))):
+        key = "node_console"
     if "wantsApplicationReply" in roles and key in ("fallback", "ask_subject") and {"node", "stdout"} <= facts:
         key = ("reply_stdout_discarded" if "discardedStdout" in facts else
                "reply_stderr" if "stdoutMergedIntoStderr" in facts else "reply")
@@ -2386,7 +2407,29 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
                 break
     if guide_origin is not None and shell_path and not facts.intersection(("wrapperRejected", "inlineUnknown")):
         guide_origin.files.update(path_aliases.get(shell_path, {shell_path}))
+    # Positive launch and retained-artifact roles remain available when a clarification chooses the goal.
+    artifact_roles = _phrase_observation(table, (source_question,))[0]
+    if "ranStock" in artifact_roles and not facts.intersection(("otherProgram", "programAlternatives")):
+        facts.update(("stockRan", "quickstart"))
+        if facts.isdisjoint(("receiptObserved", "http", "otlp")):
+            facts.discard("receiver")
+    archived_artifacts = ("archivedNodeArtifacts" in artifact_roles
+                          or {"retainedNodeStreams", "nodeOutputInventory"} <= artifact_roles
+                          or {"demoReplyRetained", "demoDecisionRetained"} <= artifact_roles)
+    if archived_artifacts:
+        facts.update(("node", "genericResult", "console"))
+        if facts.isdisjoint(("replyOnStderr", "stdoutMergedIntoStderr")):
+            facts.add("replyOnStdout")
+        if facts.isdisjoint(("decisionOnStdout", "stderrMergedIntoStdout", "consoleStdout")):
+            facts.add("decisionOnStderr")
     key = _select(table, facts)
+    if archived_artifacts and facts.isdisjoint(("wantMeta", "wantReply", "requestedHosted")):
+        key = "ask_subject"
+    if key == "ask_program" and answer:
+        launcher_answer = _original_commands(table, _source_text(table, answer))
+        identified, _, _, _, unresolved = _phrase_observation(table, (launcher_answer,))
+        if not unresolved and {"readLauncher", "workerIdentified"} <= identified:
+            return "console", facts | {"appRan", "console"}
     if guide_origin is not None and ("inlineHTTP" not in facts or facts.intersection(
             ("wrapperRejected", "bootstrapDisabled", "pythonUninstrumented", "inlineUnknown", "loaderOnly"))):
         guide_origin.receivers.clear()

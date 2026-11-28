@@ -51819,5 +51819,979 @@
       "targetMatch": "original",
       "coverage": "complete"
     }
+  },
+  {
+    "name": "Original evidence AR02",
+    "question": "I’m sorting out two retries with the same ticket. The storage team took the original JSONL path offline, and we cannot tell where the copy on my laptop came from. What could distinguish the first retry when the real export is available again?",
+    "expected": "ask_id",
+    "includes": [
+      "Do you have the origi"
+    ]
+  },
+  {
+    "name": "Original evidence AR02 answer",
+    "question": "I’m sorting out two retries with the same ticket. The storage team took the original JSONL path offline, and we cannot tell where the copy on my laptop came from. What could distinguish the first retry when the real export is available again?",
+    "expected": "surviving_marker",
+    "includes": [
+      "Retrieve the survivin"
+    ],
+    "answer": "My notes have maproom-718, a marker unique to that first retry. I never kept the actual decision ID."
+  },
+  {
+    "name": "Original evidence AR03",
+    "question": "The overnight demo used the Python sample quickstart verbatim. The terminal collector saved the two output streams separately before the process exited. Which of those contains the decision it printed?",
+    "expected": "memory",
+    "includes": [
+      "Inspect retained stdo"
+    ]
+  },
+  {
+    "name": "Original evidence AR04",
+    "question": "Our runner launches either the stock Python quickstart or an SDK worker with a console exporter. The run is over but both terminal archives survive. Which archive should I use to identify its original decision?",
+    "expected": "ask_program",
+    "includes": [
+      "Which Python script d"
+    ]
+  },
+  {
+    "name": "Original evidence AR04 answer",
+    "question": "Our runner launches either the stock Python quickstart or an SDK worker with a console exporter. The run is over but both terminal archives survive. Which archive should I use to identify its original decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stde"
+    ],
+    "answer": "I opened the saved launch entry. It identifies the SDK worker with the console exporter, not the stock sample."
+  },
+  {
+    "name": "Original evidence AR08",
+    "question": "Both original archives survived from the Node demo, the printed customer answer and the console decision. The person reviewing this asked only for “the output.” Which stream should I get?",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for t"
+    ]
+  },
+  {
+    "name": "Original evidence AR08 answer",
+    "question": "Both original archives survived from the Node demo, the printed customer answer and the console decision. The person reviewing this asked only for “the output.” Which stream should I get?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stde"
+    ],
+    "answer": "It is the SDK decision metadata they want, including total token usage."
+  },
+  {
+    "name": "Original evidence AR09",
+    "question": "I am holding dawn-queue.jsonl, the export named by this job’s writer configuration, taken from the job’s original working directory. The run ticket lists its decision ID as Oriole-296. Can I check whether the file has an entry for that ID among the other jobs?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSO"
+    ]
+  },
+  {
+    "name": "Original evidence AR11",
+    "question": "For the original run, I checked the receiver whose incoming log the deployment used. I found a single entry matching burl-472, the decision ID I read off the original receipt. Nobody checked storage. What can we establish about delivery?",
+    "expected": "storage",
+    "includes": [
+      "A receiver entry that"
+    ]
+  },
+  {
+    "name": "Original evidence AR11 report",
+    "question": "For the original run, I checked the receiver whose incoming log the deployment used. I found a single entry matching burl-472, the decision ID I read off the original receipt. Nobody checked storage. What can we establish about delivery?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence AR12",
+    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run’s decision was persisted when I queried it?",
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstream"
+    ]
+  },
+  {
+    "name": "Original evidence AR12 report",
+    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run’s decision was persisted when I queried it?",
+    "expected": "ask_evidence",
+    "includes": [],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence AR12 yes",
+    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run’s decision was persisted when I queried it?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Original evidence AR12 no",
+    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run’s decision was persisted when I queried it?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Original evidence AR12 unsure",
+    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run’s decision was persisted when I queried it?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Original evidence review 0 turn 0",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row with ID quartz-64. There were two rows with that ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't ide"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence review 0 turn 1",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't ide"
+    ],
+    "answer": "The query returned a row with ID quartz-64. There were two rows with that ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence review 1 turn 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a row. There were two rows with that ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence review 1 turn 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "answer": "The query returned a row. There were two rows with that ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence review 2 turn 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID. The receiver supplied the query result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence review 2 turn 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver supplied the query result.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence review 3 turn 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records. The receiver supplied the query result.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Original evidence review 3 turn 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "answer": "The query returned zero matching records. The receiver supplied the query result.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Original evidence review 4 turn 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query was pending. It has now returned one matching record with the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence review 4 turn 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "answer": "The query was pending. It has now returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence requested streams 0",
+    "question": "The Node demo uses the console exporter. I only read the docs. I need my original token count.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter did th"
+    ]
+  },
+  {
+    "name": "Original evidence requested streams 1",
+    "question": "My Node demo used the console exporter. I only kept the application's stdout. Where are my tokens?",
+    "expected": "node_stdout_only_metadata",
+    "includes": [
+      "The demo prints its r"
+    ]
+  },
+  {
+    "name": "Original evidence requested streams 2",
+    "question": "I ran the published Node demo using its defaults. Show me the app reply on stdout and the SDK decision on stderr.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stde"
+    ]
+  },
+  {
+    "name": "Original evidence file receipt order 0",
+    "question": "I hold report.jsonl, the export specified by this worker’s deployment configuration. The run ticket records the decision ID as Ember-39.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSO"
+    ]
+  },
+  {
+    "name": "Original evidence file receipt order 1",
+    "question": "The run ticket records the decision ID as Ember-39. I hold report.jsonl, the export specified by this worker’s deployment configuration.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JSO"
+    ]
+  },
+  {
+    "name": "Original evidence receiver source order 0",
+    "question": "I inspected the receiver whose endpoint the launch named. I saw one entry matching echo-19, the original decision ID from my original receipt. No one queried downstream storage. What can I conclude about receipt?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence unread store 0",
+    "question": "I inspected the receiver whose endpoint the launch named. I saw one entry matching echo-19, the original decision ID from my original receipt. No one queried downstream storage. What can I conclude about receipt?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence receiver source order 1",
+    "question": "I inspected the receiver whose endpoint the launch named. No one queried downstream storage. I saw one entry matching echo-19, the original decision ID from my original receipt. What can I conclude about receipt?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence unread store 1",
+    "question": "I inspected the receiver whose endpoint the launch named. No one queried downstream storage. I saw one entry matching echo-19, the original decision ID from my original receipt. What can I conclude about receipt?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence receiver source order 2",
+    "question": "I saw one entry matching echo-19, the original decision ID from my original receipt. I inspected the receiver whose endpoint the launch named. No one queried downstream storage. What can I conclude about receipt?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence unread store 2",
+    "question": "I saw one entry matching echo-19, the original decision ID from my original receipt. I inspected the receiver whose endpoint the launch named. No one queried downstream storage. What can I conclude about receipt?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence receiver source order 3",
+    "question": "I saw one entry matching echo-19, the original decision ID from my original receipt. No one queried downstream storage. I inspected the receiver whose endpoint the launch named. What can I conclude about receipt?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence unread store 3",
+    "question": "I saw one entry matching echo-19, the original decision ID from my original receipt. No one queried downstream storage. I inspected the receiver whose endpoint the launch named. What can I conclude about receipt?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence receiver source order 4",
+    "question": "No one queried downstream storage. I inspected the receiver whose endpoint the launch named. I saw one entry matching echo-19, the original decision ID from my original receipt. What can I conclude about receipt?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence unread store 4",
+    "question": "No one queried downstream storage. I inspected the receiver whose endpoint the launch named. I saw one entry matching echo-19, the original decision ID from my original receipt. What can I conclude about receipt?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence receiver source order 5",
+    "question": "No one queried downstream storage. I saw one entry matching echo-19, the original decision ID from my original receipt. I inspected the receiver whose endpoint the launch named. What can I conclude about receipt?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence unread store 5",
+    "question": "No one queried downstream storage. I saw one entry matching echo-19, the original decision ID from my original receipt. I inspected the receiver whose endpoint the launch named. What can I conclude about receipt?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended s"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence unlinked store order 0",
+    "question": "I retrieved the full record myself from the intended store named by the original job. The launch ticket shows decision ID echo-19. What would establish whether this decision was stored?",
+    "expected": "ask_evidence",
+    "includes": [],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence linked store 0",
+    "question": "I retrieved the full record myself from the intended store named by the original job. The launch ticket shows decision ID echo-19. What would establish whether this decision was stored?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Original evidence unlinked store order 1",
+    "question": "The launch ticket shows decision ID echo-19. I retrieved the full record myself from the intended store named by the original job. What would establish whether this decision was stored?",
+    "expected": "ask_evidence",
+    "includes": [],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence linked store 1",
+    "question": "The launch ticket shows decision ID echo-19. I retrieved the full record myself from the intended store named by the original job. What would establish whether this decision was stored?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matchi"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Original evidence context question 0",
+    "question": "The worker launches either the original Python quickstart or a console worker. Which program ran?",
+    "expected": "ask_program",
+    "includes": [
+      "Which Python script d"
+    ]
+  },
+  {
+    "name": "Original evidence context reply 0",
+    "question": "The worker launches either the original Python quickstart or a console worker. Which program ran?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stde"
+    ],
+    "answer": "I read the archived launcher record. It identifies the service with the console exporter, not the stock quickstart."
+  },
+  {
+    "name": "Original evidence context question 1",
+    "question": "Both original streams survived from the Node demo, the console decision and the printed customer reply. Which output?",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for t"
+    ]
+  },
+  {
+    "name": "Original evidence context reply 1",
+    "question": "Both original streams survived from the Node demo, the console decision and the printed customer reply. Which output?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stde"
+    ],
+    "answer": "It is the decision metadata we need, including token count."
+  },
+  {
+    "name": "Original evidence There were 2 rows with that ID. jsonl",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't ide"
+    ],
+    "answer": "The query returned a row with the original ID. There were 2 rows with that ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence There were 2 rows with that ID. storage",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't ide"
+    ],
+    "answer": "The query returned a row with the original ID. There were 2 rows with that ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence Both entries shared that decision ID. jsonl",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't ide"
+    ],
+    "answer": "The query returned a row with the original ID. Both entries shared that decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence Both entries shared that decision ID. storage",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't ide"
+    ],
+    "answer": "The query returned a row with the original ID. Both entries shared that decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence There are three records with this identifier. jsonl",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't ide"
+    ],
+    "answer": "The query returned a row with the original ID. There are three records with this identifier.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence There are three records with this identifier. storage",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't ide"
+    ],
+    "answer": "The query returned a row with the original ID. There are three records with this identifier.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence the search outcome matched",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver provided the search outcome.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence the lookup result matched",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver provided the lookup result.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence the scan response matched",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver provided the scan response.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence the search outcome no-match",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "answer": "The query returned zero matching records. The receiver provided the search outcome.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Original evidence the lookup result no-match",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "answer": "The query returned zero matching records. The receiver provided the lookup result.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Original evidence the scan response no-match",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "answer": "The query returned zero matching records. The receiver provided the scan response.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Original evidence file other owner",
+    "question": "I hold report.jsonl, the export specified by another worker’s deployment configuration. The run ticket records the decision ID as Ember-39.",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for t"
+    ]
+  },
+  {
+    "name": "Original evidence receiver other owner",
+    "question": "I inspected the receiver whose endpoint a different deployment named. I saw one entry matching echo-19, the original decision ID from my original receipt. No one queried downstream storage. What can I conclude about receipt?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence colleague receiver",
+    "question": "My colleague inspected the receiver whose endpoint the launch named. I saw one entry matching echo-19, the original decision ID from my original receipt. No one queried downstream storage. What can I conclude about receipt?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended s"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence mismatch receiver",
+    "question": "I inspected the receiver whose endpoint the launch named. I saw one entry not matching echo-19, the original decision ID from my original receipt. No one queried downstream storage. What can I conclude about receipt?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence denied actual receiver",
+    "question": "I inspected the receiver whose endpoint the launch named. I saw one entry matching echo-19, the original decision ID from my original receipt. No one checked the receiver. What can I conclude about receipt?",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended s"
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence unrelated original store",
+    "question": "I retrieved the full record myself from the intended store named by another job. The launch ticket shows decision ID echo-19. What would establish whether this decision was stored?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source yo"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    }
+  },
+  {
+    "name": "Original evidence uncertain quickstart",
+    "question": "The original worker might have run the Python quickstart verbatim. Which archived stream should I use?",
+    "expected": "ask_program",
+    "includes": [
+      "Which Python script d"
+    ]
+  },
+  {
+    "name": "Original evidence disowned worker",
+    "question": "The worker launches either the original Python quickstart or a console worker. Which program ran?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide "
+    ],
+    "answer": "I read the archived launcher record. It does not identify the service with the console exporter, not the stock quickstart."
+  },
+  {
+    "name": "Original evidence unknown requested stream",
+    "question": "Both original streams survived from the Node demo, the console decision and the printed customer reply. Which output?",
+    "expected": "fallback",
+    "includes": [
+      "Use the static guide "
+    ],
+    "answer": "Unknown."
+  },
+  {
+    "name": "Original evidence affirmative launcher",
+    "question": "The original launcher executed the stock Python quickstart unchanged. Which archive?",
+    "expected": "memory",
+    "includes": [
+      "Inspect retained stdo"
+    ]
+  },
+  {
+    "name": "Original evidence separate artifacts 0",
+    "question": "Both original streams from the Node demo survived. The console decision and the printed customer answer. Which output?",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for t"
+    ]
+  },
+  {
+    "name": "Original evidence separate artifacts metadata 0",
+    "question": "Both original streams from the Node demo survived. The console decision and the printed customer answer. Which output?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stde"
+    ],
+    "answer": "It is the decision metadata we need, including token count."
+  },
+  {
+    "name": "Original evidence separate artifacts 1",
+    "question": "The Node demo printed the customer reply to stdout. I kept the console decision on stderr. Which output?",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for t"
+    ]
+  },
+  {
+    "name": "Original evidence separate artifacts metadata 1",
+    "question": "The Node demo printed the customer reply to stdout. I kept the console decision on stderr. Which output?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stde"
+    ],
+    "answer": "It is the decision metadata we need, including token count."
   }
 ]
