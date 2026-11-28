@@ -2773,6 +2773,34 @@ def _verify_local_file(table, args):
     return int(result == "file_check_incomplete")
 
 
+def _queued_terminal_lines(stream):
+    """Collect input already submitted to an otherwise complete flag invocation."""
+    import io
+
+    if isinstance(stream, io.StringIO):
+        return stream.read().splitlines()
+    if os.name == "nt":
+        import msvcrt
+
+        chars = []
+        while msvcrt.kbhit():
+            chars.append(msvcrt.getwch())
+        return "".join(chars).splitlines()
+
+    import select
+
+    # Read from the descriptor before any buffered stdin reads. In canonical
+    # mode even a partially typed line stays in the terminal until submitted.
+    fd = stream.fileno()
+    chunks = []
+    while select.select([fd], [], [], 0)[0]:
+        chunk = os.read(fd, 8192)
+        if not chunk:
+            break
+        chunks.append(chunk)
+    return b"".join(chunks).decode(stream.encoding or "utf-8", errors="replace").splitlines()
+
+
 def _guide_session(args) -> int:
     table = json.loads(_TABLE.read_text(encoding="utf-8"))
     if getattr(args, "verify_jsonl", None):
@@ -2848,6 +2876,15 @@ def _guide_session(args) -> int:
                 previous_key = applied
             question, answer, confirmation = read_turn(f"Confirm what you found or end input ({eof_hint}): ")
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
+    if interactive and confirmation and not turns and key != "ask_evidence":
+        queued = _queued_terminal_lines(sys.stdin)
+        if queued:
+            turns.extend(queued)
+            question, answer, confirmation = _session(table, args, turns)
+            key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
+            # A completed flag invocation consumes submitted input without
+            # waiting for a second end-of-input gesture.
+            eof = key != "ask_evidence"
     evidence_prompted = False
     if interactive and confirmation and (turns or key == "ask_evidence"):
         if key == "ask_evidence" and not eof:

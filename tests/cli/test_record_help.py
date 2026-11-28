@@ -678,3 +678,23 @@ def test_complete_language_account_preserves_independent_veto(monkeypatch, confl
     monkeypatch.setattr(guidance, "_confirmation_conflict", lambda *args, **kwargs: conflict)
     report = dict(source="jsonl", result="matched", reader="me", sourceMatch="original", targetMatch="original")
     assert route(TABLE, incident, confirmation=report)[0] == conflict
+
+
+@pytest.mark.parametrize("extra", ["", "\n\n", "\n\nstorage matched me original original\n",
+                                   "\n\nstorage no-match me original original complete\n"])
+@pytest.mark.parametrize("terminal", [True, False])
+def test_completed_flag_report_validates_queued_input(terminal, extra, monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli import _ux
+    from briefcase.cli.__main__ import main
+
+    stream = StringIO(extra)
+    monkeypatch.setattr(stream, "isatty", lambda: terminal)
+    monkeypatch.setattr(_ux, "is_interactive", lambda: terminal)
+    monkeypatch.setattr("sys.stdin", stream)
+    question = ("I queried the intended downstream store for the original decision ID. "
+                "The query returned a record with the original ID.")
+    args = ["record-help", question, "--source", "storage", "--result", "matched", "--reader", "me",
+            "--source-match", "original", "--target-match", "original"]
+    assert main(args) == (2 if extra.strip() else 0)
+    assert capsys.readouterr().out.count("You reported") == int(not extra.strip())
