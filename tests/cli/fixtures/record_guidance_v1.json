@@ -54741,5 +54741,1942 @@
     "answer": "The reply.",
     "expected": "reply",
     "includes": []
+  },
+  {
+    "name": "Lookup constraints D1",
+    "question": "My original decision ID was Quartz-64. I searched entries.jsonl for my original decision ID. Three matching rows came back. I again searched entries.jsonl for my original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints D2",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned one matching record. My manager read the record for me.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints D3",
+    "question": "I searched page 1 of 10 of the intended downstream store for my original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints D4",
+    "question": "I ran the published Node demo. I ran node job.js &>/dev/null. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply_stdout_discarded",
+    "includes": [
+      "If another copy of"
+    ]
+  },
+  {
+    "name": "Lookup constraints D5",
+    "question": "I was the one who inspected the original configured receiver's intake journal. It contains one entry with the exact decision ID satin-718 from my original receipt. The store behind that receiver has not been queried. Which part of the delivery can I substantiate?",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Lookup constraints D6",
+    "question": "The service installed the Python SDK console exporter. The original scheduler command included python weftreport.py 2>/dev/null. Which retained output should I inspect to verify the original decision?",
+    "expected": "node_discarded_decision",
+    "includes": [
+      "The console export"
+    ]
+  },
+  {
+    "name": "Lookup constraints D7",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID. The receiver supplied the match.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Lookup constraints recover marker",
+    "question": "I want to be able to pick out the first of two SDK decisions made for the same delivery docket. We can't access the original JSONL volume just now. There is a hand-me-down export but nobody can tie it to the writer. What should I get from the original handoff?",
+    "expected": "ask_id",
+    "includes": [
+      "Do you have the or"
+    ]
+  },
+  {
+    "name": "Lookup constraints recover marker answer",
+    "question": "I want to be able to pick out the first of two SDK decisions made for the same delivery docket. We can't access the original JSONL volume just now. There is a hand-me-down export but nobody can tie it to the writer. What should I get from the original handoff?",
+    "answer": "I have camber-957, the run marker from the original handoff. We checked that no other invocation used it. I cannot supply the original SDK decision ID.",
+    "expected": "surviving_marker",
+    "includes": [
+      "Retrieve the survi"
+    ]
+  },
+  {
+    "name": "Lookup constraints independent store",
+    "question": "I queried our original deployment's intended downstream store myself after the job ended and read back a full decision record. I have umber-496 from the original job's decision receipt. How can I establish that the original decision was in that store?",
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstr"
+    ]
+  },
+  {
+    "name": "Lookup constraints store link",
+    "question": "I queried our original deployment's intended downstream store myself after the job ended and read back a full decision record. I have umber-496 from the original job's decision receipt. How can I establish that the original decision was in that store?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "ask_evidence",
+    "includes": [
+      "Did you personally"
+    ]
+  },
+  {
+    "name": "Lookup constraints store link yes",
+    "question": "I queried our original deployment's intended downstream store myself after the job ended and read back a full decision record. I have umber-496 from the original job's decision receipt. How can I establish that the original decision was in that store?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "yes"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Lookup constraints store link no",
+    "question": "I queried our original deployment's intended downstream store myself after the job ended and read back a full decision record. I have umber-496 from the original job's decision receipt. How can I establish that the original decision was in that store?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "no"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Lookup constraints store link unsure",
+    "question": "I queried our original deployment's intended downstream store myself after the job ended and read back a full decision record. I have umber-496 from the original job's decision receipt. How can I establish that the original decision was in that store?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "unsure"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source"
+    ]
+  },
+  {
+    "name": "Lookup constraints available file with receipt",
+    "question": "We got two decisions for the same reservation code when the desk retried. I have the original process's JSONL export and can supply Myrrh-834, the SDK decision ID on the first reservation's receipt. Please find the first decision in that export.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original "
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 0 0",
+    "question": "The receiver was the only source. I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 0 1",
+    "question": "I queried the intended downstream store for the original decision ID. The receiver was the only source.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 0 2",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "answer": "The receiver was the only source.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 1 0",
+    "question": "It was a different store. I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 1 1",
+    "question": "I queried the intended downstream store for the original decision ID. It was a different store.",
+    "answer": "The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 1 2",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned one matching record.",
+    "answer": "It was a different store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a diff"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 2 0",
+    "question": "I only searched the first page. I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 2 1",
+    "question": "I queried the intended downstream store for the original decision ID. I only searched the first page.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 2 2",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "answer": "I only searched the first page.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 3 0",
+    "question": "My colleague read the record on my behalf. I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 3 1",
+    "question": "I queried the intended downstream store for the original decision ID. My colleague read the record on my behalf.",
+    "answer": "The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 3 2",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned one matching record.",
+    "answer": "My colleague read the record on my behalf.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 4 0",
+    "question": "There were two matching rows. I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned one record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 4 1",
+    "question": "I queried the intended downstream store for the original decision ID. There were two matching rows.",
+    "answer": "The query returned one record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 4 2",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned one record.",
+    "answer": "There were two matching rows.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 5 0",
+    "question": "I never checked the ID. I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned one record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection con"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 5 1",
+    "question": "I queried the intended downstream store for the original decision ID. I never checked the ID.",
+    "answer": "The query returned one record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 5 2",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned one record.",
+    "answer": "I never checked the ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 6 0",
+    "question": "Nobody queried the store. I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 6 1",
+    "question": "I queried the intended downstream store for the original decision ID. Nobody queried the store.",
+    "answer": "The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints qualification 6 2",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned one matching record.",
+    "answer": "Nobody queried the store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints artifact 0",
+    "question": "I ran the published Node demo using its defaults. I kept only stdout. I need both the decision record and the application reply.",
+    "expected": "node_stdout_only_outputs",
+    "includes": [
+      "Read the retained "
+    ]
+  },
+  {
+    "name": "Lookup constraints artifact 1",
+    "question": "I ran the published Node demo using its defaults. I redirected stderr into stdout and kept the combined log. I need the decision record.",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained s"
+    ]
+  },
+  {
+    "name": "Lookup constraints artifact 2",
+    "question": "I ran the published Node demo using its defaults. I redirected stdout into stderr and kept the combined log. I need both the decision record and the application reply.",
+    "expected": "node_both_stderr",
+    "includes": [
+      "Check the retained"
+    ]
+  },
+  {
+    "name": "Lookup constraints artifact 3",
+    "question": "I ran the published Node demo using its defaults. What was printed to stderr?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained s"
+    ]
+  },
+  {
+    "name": "Lookup constraints artifact 4",
+    "question": "I ran the published Node demo using its defaults. I need the local SDK decision record.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained s"
+    ]
+  },
+  {
+    "name": "Lookup constraints artifact 5",
+    "question": "I ran the published Node demo using its defaults. I need the reply or the hosted run, I don't know which.",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking fo"
+    ]
+  },
+  {
+    "name": "Lookup constraints artifact 6",
+    "question": "I only read the published Node demo using its defaults. I did not run it. I need the application reply.",
+    "expected": "node_demo_preview",
+    "includes": [
+      "Reading the demo p"
+    ]
+  },
+  {
+    "name": "Lookup constraints artifact 7",
+    "question": "I only read the published Node demo using its defaults. I did not run it. I need the decision record.",
+    "expected": "node_demo_preview",
+    "includes": [
+      "Reading the demo p"
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 0 0",
+    "question": "two matching entries came back.",
+    "answer": "I searched rows.jsonl for the original decision ID. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 0 1",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "two of the returned records matched the original ID. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 0 2",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "I searched rows.jsonl for the original decision ID. There were two records with the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 0 3",
+    "question": "The lookup returned two exact matches.",
+    "answer": "I searched rows.jsonl for the original decision ID. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 1 0",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "THREE matching entries came back. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 1 1",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "I searched rows.jsonl for the original decision ID. THREE of the returned records matched the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 1 2",
+    "question": "There were THREE records with the original ID.",
+    "answer": "I searched rows.jsonl for the original decision ID. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 1 3",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "The lookup returned THREE exact matches. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 2 0",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "I searched rows.jsonl for the original decision ID. 8 matching entries came back.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 2 1",
+    "question": "8 of the returned records matched the original ID.",
+    "answer": "I searched rows.jsonl for the original decision ID. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 2 2",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "There were 8 records with the original ID. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 2 3",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "I searched rows.jsonl for the original decision ID. The lookup returned 8 exact matches.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 3 0",
+    "question": "several matching entries came back.",
+    "answer": "I searched rows.jsonl for the original decision ID. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 3 1",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "several of the returned records matched the original ID. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 3 2",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "I searched rows.jsonl for the original decision ID. There were several records with the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity jsonl 3 3",
+    "question": "The lookup returned several exact matches.",
+    "answer": "I searched rows.jsonl for the original decision ID. I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints delegated jsonl 0",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "An external reviewer inspected the record for me. The query returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints delegated jsonl 1",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "My assistant inspected the record for me. The query returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints delegated jsonl 2",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "answer": "An independent contractor inspected the record for me. The query returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints partial miss jsonl 0",
+    "question": "I searched partition 2 of 4 of rows.jsonl for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints partial hit jsonl 0",
+    "question": "I searched partition 2 of 4 of rows.jsonl for the original decision ID.",
+    "answer": "The query returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ]
+  },
+  {
+    "name": "Lookup constraints partial miss jsonl 1",
+    "question": "I searched page 1 of 10 of rows.jsonl for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints partial hit jsonl 1",
+    "question": "I searched page 1 of 10 of rows.jsonl for the original decision ID.",
+    "answer": "The query returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ]
+  },
+  {
+    "name": "Lookup constraints partial miss jsonl 2",
+    "question": "I searched batch 3 of 8 of rows.jsonl for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints partial hit jsonl 2",
+    "question": "I searched batch 3 of 8 of rows.jsonl for the original decision ID.",
+    "answer": "The query returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 0 0",
+    "question": "two matching entries came back.",
+    "answer": "I queried the intended downstream store for the original decision ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 0 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "two of the returned records matched the original ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 0 2",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I queried the intended downstream store for the original decision ID. There were two records with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 0 3",
+    "question": "The lookup returned two exact matches.",
+    "answer": "I queried the intended downstream store for the original decision ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 1 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "THREE matching entries came back. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 1 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I queried the intended downstream store for the original decision ID. THREE of the returned records matched the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 1 2",
+    "question": "There were THREE records with the original ID.",
+    "answer": "I queried the intended downstream store for the original decision ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 1 3",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The lookup returned THREE exact matches. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 2 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I queried the intended downstream store for the original decision ID. 8 matching entries came back.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 2 1",
+    "question": "8 of the returned records matched the original ID.",
+    "answer": "I queried the intended downstream store for the original decision ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 2 2",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "There were 8 records with the original ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 2 3",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I queried the intended downstream store for the original decision ID. The lookup returned 8 exact matches.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 3 0",
+    "question": "several matching entries came back.",
+    "answer": "I queried the intended downstream store for the original decision ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 3 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "several of the returned records matched the original ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 3 2",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "I queried the intended downstream store for the original decision ID. There were several records with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity storage 3 3",
+    "question": "The lookup returned several exact matches.",
+    "answer": "I queried the intended downstream store for the original decision ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints delegated storage 0",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "An external reviewer inspected the record for me. The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints delegated storage 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "My assistant inspected the record for me. The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints delegated storage 2",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "An independent contractor inspected the record for me. The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints partial miss storage 0",
+    "question": "I queried partition 2 of 4 of the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints partial hit storage 0",
+    "question": "I queried partition 2 of 4 of the intended downstream store for the original decision ID.",
+    "answer": "The query returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Lookup constraints partial miss storage 1",
+    "question": "I queried page 1 of 10 of the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints partial hit storage 1",
+    "question": "I queried page 1 of 10 of the intended downstream store for the original decision ID.",
+    "answer": "The query returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Lookup constraints partial miss storage 2",
+    "question": "I queried batch 3 of 8 of the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints partial hit storage 2",
+    "question": "I queried batch 3 of 8 of the intended downstream store for the original decision ID.",
+    "answer": "The query returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 0 0",
+    "question": "two matching entries came back.",
+    "answer": "I searched the intended receiver for the original decision ID. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 0 1",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "two of the returned records matched the original ID. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 0 2",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "I searched the intended receiver for the original decision ID. There were two records with the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 0 3",
+    "question": "The lookup returned two exact matches.",
+    "answer": "I searched the intended receiver for the original decision ID. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 1 0",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "THREE matching entries came back. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 1 1",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "I searched the intended receiver for the original decision ID. THREE of the returned records matched the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 1 2",
+    "question": "There were THREE records with the original ID.",
+    "answer": "I searched the intended receiver for the original decision ID. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 1 3",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "The lookup returned THREE exact matches. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 2 0",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "I searched the intended receiver for the original decision ID. 8 matching entries came back.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 2 1",
+    "question": "8 of the returned records matched the original ID.",
+    "answer": "I searched the intended receiver for the original decision ID. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 2 2",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "There were 8 records with the original ID. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 2 3",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "I searched the intended receiver for the original decision ID. The lookup returned 8 exact matches.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 3 0",
+    "question": "several matching entries came back.",
+    "answer": "I searched the intended receiver for the original decision ID. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 3 1",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "several of the returned records matched the original ID. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 3 2",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "I searched the intended receiver for the original decision ID. There were several records with the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints multiplicity receiver 3 3",
+    "question": "The lookup returned several exact matches.",
+    "answer": "I searched the intended receiver for the original decision ID. I searched the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't "
+    ]
+  },
+  {
+    "name": "Lookup constraints delegated receiver 0",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "An external reviewer inspected the record for me. The query returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints delegated receiver 1",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "My assistant inspected the record for me. The query returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints delegated receiver 2",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "answer": "An independent contractor inspected the record for me. The query returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Lookup constraints partial miss receiver 0",
+    "question": "I searched partition 2 of 4 of the intended receiver for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints partial hit receiver 0",
+    "question": "I searched partition 2 of 4 of the intended receiver for the original decision ID.",
+    "answer": "The query returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Lookup constraints partial miss receiver 1",
+    "question": "I searched page 1 of 10 of the intended receiver for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints partial hit receiver 1",
+    "question": "I searched page 1 of 10 of the intended receiver for the original decision ID.",
+    "answer": "The query returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Lookup constraints partial miss receiver 2",
+    "question": "I searched batch 3 of 8 of the intended receiver for the original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search "
+    ]
+  },
+  {
+    "name": "Lookup constraints partial hit receiver 2",
+    "question": "I searched batch 3 of 8 of the intended receiver for the original decision ID.",
+    "answer": "The query returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Lookup constraints ordered redirect 0",
+    "question": "I ran the published Node demo. I ran node job.js &>/dev/null. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply_stdout_discarded",
+    "includes": [
+      "If another copy of"
+    ]
+  },
+  {
+    "name": "Lookup constraints ordered redirect 1",
+    "question": "I ran the published Node demo. I ran node job.js >/dev/null 2>&1. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply_stdout_discarded",
+    "includes": [
+      "If another copy of"
+    ]
+  },
+  {
+    "name": "Lookup constraints ordered redirect 2",
+    "question": "I ran the published Node demo. I ran node job.js 2>/dev/null. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdo"
+    ]
+  },
+  {
+    "name": "Lookup constraints ordered redirect 3",
+    "question": "I ran the published Node demo. I ran node job.js 2>&1 >/dev/null. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply_stdout_discarded",
+    "includes": [
+      "If another copy of"
+    ]
+  },
+  {
+    "name": "Lookup constraints ordered redirect 4",
+    "question": "I ran the published Node demo. I ran node job.js >/dev/null >saved.log. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdo"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical python 2>/dev/null",
+    "question": "The service installed the Python SDK console exporter. The original scheduler command included python weftreport.py 2>/dev/null. Which retained output should I inspect to verify the original decision?",
+    "expected": "node_discarded_decision",
+    "includes": [
+      "The console exporter w"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical python 2>\"/dev/null\"",
+    "question": "The service installed the Python SDK console exporter. The original scheduler command included python weftreport.py 2>\"/dev/null\". Which retained output should I inspect to verify the original decision?",
+    "expected": "node_discarded_decision",
+    "includes": [
+      "The console exporter w"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical python 2>/dev/null 2>retained.log",
+    "question": "The service installed the Python SDK console exporter. The original scheduler command included python weftreport.py 2>/dev/null 2>retained.log. Which retained output should I inspect to verify the original decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stder"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical python 2>&1 >/dev/null",
+    "question": "The service installed the Python SDK console exporter. The original scheduler command included python weftreport.py 2>&1 >/dev/null. Which retained output should I inspect to verify the original decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained stder"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical python >/dev/null 2>&1",
+    "question": "The service installed the Python SDK console exporter. The original scheduler command included python weftreport.py >/dev/null 2>&1. Which retained output should I inspect to verify the original decision?",
+    "expected": "node_discarded_decision",
+    "includes": [
+      "The console exporter w"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical node >retained.log 2>&1",
+    "question": "I ran the published Node demo. I ran node demo.js >retained.log 2>&1. I need the decision record.",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdou"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical node &>/dev/null",
+    "question": "I ran the published Node demo. I ran node demo.js &>/dev/null. I need the decision record.",
+    "expected": "node_discarded_decision",
+    "includes": [
+      "The console exporter w"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical node 2>&1 >retained.log",
+    "question": "I ran the published Node demo. I ran node demo.js 2>&1 >retained.log. I need the decision record.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stder"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical disowned documentation",
+    "question": "I ran the published Node demo. Node demo.js >/dev/null 2>&1 appeared only in documentation. I need the decision record.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stder"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical disowned the manual",
+    "question": "I ran the published Node demo. Node demo.js >/dev/null 2>&1 appeared only in the manual. I need the decision record.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stder"
+    ]
+  },
+  {
+    "name": "Lookup constraints physical disowned a tutorial",
+    "question": "I ran the published Node demo. Node demo.js >/dev/null 2>&1 appeared only in a tutorial. I need the decision record.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stder"
+    ]
   }
 ]

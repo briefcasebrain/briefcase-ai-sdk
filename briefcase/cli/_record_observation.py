@@ -39,7 +39,13 @@ class SourceCheck:
     group_size: Optional[int] = None
     members: Dict[int, bool] = field(default_factory=dict)
     invalid_members: bool = False
+    unresolved_population: bool = False
     pending_relation: Optional[str] = None
+
+    def record_multiple_matches(self) -> None:
+        """A new search declaration cannot erase observed matching rows."""
+        self.matched_objects = max(self.matched_objects, 2)
+        self.ambiguous = True
 
     def add_object(self, comparison):
         if self.pending_relation:
@@ -81,7 +87,7 @@ class SourceCheck:
             return "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
         if action == "ask_id" or "unresolvedOriginal" in facts or self.shared_identifier:
             return "ask_id"
-        if self.unresolved_lookup or self.unresolved_detail or self.invalid_members:
+        if self.unresolved_lookup or self.unresolved_detail or self.invalid_members or self.unresolved_population:
             return "confirmation_unresolved_lookup"
         if self.partial and result == "no-match":
             return "confirmation_partial"

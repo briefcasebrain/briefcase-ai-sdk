@@ -778,26 +778,49 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
         if clause.strip():
             example_next = bool((hypothetical and not launch) or
                                 (example_next and re.match(table["exampleContinuation"], clause, re.I)))
+        streams: Dict[str, Tuple[str, int]] = {"1": ("1", -1), "2": ("2", -1)}
+        redirected = set()
+        if launch and re.search(table["commandExampleTail"], clause[launch.end():], re.I):
+            parts[index] = clause[:launch.start()] + " "
+            continue
+        if launch and not hypothetical:
+            prefix = clause[:launch.start()].strip()
+            if (re.fullmatch(table["commandContext"], prefix, re.I)
+                    or re.fullmatch(table["originalCommandPrefix"], prefix, re.I)):
+                operands = list(re.finditer(table["streamSinkToken"], parts[index][launch.end():]))
+                for sink in operands:
+                    if sink.group(2) is None:
+                        continue
+                    dest = sink.group(2)
+                    targets = ("1", "2") if sink[1] == "&" else (sink[1] or "1",)
+                    value = (streams[dest[1:]] if dest in ("&1", "&2") else
+                             ("null" if dest.strip("\"'") == "/dev/null" else targets[0], sink.start()))
+                    for descriptor in targets:
+                        streams[descriptor] = value
+                        redirected.add(descriptor)
+                # Conceal each literal null sink from later substring selectors.
+                # Only the final descriptor state is authoritative.
+                for sink in reversed(operands):
+                    if sink[2] and sink[2].strip("\"'") == "/dev/null":
+                        start, end = sink.span(2)
+                        parts[index] = (parts[index][:launch.end() + start] + "stream_sink"
+                                        + parts[index][launch.end() + end:])
         if hypothetical and launch:
             parts[index] = clause[:hypothetical.start()]
         else:
             wrapper = re.search(table["inlineNode"]["wrapperCommand"], parts[index])
-            if wrapper and re.fullmatch(table["commandContext"], parts[index][:wrapper.start()], re.I):
-                continue
-            command = re.search(table["inlineNode"]["command"], parts[index])
+            active_wrapper = wrapper and re.fullmatch(table["commandContext"], parts[index][:wrapper.start()], re.I)
+            command = None if active_wrapper else re.search(table["inlineNode"]["command"], parts[index])
             if command and (not re.fullmatch(table["commandContext"], parts[index][:command.start()], re.I)
                             or not (_command_register(table["inlineNode"], command) or inherited_register)):
                 prefix = parts[index][:command.start()]
-                if re.fullmatch(table["commandContext"], prefix, re.I):
-                    # Shell redirections apply even when SDK preload was absent.
-                    streams = {}
-                    for sink in re.finditer(table["streamSinkToken"], parts[index][command.end():]):
-                        if sink.group(2) is not None:
-                            streams[sink.group(1) or "1"] = sink.group(2)
-                    for descriptor, name in (("1", "stdout"), ("2", "stderr")):
-                        if streams.get(descriptor) == "/dev/null":
-                            prefix += " discarded " + name + ". "
                 parts[index] = prefix
+        for descriptor, name in (("1", "stdout"), ("2", "stderr")):
+            if descriptor in redirected and streams[descriptor][0] == "null":
+                parts[index] += ". " + name + " was discarded"
+        if redirected and streams["1"] == streams["2"] and streams["1"][0] in ("1", "2"):
+            direction = "stderr into stdout" if streams["1"][0] == "1" else "stdout into stderr"
+            parts[index] += ". The launcher redirected " + direction
     return "".join(parts)
 
 
@@ -1389,7 +1412,7 @@ def _returned_result(spec, clause, roles):
     if "unlinked_record" in kinds:
         return "ambiguous"
     if kinds.count("match") > 1:
-        return "ambiguous"
+        return "multiple_match"
     if "match" in kinds:
         return "mixed_match" if "miss" in kinds else "match"
     if "named" in kinds:
@@ -1401,6 +1424,7 @@ def _accounted_read(table, clause, identifiers):
     """Check every operand of the acquisition before allowing its structured outcome."""
     spec = table["confirmation"]["attribution"]
     grammar = spec["readOperand"]
+    clause = re.sub(grammar["selectedPart"], "", clause, flags=re.I)
     clause = re.sub(grammar["ageResult"], "", clause, flags=re.I)
     clause = re.sub(table["fileMentions"], " sourcevalue ", clause, flags=re.I)
     clause = re.sub(grammar["identifier"], r"\1identityvalue", clause, flags=re.I)
@@ -1468,6 +1492,11 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
         for check in owners:
             check.foreign_reader_only = True
         return True
+    quantified = re.fullmatch(stages["quantifiedMatches"], clause, re.I)
+    if quantified and quantified[1].lstrip("0") not in ("", "1"):
+        for check in owners:
+            check.record_multiple_matches()
+        return True
     group = re.fullmatch(stages["groupSize"], clause, re.I)
     if group:
         quantity = group[1].lower()
@@ -1506,13 +1535,24 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
             prior = re.fullmatch(stages["priorID"], identity, re.I)
             for check in owners:
                 if original or (value and value in original_ids) or (prior and check.latest_object == "match"):
-                    check.matched_objects = max(check.matched_objects, 2)
-                    check.ambiguous = True
+                    check.record_multiple_matches()
                 elif (value and original_ids) or (prior and check.latest_object == "miss"):
                     check.other_objects += 2
                 else:
                     check.unresolved_detail = True
             return True
+    quantity = re.match(stages["quantityQualifier"], clause, re.I)
+    if quantity and quantity[1].lstrip("0") not in ("", "1"):
+        # A stated group may contain only one original. Leave its membership
+        # open until the reader accounts for the individual returned records.
+        for check in owners:
+            if check.group_size is None:
+                count = quantity[1].lower()
+                check.group_size = (int(count) if count.isdigit() and len(count) < 7
+                                    else stages["cardinals"].get(count))
+                check.unresolved_population = check.group_size is None
+                check.unresolved_detail = True
+        return True
     reference = re.match(stages["resultReference"], clause, re.I)
     inverse = re.search(stages["objectReference"], clause, re.I)
     if not inverse and named:
@@ -1579,6 +1619,48 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
             check.returned_unbound = False
             applied = True
     return applied
+
+
+def _scope_constraints(spec, reports, quoted_values, source, result):
+    """Keep explicit restrictions on the reported lookup independent of result order."""
+    active = {source}
+    restrictions = {}
+    for clauses in reports:
+        for raw in clauses:
+            _, clause = _report_roles(spec, raw, quoted_values)
+            clause = clause.strip()
+            named = {kind for kind, pattern in spec["sources"].items() if re.search(pattern, clause, re.I)}
+            corrected = re.search(spec["correctedInspection"], clause, re.I)
+            if named and re.search(spec["lookupPerformed"], clause, re.I):
+                for kind in named:
+                    prior = restrictions.get(kind)
+                    if (prior == "confirmation_partial" and re.search(spec["exhaustiveCoverage"], clause, re.I)
+                            or prior == "confirmation_unchecked" and
+                            re.search(spec["ledger"]["subsequentPersonalRead"], clause, re.I)
+                            or corrected and prior in ("confirmation_other_source", "confirmation_other_file")
+                            and re.search(spec["original"], clause, re.I)):
+                        restrictions.pop(kind, None)
+            if re.fullmatch(spec["rowStages"]["exclusiveResultOwner"], clause, re.I):
+                for kind in set(spec["sources"]) - named:
+                    restrictions[kind] = "confirmation_other_source"
+                continue
+            reason = None
+            if re.fullmatch(spec["ledger"]["differentInstance"], clause, re.I):
+                reason = "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
+            elif re.fullmatch(spec["rowStages"]["delegatedRead"], clause, re.I):
+                reason = "confirmation_unchecked"
+            elif re.fullmatch(spec["ledger"]["deniedSource"], clause, re.I):
+                reason = "confirmation_unchecked"
+            elif re.fullmatch(spec["ledger"]["deniedIdentity"], clause, re.I):
+                reason = "confirmation_inconsistent"
+            elif result == "no-match" and re.fullmatch(spec["ledger"]["partialExtent"], clause, re.I):
+                reason = "confirmation_partial"
+            if reason:
+                for kind in named or active:
+                    restrictions[kind] = reason
+            elif named and re.search(spec["lookupPerformed"], clause, re.I):
+                active = named
+    return restrictions.get(source)
 
 
 def _confirmation_conflict(table, source, result, turns, action, facts, guide_origin, eligible):
@@ -1845,7 +1927,9 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                             and re.search(spec["returnAdditiveNamed"], result_clause, re.I)
                             and original_ids.intersection(roles["returnedIdentifier"])):
                         check.ambiguous = True
-                    if returned == "ambiguous":
+                    if returned == "multiple_match":
+                        check.record_multiple_matches()
+                    elif returned == "ambiguous":
                         check.ambiguous = True
                     elif returned == "unknown":
                         check.unaccounted = True
@@ -2080,6 +2164,10 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     conflict = check.compare(source, result, action, facts)
     if source in unresolved_stages and conflict in (None, "ask_evidence") and result != "unverified":
         return "confirmation_unresolved_lookup"
+    if result != "unverified" and conflict in (None, "ask_evidence", "confirmation_unresolved_lookup"):
+        restriction = _scope_constraints(spec, reports, quoted_values, source, result)
+        if restriction:
+            return restriction
     accounted_result = check.original_target and check.outcome == result
     needs_binding = narrative_gap or (check.referenced_check and check.outcome is None)
     unexplained = any(not kinds or source in kinds for kinds, _ in unbound_details)
@@ -2169,6 +2257,30 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         key = "node_discarded_decision"
     if "wantsApplicationReply" in roles and key in ("fallback", "ask_subject") and {"node", "stdout"} <= facts:
         key = _reply_stream(facts)
+    if "readDemoOnly" in facts and "disownedDemo" in roles and (
+        roles.intersection(("wantsBothStreams", "wantsApplicationReply", "wantsDecisionRecord"))
+        or facts.intersection(("wantReply", "requestedLocalRecord"))
+    ):
+        key = "node_demo_preview"
+    elif "ranDefaultNodeDemo" in facts:
+        if "ambiguousArtifacts" in roles:
+            key = "ask_subject"
+        elif "wantsBothStreams" in roles:
+            if {"stdoutMergedIntoStderr", "retainedCombinedStream"} <= facts:
+                key = "node_both_stderr"
+            elif {"stderrMergedIntoStdout", "retainedCombinedStream"} <= facts:
+                key = "node_both_stdout"
+            elif "onlyStdout" in roles:
+                key = "node_stdout_only_outputs"
+        elif "wantsDecisionRecord" in roles or "requestedLocalRecord" in facts or "explicitStderr" in roles:
+            if "discardedStderr" in facts:
+                key = "node_discarded_decision"
+            elif "stderrMergedIntoStdout" in facts:
+                key = "console_stdout"
+            else:
+                key = "node_console"
+        elif "explicitStdout" in roles:
+            key = _reply_stream(facts)
     if {"unavailableOriginal", "reusedTicket"} <= roles and key in ("ask_path", "ask_subject"):
         key = "ask_id"
     if "explicitWorkerConsole" in roles and "redirectErr" in facts and key in ("ask_exporter", "ask_subject"):
@@ -2181,6 +2293,10 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                  or roles.intersection(("retainedSourceStreams", "retainedNodeStreams",
                                         "archivedNodeArtifacts")))):
         key = _reply_stream(facts)
+    if {"handoffMarker", "markerExclusive"} <= roles:
+        roles.add("uniqueMarker")
+    if "discardedStderr" in facts and key == "console":
+        key = "node_discarded_decision"
     if {"uniqueMarker", "absentID"} <= roles and key in ("ask_id", "fallback", "jsonl_candidates"):
         key = "surviving_marker"
     sources = roles.intersection(("jsonl", "receiver", "storage"))
