@@ -1148,7 +1148,8 @@
     "discardedStderr": {
       "scope": "clause",
       "any": [
-        "\\b(?:I|we)\\s+(?:(?:explicitly|actually|already|deliberately)\\s+)*(?:discarded|deleted|dropped)\\s+(?:the\\s+)?(?:stderr|standard error)\\b|\\b(?:stderr|standard error)\\s+(?:was|had been|has been)\\s+(?:discarded|deleted|dropped)\\b|(?:^|\\s)2>\\s*/dev/null\\b"
+        "\\b(?:I|we)\\s+(?:(?:explicitly|actually|already|deliberately)\\s+)*(?:discarded|deleted|dropped)\\s+(?:the\\s+)?(?:stderr|standard error)\\b|\\b(?:stderr|standard error)\\s+(?:was|had been|has been)\\s+(?:discarded|deleted|dropped)\\b|(?:^|\\s)2>\\s*/dev/null\\b",
+        "\\b(?:I|we)\\s+(?:only\\s+(?:kept|retained|saved)|(?:kept|retained|saved)\\s+only)\\s+(?:the )?stdout\\b"
       ],
       "none": [
         "\\b(?:if|possibly|perhaps|would|may|might|not|never|example)\\b"
@@ -1166,7 +1167,8 @@
     "discardedStdout": {
       "scope": "clause",
       "any": [
-        "\\b(?:discarded|deleted|dropped) (?:the )?stdout\\b|\\bstdout was (?:discarded|deleted|dropped)\\b"
+        "\\b(?:discarded|deleted|dropped) (?:the )?stdout\\b|\\bstdout was (?:discarded|deleted|dropped)\\b",
+        "\\b(?:I|we)\\s+(?:only\\s+(?:kept|retained|saved)|(?:kept|retained|saved)\\s+only)\\s+(?:the )?stderr\\b"
       ],
       "none": [
         "\\b(?:if|might|maybe|perhaps)\\b"
@@ -1223,7 +1225,8 @@
     "explicitDemoStdout": {
       "scope": "request",
       "any": [
-        "^\\s*(?:the |my |original )*(?:stdout|standard output)\\b"
+        "^\\s*(?:the |my |original )*(?:stdout|standard output)\\b",
+        "\\bwhat(?:[’\\x27]s| is| was) (?:printed |written )?on (?:the )?stdout\\b"
       ],
       "none": [
         "\\b(?:or|stderr|decision)\\b"
@@ -1241,11 +1244,30 @@
     "explicitDemoStderr": {
       "scope": "request",
       "any": [
-        "^\\s*(?:the |my |original )*(?:stderr|standard error)\\b"
+        "^\\s*(?:the |my |original )*(?:stderr|standard error)\\b",
+        "\\bwhat(?:[’\\x27]s| is| was) (?:printed |written )?on (?:the )?stderr\\b"
       ],
       "none": [
         "\\b(?:or|stdout|reply)\\b"
       ]
+    },
+    "askedStdout": {
+      "any": [
+        "\\b(?:what(?:[’\\x27]s| is| was) (?:printed |written )?on|show me) (?:the )?stdout\\b"
+      ],
+      "scope": "clause"
+    },
+    "askedStderr": {
+      "any": [
+        "\\b(?:what(?:[’\\x27]s| is| was) (?:printed |written )?on|show me) (?:the )?stderr\\b"
+      ],
+      "scope": "clause"
+    },
+    "uncertainArtifact": {
+      "any": [
+        "\\b(?:do not know|don.t know|unsure|uncertain)\\s+(?:whether|if)\\s+(?:I|we)\\s+(?:want|need|mean)\\b[^.!?\\n]{0,90}\\bor\\b"
+      ],
+      "scope": "clause"
     }
   },
   "decisions": [
@@ -3903,7 +3925,7 @@
       },
       "neutralQuestionWords": "(?:what|where|when|how|which|whose|does|did|do|is|are|was|were|can|could|should|would|will|have|has|i|we|my|our|mine|its|it|this|that|these|those|the|a|an|to|of|in|from|on|at|about|and|or|for|by|there|already|still|actually|now|just|far|much|me|us|team|take|takes|show|shows|mean|means|prove|proves|establish|established|confirm|confirmed|verify|verified|say|tell|conclude|deduce|infer|know|find|locate|identify|check|need|do|demonstrate|support|justify|made|made it|sure|further|next|result|observation|evidence|check|lookup|readback|record|row|decision|original|run|stored|storage|receive|received|receipt|persisted|saved|file|source|matched|mine|in|archive|its|database|receiver|collector|downstream|written|got|proof|returned|conclusion|safe|exited|enough|sufficient|persistence|entry|reached|store|destination|read|scan|search|independent|been|query)",
       "resultOperand": {
-        "head": "^\\s*(?:(?:the|my|our|its|this|that|a|an|one|both|original|intended|downstream|configured|archived|retained|first|full|complete|matching|incoming|received|storage|receiver|collector|JSONL|only)\\s+)*(?:lookup|query|scan|search|readback|receiver|collector|store|storage|file|source|database|archive|row|record|entry|it|I|we|one)\\s+(?:(?:also|then|later|finally|personally|directly|actually|only|subsequently|independently)\\s+)*(?:returned|yielded|produced|contained|had|carried|showed|got|retrieved|found|obtained|saw|gave|came back with)\\s+",
+        "head": "^\\s*(?:(?:the|my|our|its|this|that|a|an|one|both|original|intended|downstream|configured|archived|retained|first|full|completed|finished|complete|matching|incoming|received|storage|receiver|collector|JSONL|only)\\s+)*(?:lookup|query|scan|search|readback|receiver|collector|store|storage|file|source|database|archive|row|record|entry|it|I|we|one)\\s+(?:(?:also|then|later|finally|personally|directly|actually|only|subsequently|independently)\\s+)*(?:returned|yielded|produced|contained|had|carried|showed|got|retrieved|found|obtained|saw|gave|came back with)\\s+",
         "compare": "\\s+and\\s+(?=(?:I|we)\\s+(?:checked|compared|matched|verified)|(?:checked|compared|matched)\\s+(?:its|the|that|my))",
         "objects": "\\s+and\\s+(?=(?:an?|the|one|two|another|no|zero|\\d+)\\s+)",
         "match": [
@@ -3942,6 +3964,14 @@
         "zero": "^(?:(?:no|zero|0)\\s+(?:matching\\s+)?(?:records?|rows?|entries|decisions?|matches|results?)|none)\\b"
       },
       "reportProductions": [
+        {
+          "pattern": "\\s*(?:at first|initially|in the beginning)\\s*,?\\s*((?:the|my) (?:query|lookup|scan|search) (?:was|remained) (?:pending|in progress))\\s*",
+          "canonical": "$1"
+        },
+        {
+          "pattern": "\\s*(?:the|my) (?:completed|finished) (query|lookup|scan|search)\\s+((?:returned|yielded|produced)\\s+.+)",
+          "canonical": "The $1 then $2"
+        },
         {
           "pattern": "\\s*(?:(?:the|only|one|single|actual|returned|retrieved|observed|matching|full|complete)\\s+)*(?:record|row|entry|decision|span)\\s+(?:had|bore|carried|contained|showed|included|was identified by)\\s+(?:(?:the|decision|unique|run|trace)\\s+)*(?:ID|identifier|marker)\\s*[:=]?\\s+([\\w.:-]+)\\s*",
           "canonical": "The query returned a record with decision ID $1"
@@ -4013,7 +4043,7 @@
           "(?:the |my |our |its |that |this )*original (?:launch |run )?(?:receipt|decision|ID|identifier|marker)(?:\\s+(?:(?:decision|trace|run)\\s+)?(?:ID|identifier|marker))?\\s+(?:matched|was identical to|was equal to|was the same as)\\s+(?:the |my |our |its |that |this )*(?:returned |retrieved |resulting )?(?:row|record|entry|decision|result)(?:\\s+(?:(?:decision|trace|run)\\s+)?(?:ID|identifier|marker))?",
           "(?:the |my |our |its |that |this )*(?:returned |retrieved |resulting )?(?:row|record|entry|decision|result)(?:\\s+(?:(?:decision|trace|run)\\s+)?(?:ID|identifier|marker))?\\s+(?:matched|was identical to|was equal to|was the same as)\\s+(?:the |my |our |its |that |this )*original (?:launch |run )?(?:receipt|decision|ID|identifier|marker)(?:\\s+(?:(?:decision|trace|run)\\s+)?(?:ID|identifier|marker))?"
         ],
-        "additional": "(?:another|an additional|a second|one more)\\s+(?:returned\\s+)?(?:row|record|entry|decision)\\s+(?:also\\s+)?(?:had|carried|bore|showed|contained)\\s+(?:the|a|an)\\s+(same|original|different)\\s+(?:(?:decision|run|trace)\\s+)?(?:ID|identifier|marker)",
+        "additional": "(?:(?:the|that|my) (?:other|additional|second|next)|another|an additional|a second|one more)\\s+(?:returned\\s+)?(?:row|record|entry|decision)\\s+(?:also\\s+)?(?:had|carried|bore|showed|contained)\\s+(?:the|a|an)\\s+(same|original|different)\\s+(?:(?:decision|run|trace)\\s+)?(?:ID|identifier|marker)",
         "personalGap": "\\b(?:(?:(?:pages?|rows?|entries|records?|shards?|partitions?|results?)\\s+(?:(?:which|that)\\s+)?(?:I|we)\\s+(?:had not|have not|did not|never|hadn.t|haven.t|didn.t)\\s+(?:personally\\s+)?(?:read|check(?:ed)?|scan(?:ned)?|inspect(?:ed)?|search(?:ed)?|open(?:ed)?)|(?:I|we)\\s+(?:did not|never|didn.t)\\s+(?:read|check|scan|inspect|search)\\s+(?:all|every)\\s+(?:the\\s+)?(?:pages?|rows?|entries|records?|results?))\\b)",
         "unknownResult": "^\\s*(?:(?:the|that|this|its|their|my|our|an?|another|some|those|remaining|additional|other|second|last)\\s+)*(?:(?:original|returned|retrieved|matching|observed|checked|earlier|later|remaining|additional|extra|resulting|source|material|search|query|row|lookup)\\s+)*(?:rows?|entr(?:y|ies)|records?|results?|identifiers?|IDs?|receipts?|comparisons?|coverage|pages?|shards?|partitions?|checks?)\\b",
         "resultReference": "^(?:(?:that|this|the|its|those|these)\\s+(?:(?:same|empty|matching|returned|retrieved|preceding|previous|original|positive|negative)\\s+)*(?:rows?|results?|decisions?|records?|entr(?:y|ies)|responses?|match(?:es)?|absence|outcomes?)|it)\\s+",
@@ -4021,11 +4051,15 @@
         "remainingPortion": "\\b(?:the (?:rest|remainder)|(?:remaining|unread|unexamined|unsearched|uninspected|outstanding|skipped)\\s+(?:entries|rows|pages|records|partitions|shards)|(?:entries|rows|pages|records|partitions|shards)\\s+(?:left|remaining|outstanding))\\b",
         "sourceOfResult": "\\b(?:was|is|became|served as)\\s+(?:(?:actually|really|originally|the|its|only|true|actual)\\s+)*(?:source|origin|location)\\s+(?:of|for)\\s+(?:the|that|this|those|these)\\s+(?:(?:same|empty|returned|matching)\\s+)*(?:results?|rows?|records?|entr(?:y|ies)|matches?|response)\\b",
         "objectReference": "\\b(?:that|this|those|these|the same|the very)\\s+(?:(?:empty|matching|returned|observed|original|very|same|receiver|storage|store|file)\\s+)*(?:results?|rows?|decisions?|records?|entr(?:y|ies)|responses?|outcomes?)\\b",
-        "completedReturn": "^\\s*(?:it|the (?:query|lookup|search|scan))\\s+(?:(?:then|later|finally|subsequently|eventually|actually|also)\\s+)*(?:returned|yielded|produced)\\b",
+        "completedReturn": "^\\s*(?:it|the (?:(?:completed|finished) )?(?:query|lookup|search|scan))\\s+(?:(?:then|later|finally|subsequently|eventually|actually|also)\\s+)*(?:returned|yielded|produced)\\b",
         "unlinkedIdentifier": "^(?:I|we|the query|the lookup|it)\\s+(?:(?:personally|actually|then|independently)\\s+)*(?:found|returned|read|retrieved|obtained)\\s+(?:a|one|a single)\\s+(?:full |complete )?(?:row|entry|record|decision)\\s+(?:with|containing|bearing|carrying) (?:a|an) (?:decision |trace |run )?(?:ID|identifier|marker)$",
         "multiplicityHead": "^(?:both|(?:each|every one|all) of (?:the )?(?:two|three|four|five|six|seven|eight|nine|ten|[0-9]+)|(?:all |the )?(?:two|three|four|five|six|seven|eight|nine|ten|[0-9]+))\\s+(?:returned |matching )?(?:rows|records|entries|decisions)\\s+(?:each |also |all )?(?:had|carried|bore|showed|contained|matched|shared|included)\\s+",
         "multipleOriginal": "(?:(?:the|my|our|same|original|exact)\\s+)*(?:same|original|exact)\\s+(?:decision |run |trace )?(?:ID|identifier|marker)",
-        "multipleNamed": "(?:(?:the|my|our)\\s+)?(?:decision |run |trace )?(?:ID|identifier|marker)\\s+([\\w.:-]+)"
+        "multipleNamed": "(?:(?:the|my|our)\\s+)?(?:decision |run |trace )?(?:ID|identifier|marker)\\s+([\\w.:-]+)",
+        "secondarySubject": "^\\s*(?:the other|that other|the second|another|an additional|one more)\\s+(?:returned\\s+)?(?:row|record|entry|decision)\\b",
+        "definiteObject": "\\b(?:the|its)\\s+(?:(?:same|other|original|matching|returned|retrieved|reported|observed|positive|negative|zero|empty|first|second|final|two|single)\\s+)*(?:rows?|records?|decisions?|entr(?:y|ies)|counts?|totals?|results?|responses?|matches|outcomes?)\\b",
+        "sourceSubject": "^\\s*(?:(?:the|my|our|original|intended|configured|upstream|downstream|remote|local)\\s+)*(?:receiver|collector|endpoint|store|storage|database|file|jsonl|export)\\b",
+        "secondaryExcludesOriginal": "^(?:the other|that other|the second|another|an additional|one more)\\s+(?:returned\\s+)?(?:row|record|entry|decision)\\s+(?:(?:did not|didn.t|never)\\s+(?:match(?:ed)?|have|had|contain(?:ed)?|carr(?:y|ied)|bear|bore)|(?:failed to match|excluded))\\s+(?:the |my |our )?original\\s+(?:decision |run |trace )?(?:ID|identifier|marker)\\s*$"
       }
     },
     "observation": {
@@ -4834,8 +4868,24 @@
       "sourceQuestion": "(?:(?:what|how much) (?:can|could) (?:I|we) (?:verify|establish|confirm|learn|see|check) (?:from|using|at|in|about) (?:(?:the|my|our|original|configured|intended|local|downstream|export|incoming)\\s+)*(?:JSONL(?: file)?|receiver(?: log)?|store|storage|database|archive)|where (?:is|was|can (?:I|we) (?:find|locate)) (?:(?:the|my|our|original|configured|intended|local|downstream|export|incoming)\\s+)*(?:JSONL(?: file)?|receiver(?: log)?|store|storage|database|archive)|(?:which|what) (?:(?:the|my|our|original|configured|intended|local|downstream|export|incoming)\\s+)*(?:JSONL(?: file)?|receiver(?: log)?|store|storage|database|archive) (?:should|can) (?:I|we) (?:check|open|inspect|search))(?:\\s+(?:for|using)\\s+(?:(?:the|my|our|original|decision|lookup|unique)\\s+)*(?:ID|identifier|marker)(?:\\s+[\\w.:-]+)?)?"
     },
     "phraseRoles": {
-      "split": "(?:[.!?;](?=\\s|$)|\\n+|,?\\s+and\\s+(?=(?:I|(?:the|my) original (?:writer|launch|run|deployment|receipt|config(?:uration)?)|got|obtained|received|retrieved)\\b))",
+      "split": "(?:[.!?;](?=\\s|$)|\\n+|,?\\s+and\\s+(?=(?:I|(?:the|my) original (?:writer|launch|run|deployment|receipt|config(?:uration)?)|its (?:writer|launch)|got|obtained|received|retrieved)\\b))|,\\s+(?=(?:I|we)\\s+(?:found|saw|observed|read)\\b)",
       "lexemes": [
+        [
+          "DENIEDID",
+          "(?:I\\s+(?:(?:do\\s+not|don[’\\x27]t)\\s+(?:have|know)|lack)|without)\\s+(?:(?:its|the|my|raw|original|exact)\\s+)*(?:decision\\s+id|identifier)|(?:the |my |our )?(?:(?:launch |original )?receipt (?:with|containing|that had) (?:the )?)?(?:raw |original )?decision ID (?:is|was) (?:gone|lost|unavailable|missing)"
+        ],
+        [
+          "RECEIPTAPP",
+          "(?:[\\w]+[-_:][\\w:-]+|[\"“][^\"”\\n]{1,120}[\"”])\\s*,\\s*(?:the |my )?(?:(?:original|launch)\\s+)?decision ID (?:on|from|in) (?:my |our |the )?(?:original|first)(?: launch)? receipt"
+        ],
+        [
+          "DISOWN",
+          "(?:I|we)\\s+(?:(?:have |had )?never|did not|didn.t)\\s+(?:run|ran|launch|start|use|execute)(?:\\s+(?:it|that|this|the)(?: (?:demo|example|program))?)?"
+        ],
+        [
+          "AUTHORRAN",
+          "enabled|ran with"
+        ],
         [
           "NODEDEMO",
           "(?:published\\s+)?node(?:\\.js)?\\s+(?:demo|example)"
@@ -4874,7 +4924,7 @@
         ],
         [
           "RECEIPT",
-          "(?:original|first|initial)\\s+(?:(?:launch|run|decision)\\s+)?receipt"
+          "(?:original\\s+(?:(?:launch|run|decision)\\s+)?|launch\\s+|first\\s+(?:launch\\s+)?)receipt"
         ],
         [
           "CONFIG",
@@ -4886,19 +4936,15 @@
         ],
         [
           "TARGET",
-          "(?:decision[_ ]id|decision identifier)\\s+(?:[\"“][^\"”\\n]{1,120}[\"”]|[\\w][\\w.:-]*[\\w]|[\\w])"
+          "(?:original\\s+)?(?:decision[_ ]id|decision identifier)\\s+(?:[\"“][^\"”\\n]{1,120}[\"”]|[\\w][\\w.:-]*[\\w]|[\\w])"
         ],
         [
           "MARKER",
-          "(?:run[- ]unique|unique)\\s+(?:marker|correlation)\\s+(?:[\"“][^\"”\\n]{1,120}[\"”]|[\\w][\\w.:-]*[\\w]|[\\w])"
+          "(?:run[- ]unique|unique)\\s+(?:marker|correlation)\\s*[,=:]?\\s+(?:[\"“][^\"”\\n]{1,120}[\"”]|[\\w][\\w.:-]*[\\w]|[\\w])"
         ],
         [
           "RECEIVER",
-          "(?:(?:incoming|inbound|ingress)\\s+(?:records?|logs?)\\s+(?:of|at|on|from)\\s+(?:the\\s+)?)?receiver(?:[’\\x27]s\\s+(?:incoming\\s+)?log)?"
-        ],
-        [
-          "STORE",
-          "(?:(?:independent|intended|downstream|original)\\s+){0,2}(?:store|storage|database)"
+          "(?:(?:incoming|inbound|ingress)\\s+(?:records?|logs?)\\s+(?:of|at|on|from)\\s+(?:the\\s+)?)?receiver(?:(?:[’\\x27]s)?\\s+(?:incoming\\s+)?log)?"
         ],
         [
           "FILE",
@@ -4929,20 +4975,12 @@
           "after\\s+(?:the\\s+)?(?:writer|worker|process|job|run)\\s+(?:exited|ended|finished)"
         ],
         [
-          "DENIEDID",
-          "(?:I\\s+(?:(?:do\\s+not|don[’\\x27]t)\\s+(?:have|know)|lack)|without)\\s+(?:(?:its|the|my|raw|original|exact)\\s+)*(?:decision\\s+id|identifier)"
-        ],
-        [
           "UNREAD",
-          "(?:nobody|no\\s+one)\\s+(?:queried|read|checked|searched|inspected)"
-        ],
-        [
-          "AUTHOR",
-          "(?:gives|names|lists|provides|specifies|identifies|records|indicates|shows|uses|used|contains|designates)|gave|provided"
+          "(?:nobody|no\\s+one)\\s+(?:queried|read|checked|searched|inspected)|(?:I|we)\\s+(?:did not|never|didn.t)\\s+(?:query|search|read|inspect|open|check)|(?:I|we)\\s+have\\s+no\\s+readback\\s+from"
         ],
         [
           "INSPECT",
-          "(?:queried|inspected|opened|reopened|examined|searched)"
+          "(?:(?:when|after)\\s+)?(?:queried|inspected|opened|reopened|examined|searched)"
         ],
         [
           "BIND",
@@ -4958,23 +4996,11 @@
         ],
         [
           "HAVE",
-          "(?:have|hold|kept|retained|recovered|possess)"
-        ],
-        [
-          "SELF",
-          "(?:I|me)"
+          "wrote down|saved|(?:have|hold|kept|retained|recovered|possess)"
         ],
         [
           "AUX",
           "was|is|were"
-        ],
-        [
-          "AT",
-          "from|on|in|at|of|by|for"
-        ],
-        [
-          "IGNORE",
-          "(?:my|our|the|an?|its|that|personally|independently|back|too)|which|that"
         ],
         [
           "EXPORT",
@@ -5007,6 +5033,98 @@
         [
           "RUN",
           "this run"
+        ],
+        [
+          "DEMO",
+          "demo"
+        ],
+        [
+          "WRITE",
+          "wrote|printed|sent"
+        ],
+        [
+          "APPREPLY",
+          "(?:actual\\s+)?(?:application|app|customer)?\\s*reply(?:\\s+text)?"
+        ],
+        [
+          "METADATA",
+          "(?:SDK |decision )?metadata"
+        ],
+        [
+          "STDOUT",
+          "stdout|standard output"
+        ],
+        [
+          "STDERR",
+          "stderr|standard error"
+        ],
+        [
+          "GOAL",
+          "(?:the )?(?:customer|reader|user|reviewer|I)\\s+(?:wants?|needs?|requested)"
+        ],
+        [
+          "NOT",
+          "not"
+        ],
+        [
+          "DECISION",
+          "decision"
+        ],
+        [
+          "TO",
+          "to"
+        ],
+        [
+          "FOUND",
+          "found|observed|saw|read"
+        ],
+        [
+          "WHICHBOUND",
+          "which (?:part|stage) of delivery"
+        ],
+        [
+          "REPORTAS",
+          "can I report as confirmed"
+        ],
+        [
+          "COPYORIGINAL",
+          "(?:copied|retrieved|recovered|took) (?:the |that )?file (?:directly )?(?:out of|from) (?:the |my |our )?original (?:writer|job|run|launch)[’\\x27]s working directory"
+        ],
+        [
+          "ASSIGNED",
+          "(?:its |the |my )?(?:writer|launch) (?:config|configuration) (?:points to|lists|specifies|designates)"
+        ],
+        [
+          "AUTHOR",
+          "(?:gives|names|lists|provides|specifies|identifies|records|indicates|shows|uses|used|contains|designates)|gave|provided"
+        ],
+        [
+          "AT",
+          "from|on|in|at|of|by|for"
+        ],
+        [
+          "SELF",
+          "(?:I|me)"
+        ],
+        [
+          "STORE",
+          "(?:(?:independent|intended|downstream|original)\\s+){0,2}(?:store|storage|database)"
+        ],
+        [
+          "IGNORE",
+          "(?:my|our|the|an?|its|that|personally|independently|back|too)|which|that|when"
+        ],
+        [
+          "PERSISTENCE",
+          "persistence"
+        ],
+        [
+          "IT",
+          "it"
+        ],
+        [
+          "CONCLUDE",
+          "conclude"
         ]
       ],
       "shapes": {
@@ -5069,12 +5187,76 @@
         ],
         "NODEDEMO AUTHOR CONSOLE|CONSOLE AUX BIND AT NODEDEMO": [
           "consoleDemo"
+        ],
+        "SELF HAVE MARKER": [
+          "uniqueMarker"
+        ],
+        "DISOWN": [
+          "disownedDemo"
+        ],
+        "NODEDEMO (?:AUTHOR|AUTHORRAN|BIND) CONSOLE|CONSOLE AUX BIND AT NODEDEMO": [
+          "consoleDemo"
+        ],
+        "(?:NODEDEMO|DEMO) WRITE APPREPLY TO STDOUT AND (?:AUTHORRAN|BIND|AUTHOR) CONSOLE AT DECISION": [
+          "consoleDemo",
+          "replyStream"
+        ],
+        "GOAL APPREPLY(?: NOT METADATA)?": [
+          "wantsApplicationReply"
+        ],
+        "(?:AFTER )?SELF INSPECT (?:RECEIVER|STORE) (?:BIND )?AT CONFIG(?: AFTER)?": [
+          "reader",
+          "source",
+          "origin"
+        ],
+        "SELF FOUND ONE AT RECEIPTAPP": [
+          "match",
+          "target",
+          "appositiveID"
+        ],
+        "(?:IT |SELF )?RETURN RECORD": [
+          "unlinked"
+        ],
+        "WHICHBOUND REPORTAS|ASK SELF CONCLUDE ABOUT PERSISTENCE": [
+          "question"
+        ],
+        "SELF COPYORIGINAL": [
+          "availableFile",
+          "copiedOriginal"
+        ],
+        "ASSIGNED FILE": [
+          "jsonl",
+          "assignedFile",
+          "origin"
+        ],
+        "UNREAD RECEIVER": [
+          "unreadReceiver"
+        ],
+        "UNREAD (?:ORIGINALFILE|SAMEFILE)": [
+          "unreadFile"
+        ],
+        "ASK NOTE SAY ABOUT TRANSPORT AND STORE": [
+          "question"
+        ],
+        "ATTEMPT (?:AUTHORRAN|AUTHOR|BIND) MARKER|MARKER (?:AUX )?BIND AT ATTEMPT": [
+          "uniqueMarker"
+        ],
+        "CONFIG (?:AUTHORRAN|AUTHOR|BIND) FILE": [
+          "jsonl",
+          "origin",
+          "assignedFile"
         ]
       },
-      "valuePrefix": "^(?:decision[_ ]id|decision identifier|(?:run[- ]unique|unique)\\s+(?:marker|correlation))\\s+",
+      "valuePrefix": "^(?:(?:original\\s+)?decision[_ ]id|decision identifier|(?:run[- ]unique|unique)\\s*[,=:]?\\s+(?:marker|correlation))\\s*[,=:]?\\s+",
       "unsupportedValue": "^(?:on|for|my|to|is|was|of|from|on|that|and|in|had|has|as|at|with|unknown|unsure|unavailable|did|printed|was|the|not|never|after|before|which|record|matching|appears|here)$",
       "denial": "\\b(?:not|never|wrong|different|instead|another|other|coworker|colleague|unavailable|offline|missing|unverified|copy|copied)\\b",
-      "sourceNoun": "\\b(?:file|path|jsonl|receipt|decision ID|marker)\\b"
+      "sourceNoun": "\\b(?:file|path|jsonl|receipt|decision ID|marker)\\b",
+      "appositiveValue": "^([^,]+),",
+      "unreadBySource": {
+        "storage": "unreadStorage",
+        "receiver": "unreadReceiver",
+        "jsonl": "unreadFile"
+      }
     }
   },
   "localFileCheck": {

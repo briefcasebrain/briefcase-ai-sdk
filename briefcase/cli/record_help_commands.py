@@ -458,11 +458,13 @@ def _complete_check(table, facts):
 
 def _select(table: Dict[str, Any], facts: Set[str]) -> str:
     stream = table["requestedDemoStream"]
-    goals = [name for fact, name in stream["goals"].items() if fact in facts]
+    goals = {name for fact, name in stream["goals"].items() if fact in facts or "asked" + name.title() in facts}
+    if "uncertainArtifact" in facts and {"local", "hosted"} <= facts:
+        return "ask_subject"
     if len(goals) == 1 and not facts.isdisjoint(stream["launch"]) and facts.isdisjoint(stream["incompatible"]):
-        original = goals[0]
+        original = next(iter(goals))
         sink = original
-        if stream["merges"][original] in facts and "retainedCombinedStream" in facts:
+        if stream["merges"][original] in facts:
             sink = "stderr" if original == "stdout" else "stdout"
         if stream["discarded"][sink] in facts:
             sink = "discarded"
@@ -1335,6 +1337,10 @@ def _phrase_observation(table, turns):
                 facts.add("receiver" if "RECEIVER" in values else "storage")
             if "target" in roles:
                 ids.update(values.get("TARGET", []))
+                for apposition in values.get("RECEIPTAPP", []):
+                    target = re.match(spec["appositiveValue"], apposition)
+                    if target:
+                        ids.add(target[1].strip('"“”'))
             files.update(values.get("FILE", []))
             outcomes.extend(role for role in roles if role in ("match", "miss", "unlinked"))
     if "corroborates" in facts and outcomes == ["unlinked"]:
@@ -1525,6 +1531,12 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
             return True
     reference = re.match(stages["resultReference"], clause, re.I)
     inverse = re.search(stages["objectReference"], clause, re.I)
+    if not inverse and named:
+        definite = re.search(stages["definiteObject"], clause, re.I)
+        if definite and any(re.search(spec["sources"][kind], clause[:definite.start()], re.I) for kind in named):
+            # A source as grammatical subject can identify the prior result without a demonstrative.
+            if re.match(stages["sourceSubject"], clause[:definite.start()], re.I):
+                inverse = definite
     if (reference or inverse) and named:
         # A back-reference describes the immediately preceding observation. A
         # second source's mention is not a second independent lookup.
@@ -1547,12 +1559,22 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
         re.fullmatch(pattern, clause, re.I) for pattern in stages[kind]
     )), None)
     additional = re.fullmatch(stages["additional"], clause, re.I)
+    if re.fullmatch(stages["secondaryExcludesOriginal"], clause, re.I):
+        for check in owners:
+            check.add_object("miss")
+        return True
     if not (equality or additional):
+        if re.match(stages["secondarySubject"], clause, re.I):
+            for check in owners:
+                check.unresolved_detail = True
         return False
     applied = False
     for check in owners:
         comparison = ("match" if equality == "same" else "miss") if equality else additional[1].lower()
         if not check.latest_object:
+            if additional and comparison in ("original", "different"):
+                check.add_object("match" if comparison == "original" else "miss")
+                applied = True
             if equality:
                 check.pending_relation = comparison
                 check.outcome = "matched" if comparison == "match" else "no-match"
@@ -2111,8 +2133,13 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             and len(target_ids) <= 1 and not roles.intersection(("unresolvedProvenance", "absentID"))):
         if key in table["lookupLanguage"]["missingActions"] or key == "fallback":
             key = "jsonl"
-    if "consoleDemo" in roles and "wantMeta" in facts and key in ("ask_subject", "ask_exporter"):
+    if ("consoleDemo" in roles and "disownedDemo" not in roles and key in ("ask_subject", "ask_exporter")
+            and ("wantMeta" in facts or facts.intersection(("askedStderr", "askedStdout",
+                                                           "explicitDemoStderr", "explicitDemoStdout")))):
         key = _select(table, facts | {"nodeDemoConsole", "node", "metadata"})
+    if "wantsApplicationReply" in roles and key in ("fallback", "ask_subject") and {"node", "stdout"} <= facts:
+        key = ("reply_stdout_discarded" if "discardedStdout" in facts else
+               "reply_stderr" if "stdoutMergedIntoStderr" in facts else "reply")
     if {"uniqueMarker", "absentID"} <= roles and key in ("ask_id", "fallback", "jsonl_candidates"):
         key = "surviving_marker"
     sources = roles.intersection(("jsonl", "receiver", "storage"))
@@ -2137,7 +2164,10 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             missing = _observation_action(report)
             conflict = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin,
                                               eligible=not missing)
-            if ("contraryID" in roles and source in sources and "reader" in roles and result == "matched"):
+            if (table["lookupLanguage"]["phraseRoles"]["unreadBySource"][source] in roles
+                    and result != "unverified" and source in sources):
+                conflict = "confirmation_unchecked"
+            elif ("contraryID" in roles and source in sources and "reader" in roles and result == "matched"):
                 conflict = "confirmation_inconsistent"
             elif account and account.disputed and result != "unverified":
                 conflict = "confirmation_ambiguous"
@@ -2775,9 +2805,7 @@ def _verify_local_file(table, args):
 
 def _queued_terminal_lines(stream):
     """Collect input already submitted to an otherwise complete flag invocation."""
-    import io
-
-    if isinstance(stream, io.StringIO):
+    if stream.seekable():
         return stream.read().splitlines()
     if os.name == "nt":
         import msvcrt

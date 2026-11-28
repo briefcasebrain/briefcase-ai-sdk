@@ -50644,5 +50644,1180 @@
       "sourceMatch": "original",
       "targetMatch": "original"
     }
+  },
+  {
+    "name": "Source qualifier AQ02",
+    "question": "Two attempts reused the ticket number, and our backup folder only contains a teammate’s hand-carried JSONL copy. The original export volume is disconnected. What would let me identify the first decision if we recover the volume?",
+    "expected": "surviving_marker",
+    "includes": [
+      "Retrieve the su"
+    ],
+    "answer": "I wrote down a run-unique marker, lintel-604. The receipt with the raw decision ID is gone."
+  },
+  {
+    "name": "Source qualifier AQ07",
+    "question": "For our Node demo I need the SDK decision’s total token usage, not the answer shown to the customer. The demo wrote the reply to stdout and used a console exporter for the decision. We retained both streams. Where is the count?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retaine"
+    ]
+  },
+  {
+    "name": "Source qualifier AQ08",
+    "question": "We archived the Node demo’s stdout and the console exporter’s stderr separately. A colleague asked me for the output of that run. Which archive should I send them to?",
+    "expected": "reply",
+    "includes": [
+      "Read retained s"
+    ],
+    "answer": "The customer wants the actual application reply text, not decision metadata."
+  },
+  {
+    "name": "Source qualifier AQ09",
+    "question": "Is my specific decision present in this JSONL export? I copied the file directly out of the original job’s working directory, and its writer configuration points to shift-ledger.jsonl. The original receipt gives decision ID Crane-581. I have not searched the rows.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the origin"
+    ]
+  },
+  {
+    "name": "Source qualifier AQ11",
+    "question": "When I opened the receiver log from the original deployment, I found exactly one entry for finial-803, the decision ID on my original receipt. I have no readback from storage. Which part of delivery can I report as confirmed?",
+    "expected": "storage",
+    "includes": [
+      "A receiver entr"
+    ]
+  },
+  {
+    "name": "Source qualifier AQ11 report",
+    "question": "When I opened the receiver log from the original deployment, I found exactly one entry for finial-803, the decision ID on my original receipt. I have no readback from storage. Which part of delivery can I report as confirmed?",
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a "
+    ],
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier AQ12",
+    "question": "After the process finished I personally queried the store named by its original configuration. It returned a full decision record. The launch receipt gives original decision ID hollow-426. What can I conclude about persistence?",
+    "expected": "query_storage",
+    "includes": [
+      "Search the down"
+    ]
+  },
+  {
+    "name": "Source qualifier AQ12 report",
+    "question": "After the process finished I personally queried the store named by its original configuration. It returned a full decision record. The launch receipt gives original decision ID hollow-426. What can I conclude about persistence?",
+    "expected": "ask_evidence",
+    "includes": [],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier AQ12 yes",
+    "question": "After the process finished I personally queried the store named by its original configuration. It returned a full decision record. The launch receipt gives original decision ID hollow-426. What can I conclude about persistence?",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "yes"
+    }
+  },
+  {
+    "name": "Source qualifier AQ12 no",
+    "question": "After the process finished I personally queried the store named by its original configuration. It returned a full decision record. The launch receipt gives original decision ID hollow-426. What can I conclude about persistence?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "no"
+    }
+  },
+  {
+    "name": "Source qualifier AQ12 unsure",
+    "question": "After the process finished I personally queried the store named by its original configuration. It returned a full decision record. The launch receipt gives original decision ID hollow-426. What can I conclude about persistence?",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete",
+      "evidenceReply": "unsure"
+    }
+  },
+  {
+    "name": "Source qualifier review 0 0",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID. The query returned a row with ID quartz-64. The other row also had the original ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 0 1",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The query returned a row with ID quartz-64. The other row also had the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 1 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID. The receiver supplied the matching row.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 1 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver supplied the matching row.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 2 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records. The receiver supplied the zero count.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 2 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned zero matching records. The receiver supplied the zero count.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 3 0",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back. Nobody queried the store.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the inte"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 3 1",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the inte"
+    ],
+    "answer": "Nobody queried the store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 4 0",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back. The returned row carried the same ID as the original receipt. Nobody queried the store.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the inte"
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 4 1",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the inte"
+    ],
+    "answer": "The returned row carried the same ID as the original receipt. Nobody queried the store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 5 0",
+    "question": "I queried the intended downstream store for the original decision ID. At first the query was pending. The completed query returned one record with the original ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a "
+    ],
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier review 5 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a "
+    ],
+    "answer": "At first the query was pending. The completed query returned one record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity the other artz-64. False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The query returned a row with ID quartz-64. The other row also carried the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity the other artz-64. True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The other row also carried the original decision ID. The query returned a row with ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity the other inal ID. False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The query returned a row with the original ID. The other row also carried the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity the other inal ID. True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The other row also carried the original decision ID. The query returned a row with the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity the second artz-64. False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The query returned a row with ID quartz-64. The second row also carried the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity the second artz-64. True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The second row also carried the original decision ID. The query returned a row with ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity the second inal ID. False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The query returned a row with the original ID. The second row also carried the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity the second inal ID. True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The second row also carried the original decision ID. The query returned a row with the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity another artz-64. False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The query returned a row with ID quartz-64. Another row also carried the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity another artz-64. True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "Another row also carried the original decision ID. The query returned a row with ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity another inal ID. False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The query returned a row with the original ID. Another row also carried the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity another inal ID. True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "Another row also carried the original decision ID. The query returned a row with the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity one more artz-64. False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The query returned a row with ID quartz-64. One more row also carried the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity one more artz-64. True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "One more row also carried the original decision ID. The query returned a row with ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity one more inal ID. False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "The query returned a row with the original ID. One more row also carried the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier row identity one more inal ID. True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn"
+    ],
+    "answer": "One more row also carried the original decision ID. The query returned a row with the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source storage matched supplied",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver supplied the matching row.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source storage matched published",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver published the matching row.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source storage matched generated",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver generated the matching row.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source storage no-match supplied",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned zero matching records. The receiver supplied the zero count.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source storage no-match published",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned zero matching records. The receiver published the zero count.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source storage no-match generated",
+    "question": "I searched the intended downstream store for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned zero matching records. The receiver generated the zero count.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source receiver matched supplied",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned a record with the original ID. The downstream store supplied the matching row.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source receiver matched published",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned a record with the original ID. The downstream store published the matching row.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source receiver matched generated",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned a record with the original ID. The downstream store generated the matching row.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source receiver no-match supplied",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned zero matching records. The downstream store supplied the zero count.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source receiver no-match published",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned zero matching records. The downstream store published the zero count.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source receiver no-match generated",
+    "question": "I searched the intended receiver for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned zero matching records. The downstream store generated the zero count.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source jsonl matched supplied",
+    "question": "I searched the intended original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver supplied the matching row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source jsonl matched published",
+    "question": "I searched the intended original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver published the matching row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source jsonl matched generated",
+    "question": "I searched the intended original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned a record with the original ID. The receiver generated the matching row.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source jsonl no-match supplied",
+    "question": "I searched the intended original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned zero matching records. The receiver supplied the zero count.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source jsonl no-match published",
+    "question": "I searched the intended original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned zero matching records. The receiver published the zero count.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier competing source jsonl no-match generated",
+    "question": "I searched the intended original JSONL file for the original decision ID.",
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which sou"
+    ],
+    "answer": "The query returned zero matching records. The receiver generated the zero count.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier denial Nobody queried the store. 0",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the inte"
+    ],
+    "answer": "Nobody queried the store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier denial Nobody queried the store. 1",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back. The returned row carried the same ID as the original receipt.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the inte"
+    ],
+    "answer": "Nobody queried the store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier denial I never searched the store. 0",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the inte"
+    ],
+    "answer": "I never searched the store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier denial I never searched the store. 1",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back. The returned row carried the same ID as the original receipt.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the inte"
+    ],
+    "answer": "I never searched the store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier denial We did not inspect the intended store. 0",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the inte"
+    ],
+    "answer": "We did not inspect the intended store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier denial We did not inspect the intended store. 1",
+    "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back. The returned row carried the same ID as the original receipt.",
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the inte"
+    ],
+    "answer": "We did not inspect the intended store.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier stream and intent 0",
+    "question": "The Node demo uses the console exporter. I never ran it. I need the token count from my original run.",
+    "expected": "ask_exporter",
+    "includes": [
+      "Which exporter "
+    ]
+  },
+  {
+    "name": "Source qualifier stream and intent 1",
+    "question": "My Node demo used the console exporter. Show me stderr.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retaine"
+    ]
+  },
+  {
+    "name": "Source qualifier stream and intent 2",
+    "question": "I ran the published Node demo using its defaults. What's on stderr?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retaine"
+    ]
+  },
+  {
+    "name": "Source qualifier stream and intent 3",
+    "question": "I ran the published Node demo using its defaults. I kept only stdout. Show me stderr.",
+    "expected": "console_discarded_metadata",
+    "includes": [
+      "Check any other"
+    ]
+  },
+  {
+    "name": "Source qualifier stream and intent 4",
+    "question": "I ran the published Node demo using its defaults. I redirected stdout to stderr. Show me stdout.",
+    "expected": "reply_stderr",
+    "includes": [
+      "Read retained s"
+    ]
+  },
+  {
+    "name": "Source qualifier stream and intent 5",
+    "question": "I ran the published Node demo using its defaults. I do not know whether I want the local decision or the hosted run.",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking"
+    ]
+  },
+  {
+    "name": "Source qualifier stream and intent 6",
+    "question": "I ran the published Node demo using its defaults. I only saved stderr. Show me stdout.",
+    "expected": "reply_stdout_discarded",
+    "includes": [
+      "If another copy"
+    ]
+  },
+  {
+    "name": "Source qualifier stream and intent 7",
+    "question": "I ran the published Node demo using its defaults. I redirected stderr to stdout. Show me stderr.",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retaine"
+    ]
+  },
+  {
+    "name": "Source qualifier excluded secondary 0 False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported on"
+    ],
+    "answer": "The query returned a row with ID quartz-64. The other row never contained the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier excluded secondary 0 True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported on"
+    ],
+    "answer": "The other row never contained the original ID. The query returned a row with ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier excluded secondary 1 False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported on"
+    ],
+    "answer": "The query returned a row with ID quartz-64. Another row did not match the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier excluded secondary 1 True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported on"
+    ],
+    "answer": "Another row did not match the original decision ID. The query returned a row with ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier excluded secondary 2 False",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported on"
+    ],
+    "answer": "The query returned a row with ID quartz-64. The second entry bore a different ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
+  },
+  {
+    "name": "Source qualifier excluded secondary 2 True",
+    "question": "My original decision ID was quartz-64. I searched entries.jsonl for my original decision ID.",
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported on"
+    ],
+    "answer": "The second entry bore a different ID. The query returned a row with ID quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    }
   }
 ]
