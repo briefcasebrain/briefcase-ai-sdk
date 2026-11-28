@@ -52793,5 +52793,879 @@
       "Inspect retained stde"
     ],
     "answer": "It is the decision metadata we need, including token count."
+  },
+  {
+    "name": "Lookup identity AS01",
+    "question": "A batch retried a request before the operator saw the first result, so the same business ticket occurs twice. I have the decision ID from the original receipt, Jasper-681, and the JSONL export taken from that original worker. Which exported decision belongs to the first request?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JS"
+    ]
+  },
+  {
+    "name": "Lookup identity AS02",
+    "question": "The same case label was sent twice. We lost access to the original export disk during a repair. There is a JSONL on a shared drive, but no record of where that copy came from. What should I keep from the first request to distinguish it once the disk returns?",
+    "expected": "ask_id",
+    "includes": [
+      "Do you have the orig"
+    ]
+  },
+  {
+    "name": "Lookup identity AS02 reply",
+    "question": "The same case label was sent twice. We lost access to the original export disk during a repair. There is a JSONL on a shared drive, but no record of where that copy came from. What should I keep from the first request to distinguish it once the disk returns?",
+    "answer": "We retained a marker unique to the first request: spindle-931. We do not have the raw SDK decision ID.",
+    "expected": "surviving_marker",
+    "includes": [
+      "Retrieve the survivi"
+    ]
+  },
+  {
+    "name": "Lookup identity AS07",
+    "question": "We saved the stdout and stderr from the Node demo. The app printed its answer on stdout and the SDK console exporter emitted the decision on stderr. The audit needs the decision’s total token usage. Which copy has that field?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained std"
+    ]
+  },
+  {
+    "name": "Lookup identity AS08",
+    "question": "Our colleague asked for the output of a Node demo that printed a customer answer and also emitted a console decision. We retained both streams from the original. How can I tell which archive is the right one to hand over?",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for "
+    ]
+  },
+  {
+    "name": "Lookup identity AS08 reply",
+    "question": "Our colleague asked for the output of a Node demo that printed a customer answer and also emitted a console decision. We retained both streams from the original. How can I tell which archive is the right one to hand over?",
+    "answer": "They need the customer-facing reply words, not the SDK metrics.",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout"
+    ]
+  },
+  {
+    "name": "Lookup identity AS09",
+    "question": "The writer setting on the original job says rollup-archive.jsonl. I have that original export in its original working directory and decision ID Wren-748 from the matching launch receipt. I need to check whether one of the records in that file has this ID.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JS"
+    ]
+  },
+  {
+    "name": "Lookup identity AS10",
+    "question": "An SDK service explicitly initialized the console exporter. I can still see how the scheduler started it: python seamjob.py 2>seamjob.err. The scheduler retained the redirection target. Where should I verify the decision from this launch?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained std"
+    ]
+  },
+  {
+    "name": "Lookup identity AS11",
+    "question": "I looked up decision ID pedal-815 from the original receipt in the original deployment’s receiving log myself. There was one entry for that ID. We have no downstream-store readback. What does that let us record about receipt?",
+    "expected": "storage",
+    "includes": [
+      "A receiver entry tha"
+    ]
+  },
+  {
+    "name": "Lookup identity AS11 report",
+    "question": "I looked up decision ID pedal-815 from the original receipt in the original deployment’s receiving log myself. There was one entry for that ID. We have no downstream-store readback. What does that let us record about receipt?",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity AS12",
+    "question": "After the job exited I personally queried the intended downstream store from the original deployment settings and retrieved a full decision record. My original receipt gives decision ID buckle-683. How do I establish that it was this decision that persisted?",
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstrea"
+    ]
+  },
+  {
+    "name": "Lookup identity AS12 report",
+    "question": "After the job exited I personally queried the intended downstream store from the original deployment settings and retrieved a full decision record. My original receipt gives decision ID buckle-683. How do I establish that it was this decision that persisted?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "ask_evidence",
+    "includes": []
+  },
+  {
+    "name": "Lookup identity AS12 yes",
+    "question": "After the job exited I personally queried the intended downstream store from the original deployment settings and retrieved a full decision record. My original receipt gives decision ID buckle-683. How do I establish that it was this decision that persisted?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "yes"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity AS12 no",
+    "question": "After the job exited I personally queried the intended downstream store from the original deployment settings and retrieved a full decision record. My original receipt gives decision ID buckle-683. How do I establish that it was this decision that persisted?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "no"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Lookup identity AS12 unsure",
+    "question": "After the job exited I personally queried the intended downstream store from the original deployment settings and retrieved a full decision record. My original receipt gives decision ID buckle-683. How do I establish that it was this decision that persisted?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "unsure"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Lookup identity review 0 turn 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID. The receiver supplied it.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity review 0 turn 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The receiver supplied it.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity review 1 turn 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records. Only the receiver supplied results.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity review 1 turn 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records. Only the receiver supplied results.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity review 2 turn 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned two rows. One had the original ID. The other had a different ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity review 2 turn 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned two rows. One had the original ID. The other had a different ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity review 3 turn 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query was pending. The query finished and returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity review 3 turn 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query was pending. The query finished and returned one matching record with the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity review 4 turn 0",
+    "question": "The writer produced two tickets with identical text. My original decision ID was Quartz-64. I searched entries.jsonl for my original decision ID. The only returned row bore ID Quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one mat"
+    ]
+  },
+  {
+    "name": "Lookup identity review 4 turn 1",
+    "question": "The writer produced two tickets with identical text. My original decision ID was Quartz-64. I searched entries.jsonl for my original decision ID.",
+    "answer": "The only returned row bore ID Quartz-64.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one mat"
+    ]
+  },
+  {
+    "name": "Lookup identity request both outputs",
+    "question": "I ran the published Node demo using its defaults. I need both the decision record and the application reply.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained std"
+    ]
+  },
+  {
+    "name": "Lookup identity source storage matched Only the receiver provided results.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned a record with the original ID. Only the receiver provided results.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity source storage matched The receiver supplied it.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The receiver supplied it.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity source storage no-match Only the receiver provided results.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records. Only the receiver provided results.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity source storage no-match The receiver supplied it.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records. The receiver supplied it.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity group storage One had the original ID. The other had a different ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query yielded two entries. One had the original ID. The other had a different ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity group storage The other had a different ID. One had the original ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query yielded two entries. The other had a different ID. One had the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity group storage One had the original ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query yielded two entries. One had the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Lookup identity group storage One had the original ID. The other had the original ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query yielded two entries. One had the original ID. The other had the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't id"
+    ]
+  },
+  {
+    "name": "Lookup identity group storage One had a different ID. The other had the same ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query yielded two entries. One had a different ID. The other had the same ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Lookup identity source receiver matched Only the store provided results.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned a record with the original ID. Only the store provided results.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity source receiver matched The store supplied it.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The store supplied it.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity source receiver no-match Only the store provided results.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned zero matching records. Only the store provided results.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity source receiver no-match The store supplied it.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned zero matching records. The store supplied it.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity group receiver One had the original ID. The other had a different ID.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query yielded two entries. One had the original ID. The other had a different ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity group receiver The other had a different ID. One had the original ID.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query yielded two entries. The other had a different ID. One had the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity group receiver One had the original ID.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query yielded two entries. One had the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Lookup identity group receiver One had the original ID. The other had the original ID.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query yielded two entries. One had the original ID. The other had the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't id"
+    ]
+  },
+  {
+    "name": "Lookup identity group receiver One had a different ID. The other had the same ID.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query yielded two entries. One had a different ID. The other had the same ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Lookup identity source jsonl matched Only the receiver provided results.",
+    "question": "I searched original.jsonl for the original decision ID.",
+    "answer": "The query returned a record with the original ID. Only the receiver provided results.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity source jsonl matched The receiver supplied it.",
+    "question": "I searched original.jsonl for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The receiver supplied it.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity source jsonl no-match Only the receiver provided results.",
+    "question": "I searched original.jsonl for the original decision ID.",
+    "answer": "The query returned zero matching records. Only the receiver provided results.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity source jsonl no-match The receiver supplied it.",
+    "question": "I searched original.jsonl for the original decision ID.",
+    "answer": "The query returned zero matching records. The receiver supplied it.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Lookup identity group jsonl One had the original ID. The other had a different ID.",
+    "question": "I searched original.jsonl for the original decision ID.",
+    "answer": "The query yielded two entries. One had the original ID. The other had a different ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one mat"
+    ]
+  },
+  {
+    "name": "Lookup identity group jsonl The other had a different ID. One had the original ID.",
+    "question": "I searched original.jsonl for the original decision ID.",
+    "answer": "The query yielded two entries. The other had a different ID. One had the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one mat"
+    ]
+  },
+  {
+    "name": "Lookup identity group jsonl One had the original ID.",
+    "question": "I searched original.jsonl for the original decision ID.",
+    "answer": "The query yielded two entries. One had the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Lookup identity group jsonl One had the original ID. The other had the original ID.",
+    "question": "I searched original.jsonl for the original decision ID.",
+    "answer": "The query yielded two entries. One had the original ID. The other had the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't id"
+    ]
+  },
+  {
+    "name": "Lookup identity group jsonl One had a different ID. The other had the same ID.",
+    "question": "I searched original.jsonl for the original decision ID.",
+    "answer": "The query yielded two entries. One had a different ID. The other had the same ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Lookup identity file order 0 0",
+    "question": "I have the file retrieved from the original run. I retained the decision ID from my launch receipt, Echo-41.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JS"
+    ]
+  },
+  {
+    "name": "Lookup identity file order 0 1",
+    "question": "I retained the decision ID from my launch receipt, Echo-41. I have the file retrieved from the original run.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JS"
+    ]
+  },
+  {
+    "name": "Lookup identity file order 1 0",
+    "question": "I retained the decision ID on the original receipt, Moss-191. I hold the JSONL export taken from the first launch.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JS"
+    ]
+  },
+  {
+    "name": "Lookup identity file order 1 1",
+    "question": "I hold the JSONL export taken from the first launch. I retained the decision ID on the original receipt, Moss-191.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JS"
+    ]
+  },
+  {
+    "name": "Lookup identity cardinality 3 The first row had the original ID. The second row had a different ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The lookup returned 3 records. The first row had the original ID. The second row had a different ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Lookup identity cardinality 3 The first row had the original ID. The third row had a different ID. The second row had a different ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The lookup returned 3 records. The first row had the original ID. The third row had a different ID. The second row had a different ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Lookup identity cardinality two The first row had the original ID. The first row had the original ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The lookup returned two records. The first row had the original ID. The first row had the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Lookup identity cardinality two One had a different ID. The other had a different ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The lookup returned two records. One had a different ID. The other had a different ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmed_storage_no_match",
+    "includes": [
+      "You reported no matc"
+    ]
+  },
+  {
+    "name": "Lookup identity simultaneous artifact request 0",
+    "question": "My Node demo used the console exporter. I need both the decision record and the application reply.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained std"
+    ]
+  },
+  {
+    "name": "Lookup identity simultaneous artifact request 1",
+    "question": "I ran the published Node demo using its defaults. We want both the customer reply and the SDK record.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained std"
+    ]
   }
 ]

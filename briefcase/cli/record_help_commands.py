@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from briefcase.cli import _ux
+from briefcase.cli._record_observation import SourceCheck as _SourceCheck
 
 GROUP = "start"
 ORDER = 25
@@ -996,87 +997,6 @@ def _execution_evidence(table, source, inherited=None, guide_origin=None):
     return commands, choices or wrapper_choices, wrapper_facts
 
 
-@dataclass
-class _SourceCheck:
-    original_target: bool = False
-    foreign_target: bool = False
-    unchecked: bool = False
-    ambiguous: bool = False
-    correct_instance: Optional[bool] = None
-    outcome: Optional[str] = None
-    matching_rows: int = 0
-    shared_identifier: bool = False
-    unresolved_lookup: bool = False
-    partial: bool = False
-    pending: bool = False
-    foreign_reader_only: bool = False
-    unaccounted: bool = False
-    returned_unbound: bool = False
-    conflicting_results: bool = False
-    unlinked_record: bool = False
-    referenced_check: bool = False
-    clarification_veto: bool = False
-    anonymous_match: bool = False
-    zero_matches: bool = False
-    unresolved_detail: bool = False
-    matched_objects: int = 0
-    other_objects: int = 0
-    latest_object: Optional[str] = None
-    relocated: bool = False
-    uncertain_origin: bool = False
-    personal_gap: bool = False
-    pending_relation: Optional[str] = None
-
-    def add_object(self, comparison):
-        if self.pending_relation:
-            if comparison in ("match", "miss") and comparison != self.pending_relation:
-                self.conflicting_results = True
-            comparison = self.pending_relation
-            self.pending_relation = None
-        self.latest_object = comparison
-        self.matched_objects += comparison == "match"
-        self.other_objects += comparison == "miss"
-
-    def compare(self, source, result, action, facts):
-        if self.foreign_target:
-            return "confirmation_other_run"
-        if result == "unverified":
-            return None
-        if self.relocated:
-            return "confirmation_other_source"
-        if self.uncertain_origin:
-            return "confirmation_unresolved_lookup"
-        if self.personal_gap and result == "no-match":
-            return "confirmation_partial"
-        if self.unchecked or self.pending or self.foreign_reader_only:
-            return "confirmation_unchecked"
-        if source == "jsonl" and ("unresolvedPath" in facts or ("pendingPath" in facts and not self.original_target)):
-            return "confirmation_unresolved_path"
-        if self.correct_instance is False:
-            return "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
-        if action == "ask_id" or "unresolvedOriginal" in facts or self.shared_identifier:
-            return "ask_id"
-        if self.unresolved_lookup or self.unresolved_detail:
-            return "confirmation_unresolved_lookup"
-        if self.partial and result == "no-match":
-            return "confirmation_partial"
-        if self.conflicting_results or (self.zero_matches and (self.matched_objects or self.matching_rows)):
-            return "confirmation_inconsistent"
-        if self.ambiguous or self.matched_objects + self.matching_rows > 1:
-            return "confirmation_ambiguous"
-        # A nonmatching returned row does not erase another row that matched the same lookup.
-        observed = self.outcome
-        if self.other_objects and (self.matched_objects or self.matching_rows):
-            observed = "matched"
-        if observed and result != observed:
-            return "confirmation_inconsistent"
-        if self.unlinked_record and self.returned_unbound and self.original_target and not self.unaccounted:
-            return "ask_evidence" if result == "matched" else "confirmation_unresolved_lookup"
-        if self.unaccounted or self.returned_unbound:
-            return "confirmation_unresolved_lookup"
-        return None
-
-
 def _report_roles(spec, clause, quoted_values):
     """Compare complete declared identifiers, retaining the surrounding source and observation language."""
     scope = list(clause)
@@ -1317,6 +1237,10 @@ def _phrase_observation(table, turns):
                 if key != "IGNORE":
                     tokens.append(key)
                     value = match.group()
+                    if key == "RECEIPTIDVALUE":
+                        declaration = re.fullmatch(spec["receiptValue"], value, re.I)
+                        if not declaration or re.fullmatch(spec["unsupportedValue"], declaration[1].strip('"“”'), re.I):
+                            tokens[-1] = "?"
                     if key in ("TARGET", "MARKER"):
                         value = re.sub(spec["valuePrefix"], "", value, flags=re.I).strip('"“”')
                         if re.fullmatch(spec["unsupportedValue"], value, re.I):
@@ -1334,12 +1258,19 @@ def _phrase_observation(table, turns):
                     facts.add("unresolvedProvenance")
                 continue
             facts.update(roles)
+            if ("consoleDemo" in roles and ("BIND" in values or "AUTHORRAN" in values)
+                    and re.match(spec["possessiveSubject"], clause, re.I)):
+                facts.add("personalConsoleDemo")
             if any("jsonl" in value.lower() for value in values.get("ORIGINALFILE", [])):
                 facts.add("jsonl")
             if "source" in roles:
                 facts.add("receiver" if "RECEIVER" in values else "storage")
             if "target" in roles:
                 ids.update(values.get("TARGET", []))
+                for declaration in values.get("RECEIPTIDVALUE", []):
+                    label = re.fullmatch(spec["receiptValue"], declaration, re.I)
+                    if label:
+                        ids.add(label[1].strip('"“”'))
                 for apposition in values.get("RECEIPTAPP", []):
                     target = re.match(spec["appositiveValue"], apposition)
                     if target:
@@ -1513,6 +1444,37 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
     """Refine the previous returned object or describe an additional object of that lookup."""
     stages = spec["rowStages"]
     owners = [attempts[current[kind]] for kind in previous]
+    provider = re.fullmatch(stages["providerResult"], clause, re.I)
+    if (provider and named and previous - named and not re.search(stages["definiteObject"], clause, re.I)
+            and not re.search(stages["objectReference"], clause, re.I)):
+        for kind in previous - named:
+            check = attempts[current[kind]]
+            if check.latest_object or check.zero_matches:
+                check.relocated = True
+    group = re.fullmatch(stages["groupSize"], clause, re.I)
+    if group:
+        quantity = group[1].lower()
+        size = int(quantity) if quantity.isdigit() else stages["cardinals"][quantity]
+        for check in owners:
+            if check.group_size is not None or check.latest_object or size < 1:
+                check.unresolved_detail = True
+            check.group_size = size
+        return True
+    member = re.fullmatch(stages["memberIdentity"], clause, re.I)
+    if member and owners and all(check.group_size is not None for check in owners):
+        for check in owners:
+            word = member[1].lower()
+            index = 2 if word == "other" else max(1, stages["ordinals"].index(word))
+            check.classify_member(index, member[2].lower(), last_of_two=word == "other")
+        return True
+    single = re.fullmatch(stages["singleNamed"], clause, re.I)
+    if single and original_ids and len(original_ids) == 1:
+        value = quoted_values.get(single[1], single[1])
+        for check in owners:
+            matched = value in original_ids
+            check.add_object("match" if matched else "miss")
+            check.outcome = "matched" if matched else "no-match"
+        return True
     if re.search(stages["personalGap"], clause, re.I):
         for check in owners:
             check.personal_gap = True
@@ -1658,6 +1620,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             # a lookup. Neither assertion reports that the reader inspected a row.
             background = spec["backgroundRoles"]
             file_scope = re.sub(table["fileMentions"], " sourcefile ", clause, flags=re.I)
+            if re.fullmatch(spec["rowStages"]["writerInput"], clause.strip(), re.I):
+                continue
             if re.fullmatch(background["writer"], file_scope, re.I):
                 background_sources.add("jsonl")
                 continue
@@ -2154,13 +2118,26 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           and key in ("ask_exporter", "ask_subject", "node_console", "console", "console_unretained",
                       "console_discarded_metadata")):
         key = "node_stdout_only_metadata"
-    elif ("wantsBothStreams" in roles and "ranDefaultNodeDemo" in facts
+    elif ("wantsBothStreams" in roles and "disownedDemo" not in roles
+          and ("ranDefaultNodeDemo" in facts or {"nodeDemoConsole", "appRan"} <= facts
+               or "personalConsoleDemo" in roles)
           and facts.isdisjoint(("discardedStdout", "discardedStderr",
                                 "stdoutMergedIntoStderr", "stderrMergedIntoStdout"))):
         key = "node_console"
     if "wantsApplicationReply" in roles and key in ("fallback", "ask_subject") and {"node", "stdout"} <= facts:
         key = ("reply_stdout_discarded" if "discardedStdout" in facts else
                "reply_stderr" if "stdoutMergedIntoStderr" in facts else "reply")
+    if {"unavailableOriginal", "reusedTicket"} <= roles and key in ("ask_path", "ask_subject"):
+        key = "ask_id"
+    if "explicitWorkerConsole" in roles and "redirectErr" in facts and key in ("ask_exporter", "ask_subject"):
+        key = "console"
+    if "wantsMetadata" in roles and "retainedNodeStreams" in roles and "decisionOnStderr" in facts:
+        key = "node_console"
+    if ("wantsApplicationReply" in roles and "node" in facts and key == "fallback" and answer
+            and ("stdout" in facts or roles.intersection(("retainedSourceStreams", "retainedNodeStreams",
+                                                         "archivedNodeArtifacts")))):
+        if not facts.intersection(("discardedStdout", "stdoutMergedIntoStderr", "replyOnStderr")):
+            key = "reply"
     if {"uniqueMarker", "absentID"} <= roles and key in ("ask_id", "fallback", "jsonl_candidates"):
         key = "surviving_marker"
     sources = roles.intersection(("jsonl", "receiver", "storage"))
