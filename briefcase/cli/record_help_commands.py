@@ -2179,7 +2179,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     if ("wantsApplicationReply" in roles and "node" in facts and key == "fallback" and answer
             and ("stdout" in facts or {"consoleJob", "separateAppReply"} <= roles
                  or roles.intersection(("retainedSourceStreams", "retainedNodeStreams",
-                                                         "archivedNodeArtifacts")))):
+                                        "archivedNodeArtifacts")))):
         key = _reply_stream(facts)
     if {"uniqueMarker", "absentID"} <= roles and key in ("ask_id", "fallback", "jsonl_candidates"):
         key = "surviving_marker"
