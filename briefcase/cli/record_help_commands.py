@@ -784,7 +784,7 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
             parts[index] = clause[:launch.start()] + " "
             continue
         if launch and not hypothetical:
-            prefix = clause[:launch.start()].strip()
+            prefix = re.sub(table["streamAssignmentPrefix"], "", clause[:launch.start()]).strip()
             if (re.fullmatch(table["commandContext"], prefix, re.I)
                     or re.fullmatch(table["originalCommandPrefix"], prefix, re.I)):
                 operands = list(re.finditer(table["streamSinkToken"], parts[index][launch.end():]))
@@ -794,7 +794,7 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
                     dest = sink.group(2)
                     targets = ("1", "2") if sink[1] == "&" else (sink[1] or "1",)
                     value = (streams[dest[1:]] if dest in ("&1", "&2") else
-                             ("null" if dest.strip("\"'") == "/dev/null" else targets[0], sink.start()))
+                             ("null" if dest.strip("\"'") == "/dev/null" or dest == "&-" else targets[0], sink.start()))
                     for descriptor in targets:
                         streams[descriptor] = value
                         redirected.add(descriptor)
@@ -820,7 +820,11 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
                 parts[index] += ". " + name + " was discarded"
         if redirected and streams["1"] == streams["2"] and streams["1"][0] in ("1", "2"):
             direction = "stderr into stdout" if streams["1"][0] == "1" else "stdout into stderr"
-            parts[index] += ". The launcher redirected " + direction
+            parts[index] += ". The launcher redirected " + direction + ". shell descriptors share their final sink"
+        elif streams["2"] == ("1", -1) and streams["1"] != ("1", -1):
+            parts[index] += ". original stdout descriptor carries SDK stderr"
+        elif streams["1"] == ("2", -1) and streams["2"] != ("2", -1):
+            parts[index] += ". original stderr descriptor carries application stdout"
     return "".join(parts)
 
 
@@ -1542,7 +1546,8 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
                     check.unresolved_detail = True
             return True
     quantity = re.match(stages["quantityQualifier"], clause, re.I)
-    if quantity and quantity[1].lstrip("0") not in ("", "1"):
+    if (quantity and quantity[1].lstrip("0") not in ("", "1")
+            and re.search(stages["quantifiedResultContext"], clause, re.I)):
         # A stated group may contain only one original. Leave its membership
         # open until the reader accounts for the individual returned records.
         for check in owners:
@@ -1633,34 +1638,41 @@ def _scope_constraints(spec, reports, quoted_values, source, result):
             corrected = re.search(spec["correctedInspection"], clause, re.I)
             if named and re.search(spec["lookupPerformed"], clause, re.I):
                 for kind in named:
-                    prior = restrictions.get(kind)
-                    if (prior == "confirmation_partial" and re.search(spec["exhaustiveCoverage"], clause, re.I)
-                            or prior == "confirmation_unchecked" and
-                            re.search(spec["ledger"]["subsequentPersonalRead"], clause, re.I)
-                            or corrected and prior in ("confirmation_other_source", "confirmation_other_file")
-                            and re.search(spec["original"], clause, re.I)):
-                        restrictions.pop(kind, None)
-            if re.fullmatch(spec["rowStages"]["exclusiveResultOwner"], clause, re.I):
+                    prior = restrictions.setdefault(kind, set())
+                    if re.search(spec["exhaustiveCoverage"], clause, re.I):
+                        prior.discard("confirmation_partial")
+                    if re.search(spec["ledger"]["subsequentPersonalRead"], clause, re.I):
+                        prior.discard("confirmation_unchecked")
+                    if corrected and re.search(spec["original"], clause, re.I):
+                        prior.difference_update(("confirmation_other_source", "confirmation_other_file"))
+            provider = re.fullmatch(spec["rowStages"]["providerResult"], clause, re.I)
+            if (re.fullmatch(spec["rowStages"]["exclusiveResultOwner"], clause, re.I)
+                    or (provider and re.search(spec["ledger"]["exclusiveProvider"], clause, re.I))):
                 for kind in set(spec["sources"]) - named:
-                    restrictions[kind] = "confirmation_other_source"
+                    restrictions.setdefault(kind, set()).add("confirmation_other_source")
                 continue
             reason = None
             if re.fullmatch(spec["ledger"]["differentInstance"], clause, re.I):
                 reason = "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
-            elif re.fullmatch(spec["rowStages"]["delegatedRead"], clause, re.I):
+            elif (re.fullmatch(spec["rowStages"]["delegatedRead"], clause, re.I)
+                  or re.fullmatch(spec["ledger"]["exclusiveReader"], clause, re.I)):
                 reason = "confirmation_unchecked"
             elif re.fullmatch(spec["ledger"]["deniedSource"], clause, re.I):
                 reason = "confirmation_unchecked"
             elif re.fullmatch(spec["ledger"]["deniedIdentity"], clause, re.I):
                 reason = "confirmation_inconsistent"
-            elif result == "no-match" and re.fullmatch(spec["ledger"]["partialExtent"], clause, re.I):
+            elif (result == "no-match" or source == "jsonl") and re.fullmatch(
+                    spec["ledger"]["partialExtent"], clause, re.I
+            ):
                 reason = "confirmation_partial"
             if reason:
                 for kind in named or active:
-                    restrictions[kind] = reason
+                    restrictions.setdefault(kind, set()).add(reason)
             elif named and re.search(spec["lookupPerformed"], clause, re.I):
                 active = named
-    return restrictions.get(source)
+    priority = ("confirmation_other_source", "confirmation_other_file", "confirmation_unchecked",
+                "confirmation_inconsistent", "confirmation_partial")
+    return next((reason for reason in priority if reason in restrictions.get(source, ())), None)
 
 
 def _confirmation_conflict(table, source, result, turns, action, facts, guide_origin, eligible):
@@ -1869,9 +1881,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     and not roles["declaredIdentifier"]):
                 for name in named or active:
                     permitted = _permitted_continuation(spec, source_scope)
-                    if checked and name in inspected_sources and named and qualified and permitted:
-                        checks[name].unaccounted = False
-                    elif not permitted:
+                    if not permitted:
                         checks[name].unaccounted = True
                         checks[name].clarification_veto = True
                     if re.search(spec["outsideInstance"], source_scope, re.I):
@@ -1986,7 +1996,6 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     checks[target].unchecked = True
                     checks[target].original_target = False
                     checks[target].outcome = None
-                    checks[target].matching_rows = 0
                 continue
             if checked and qualified:
                 for target in named:
@@ -1998,19 +2007,21 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         checks[target].partial = True
                     elif re.search(spec["exhaustiveCoverage"], clause, re.I):
                         checks[target].partial = False
-                    if checks[target].group_size is None:
+                    if (checks[target].group_size is None and shared_ids and sought and set(sought) == unique_ids
+                            and re.search(spec["personalBoundReturn"], clause, re.I)):
                         checks[target].unresolved_detail = False
                     corrected = re.search(spec["correctedInspection"], clause, re.I)
                     if inspected[target] and destinations[target] and corrected:
                         attempts[origin[target]].correct_instance = inspected[target] == destinations[target]
                     if excluded_source:
                         checks[target].correct_instance = False
-                    elif inspected[target] and destinations[target]:
+                    elif ((checks[target].correct_instance is not False or corrected)
+                          and inspected[target] and destinations[target]):
                         checks[target].correct_instance = (inspected[target] == destinations[target]
                                                            and len(inspected[target]) == 1)
-                    elif re.search(spec["originalSource"], clause, re.I):
+                    elif (checks[target].correct_instance is not False
+                          and re.search(spec["originalSource"], clause, re.I)):
                         checks[target].correct_instance = True
-                    checks[target].matching_rows = 0
             # A search and its result can occupy separate sentences. Apply the
             # qualification to that lookup, without starting another source check.
             for target in named or active:
@@ -2020,7 +2031,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 elif (check.original_target and qualified and (re.search(spec["sameReaderResult"], clause, re.I)
                       or re.fullmatch(spec["completedStatus"], clause, re.I))):
                     check.pending = False
-                    check.foreign_reader_only = False
+                    if re.search(spec["sameReaderResult"], clause, re.I):
+                        check.foreign_reader_only = False
                 if (re.search(spec["returnedIdentitySubject"], clause, re.I)
                         and re.search(spec["foreign"], clause, re.I)):
                     check.outcome = "no-match"
@@ -2087,7 +2099,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             if checked and qualified and (named or re.search(spec["reportRef"], clause, re.I)):
                 for target in targets:
                     checks[target].unchecked = False
-                    checks[target].foreign_reader_only = False
+                    if re.search(spec["ledger"]["subsequentPersonalRead"], clause, re.I):
+                        checks[target].foreign_reader_only = False
             attribution = re.sub(spec["readerContext"], "", source_scope, flags=re.I)
             attribution = re.sub(spec["notForeign"], "", attribution, flags=re.I)
             foreign = re.search(spec["foreign"], attribution, re.I)
@@ -2129,8 +2142,6 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     disowned_report.discard(target)
                     check.foreign_target = False
                     check.original_target = True
-                if correction and checked:
-                    check.ambiguous = False
                 if ambiguous_rows or (original_ids and len(unique_ids or original_ids) != 1 and (query_ids or row_ids)):
                     check.ambiguous = True
                 if not check.foreign_target and (check.original_target or (row_ids and original_ids)):
@@ -2205,13 +2216,33 @@ def _observation_action(report):
     return None
 
 
+def _partial_file_action(table, turns):
+    """Attribute a partial hit only when both the original search and comparison are explicit."""
+    evidence = table["lookupEvidence"]
+    observed = set()
+    for turn in turns:
+        for clause in re.split(table["split"], turn or "", flags=re.I):
+            if not clause.strip():
+                continue
+            role = next((name for name in ("partialFileOperand", "singlePartialHit")
+                         if re.fullmatch(evidence[name], clause.strip(), re.I)), None)
+            if role is None:
+                return "jsonl_partial"
+            observed.add(role)
+    return "jsonl_partial_observed" if len(observed) == 2 else "jsonl_partial"
+
+
 def _reply_stream(facts):
     """Follow the app's known output stream through the original launch's redirections."""
+    if "stdoutAtOriginalStderr" in facts and "replyOnStderr" not in facts:
+        return "reply_original_stderr"
     if "stdoutMergedIntoStderr" in facts:
         return "reply_stdout_discarded" if "discardedStderr" in facts else "reply_stderr"
     if "stderrMergedIntoStdout" in facts:
         return "reply_stdout_discarded" if "discardedStdout" in facts else "reply"
     if "replyOnStderr" in facts:
+        if "discardedStderr" in facts and "replyOnStdout" not in facts:
+            return "reply_stdout_discarded"
         return "reply_streams" if "replyOnStdout" in facts and "discardedStdout" not in facts else "reply_stderr"
     return "reply_stdout_discarded" if "discardedStdout" in facts else "reply"
 
@@ -2226,6 +2257,8 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     account = _lookup_account(table, turns)
     roles, target_ids, paths, results, unknown = _phrase_observation(table, turns)
     available_id = "availableExactID" in roles or ("receiptID" in roles and len(target_ids) == 1)
+    if "partialJSONLInspection" in facts and key in table["lookupLanguage"]["missingActions"]:
+        key = "jsonl"
     if (roles >= {"assignedFile", "availableFile"} and "jsonl" in (facts | roles) and available_id and len(paths) <= 1
             and len(target_ids) <= 1 and not roles.intersection(("unresolvedProvenance", "absentID"))):
         if key in table["lookupLanguage"]["missingActions"] or key == "fallback":
@@ -2266,20 +2299,26 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         if "ambiguousArtifacts" in roles:
             key = "ask_subject"
         elif "wantsBothStreams" in roles:
-            if {"stdoutMergedIntoStderr", "retainedCombinedStream"} <= facts:
+            if {"discardedStderr", "discardedStdout"} <= facts:
+                key = "node_both_discarded"
+            elif "stdoutMergedIntoStderr" in facts and facts.intersection(("retainedCombinedStream", "shellCombined")):
                 key = "node_both_stderr"
-            elif {"stderrMergedIntoStdout", "retainedCombinedStream"} <= facts:
+            elif "stderrMergedIntoStdout" in facts and facts.intersection(("retainedCombinedStream", "shellCombined")):
                 key = "node_both_stdout"
-            elif "onlyStdout" in roles:
+            elif "onlyStdout" in roles or "discardedStderr" in facts:
                 key = "node_stdout_only_outputs"
         elif "wantsDecisionRecord" in roles or "requestedLocalRecord" in facts or "explicitStderr" in roles:
-            if "discardedStderr" in facts:
+            if "stderrAtOriginalStdout" in facts:
+                key = "decision_original_stdout"
+            elif "discardedStderr" in facts:
                 key = "node_discarded_decision"
+            elif "replyOnStderr" in facts and "explicitStderr" in roles:
+                key = "node_both_stderr"
             elif "stderrMergedIntoStdout" in facts:
                 key = "console_stdout"
             else:
                 key = "node_console"
-        elif "explicitStdout" in roles:
+        elif "explicitStdout" in roles or "wantsApplicationReply" in roles:
             key = _reply_stream(facts)
     if {"unavailableOriginal", "reusedTicket"} <= roles and key in ("ask_path", "ask_subject"):
         key = "ask_id"
@@ -2299,6 +2338,9 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         key = "node_discarded_decision"
     if {"uniqueMarker", "absentID"} <= roles and key in ("ask_id", "fallback", "jsonl_candidates"):
         key = "surviving_marker"
+        if ("unavailableOriginal" in roles and
+                re.search(table["lookupLanguage"]["phraseRoles"]["unboundCopy"], question, re.I)):
+            key = "recover_marker_original"
     sources = roles.intersection(("jsonl", "receiver", "storage"))
     if (not unknown and "contraryID" not in roles and len(sources) == 1 and len(results) == len(target_ids) == 1
             and {"reader", "origin", "target"} <= roles and not (account and account.disputed)):
@@ -2326,6 +2368,12 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
             missing = _observation_action(report)
             conflict = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin,
                                               eligible=not missing)
+            attribution = table["confirmation"]["attribution"]
+            if (conflict == "confirmation_partial" and source == "jsonl" and result == "matched"
+                    and any(re.search(attribution["partialCoverage"], clause, re.I)
+                            or re.fullmatch(attribution["ledger"]["partialExtent"], clause.strip(), re.I)
+                            for turn in turns for clause in re.split(table["split"], turn or "", flags=re.I))):
+                conflict = missing or _partial_file_action(table, turns)
             if (table["lookupLanguage"]["phraseRoles"]["unreadBySource"][source] in roles
                     and result != "unverified" and source in sources):
                 conflict = "confirmation_unchecked"
@@ -2422,6 +2470,9 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
         source = preprocess(source_question, private=_sensitive(table, question))
         disowned = {rule["fact"] for rule in table["disownedObservations"] if re.search(rule["pattern"], source, re.I)}
         facts = (facts & set(table["rawFacts"])) | _collect_facts(table, _scoped(table, source))
+    if any(re.fullmatch(table["lookupEvidence"]["partialFileOperand"], c, re.I)
+           for c in re.split(table["split"], question, flags=re.I)):
+        facts.add("partialJSONLInspection")
     facts.update(disowned)
     facts.update(_lookup_evidence(table, evidence))
     if {"consoleDecisionExport", "redirectErr"} <= facts and facts.isdisjoint(("decisionOnStdout", "consoleStdout")):

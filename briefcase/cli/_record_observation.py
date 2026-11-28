@@ -77,7 +77,7 @@ class SourceCheck:
             return "confirmation_other_source"
         if self.uncertain_origin:
             return "confirmation_unresolved_lookup"
-        if self.personal_gap and result == "no-match":
+        if self.personal_gap and (result == "no-match" or source == "jsonl"):
             return "confirmation_partial"
         if self.unchecked or self.pending or self.foreign_reader_only:
             return "confirmation_unchecked"
@@ -85,11 +85,13 @@ class SourceCheck:
             return "confirmation_unresolved_path"
         if self.correct_instance is False:
             return "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
+        if self.matched_objects > 1:
+            return "confirmation_ambiguous"
         if action == "ask_id" or "unresolvedOriginal" in facts or self.shared_identifier:
             return "ask_id"
         if self.unresolved_lookup or self.unresolved_detail or self.invalid_members or self.unresolved_population:
             return "confirmation_unresolved_lookup"
-        if self.partial and result == "no-match":
+        if self.partial and (result == "no-match" or source == "jsonl"):
             return "confirmation_partial"
         if self.group_size is not None:
             if len(self.members) != self.group_size:
