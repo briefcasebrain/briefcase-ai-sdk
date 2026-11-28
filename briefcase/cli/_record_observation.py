@@ -38,6 +38,7 @@ class SourceCheck:
     personal_gap: bool = False
     group_size: Optional[int] = None
     members: Dict[int, bool] = field(default_factory=dict)
+    invalid_members: bool = False
     pending_relation: Optional[str] = None
 
     def add_object(self, comparison):
@@ -54,7 +55,7 @@ class SourceCheck:
         if (self.group_size is None or index in self.members or index > self.group_size
                 or (last_of_two and self.group_size != 2)
                 or (relation == "same" and (not self.original_target or self.latest_object == "miss"))):
-            self.unresolved_detail = True
+            self.invalid_members = True
             return
         matched = relation in ("original", "same")
         self.members[index] = matched
@@ -80,7 +81,7 @@ class SourceCheck:
             return "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
         if action == "ask_id" or "unresolvedOriginal" in facts or self.shared_identifier:
             return "ask_id"
-        if self.unresolved_lookup or self.unresolved_detail:
+        if self.unresolved_lookup or self.unresolved_detail or self.invalid_members:
             return "confirmation_unresolved_lookup"
         if self.partial and result == "no-match":
             return "confirmation_partial"

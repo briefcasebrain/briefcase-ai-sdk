@@ -53667,5 +53667,1079 @@
     "includes": [
       "Inspect retained std"
     ]
+  },
+  {
+    "name": "Reported lookup scope AT01",
+    "question": "We rang up one sample twice under the same lab ticket. I can give you the complete SDK decision ID from the first sale's receipt: Plover-492. I have the JSONL taken off the till that made that decision. Can you find which record is the first sale?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JS"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT02",
+    "question": "The launch volume was taken away before we could copy its JSONL. Someone offered me an old export but can't tell me which machine wrote it. Two decisions used the same shipment number. What identifying detail would help us distinguish the original when we recover its file?",
+    "expected": "ask_id",
+    "includes": [
+      "Do you have the orig"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT02 answer",
+    "question": "The launch volume was taken away before we could copy its JSONL. Someone offered me an old export but can't tell me which machine wrote it. Two decisions used the same shipment number. What identifying detail would help us distinguish the original when we recover its file?",
+    "answer": "I kept ginger-841, the marker assigned exclusively to that first shipment decision. The exact SDK decision ID itself is unavailable to us.",
+    "expected": "surviving_marker",
+    "includes": [
+      "Retrieve the survivi"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT07",
+    "question": "I need the number of tokens used in total, including the response, by our original Node demo decision. It wrote the chat text to stdout and sent its SDK console decision to stderr. We kept both captures. Which one do I read?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained std"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT08",
+    "question": "The Node job ran with the console exporter. It printed the application answer as well. We still have both terminal captures, and the person opening the incident wrote only ‘please attach the output’. Where should I look?",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for "
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT08 answer",
+    "question": "The Node job ran with the console exporter. It printed the application answer as well. We still have both terminal captures, and the person opening the incident wrote only ‘please attach the output’. Where should I look?",
+    "answer": "The person wants what the customer actually read, the reply printed by the app.",
+    "expected": "reply",
+    "includes": [
+      "Read retained stdout"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT09",
+    "question": "Could you check for decision ID Finch-269 from my original run receipt? I have the actual tides-output.jsonl written by that invocation. Its launch manifest gives that JSONL destination relative to the original working folder, which I've preserved. Is there an exact matching record there?",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JS"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT10",
+    "question": "The service installed the Python SDK console exporter. The original scheduler command included python weftreport.py 2>weftreport.err and I kept what it redirected. Which retained output should I inspect to verify the original decision?",
+    "expected": "console",
+    "includes": [
+      "Inspect retained std"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT11",
+    "question": "I was the one who inspected the original configured receiver's intake journal. It contains one entry with the exact decision ID satin-718 from my original receipt. Nobody has queried the store behind that receiver. Which part of the delivery can I substantiate?",
+    "expected": "storage",
+    "includes": [
+      "A receiver entry tha"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT11 receipt",
+    "question": "I was the one who inspected the original configured receiver's intake journal. It contains one entry with the exact decision ID satin-718 from my original receipt. Nobody has queried the store behind that receiver. Which part of the delivery can I substantiate?",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT11 store",
+    "question": "I was the one who inspected the original configured receiver's intake journal. It contains one entry with the exact decision ID satin-718 from my original receipt. Nobody has queried the store behind that receiver. Which part of the delivery can I substantiate?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT12",
+    "question": "I did a readback from the intended downstream store in our original deployment manifest after the worker stopped. It gave me a complete decision record. The original receipt lists pewter-824. What do I need to establish that the record was retrievable there?",
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstrea"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT12 link",
+    "question": "I did a readback from the intended downstream store in our original deployment manifest after the worker stopped. It gave me a complete decision record. The original receipt lists pewter-824. What do I need to establish that the record was retrievable there?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "ask_evidence",
+    "includes": []
+  },
+  {
+    "name": "Reported lookup scope AT12 yes",
+    "question": "I did a readback from the intended downstream store in our original deployment manifest after the worker stopped. It gave me a complete decision record. The original receipt lists pewter-824. What do I need to establish that the record was retrievable there?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "yes"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT12 no",
+    "question": "I did a readback from the intended downstream store in our original deployment manifest after the worker stopped. It gave me a complete decision record. The original receipt lists pewter-824. What do I need to establish that the record was retrievable there?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "no"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Reported lookup scope AT12 unsure",
+    "question": "I did a readback from the intended downstream store in our original deployment manifest after the worker stopped. It gave me a complete decision record. The original receipt lists pewter-824. What do I need to establish that the record was retrievable there?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "unsure"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 0 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned zero matching records. The receiver was the only source.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 0 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records. The receiver was the only source.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 1 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned a record with the original ID. The receiver reported it instead.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 1 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The receiver reported it instead.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 2 0",
+    "question": "I searched the first of ten pages of the intended downstream store for my original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is"
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 2 1",
+    "question": "I searched the first of ten pages of the intended downstream store for my original decision ID.",
+    "answer": "The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is"
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 3 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned one matching record. My colleague read the record on my behalf.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 3 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned one matching record. My colleague read the record on my behalf.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 4 0",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned exactly one row. The ID on that row matched the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 4 1",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned exactly one row. The ID on that row matched the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 5 0",
+    "question": "My original decision ID was Quartz-64. I searched entries.jsonl for my original decision ID. Two rows had the original ID. I again searched entries.jsonl for my original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't id"
+    ]
+  },
+  {
+    "name": "Reported lookup scope review 5 1",
+    "question": "My original decision ID was Quartz-64. I searched entries.jsonl for my original decision ID.",
+    "answer": "Two rows had the original ID. I again searched entries.jsonl for my original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't id"
+    ]
+  },
+  {
+    "name": "Reported lookup scope dual artifacts 0",
+    "question": "I ran the published Node demo using its defaults. I retained only stderr. I need both the decision record and the application reply.",
+    "expected": "node_stderr_only_outputs",
+    "includes": [
+      "Inspect retained std"
+    ]
+  },
+  {
+    "name": "Reported lookup scope dual artifacts 1",
+    "question": "I ran the published Node demo using its defaults. I discarded stderr. I need the decision record.",
+    "expected": "node_discarded_decision",
+    "includes": [
+      "The console exporter"
+    ]
+  },
+  {
+    "name": "Reported lookup scope dual artifacts 2",
+    "question": "I only read the published Node demo using its defaults. I did not run it. I need both the decision record and the application reply.",
+    "expected": "node_demo_preview",
+    "includes": [
+      "Reading the demo pro"
+    ]
+  },
+  {
+    "name": "Reported lookup scope physical stream after answer",
+    "question": "I ran the published Node demo. I redirected stdout into stderr and kept the combined log. Which output has the result?",
+    "answer": "the reply",
+    "expected": "reply_stderr",
+    "includes": [
+      "Read retained stderr"
+    ]
+  },
+  {
+    "name": "Reported lookup scope storage matched The receiver was the sole source.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The receiver was the sole source.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope storage matched The receiver reported it instead.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The receiver reported it instead.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope storage no-match The receiver was the sole source.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records. The receiver was the sole source.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope storage no-match The receiver reported it instead.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records. The receiver reported it instead.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope restated storage Two rows had the original ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "Two rows had the original ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't id"
+    ]
+  },
+  {
+    "name": "Reported lookup scope restated storage The query returned two rows. The first row had the original ID. The first row had a different ID.",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned two rows. The first row had the original ID. The first row had a different ID. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Reported lookup scope delegation storage my colleague",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned one matching record. my colleague checked the entry on my behalf.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope delegation storage the analyst",
+    "question": "I queried the intended downstream store for the original decision ID.",
+    "answer": "The query returned one matching record. the analyst checked the entry on my behalf.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope fraction storage miss",
+    "question": "I queried the second of three pages of the intended downstream store for the original decision ID.",
+    "answer": "The query returned zero matching records. I queried the intended downstream store for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is"
+    ]
+  },
+  {
+    "name": "Reported lookup scope fraction storage positive",
+    "question": "I queried the second of three pages of the intended downstream store for the original decision ID.",
+    "answer": "The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Reported lookup scope receiver matched The store was the sole source.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The store was the sole source.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope receiver matched The store reported it instead.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The store reported it instead.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope receiver no-match The store was the sole source.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned zero matching records. The store was the sole source.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope receiver no-match The store reported it instead.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned zero matching records. The store reported it instead.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope restated receiver Two rows had the original ID.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "Two rows had the original ID. I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't id"
+    ]
+  },
+  {
+    "name": "Reported lookup scope restated receiver The query returned two rows. The first row had the original ID. The first row had a different ID.",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned two rows. The first row had the original ID. The first row had a different ID. I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Reported lookup scope delegation receiver my colleague",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned one matching record. my colleague checked the entry on my behalf.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope delegation receiver the analyst",
+    "question": "I searched the original receiver for the original decision ID.",
+    "answer": "The query returned one matching record. the analyst checked the entry on my behalf.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope fraction receiver miss",
+    "question": "I searched the second of three pages of the original receiver for the original decision ID.",
+    "answer": "The query returned zero matching records. I searched the original receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is"
+    ]
+  },
+  {
+    "name": "Reported lookup scope fraction receiver positive",
+    "question": "I searched the second of three pages of the original receiver for the original decision ID.",
+    "answer": "The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Reported lookup scope jsonl matched The receiver was the sole source.",
+    "question": "I searched entries.jsonl for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The receiver was the sole source.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope jsonl matched The receiver reported it instead.",
+    "question": "I searched entries.jsonl for the original decision ID.",
+    "answer": "The query returned a record with the original ID. The receiver reported it instead.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope jsonl no-match The receiver was the sole source.",
+    "question": "I searched entries.jsonl for the original decision ID.",
+    "answer": "The query returned zero matching records. The receiver was the sole source.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope jsonl no-match The receiver reported it instead.",
+    "question": "I searched entries.jsonl for the original decision ID.",
+    "answer": "The query returned zero matching records. The receiver reported it instead.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a differ"
+    ]
+  },
+  {
+    "name": "Reported lookup scope restated jsonl Two rows had the original ID.",
+    "question": "I searched entries.jsonl for the original decision ID.",
+    "answer": "Two rows had the original ID. I searched entries.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_ambiguous",
+    "includes": [
+      "The lookup hasn't id"
+    ]
+  },
+  {
+    "name": "Reported lookup scope restated jsonl The query returned two rows. The first row had the original ID. The first row had a different ID.",
+    "question": "I searched entries.jsonl for the original decision ID.",
+    "answer": "The query returned two rows. The first row had the original ID. The first row had a different ID. I searched entries.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Reported lookup scope delegation jsonl my colleague",
+    "question": "I searched entries.jsonl for the original decision ID.",
+    "answer": "The query returned one matching record. my colleague checked the entry on my behalf.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope delegation jsonl the analyst",
+    "question": "I searched entries.jsonl for the original decision ID.",
+    "answer": "The query returned one matching record. the analyst checked the entry on my behalf.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope fraction jsonl miss",
+    "question": "I searched the second of three pages of entries.jsonl for the original decision ID.",
+    "answer": "The query returned zero matching records. I searched entries.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is"
+    ]
+  },
+  {
+    "name": "Reported lookup scope fraction jsonl positive",
+    "question": "I searched the second of three pages of entries.jsonl for the original decision ID.",
+    "answer": "The query returned a record with the original ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one mat"
+    ]
+  },
+  {
+    "name": "Reported lookup scope lost printed reply 0",
+    "question": "I ran the published Node demo. Stdout was not kept. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply_stdout_discarded",
+    "includes": [
+      "If another copy of t"
+    ]
+  },
+  {
+    "name": "Reported lookup scope lost printed reply 1",
+    "question": "I ran the published Node demo. We lost standard output. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply_stdout_discarded",
+    "includes": [
+      "If another copy of t"
+    ]
+  },
+  {
+    "name": "Reported lookup scope lost printed reply 2",
+    "question": "I ran the published Node demo. I ran node job.js >/dev/null. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply_stdout_discarded",
+    "includes": [
+      "If another copy of t"
+    ]
+  },
+  {
+    "name": "Reported lookup scope emitter receipt placement 0",
+    "question": "I retained the export copied from the worker which produced the original decision. We can provide the SDK decision ID from the first transaction’s receipt: Sable-81.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JS"
+    ]
+  },
+  {
+    "name": "Reported lookup scope emitter receipt placement 1",
+    "question": "We can provide the SDK decision ID from the first transaction’s receipt: Sable-81. I retained the export copied from the worker which produced the original decision.",
+    "expected": "jsonl",
+    "includes": [
+      "Open the original JS"
+    ]
+  },
+  {
+    "name": "Reported lookup scope intake direct 0",
+    "question": "I was the one who opened the original configured receiver’s ingress log. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Reported lookup scope intake downstream 0",
+    "question": "I was the one who opened the original configured receiver’s ingress log. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope intake direct 1",
+    "question": "I was the one who opened the intended receiver’s intake journal. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a match"
+    ]
+  },
+  {
+    "name": "Reported lookup scope intake downstream 1",
+    "question": "I was the one who opened the intended receiver’s intake journal. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended "
+    ]
+  },
+  {
+    "name": "Reported lookup scope unlabelled receipt 0",
+    "question": "I performed an independent readback from the intended downstream store in our original deployment manifest after the worker stopped. It gave me a complete decision record. The original launch receipt contains sample-712. What do I need to establish that the record was retrievable there?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "ask_evidence",
+    "includes": []
+  },
+  {
+    "name": "Reported lookup scope unlabelled receipt unsure 0",
+    "question": "I performed an independent readback from the intended downstream store in our original deployment manifest after the worker stopped. It gave me a complete decision record. The original launch receipt contains sample-712. What do I need to establish that the record was retrievable there?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "unsure"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Reported lookup scope unlabelled receipt 1",
+    "question": "I performed an independent readback from the intended downstream store in our original deployment manifest after the worker stopped. It gave me a complete decision record. My original receipt shows archive-97. What do I need to establish that the record was retrievable there?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "ask_evidence",
+    "includes": []
+  },
+  {
+    "name": "Reported lookup scope unlabelled receipt unsure 1",
+    "question": "I performed an independent readback from the intended downstream store in our original deployment manifest after the worker stopped. It gave me a complete decision record. My original receipt shows archive-97. What do I need to establish that the record was retrievable there?",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "evidenceReply": "unsure"
+    },
+    "expected": "confirmation_unresolved_lookup",
+    "includes": [
+      "Check which source y"
+    ]
+  },
+  {
+    "name": "Reported lookup scope retained application reply 0",
+    "question": "I ran the published Node demo. I ran node job.js 2>/dev/null. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply",
+    "includes": []
+  },
+  {
+    "name": "Reported lookup scope retained application reply 1",
+    "question": "I ran the published Node demo. I ran node job.js >/dev/null >app.log. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply",
+    "includes": []
+  },
+  {
+    "name": "Reported lookup scope retained application reply 2",
+    "question": "I ran the published Node demo. For example: node job.js >/dev/null. Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply",
+    "includes": []
+  },
+  {
+    "name": "Reported lookup scope retained application reply 3",
+    "question": "I ran the published Node demo. I ran node job.js \" >/dev/null\". Which output has the result?",
+    "answer": "The reply.",
+    "expected": "reply",
+    "includes": []
   }
 ]

@@ -787,7 +787,17 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
             command = re.search(table["inlineNode"]["command"], parts[index])
             if command and (not re.fullmatch(table["commandContext"], parts[index][:command.start()], re.I)
                             or not (_command_register(table["inlineNode"], command) or inherited_register)):
-                parts[index] = parts[index][:command.start()]
+                prefix = parts[index][:command.start()]
+                if re.fullmatch(table["commandContext"], prefix, re.I):
+                    # Shell redirections apply even when SDK preload was absent.
+                    streams = {}
+                    for sink in re.finditer(table["streamSinkToken"], parts[index][command.end():]):
+                        if sink.group(2) is not None:
+                            streams[sink.group(1) or "1"] = sink.group(2)
+                    for descriptor, name in (("1", "stdout"), ("2", "stderr")):
+                        if streams.get(descriptor) == "/dev/null":
+                            prefix += " discarded " + name + ". "
+                parts[index] = prefix
     return "".join(parts)
 
 
@@ -1159,7 +1169,8 @@ def _located_results(table, reports, quoted):
         for clause in report:
             roles, scope = _report_roles(spec, clause, quoted)
             named = {key for key, pattern in spec["sources"].items() if re.search(pattern, scope, re.I)}
-            if re.fullmatch(table["lookupLanguage"]["phraseRoles"]["inactiveInspection"], scope.strip(), re.I):
+            if any(re.fullmatch(table["lookupLanguage"]["phraseRoles"][condition], scope.strip(), re.I)
+                   for condition in ("inactiveInspection", "unreadDownstream")):
                 continue
             if named and re.search(language["phase"], scope, re.I):
                 owner = named
@@ -1445,12 +1456,18 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
     stages = spec["rowStages"]
     owners = [attempts[current[kind]] for kind in previous]
     provider = re.fullmatch(stages["providerResult"], clause, re.I)
-    if (provider and named and previous - named and not re.search(stages["definiteObject"], clause, re.I)
-            and not re.search(stages["objectReference"], clause, re.I)):
+    exclusive = re.fullmatch(stages["exclusiveResultOwner"], clause, re.I)
+    ordinary_provider = (provider and not re.search(stages["definiteObject"], clause, re.I)
+                         and not re.search(stages["objectReference"], clause, re.I))
+    if named and previous - named and (exclusive or ordinary_provider):
         for kind in previous - named:
             check = attempts[current[kind]]
             if check.latest_object or check.zero_matches:
                 check.relocated = True
+    if re.fullmatch(stages["delegatedRead"], clause, re.I):
+        for check in owners:
+            check.foreign_reader_only = True
+        return True
     group = re.fullmatch(stages["groupSize"], clause, re.I)
     if group:
         quantity = group[1].lower()
@@ -1489,6 +1506,7 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
             prior = re.fullmatch(stages["priorID"], identity, re.I)
             for check in owners:
                 if original or (value and value in original_ids) or (prior and check.latest_object == "match"):
+                    check.matched_objects = max(check.matched_objects, 2)
                     check.ambiguous = True
                 elif (value and original_ids) or (prior and check.latest_object == "miss"):
                     check.other_objects += 2
@@ -1607,6 +1625,9 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
         if turn_index and not active and action in ("query_storage", "stored") and source == "storage":
             active = {source}
         for clause in clauses:
+            if re.fullmatch(table["lookupLanguage"]["phraseRoles"]["unreadDownstream"], clause.strip(), re.I):
+                attempts[origin["storage"]].unchecked = True
+                continue
             if re.fullmatch(table["lookupLanguage"]["phraseRoles"]["neutralReadQuestion"], clause.strip(), re.I):
                 continue
             if re.fullmatch(spec["reportIntent"], clause, re.I):
@@ -1889,8 +1910,12 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         spec["lookupTargetRole"], clause, re.I
                     ):
                         checks[target].referenced_check = True
-                    checks[target].partial = bool(re.search(spec["partialCoverage"], clause, re.I))
-                    checks[target].unresolved_detail = False
+                    if re.search(spec["partialCoverage"], clause, re.I):
+                        checks[target].partial = True
+                    elif re.search(spec["exhaustiveCoverage"], clause, re.I):
+                        checks[target].partial = False
+                    if checks[target].group_size is None:
+                        checks[target].unresolved_detail = False
                     corrected = re.search(spec["correctedInspection"], clause, re.I)
                     if inspected[target] and destinations[target] and corrected:
                         attempts[origin[target]].correct_instance = inspected[target] == destinations[target]
@@ -2092,6 +2117,17 @@ def _observation_action(report):
     return None
 
 
+def _reply_stream(facts):
+    """Follow the app's known output stream through the original launch's redirections."""
+    if "stdoutMergedIntoStderr" in facts:
+        return "reply_stdout_discarded" if "discardedStderr" in facts else "reply_stderr"
+    if "stderrMergedIntoStdout" in facts:
+        return "reply_stdout_discarded" if "discardedStdout" in facts else "reply"
+    if "replyOnStderr" in facts:
+        return "reply_streams" if "replyOnStdout" in facts and "discardedStdout" not in facts else "reply_stderr"
+    return "reply_stdout_discarded" if "discardedStdout" in facts else "reply"
+
+
 def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
           confirmation: Optional[Union[Tuple[str, str], Dict[str, str]]] = None,
@@ -2124,26 +2160,38 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
           and facts.isdisjoint(("discardedStdout", "discardedStderr",
                                 "stdoutMergedIntoStderr", "stderrMergedIntoStdout"))):
         key = "node_console"
+    if "wantsBothStreams" in roles:
+        if "readDemoOnly" in facts and "disownedDemo" in roles:
+            key = "node_demo_preview"
+        elif "ranDefaultNodeDemo" in facts and ("onlyStderr" in roles or "discardedStdout" in facts):
+            key = "node_stderr_only_outputs"
+    elif "wantsDecisionRecord" in roles and {"ranDefaultNodeDemo", "discardedStderr"} <= facts:
+        key = "node_discarded_decision"
     if "wantsApplicationReply" in roles and key in ("fallback", "ask_subject") and {"node", "stdout"} <= facts:
-        key = ("reply_stdout_discarded" if "discardedStdout" in facts else
-               "reply_stderr" if "stdoutMergedIntoStderr" in facts else "reply")
+        key = _reply_stream(facts)
     if {"unavailableOriginal", "reusedTicket"} <= roles and key in ("ask_path", "ask_subject"):
         key = "ask_id"
     if "explicitWorkerConsole" in roles and "redirectErr" in facts and key in ("ask_exporter", "ask_subject"):
         key = "console"
-    if "wantsMetadata" in roles and "retainedNodeStreams" in roles and "decisionOnStderr" in facts:
+    if ("wantsMetadata" in roles and roles.intersection(("retainedNodeStreams", "ownNodeDecision"))
+            and "decisionOnStderr" in facts and "discardedStderr" not in facts):
         key = "node_console"
     if ("wantsApplicationReply" in roles and "node" in facts and key == "fallback" and answer
-            and ("stdout" in facts or roles.intersection(("retainedSourceStreams", "retainedNodeStreams",
+            and ("stdout" in facts or {"consoleJob", "separateAppReply"} <= roles
+                 or roles.intersection(("retainedSourceStreams", "retainedNodeStreams",
                                                          "archivedNodeArtifacts")))):
-        if not facts.intersection(("discardedStdout", "stdoutMergedIntoStderr", "replyOnStderr")):
-            key = "reply"
+        key = _reply_stream(facts)
     if {"uniqueMarker", "absentID"} <= roles and key in ("ask_id", "fallback", "jsonl_candidates"):
         key = "surviving_marker"
     sources = roles.intersection(("jsonl", "receiver", "storage"))
     if (not unknown and "contraryID" not in roles and len(sources) == 1 and len(results) == len(target_ids) == 1
             and {"reader", "origin", "target"} <= roles and not (account and account.disputed)):
         account = _LookupAccount(next(iter(sources)), results[0], True, False, False)
+    if (not unknown and results == ["unlinked"] and sources == {"storage"} and not target_ids
+            and {"reader", "origin", "receiptReference"} <= roles and not roles.intersection(("contraryID", "absentID"))
+            and not (account and account.disputed)):
+        # An unlabeled receipt value does not supply the missing comparison to the returned record.
+        account = _LookupAccount("storage", "unlinked", True, False, False)
     if account:
         language = table["lookupLanguage"]
         if not account.disputed and ((account.accounted and account.result != "unknown")
@@ -2392,7 +2440,8 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
             facts.discard("receiver")
     archived_artifacts = ("archivedNodeArtifacts" in artifact_roles
                           or {"retainedNodeStreams", "nodeOutputInventory"} <= artifact_roles
-                          or {"demoReplyRetained", "demoDecisionRetained"} <= artifact_roles)
+                          or {"demoReplyRetained", "demoDecisionRetained"} <= artifact_roles
+                          or {"consoleJob", "separateAppReply"} <= artifact_roles)
     if archived_artifacts:
         facts.update(("node", "genericResult", "console"))
         if facts.isdisjoint(("replyOnStderr", "stdoutMergedIntoStderr")):
@@ -2562,8 +2611,8 @@ def _next_step(table, question, answer=None, shell=None, inherited=None, privacy
             if key == "reply":
                 facts.update(_collect_facts(table, _source_text(table, reply_source))
                              & {"replyOnStdout", "replyOnStderr"})
-    if key == "reply" and "replyOnStderr" in facts:
-        key = "reply_streams" if "replyOnStdout" in facts else "reply_stderr"
+    if key == "reply":
+        key = _reply_stream(facts)
     return key, facts
 
 
