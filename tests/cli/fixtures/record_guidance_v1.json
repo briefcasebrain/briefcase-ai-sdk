@@ -375,7 +375,7 @@
   },
   {
     "name": "runtime disabled exporter",
-    "question": "The default exporter inherited this shell’s unchanged configuration.",
+    "question": "The default exporter inherited this shell\u2019s unchanged configuration.",
     "expected": "disabled",
     "includes": [
       "disable"
@@ -384,7 +384,7 @@
   },
   {
     "name": "unrecognized runtime default",
-    "question": "The default exporter inherited this shell’s unchanged configuration.",
+    "question": "The default exporter inherited this shell\u2019s unchanged configuration.",
     "expected": "check_launch",
     "includes": [
       "original launch configuration"
@@ -393,7 +393,7 @@
   },
   {
     "name": "arbitrary memory does not print",
-    "question": "The Node default exporter inherited this shell’s unchanged configuration.",
+    "question": "The Node default exporter inherited this shell\u2019s unchanged configuration.",
     "expected": "memory_only",
     "includes": [
       "explicitly printed"
@@ -614,7 +614,7 @@
   },
   {
     "name": "B03",
-    "question": "My archived command ran the unchanged Python first_decision.py quickstart using memory; stdout went to capture.txt. The console exporter from another program writes elsewhere. Where is this quickstart’s printed decision?",
+    "question": "My archived command ran the unchanged Python first_decision.py quickstart using memory; stdout went to capture.txt. The console exporter from another program writes elsewhere. Where is this quickstart\u2019s printed decision?",
     "expected": "memory",
     "includes": [
       "retained stdout"
@@ -798,7 +798,7 @@
   },
   {
     "name": "inherited path preserving spaces",
-    "question": "Python used the default exporter and inherited this shell’s unchanged configuration.",
+    "question": "Python used the default exporter and inherited this shell\u2019s unchanged configuration.",
     "expected": "jsonl",
     "includes": [
       "original JSONL file"
@@ -810,7 +810,7 @@
   },
   {
     "name": "redirect is not inherited memory exporter",
-    "question": "Node used the default exporter and inherited this shell’s unchanged configuration. stderr went to debug.jsonl.",
+    "question": "Node used the default exporter and inherited this shell\u2019s unchanged configuration. stderr went to debug.jsonl.",
     "expected": "memory_only",
     "includes": [
       "before exit"
@@ -1491,7 +1491,7 @@
   },
   {
     "name": "Resolved Node console overrides OTLP setting label",
-    "question": "Node used the default exporter and inherited this shell’s unchanged configuration. BRIEFCASE_EXPORTER=otlp; stderr went to debug.jsonl.",
+    "question": "Node used the default exporter and inherited this shell\u2019s unchanged configuration. BRIEFCASE_EXPORTER=otlp; stderr went to debug.jsonl.",
     "expected": "node_console",
     "includes": [
       "retained stderr",
@@ -2404,8 +2404,8 @@
     ]
   },
   {
-    "name": "Quoted receiver prefix mismatch “",
-    "question": "The original marker was build-42. The receiver received marker “build-42 dev”.",
+    "name": "Quoted receiver prefix mismatch \u201c",
+    "question": "The original marker was build-42. The receiver received marker \u201cbuild-42 dev\u201d.",
     "expected": "receipt_unknown",
     "includes": [
       "original"
@@ -2415,8 +2415,8 @@
     ]
   },
   {
-    "name": "Complete quoted receiver result “",
-    "question": "The original marker was “build-42 dev”. The receiver received marker “build-42 dev”.",
+    "name": "Complete quoted receiver result \u201c",
+    "question": "The original marker was \u201cbuild-42 dev\u201d. The receiver received marker \u201cbuild-42 dev\u201d.",
     "expected": "storage",
     "includes": [
       "original decision ID"
@@ -2492,8 +2492,8 @@
     ]
   },
   {
-    "name": "Quoted database prefix mismatch “",
-    "question": "The original marker was build-42. The database returned marker “build-42 dev”.",
+    "name": "Quoted database prefix mismatch \u201c",
+    "question": "The original marker was build-42. The database returned marker \u201cbuild-42 dev\u201d.",
     "expected": "store_missing",
     "includes": [
       "original"
@@ -2503,8 +2503,8 @@
     ]
   },
   {
-    "name": "Complete quoted database result “",
-    "question": "The original marker was “build-42 dev”. The database returned marker “build-42 dev”.",
+    "name": "Complete quoted database result \u201c",
+    "question": "The original marker was \u201cbuild-42 dev\u201d. The database returned marker \u201cbuild-42 dev\u201d.",
     "expected": "stored",
     "includes": [
       "Compare the returned r"
@@ -3758,8 +3758,8 @@
     ]
   },
   {
-    "name": "Reversed role assignment “parcel-731” was our original marker.",
-    "question": "“parcel-731” was our original marker. The rows are in parcel-731.jsonl and two calls reused the same ticket. Which row is mine?",
+    "name": "Reversed role assignment \u201cparcel-731\u201d was our original marker.",
+    "question": "\u201cparcel-731\u201d was our original marker. The rows are in parcel-731.jsonl and two calls reused the same ticket. Which row is mine?",
     "expected": "jsonl",
     "includes": [
       "original JSONL file"
@@ -15763,8 +15763,8 @@
     }
   },
   {
-    "name": "Available observation before transport original application’s exporter was explicitly set toWe ran python tool.py 2> job.jsonl and kept that file.",
-    "question": "The original application’s exporter was explicitly set to console. We ran python tool.py 2> job.jsonl and kept that file. How can I verify the original decision?",
+    "name": "Available observation before transport original application\u2019s exporter was explicitly set toWe ran python tool.py 2> job.jsonl and kept that file.",
+    "question": "The original application\u2019s exporter was explicitly set to console. We ran python tool.py 2> job.jsonl and kept that file. How can I verify the original decision?",
     "expected": "console",
     "includes": [
       "Inspect retained stderr for ",
@@ -15773,8 +15773,8 @@
     ]
   },
   {
-    "name": "Available observation before transport original application’s exporter was explicitly set toThe launcher archived stderr.",
-    "question": "The original application’s exporter was explicitly set to console. The launcher archived stderr. How can I verify the original decision?",
+    "name": "Available observation before transport original application\u2019s exporter was explicitly set toThe launcher archived stderr.",
+    "question": "The original application\u2019s exporter was explicitly set to console. The launcher archived stderr. How can I verify the original decision?",
     "expected": "console",
     "includes": [
       "Inspect retained stderr for ",
@@ -20682,7 +20682,7 @@
   },
   {
     "name": "Scope of reported lookup possessive owner",
-    "question": "The original exporter was memory. Our colleague’s command was briefcase-ai exec --to rogue.jsonl -- python app.py.",
+    "question": "The original exporter was memory. Our colleague\u2019s command was briefcase-ai exec --to rogue.jsonl -- python app.py.",
     "expected": "memory_only",
     "includes": [
       "If this process used a memory "
@@ -20786,7 +20786,7 @@
     "answer": "The original decision ID recorded in my launch receipt is \"fir-8\"."
   },
   {
-    "name": "Receipt correlation my launch receipt on “fir-8”",
+    "name": "Receipt correlation my launch receipt on \u201cfir-8\u201d",
     "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
     "expected": "jsonl_candidates",
     "includes": [
@@ -20798,10 +20798,10 @@
       "pine-7",
       "different-2"
     ],
-    "answer": "The original decision ID on my launch receipt is “fir-8”."
+    "answer": "The original decision ID on my launch receipt is \u201cfir-8\u201d."
   },
   {
-    "name": "Receipt correlation my launch receipt recorded in “fir-8”",
+    "name": "Receipt correlation my launch receipt recorded in \u201cfir-8\u201d",
     "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
     "expected": "jsonl_candidates",
     "includes": [
@@ -20813,7 +20813,7 @@
       "pine-7",
       "different-2"
     ],
-    "answer": "The original decision ID recorded in my launch receipt is “fir-8”."
+    "answer": "The original decision ID recorded in my launch receipt is \u201cfir-8\u201d."
   },
   {
     "name": "Receipt correlation our run confirmation on fir-8",
@@ -20876,7 +20876,7 @@
     "answer": "The original decision ID recorded in our run confirmation is \"fir-8\"."
   },
   {
-    "name": "Receipt correlation our run confirmation on “fir-8”",
+    "name": "Receipt correlation our run confirmation on \u201cfir-8\u201d",
     "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
     "expected": "jsonl_candidates",
     "includes": [
@@ -20888,10 +20888,10 @@
       "pine-7",
       "different-2"
     ],
-    "answer": "The original decision ID on our run confirmation is “fir-8”."
+    "answer": "The original decision ID on our run confirmation is \u201cfir-8\u201d."
   },
   {
-    "name": "Receipt correlation our run confirmation recorded in “fir-8”",
+    "name": "Receipt correlation our run confirmation recorded in \u201cfir-8\u201d",
     "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
     "expected": "jsonl_candidates",
     "includes": [
@@ -20903,7 +20903,7 @@
       "pine-7",
       "different-2"
     ],
-    "answer": "The original decision ID recorded in our run confirmation is “fir-8”."
+    "answer": "The original decision ID recorded in our run confirmation is \u201cfir-8\u201d."
   },
   {
     "name": "Receipt correlation the original job log on fir-8",
@@ -20966,7 +20966,7 @@
     "answer": "The original decision ID recorded in the original job log is \"fir-8\"."
   },
   {
-    "name": "Receipt correlation the original job log on “fir-8”",
+    "name": "Receipt correlation the original job log on \u201cfir-8\u201d",
     "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
     "expected": "jsonl_candidates",
     "includes": [
@@ -20978,10 +20978,10 @@
       "pine-7",
       "different-2"
     ],
-    "answer": "The original decision ID on the original job log is “fir-8”."
+    "answer": "The original decision ID on the original job log is \u201cfir-8\u201d."
   },
   {
-    "name": "Receipt correlation the original job log recorded in “fir-8”",
+    "name": "Receipt correlation the original job log recorded in \u201cfir-8\u201d",
     "question": "My JSONL exporter captured two calls that share a ticket. How can I tell which row belongs to the call I am trying to diagnose?",
     "expected": "jsonl_candidates",
     "includes": [
@@ -20993,7 +20993,7 @@
       "pine-7",
       "different-2"
     ],
-    "answer": "The original decision ID recorded in the original job log is “fir-8”."
+    "answer": "The original decision ID recorded in the original job log is \u201cfir-8\u201d."
   },
   {
     "name": "Receipt correlation The original decision ID on their receipt is different-2.",
@@ -21261,9 +21261,9 @@
   {
     "name": "Reader observation jsonl matched coverage partial",
     "question": "Help me interpret an original decision lookup.",
-    "expected": "confirmed_jsonl_matched",
+    "expected": "jsonl_partial_observed",
     "includes": [
-      "You reported one matching record"
+      "You reported finding a matching row"
     ],
     "confirmation": {
       "source": "jsonl",
@@ -21277,9 +21277,9 @@
   {
     "name": "Reader observation jsonl matched coverage unverified",
     "question": "Help me interpret an original decision lookup.",
-    "expected": "confirmed_jsonl_matched",
+    "expected": "jsonl_partial",
     "includes": [
-      "You reported one matching record"
+      "A complete search is still unverified"
     ],
     "confirmation": {
       "source": "jsonl",
@@ -23330,7 +23330,7 @@
   },
   {
     "name": "Configured store read foreign 0/0",
-    "question": "After the writer exited I independently queried the downstream store configured for this original run. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I read the full returned decision and matched its ID to another run\u2019s launch receipt.",
     "expected": "query_storage",
     "includes": [
       "Search the downstream store for t"
@@ -23338,7 +23338,7 @@
   },
   {
     "name": "Configured store read foreign outcome 0/0",
-    "question": "After the writer exited I independently queried the downstream store configured for this original run. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "question": "After the writer exited I independently queried the downstream store configured for this original run. I read the full returned decision and matched its ID to another run\u2019s launch receipt.",
     "expected": "confirmation_other_run",
     "includes": [
       "The result is for a different run"
@@ -23401,7 +23401,7 @@
   },
   {
     "name": "Configured store read foreign 1/0",
-    "question": "Once the application stopped, I searched the database that the original worker used. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "question": "Once the application stopped, I searched the database that the original worker used. I read the full returned decision and matched its ID to another run\u2019s launch receipt.",
     "expected": "query_storage",
     "includes": [
       "Search the downstream store for t"
@@ -23409,7 +23409,7 @@
   },
   {
     "name": "Configured store read foreign outcome 1/0",
-    "question": "Once the application stopped, I searched the database that the original worker used. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "question": "Once the application stopped, I searched the database that the original worker used. I read the full returned decision and matched its ID to another run\u2019s launch receipt.",
     "expected": "confirmation_other_run",
     "includes": [
       "The result is for a different run"
@@ -23472,7 +23472,7 @@
   },
   {
     "name": "Configured store read foreign 2/0",
-    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I read the full returned decision and matched its ID to another run\u2019s launch receipt.",
     "expected": "query_storage",
     "includes": [
       "Search the downstream store for t"
@@ -23480,7 +23480,7 @@
   },
   {
     "name": "Configured store read foreign outcome 2/0",
-    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I read the full returned decision and matched its ID to another run’s launch receipt.",
+    "question": "I opened our original run's downstream store after the job finished and looked up its decision. I read the full returned decision and matched its ID to another run\u2019s launch receipt.",
     "expected": "confirmation_other_run",
     "includes": [
       "The result is for a different run"
@@ -26473,7 +26473,7 @@
   },
   {
     "name": "Composed investigation roles AG11",
-    "question": "I checked the original deployment configuration to identify its receiver, then personally opened that receiver’s incoming records. One contained the exact decision ID maple-132 from my original launch receipt. I have not looked in downstream storage. What has been verified?",
+    "question": "I checked the original deployment configuration to identify its receiver, then personally opened that receiver\u2019s incoming records. One contained the exact decision ID maple-132 from my original launch receipt. I have not looked in downstream storage. What has been verified?",
     "expected": "storage",
     "includes": [
       "A receiver entry that matches "
@@ -31724,9 +31724,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "answer": "The query returned a row."
   },
@@ -31740,9 +31740,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ]
   },
   {
@@ -31755,9 +31755,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ]
   },
   {
@@ -32138,9 +32138,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "answer": "The query returned a row."
   },
@@ -32154,9 +32154,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ]
   },
   {
@@ -32169,9 +32169,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ]
   },
   {
@@ -32552,9 +32552,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "answer": "The query returned a row."
   },
@@ -32568,9 +32568,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ]
   },
   {
@@ -32583,9 +32583,9 @@
       "targetMatch": "original",
       "sourceMatch": "original"
     },
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ]
   },
   {
@@ -32603,7 +32603,7 @@
     "includes": [
       "Compare the original decis"
     ],
-    "answer": "I kept the first invocation’s original decision ID, laurel-472."
+    "answer": "I kept the first invocation\u2019s original decision ID, laurel-472."
   },
   {
     "name": "Scoped claim composition AK08 first",
@@ -32624,7 +32624,7 @@
   },
   {
     "name": "Scoped claim composition AK09 first",
-    "question": "I personally reopened the original configured JSONL file stamplake.jsonl after the writer exited, using its original working directory. Every line parsed. I checked all rows for my original invocation’s unique marker heron-284: zero matches. What does that establish?",
+    "question": "I personally reopened the original configured JSONL file stamplake.jsonl after the writer exited, using its original working directory. Every line parsed. I checked all rows for my original invocation\u2019s unique marker heron-284: zero matches. What does that establish?",
     "expected": "jsonl_stale",
     "includes": [
       "If the inspected rows in t"
@@ -32632,7 +32632,7 @@
   },
   {
     "name": "Scoped claim composition AK09 supported observation",
-    "question": "I personally reopened the original configured JSONL file stamplake.jsonl after the writer exited, using its original working directory. Every line parsed. I checked all rows for my original invocation’s unique marker heron-284: zero matches. What does that establish?",
+    "question": "I personally reopened the original configured JSONL file stamplake.jsonl after the writer exited, using its original working directory. Every line parsed. I checked all rows for my original invocation\u2019s unique marker heron-284: zero matches. What does that establish?",
     "expected": "confirmed_jsonl_no_match",
     "includes": [
       "You reported no match afte"
@@ -32648,7 +32648,7 @@
   },
   {
     "name": "Scoped claim composition AK09 contradictory observation",
-    "question": "I personally reopened the original configured JSONL file stamplake.jsonl after the writer exited, using its original working directory. Every line parsed. I checked all rows for my original invocation’s unique marker heron-284: zero matches. What does that establish?",
+    "question": "I personally reopened the original configured JSONL file stamplake.jsonl after the writer exited, using its original working directory. Every line parsed. I checked all rows for my original invocation\u2019s unique marker heron-284: zero matches. What does that establish?",
     "expected": "confirmation_inconsistent",
     "includes": [
       "Your selection conflicts w"
@@ -34159,7 +34159,7 @@
     "includes": [
       "Compare the original decis"
     ],
-    "answer": "I retained our first run’s original decision ID, seeded-937."
+    "answer": "I retained our first run\u2019s original decision ID, seeded-937."
   },
   {
     "name": "Scoped claim composition uncertain correlation first run",
@@ -34168,7 +34168,7 @@
     "includes": [
       "Use the static guide below"
     ],
-    "answer": "I might have the first run’s original decision ID, seeded-937."
+    "answer": "I might have the first run\u2019s original decision ID, seeded-937."
   },
   {
     "name": "Scoped claim composition pending correlation original call",
@@ -34177,7 +34177,7 @@
     "includes": [
       "Compare the original decis"
     ],
-    "answer": "I retained our original call’s original decision ID, seeded-937."
+    "answer": "I retained our original call\u2019s original decision ID, seeded-937."
   },
   {
     "name": "Scoped claim composition uncertain correlation original call",
@@ -34186,7 +34186,7 @@
     "includes": [
       "Use the static guide below"
     ],
-    "answer": "I might have the original call’s original decision ID, seeded-937."
+    "answer": "I might have the original call\u2019s original decision ID, seeded-937."
   },
   {
     "name": "Scoped claim composition pending correlation initial attempt",
@@ -34195,7 +34195,7 @@
     "includes": [
       "Compare the original decis"
     ],
-    "answer": "I retained our initial attempt’s original decision ID, seeded-937."
+    "answer": "I retained our initial attempt\u2019s original decision ID, seeded-937."
   },
   {
     "name": "Scoped claim composition uncertain correlation initial attempt",
@@ -34204,7 +34204,7 @@
     "includes": [
       "Use the static guide below"
     ],
-    "answer": "I might have the initial attempt’s original decision ID, seeded-937."
+    "answer": "I might have the initial attempt\u2019s original decision ID, seeded-937."
   },
   {
     "name": "Scoped claim composition stream choice False",
@@ -34260,7 +34260,7 @@
   },
   {
     "name": "Scoped claim composition file accounting linematched",
-    "question": "I opened the original JSONL file. Every line parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "question": "I opened the original JSONL file. Every line parsed. I checked all rows for my original run\u2019s unique marker reed-217: zero matches.",
     "expected": "confirmation_inconsistent",
     "includes": [
       "Your selection conflicts w"
@@ -34276,7 +34276,7 @@
   },
   {
     "name": "Scoped claim composition file accounting lineno-match",
-    "question": "I opened the original JSONL file. Every line parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "question": "I opened the original JSONL file. Every line parsed. I checked all rows for my original run\u2019s unique marker reed-217: zero matches.",
     "expected": "confirmed_jsonl_no_match",
     "includes": [
       "You reported no match afte"
@@ -34292,7 +34292,7 @@
   },
   {
     "name": "Scoped claim composition file accounting rowmatched",
-    "question": "I opened the original JSONL file. Every row parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "question": "I opened the original JSONL file. Every row parsed. I checked all rows for my original run\u2019s unique marker reed-217: zero matches.",
     "expected": "confirmation_inconsistent",
     "includes": [
       "Your selection conflicts w"
@@ -34308,7 +34308,7 @@
   },
   {
     "name": "Scoped claim composition file accounting rowno-match",
-    "question": "I opened the original JSONL file. Every row parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "question": "I opened the original JSONL file. Every row parsed. I checked all rows for my original run\u2019s unique marker reed-217: zero matches.",
     "expected": "confirmed_jsonl_no_match",
     "includes": [
       "You reported no match afte"
@@ -34324,7 +34324,7 @@
   },
   {
     "name": "Scoped claim composition file accounting recordmatched",
-    "question": "I opened the original JSONL file. Every record parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "question": "I opened the original JSONL file. Every record parsed. I checked all rows for my original run\u2019s unique marker reed-217: zero matches.",
     "expected": "confirmation_inconsistent",
     "includes": [
       "Your selection conflicts w"
@@ -34340,7 +34340,7 @@
   },
   {
     "name": "Scoped claim composition file accounting recordno-match",
-    "question": "I opened the original JSONL file. Every record parsed. I checked all rows for my original run’s unique marker reed-217: zero matches.",
+    "question": "I opened the original JSONL file. Every record parsed. I checked all rows for my original run\u2019s unique marker reed-217: zero matches.",
     "expected": "confirmed_jsonl_no_match",
     "includes": [
       "You reported no match afte"
@@ -34807,9 +34807,9 @@
   {
     "name": "Report reconciliation jsonl matched gap None",
     "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search t"
+      "Your report left parts"
     ],
     "answer": "My written notes do not specify which identifier I searched.",
     "confirmation": {
@@ -34836,7 +34836,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -34854,7 +34860,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -34872,15 +34880,17 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
     "name": "Report reconciliation jsonl no-match gap None",
     "question": "My original decision ID was oak-17. I queried the original JSONL file for the original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search a"
+      "Your report left parts"
     ],
     "answer": "My written notes do not specify which identifier I searched.",
     "confirmation": {
@@ -34907,7 +34917,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "zero",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -34925,7 +34941,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -34943,7 +34961,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -35295,9 +35315,9 @@
   {
     "name": "Report reconciliation receiver matched gap None",
     "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search t"
+      "Your report left parts"
     ],
     "answer": "My written notes do not specify which identifier I searched.",
     "confirmation": {
@@ -35324,7 +35344,12 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
@@ -35342,7 +35367,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -35360,15 +35387,17 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
     "name": "Report reconciliation receiver no-match gap None",
     "question": "My original decision ID was oak-17. I queried the intended receiver for the original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search a"
+      "Your report left parts"
     ],
     "answer": "My written notes do not specify which identifier I searched.",
     "confirmation": {
@@ -35395,7 +35424,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "zero",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -35413,7 +35448,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -35431,7 +35468,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -35783,9 +35822,9 @@
   {
     "name": "Report reconciliation storage matched gap None",
     "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search t"
+      "Your report left parts"
     ],
     "answer": "My written notes do not specify which identifier I searched.",
     "confirmation": {
@@ -35812,7 +35851,12 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
@@ -35830,7 +35874,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -35848,15 +35894,17 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
     "name": "Report reconciliation storage no-match gap None",
     "question": "My original decision ID was oak-17. I queried the intended downstream store for the original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search a"
+      "Your report left parts"
     ],
     "answer": "My written notes do not specify which identifier I searched.",
     "confirmation": {
@@ -35883,7 +35931,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "zero",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -35901,7 +35955,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -35919,7 +35975,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -35965,9 +36023,9 @@
   {
     "name": "Configured lookup link jsonl matched False None",
     "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "jsonl",
@@ -35992,7 +36050,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -36009,7 +36073,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -36026,7 +36092,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -36074,9 +36142,9 @@
   {
     "name": "Configured lookup link jsonl no-match False None",
     "question": "I inspected the JSONL file from the original worker configuration for its original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "jsonl",
@@ -36101,7 +36169,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "zero",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -36118,7 +36192,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -36135,7 +36211,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -36183,9 +36261,9 @@
   {
     "name": "Configured lookup link jsonl matched True None",
     "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "jsonl",
@@ -36210,7 +36288,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -36227,7 +36311,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -36244,7 +36330,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -36292,9 +36380,9 @@
   {
     "name": "Configured lookup link jsonl no-match True None",
     "question": "I inspected the JSONL file from the original worker configuration for its original decision ID. I want to report my file lookup. What does my check establish?",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "jsonl",
@@ -36319,7 +36407,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "zero",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -36336,7 +36430,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -36353,7 +36449,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -36401,9 +36499,9 @@
   {
     "name": "Configured lookup link receiver matched False None",
     "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "receiver",
@@ -36428,7 +36526,12 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
@@ -36445,7 +36548,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -36462,7 +36567,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -36510,9 +36617,9 @@
   {
     "name": "Configured lookup link receiver no-match False None",
     "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "receiver",
@@ -36537,7 +36644,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "zero",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -36554,7 +36667,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -36571,7 +36686,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -36619,9 +36736,9 @@
   {
     "name": "Configured lookup link receiver matched True None",
     "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "receiver",
@@ -36646,7 +36763,12 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
@@ -36663,7 +36785,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -36680,7 +36804,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -36728,9 +36854,9 @@
   {
     "name": "Configured lookup link receiver no-match True None",
     "question": "I inspected the receiving endpoint named in the original launch configuration for its original decision ID. I want to report my receiver lookup. What does my check establish?",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "receiver",
@@ -36755,7 +36881,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "zero",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -36772,7 +36904,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -36789,7 +36923,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -36837,9 +36973,9 @@
   {
     "name": "Configured lookup link storage matched False None",
     "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "storage",
@@ -36864,7 +37000,12 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
@@ -36881,7 +37022,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -36898,7 +37041,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -36946,9 +37091,9 @@
   {
     "name": "Configured lookup link storage no-match False None",
     "question": "I independently queried the downstream storage from the original deployment for its original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "storage",
@@ -36973,7 +37118,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "zero",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -36990,7 +37141,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -37007,7 +37160,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -37055,9 +37210,9 @@
   {
     "name": "Configured lookup link storage matched True None",
     "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "storage",
@@ -37082,7 +37237,12 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
@@ -37099,7 +37259,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -37116,7 +37278,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -37164,9 +37328,9 @@
   {
     "name": "Configured lookup link storage no-match True None",
     "question": "I independently queried the downstream storage from the original deployment for its original decision ID. I want to report my store lookup. What does my check establish?",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally search"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "storage",
@@ -37191,7 +37355,13 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "zero",
+        "coverage": "complete"
+      }
     }
   },
   {
@@ -37208,7 +37378,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -37225,7 +37397,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -39693,9 +39867,9 @@
   {
     "name": "Composed original lookup 28",
     "question": "I personally inspected the receiver named in the original deployment settings. I searched for the original decision ID mint-614. An incoming entry was observed by me. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39716,9 +39890,9 @@
   {
     "name": "Composed original lookup 29",
     "question": "I searched for the original decision ID mint-614. I personally inspected the receiver named in the original deployment settings. An incoming entry was observed by me. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39739,9 +39913,9 @@
   {
     "name": "Composed original lookup 30",
     "question": "I personally inspected the receiver named in the original deployment settings. I searched for the original decision ID mint-614. I saw an incoming record. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39762,9 +39936,9 @@
   {
     "name": "Composed original lookup 31",
     "question": "I searched for the original decision ID mint-614. I personally inspected the receiver named in the original deployment settings. I saw an incoming record. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39785,9 +39959,9 @@
   {
     "name": "Composed original lookup 32",
     "question": "I personally inspected the receiver named in the original deployment settings. My original receipt provided the lookup ID mint-614. An incoming entry was observed by me. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39808,9 +39982,9 @@
   {
     "name": "Composed original lookup 33",
     "question": "My original receipt provided the lookup ID mint-614. I personally inspected the receiver named in the original deployment settings. An incoming entry was observed by me. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39831,9 +40005,9 @@
   {
     "name": "Composed original lookup 34",
     "question": "I personally inspected the receiver named in the original deployment settings. My original receipt provided the lookup ID mint-614. I saw an incoming record. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39854,9 +40028,9 @@
   {
     "name": "Composed original lookup 35",
     "question": "My original receipt provided the lookup ID mint-614. I personally inspected the receiver named in the original deployment settings. I saw an incoming record. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39877,9 +40051,9 @@
   {
     "name": "Composed original lookup 36",
     "question": "The receiving endpoint from the original worker configuration was checked by me. I searched for the original decision ID mint-614. An incoming entry was observed by me. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39900,9 +40074,9 @@
   {
     "name": "Composed original lookup 37",
     "question": "I searched for the original decision ID mint-614. The receiving endpoint from the original worker configuration was checked by me. An incoming entry was observed by me. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39923,9 +40097,9 @@
   {
     "name": "Composed original lookup 38",
     "question": "The receiving endpoint from the original worker configuration was checked by me. I searched for the original decision ID mint-614. I saw an incoming record. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39946,9 +40120,9 @@
   {
     "name": "Composed original lookup 39",
     "question": "I searched for the original decision ID mint-614. The receiving endpoint from the original worker configuration was checked by me. I saw an incoming record. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39969,9 +40143,9 @@
   {
     "name": "Composed original lookup 40",
     "question": "The receiving endpoint from the original worker configuration was checked by me. My original receipt provided the lookup ID mint-614. An incoming entry was observed by me. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -39992,9 +40166,9 @@
   {
     "name": "Composed original lookup 41",
     "question": "My original receipt provided the lookup ID mint-614. The receiving endpoint from the original worker configuration was checked by me. An incoming entry was observed by me. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -40015,9 +40189,9 @@
   {
     "name": "Composed original lookup 42",
     "question": "The receiving endpoint from the original worker configuration was checked by me. My original receipt provided the lookup ID mint-614. I saw an incoming record. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -40038,9 +40212,9 @@
   {
     "name": "Composed original lookup 43",
     "question": "My original receipt provided the lookup ID mint-614. The receiving endpoint from the original worker configuration was checked by me. I saw an incoming record. No one checked downstream storage.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -40756,9 +40930,9 @@
   {
     "name": "Composed original lookup exposed 1 None",
     "question": "I checked the incoming log on the receiver from the original deployment and saw an entry while investigating original decision ID poppy-363. No one checked downstream storage. What can that receiver check establish?",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ],
     "omits": [
       "mint-614",
@@ -40797,7 +40971,12 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
@@ -40821,7 +41000,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -40845,7 +41026,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -42745,7 +42928,7 @@
   },
   {
     "name": "Independent read versus unqueried source AG11",
-    "question": "I checked the original deployment configuration to identify its receiver, then personally opened that receiver’s incoming records. One contained the exact decision ID maple-132 from my original launch receipt. I have not looked in downstream storage. What has been verified?",
+    "question": "I checked the original deployment configuration to identify its receiver, then personally opened that receiver\u2019s incoming records. One contained the exact decision ID maple-132 from my original launch receipt. I have not looked in downstream storage. What has been verified?",
     "expected": "confirmed_receiver_matched",
     "confirmation": {
       "source": "receiver",
@@ -48044,9 +48227,9 @@
   {
     "name": "Source and record roles AN12 report",
     "question": "I made an independent downstream query after the process stopped and obtained a full record. I used the store identified by the original deployment settings. My original decision receipt says larch-701. What can this readback tell me?",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personal"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "storage",
@@ -48071,7 +48254,12 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
@@ -48088,7 +48276,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -48105,7 +48295,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -48210,9 +48402,9 @@
   {
     "name": "Source and record roles storage 3 0",
     "question": "I used the original launch configuration to query the downstream store. I looked up my original decision ID. I found a record with a decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personal"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "storage",
@@ -48226,9 +48418,9 @@
   {
     "name": "Source and record roles storage 3 1",
     "question": "I used the original launch configuration to query the downstream store. I looked up my original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personal"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "storage",
@@ -48408,9 +48600,9 @@
   {
     "name": "Source and record roles receiver 3 0",
     "question": "I inspected the receiver named in the original launch configuration. I looked up my original decision ID. I found a record with a decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personal"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "receiver",
@@ -48424,9 +48616,9 @@
   {
     "name": "Source and record roles receiver 3 1",
     "question": "I inspected the receiver named in the original launch configuration. I looked up my original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personal"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "receiver",
@@ -48606,9 +48798,9 @@
   {
     "name": "Source and record roles jsonl 3 0",
     "question": "I reopened entries.jsonl from the original launch. I looked up my original decision ID. I found a record with a decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personal"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "jsonl",
@@ -48622,9 +48814,9 @@
   {
     "name": "Source and record roles jsonl 3 1",
     "question": "I reopened entries.jsonl from the original launch. I looked up my original decision ID.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personal"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "jsonl",
@@ -48744,7 +48936,7 @@
   },
   {
     "name": "Role composition AP02",
-    "question": "We retried the same ticket and now its label is on two decisions. I need to tell the two apart. The writer’s JSONL volume is offline; the only local file is a coworker’s copy without the original job path. What information can identify my first attempt?",
+    "question": "We retried the same ticket and now its label is on two decisions. I need to tell the two apart. The writer\u2019s JSONL volume is offline; the only local file is a coworker\u2019s copy without the original job path. What information can identify my first attempt?",
     "expected": "surviving_marker",
     "includes": [
       "Retrieve the "
@@ -48793,9 +48985,9 @@
   {
     "name": "Role composition AP12 report",
     "question": "I queried the independent store from the original deployment configuration after the writer exited, and got a full record back. My original launch receipt names decision ID rill-938. What does that tell me about this run?",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you perso"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "storage",
@@ -49238,9 +49430,9 @@
   {
     "name": "Role composition storage read 0 0",
     "question": "I queried the intended store from the original deployment.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you perso"
+      "Your report left parts"
     ],
     "answer": "My original receipt lists decision ID mango. I got a complete row back.",
     "confirmation": {
@@ -49302,9 +49494,9 @@
   {
     "name": "Role composition storage read 0 1",
     "question": "My original receipt lists decision ID mango. I got a complete row back.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you perso"
+      "Your report left parts"
     ],
     "answer": "I queried the intended store from the original deployment.",
     "confirmation": {
@@ -49366,9 +49558,9 @@
   {
     "name": "Role composition storage read 0 2",
     "question": "I queried the intended store from the original deployment. My original receipt lists decision ID mango. I got a complete row back.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you perso"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "storage",
@@ -49429,9 +49621,9 @@
   {
     "name": "Role composition storage read 1 0",
     "question": "The independent store named in the original configuration was inspected by me.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you perso"
+      "Your report left parts"
     ],
     "answer": "My original receipt lists decision ID mango. I got a complete row back.",
     "confirmation": {
@@ -49493,9 +49685,9 @@
   {
     "name": "Role composition storage read 1 1",
     "question": "My original receipt lists decision ID mango. I got a complete row back.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you perso"
+      "Your report left parts"
     ],
     "answer": "The independent store named in the original configuration was inspected by me.",
     "confirmation": {
@@ -49557,9 +49749,9 @@
   {
     "name": "Role composition storage read 1 2",
     "question": "The independent store named in the original configuration was inspected by me. My original receipt lists decision ID mango. I got a complete row back.",
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you perso"
+      "Your report left parts"
     ],
     "confirmation": {
       "source": "storage",
@@ -50647,7 +50839,7 @@
   },
   {
     "name": "Source qualifier AQ02",
-    "question": "Two attempts reused the ticket number, and our backup folder only contains a teammate’s hand-carried JSONL copy. The original export volume is disconnected. What would let me identify the first decision if we recover the volume?",
+    "question": "Two attempts reused the ticket number, and our backup folder only contains a teammate\u2019s hand-carried JSONL copy. The original export volume is disconnected. What would let me identify the first decision if we recover the volume?",
     "expected": "surviving_marker",
     "includes": [
       "Retrieve the su"
@@ -50656,7 +50848,7 @@
   },
   {
     "name": "Source qualifier AQ07",
-    "question": "For our Node demo I need the SDK decision’s total token usage, not the answer shown to the customer. The demo wrote the reply to stdout and used a console exporter for the decision. We retained both streams. Where is the count?",
+    "question": "For our Node demo I need the SDK decision\u2019s total token usage, not the answer shown to the customer. The demo wrote the reply to stdout and used a console exporter for the decision. We retained both streams. Where is the count?",
     "expected": "node_console",
     "includes": [
       "Inspect retaine"
@@ -50664,7 +50856,7 @@
   },
   {
     "name": "Source qualifier AQ08",
-    "question": "We archived the Node demo’s stdout and the console exporter’s stderr separately. A colleague asked me for the output of that run. Which archive should I send them to?",
+    "question": "We archived the Node demo\u2019s stdout and the console exporter\u2019s stderr separately. A colleague asked me for the output of that run. Which archive should I send them to?",
     "expected": "reply",
     "includes": [
       "Read retained s"
@@ -50673,7 +50865,7 @@
   },
   {
     "name": "Source qualifier AQ09",
-    "question": "Is my specific decision present in this JSONL export? I copied the file directly out of the original job’s working directory, and its writer configuration points to shift-ledger.jsonl. The original receipt gives decision ID Crane-581. I have not searched the rows.",
+    "question": "Is my specific decision present in this JSONL export? I copied the file directly out of the original job\u2019s working directory, and its writer configuration points to shift-ledger.jsonl. The original receipt gives decision ID Crane-581. I have not searched the rows.",
     "expected": "jsonl",
     "includes": [
       "Open the origin"
@@ -50714,8 +50906,10 @@
   {
     "name": "Source qualifier AQ12 report",
     "question": "After the process finished I personally queried the store named by its original configuration. It returned a full decision record. The launch receipt gives original decision ID hollow-426. What can I conclude about persistence?",
-    "expected": "ask_evidence",
-    "includes": [],
+    "expected": "review_summary",
+    "includes": [
+      "Your report left parts"
+    ],
     "confirmation": {
       "source": "storage",
       "result": "matched",
@@ -50739,7 +50933,12 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
@@ -50756,7 +50955,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
@@ -50773,7 +50974,9 @@
       "sourceMatch": "original",
       "targetMatch": "original",
       "coverage": "complete",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -51822,7 +52025,7 @@
   },
   {
     "name": "Original evidence AR02",
-    "question": "I’m sorting out two retries with the same ticket. The storage team took the original JSONL path offline, and we cannot tell where the copy on my laptop came from. What could distinguish the first retry when the real export is available again?",
+    "question": "I\u2019m sorting out two retries with the same ticket. The storage team took the original JSONL path offline, and we cannot tell where the copy on my laptop came from. What could distinguish the first retry when the real export is available again?",
     "expected": "ask_id",
     "includes": [
       "Do you have the origi"
@@ -51830,7 +52033,7 @@
   },
   {
     "name": "Original evidence AR02 answer",
-    "question": "I’m sorting out two retries with the same ticket. The storage team took the original JSONL path offline, and we cannot tell where the copy on my laptop came from. What could distinguish the first retry when the real export is available again?",
+    "question": "I\u2019m sorting out two retries with the same ticket. The storage team took the original JSONL path offline, and we cannot tell where the copy on my laptop came from. What could distinguish the first retry when the real export is available again?",
     "expected": "surviving_marker",
     "includes": [
       "Retrieve the survivin"
@@ -51864,7 +52067,7 @@
   },
   {
     "name": "Original evidence AR08",
-    "question": "Both original archives survived from the Node demo, the printed customer answer and the console decision. The person reviewing this asked only for “the output.” Which stream should I get?",
+    "question": "Both original archives survived from the Node demo, the printed customer answer and the console decision. The person reviewing this asked only for \u201cthe output.\u201d Which stream should I get?",
     "expected": "ask_subject",
     "includes": [
       "Are you looking for t"
@@ -51872,7 +52075,7 @@
   },
   {
     "name": "Original evidence AR08 answer",
-    "question": "Both original archives survived from the Node demo, the printed customer answer and the console decision. The person reviewing this asked only for “the output.” Which stream should I get?",
+    "question": "Both original archives survived from the Node demo, the printed customer answer and the console decision. The person reviewing this asked only for \u201cthe output.\u201d Which stream should I get?",
     "expected": "node_console",
     "includes": [
       "Inspect retained stde"
@@ -51881,7 +52084,7 @@
   },
   {
     "name": "Original evidence AR09",
-    "question": "I am holding dawn-queue.jsonl, the export named by this job’s writer configuration, taken from the job’s original working directory. The run ticket lists its decision ID as Oriole-296. Can I check whether the file has an entry for that ID among the other jobs?",
+    "question": "I am holding dawn-queue.jsonl, the export named by this job\u2019s writer configuration, taken from the job\u2019s original working directory. The run ticket lists its decision ID as Oriole-296. Can I check whether the file has an entry for that ID among the other jobs?",
     "expected": "jsonl",
     "includes": [
       "Open the original JSO"
@@ -51912,7 +52115,7 @@
   },
   {
     "name": "Original evidence AR12",
-    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run’s decision was persisted when I queried it?",
+    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run\u2019s decision was persisted when I queried it?",
     "expected": "query_storage",
     "includes": [
       "Search the downstream"
@@ -51920,9 +52123,11 @@
   },
   {
     "name": "Original evidence AR12 report",
-    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run’s decision was persisted when I queried it?",
-    "expected": "ask_evidence",
-    "includes": [],
+    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run\u2019s decision was persisted when I queried it?",
+    "expected": "review_summary",
+    "includes": [
+      "Your report left parts"
+    ],
     "confirmation": {
       "source": "storage",
       "result": "matched",
@@ -51933,7 +52138,7 @@
   },
   {
     "name": "Original evidence AR12 yes",
-    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run’s decision was persisted when I queried it?",
+    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run\u2019s decision was persisted when I queried it?",
     "expected": "confirmed_storage_matched",
     "includes": [
       "You reported a matchi"
@@ -51944,12 +52149,17 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
     "name": "Original evidence AR12 no",
-    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run’s decision was persisted when I queried it?",
+    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run\u2019s decision was persisted when I queried it?",
     "expected": "confirmation_unresolved_lookup",
     "includes": [
       "Check which source yo"
@@ -51960,12 +52170,14 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     }
   },
   {
     "name": "Original evidence AR12 unsure",
-    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run’s decision was persisted when I queried it?",
+    "question": "I read back a full decision record myself from the downstream store specified by the original job. Its original receipt gives decision ID shale-392. What would establish whether this particular run\u2019s decision was persisted when I queried it?",
     "expected": "confirmation_unresolved_lookup",
     "includes": [
       "Check which source yo"
@@ -51976,7 +52188,9 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     }
   },
   {
@@ -52162,7 +52376,7 @@
   },
   {
     "name": "Original evidence file receipt order 0",
-    "question": "I hold report.jsonl, the export specified by this worker’s deployment configuration. The run ticket records the decision ID as Ember-39.",
+    "question": "I hold report.jsonl, the export specified by this worker\u2019s deployment configuration. The run ticket records the decision ID as Ember-39.",
     "expected": "jsonl",
     "includes": [
       "Open the original JSO"
@@ -52170,7 +52384,7 @@
   },
   {
     "name": "Original evidence file receipt order 1",
-    "question": "The run ticket records the decision ID as Ember-39. I hold report.jsonl, the export specified by this worker’s deployment configuration.",
+    "question": "The run ticket records the decision ID as Ember-39. I hold report.jsonl, the export specified by this worker\u2019s deployment configuration.",
     "expected": "jsonl",
     "includes": [
       "Open the original JSO"
@@ -52359,8 +52573,10 @@
   {
     "name": "Original evidence unlinked store order 0",
     "question": "I retrieved the full record myself from the intended store named by the original job. The launch ticket shows decision ID echo-19. What would establish whether this decision was stored?",
-    "expected": "ask_evidence",
-    "includes": [],
+    "expected": "review_summary",
+    "includes": [
+      "Your report left parts"
+    ],
     "confirmation": {
       "source": "storage",
       "result": "matched",
@@ -52382,14 +52598,21 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
     "name": "Original evidence unlinked store order 1",
     "question": "The launch ticket shows decision ID echo-19. I retrieved the full record myself from the intended store named by the original job. What would establish whether this decision was stored?",
-    "expected": "ask_evidence",
-    "includes": [],
+    "expected": "review_summary",
+    "includes": [
+      "Your report left parts"
+    ],
     "confirmation": {
       "source": "storage",
       "result": "matched",
@@ -52411,7 +52634,12 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     }
   },
   {
@@ -52645,7 +52873,7 @@
   },
   {
     "name": "Original evidence file other owner",
-    "question": "I hold report.jsonl, the export specified by another worker’s deployment configuration. The run ticket records the decision ID as Ember-39.",
+    "question": "I hold report.jsonl, the export specified by another worker\u2019s deployment configuration. The run ticket records the decision ID as Ember-39.",
     "expected": "ask_subject",
     "includes": [
       "Are you looking for t"
@@ -52821,7 +53049,7 @@
   },
   {
     "name": "Lookup identity AS07",
-    "question": "We saved the stdout and stderr from the Node demo. The app printed its answer on stdout and the SDK console exporter emitted the decision on stderr. The audit needs the decision’s total token usage. Which copy has that field?",
+    "question": "We saved the stdout and stderr from the Node demo. The app printed its answer on stdout and the SDK console exporter emitted the decision on stderr. The audit needs the decision\u2019s total token usage. Which copy has that field?",
     "expected": "node_console",
     "includes": [
       "Inspect retained std"
@@ -52862,7 +53090,7 @@
   },
   {
     "name": "Lookup identity AS11",
-    "question": "I looked up decision ID pedal-815 from the original receipt in the original deployment’s receiving log myself. There was one entry for that ID. We have no downstream-store readback. What does that let us record about receipt?",
+    "question": "I looked up decision ID pedal-815 from the original receipt in the original deployment\u2019s receiving log myself. There was one entry for that ID. We have no downstream-store readback. What does that let us record about receipt?",
     "expected": "storage",
     "includes": [
       "A receiver entry tha"
@@ -52870,7 +53098,7 @@
   },
   {
     "name": "Lookup identity AS11 report",
-    "question": "I looked up decision ID pedal-815 from the original receipt in the original deployment’s receiving log myself. There was one entry for that ID. We have no downstream-store readback. What does that let us record about receipt?",
+    "question": "I looked up decision ID pedal-815 from the original receipt in the original deployment\u2019s receiving log myself. There was one entry for that ID. We have no downstream-store readback. What does that let us record about receipt?",
     "confirmation": {
       "source": "receiver",
       "result": "matched",
@@ -52901,8 +53129,10 @@
       "sourceMatch": "original",
       "targetMatch": "original"
     },
-    "expected": "ask_evidence",
-    "includes": []
+    "expected": "review_summary",
+    "includes": [
+      "Your report left parts"
+    ]
   },
   {
     "name": "Lookup identity AS12 yes",
@@ -52913,7 +53143,12 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     },
     "expected": "confirmed_storage_matched",
     "includes": [
@@ -52929,7 +53164,9 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     },
     "expected": "confirmation_unresolved_lookup",
     "includes": [
@@ -52945,7 +53182,9 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     },
     "expected": "confirmation_unresolved_lookup",
     "includes": [
@@ -53703,7 +53942,7 @@
   },
   {
     "name": "Reported lookup scope AT08",
-    "question": "The Node job ran with the console exporter. It printed the application answer as well. We still have both terminal captures, and the person opening the incident wrote only ‘please attach the output’. Where should I look?",
+    "question": "The Node job ran with the console exporter. It printed the application answer as well. We still have both terminal captures, and the person opening the incident wrote only \u2018please attach the output\u2019. Where should I look?",
     "expected": "ask_subject",
     "includes": [
       "Are you looking for "
@@ -53711,7 +53950,7 @@
   },
   {
     "name": "Reported lookup scope AT08 answer",
-    "question": "The Node job ran with the console exporter. It printed the application answer as well. We still have both terminal captures, and the person opening the incident wrote only ‘please attach the output’. Where should I look?",
+    "question": "The Node job ran with the console exporter. It printed the application answer as well. We still have both terminal captures, and the person opening the incident wrote only \u2018please attach the output\u2019. Where should I look?",
     "answer": "The person wants what the customer actually read, the reply printed by the app.",
     "expected": "reply",
     "includes": [
@@ -53790,8 +54029,10 @@
       "sourceMatch": "original",
       "targetMatch": "original"
     },
-    "expected": "ask_evidence",
-    "includes": []
+    "expected": "review_summary",
+    "includes": [
+      "Your report left parts"
+    ]
   },
   {
     "name": "Reported lookup scope AT12 yes",
@@ -53802,7 +54043,12 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     },
     "expected": "confirmed_storage_matched",
     "includes": [
@@ -53818,7 +54064,9 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     },
     "expected": "confirmation_unresolved_lookup",
     "includes": [
@@ -53834,7 +54082,9 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     },
     "expected": "confirmation_unresolved_lookup",
     "includes": [
@@ -54582,7 +54832,7 @@
   },
   {
     "name": "Reported lookup scope emitter receipt placement 0",
-    "question": "I retained the export copied from the worker which produced the original decision. We can provide the SDK decision ID from the first transaction’s receipt: Sable-81.",
+    "question": "I retained the export copied from the worker which produced the original decision. We can provide the SDK decision ID from the first transaction\u2019s receipt: Sable-81.",
     "expected": "jsonl",
     "includes": [
       "Open the original JS"
@@ -54590,7 +54840,7 @@
   },
   {
     "name": "Reported lookup scope emitter receipt placement 1",
-    "question": "We can provide the SDK decision ID from the first transaction’s receipt: Sable-81. I retained the export copied from the worker which produced the original decision.",
+    "question": "We can provide the SDK decision ID from the first transaction\u2019s receipt: Sable-81. I retained the export copied from the worker which produced the original decision.",
     "expected": "jsonl",
     "includes": [
       "Open the original JS"
@@ -54598,7 +54848,7 @@
   },
   {
     "name": "Reported lookup scope intake direct 0",
-    "question": "I was the one who opened the original configured receiver’s ingress log. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
+    "question": "I was the one who opened the original configured receiver\u2019s ingress log. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
     "confirmation": {
       "source": "receiver",
       "result": "matched",
@@ -54613,7 +54863,7 @@
   },
   {
     "name": "Reported lookup scope intake downstream 0",
-    "question": "I was the one who opened the original configured receiver’s ingress log. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
+    "question": "I was the one who opened the original configured receiver\u2019s ingress log. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
     "confirmation": {
       "source": "storage",
       "result": "matched",
@@ -54628,7 +54878,7 @@
   },
   {
     "name": "Reported lookup scope intake direct 1",
-    "question": "I was the one who opened the intended receiver’s intake journal. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
+    "question": "I was the one who opened the intended receiver\u2019s intake journal. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
     "confirmation": {
       "source": "receiver",
       "result": "matched",
@@ -54643,7 +54893,7 @@
   },
   {
     "name": "Reported lookup scope intake downstream 1",
-    "question": "I was the one who opened the intended receiver’s intake journal. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
+    "question": "I was the one who opened the intended receiver\u2019s intake journal. It contains one entry with the exact decision ID trial-712 from my original receipt. Nobody has queried the store behind that receiver. Which stage of delivery can I verify?",
     "confirmation": {
       "source": "storage",
       "result": "matched",
@@ -54666,8 +54916,10 @@
       "sourceMatch": "original",
       "targetMatch": "original"
     },
-    "expected": "ask_evidence",
-    "includes": []
+    "expected": "review_summary",
+    "includes": [
+      "Your report left parts"
+    ]
   },
   {
     "name": "Reported lookup scope unlabelled receipt unsure 0",
@@ -54678,7 +54930,9 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     },
     "expected": "confirmation_unresolved_lookup",
     "includes": [
@@ -54695,8 +54949,10 @@
       "sourceMatch": "original",
       "targetMatch": "original"
     },
-    "expected": "ask_evidence",
-    "includes": []
+    "expected": "review_summary",
+    "includes": [
+      "Your report left parts"
+    ]
   },
   {
     "name": "Reported lookup scope unlabelled receipt unsure 1",
@@ -54707,7 +54963,9 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     },
     "expected": "confirmation_unresolved_lookup",
     "includes": [
@@ -54870,9 +55128,9 @@
       "sourceMatch": "original",
       "targetMatch": "original"
     },
-    "expected": "ask_evidence",
+    "expected": "review_summary",
     "includes": [
-      "Did you personally"
+      "Your report left parts"
     ]
   },
   {
@@ -54884,7 +55142,12 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "yes"
+      "summary": {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": "exact_original",
+        "observedCount": "one"
+      }
     },
     "expected": "confirmed_storage_matched",
     "includes": [
@@ -54900,7 +55163,9 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "no"
+      "summary": {
+        "unresolved": true
+      }
     },
     "expected": "confirmation_unresolved_lookup",
     "includes": [
@@ -54916,7 +55181,9 @@
       "reader": "me",
       "sourceMatch": "original",
       "targetMatch": "original",
-      "evidenceReply": "unsure"
+      "summary": {
+        "targetMatch": "unsure"
+      }
     },
     "expected": "confirmation_unresolved_lookup",
     "includes": [
@@ -56989,7 +57256,7 @@
   },
   {
     "name": "Original observation constraints physical artifact 7",
-    "question": "I ran the published Node demo. I want the local record or the hosted run. I don’t know which.",
+    "question": "I ran the published Node demo. I want the local record or the hosted run. I don\u2019t know which.",
     "expected": "ask_subject",
     "includes": [
       "Are you looking fo"
@@ -57805,6 +58072,561 @@
     "expected": "confirmation_details",
     "includes": [
       "Search the intende"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup storage complete",
+    "question": "Downstream storage has never been checked.",
+    "answer": "I then independently queried downstream storage for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup storage stage",
+    "question": "Downstream storage has never been checked.",
+    "answer": "I then independently queried downstream storage for the original decision ID. The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup storage ordinary",
+    "question": "Downstream storage has never been checked.",
+    "answer": "I queried downstream storage for the original decision ID. The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup storage unobserved",
+    "question": "Downstream storage has never been checked.",
+    "answer": "I then independently queried downstream storage for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup receiver complete",
+    "question": "The intended receiver has never been checked.",
+    "answer": "I then independently queried the intended receiver for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup receiver stage",
+    "question": "The intended receiver has never been checked.",
+    "answer": "I then independently queried the intended receiver for the original decision ID. The query returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_receiver_matched",
+    "includes": [
+      "You reported a mat"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup receiver ordinary",
+    "question": "The intended receiver has never been checked.",
+    "answer": "I queried the intended receiver for the original decision ID. The query returned one matching record.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup receiver unobserved",
+    "question": "The intended receiver has never been checked.",
+    "answer": "I then independently queried the intended receiver for the original decision ID.",
+    "confirmation": {
+      "source": "receiver",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup jsonl complete",
+    "question": "The original jsonl file has never been checked.",
+    "answer": "I then independently queried the original JSONL file for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup jsonl stage",
+    "question": "The original jsonl file has never been checked.",
+    "answer": "I then independently queried the original JSONL file for the original decision ID. The query returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one m"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup jsonl ordinary",
+    "question": "The original jsonl file has never been checked.",
+    "answer": "I queried the original JSONL file for the original decision ID. The query returned one matching record.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "Subsequent personal lookup jsonl unobserved",
+    "question": "The original jsonl file has never been checked.",
+    "answer": "I then independently queried the original JSONL file for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intende"
+    ]
+  },
+  {
+    "name": "R57 recovery same sentence",
+    "question": "The original exporter was OTLP. I checked only the receiver. Downstream storage has never been checked. I then independently queried downstream storage for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record"
+    ]
+  },
+  {
+    "name": "R57 recovery next sentence",
+    "question": "The original exporter was OTLP. I checked only the receiver. Downstream storage has never been checked. I then independently queried downstream storage for the original decision ID. The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_storage_matched",
+    "includes": [
+      "You reported a matching record"
+    ]
+  },
+  {
+    "name": "R57 recovery query alone",
+    "question": "The original exporter was OTLP. I checked only the receiver. Downstream storage has never been checked. I then independently queried downstream storage for the original decision ID.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ]
+  },
+  {
+    "name": "R57 recovery pending query",
+    "question": "The original exporter was OTLP. I checked only the receiver. Downstream storage has never been checked. I then independently queried downstream storage for the original decision ID. My query was pending.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ]
+  },
+  {
+    "name": "R57 recovery delegated reader",
+    "question": "The original exporter was OTLP. I checked only the receiver. Downstream storage has never been checked. My colleague independently queried downstream storage for the original decision ID and found a matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ]
+  },
+  {
+    "name": "R57 partial extent first two pages",
+    "question": "I checked only the first two pages. I queried the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverified"
+    ]
+  },
+  {
+    "name": "R57 partial extent first page",
+    "question": "I checked only the first page. I queried the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverified"
+    ]
+  },
+  {
+    "name": "R57 partial extent yesterdays records",
+    "question": "I only searched yesterday's records. I queried the intended downstream store for the original decision ID. The query returned zero matching records.",
+    "confirmation": {
+      "source": "storage",
+      "result": "no-match",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "complete"
+    },
+    "expected": "confirmation_partial",
+    "includes": [
+      "A complete search is still unverified"
+    ]
+  },
+  {
+    "name": "R57 denied identity IDs matched",
+    "question": "I never checked that the IDs matched. I queried the intended downstream store for the original decision ID and returned a row.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts"
+    ]
+  },
+  {
+    "name": "R57 delegated search after L M",
+    "question": "I queried the intended downstream store for the original decision ID. The query returned one matching record. My manager searched it for me.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_unchecked",
+    "includes": [
+      "Search the intended source yourself"
+    ]
+  },
+  {
+    "name": "R57 competing source origin before L M",
+    "question": "The returned record was from the receiver. I queried the intended downstream store for the original decision ID. The query returned one matching record.",
+    "confirmation": {
+      "source": "storage",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_other_source",
+    "includes": [
+      "You checked a different source"
+    ]
+  },
+  {
+    "name": "R57 sole row conflicting case IDs",
+    "question": "My original decision ID was Fern. I searched rows.jsonl for the original decision ID. The only returned row bore ID fern. The only returned row bore ID Fern.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmation_inconsistent",
+    "includes": [
+      "Your selection conflicts"
+    ],
+    "omits": [
+      "fern",
+      "rows.jsonl"
+    ]
+  },
+  {
+    "name": "R57 sole row restated ID confirmed",
+    "question": "My original decision ID was Fern. I searched rows.jsonl for the original decision ID. The only returned row bore ID Fern. The returned row had decision ID Fern.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original"
+    },
+    "expected": "confirmed_jsonl_matched",
+    "includes": [
+      "You reported one matching record"
+    ],
+    "omits": [
+      "fern",
+      "rows.jsonl"
+    ]
+  },
+  {
+    "name": "R57 jsonl matched partial",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "partial"
+    },
+    "expected": "jsonl_partial_observed",
+    "includes": [
+      "You reported finding a matching row"
+    ],
+    "omits": [
+      "rows.jsonl"
+    ]
+  },
+  {
+    "name": "R57 jsonl matched unverified coverage",
+    "question": "I searched rows.jsonl for the original decision ID.",
+    "confirmation": {
+      "source": "jsonl",
+      "result": "matched",
+      "reader": "me",
+      "sourceMatch": "original",
+      "targetMatch": "original",
+      "coverage": "unverified"
+    },
+    "expected": "jsonl_partial",
+    "includes": [
+      "A complete search is still unverified"
+    ],
+    "omits": [
+      "rows.jsonl"
+    ]
+  },
+  {
+    "name": "R57 claude C1 unbound export",
+    "question": "I want to be able to pick out the first of two SDK decisions made for the same delivery docket. We can't access the original JSONL volume just now. There is a hand-me-down export, and nobody can tie the export to the writer. What should I get from the original handoff?",
+    "answer": "I have camber-957, the run marker from the original handoff. We checked that no other invocation used it. I cannot supply the original SDK decision ID.",
+    "expected": "recover_marker_original",
+    "includes": [
+      "Only the unique run marker survives"
+    ],
+    "omits": [
+      "camber-957"
+    ]
+  },
+  {
+    "name": "R57 stream A1 2>&1 >/dev/null both",
+    "question": "I ran the published Node demo. I ran node demo.js 2>&1 >/dev/null. I need both the decision record and the application reply.",
+    "expected": "node_decision_orig_stdout_reply_discarded",
+    "includes": [
+      "original stdout destination",
+      "reply was discarded"
+    ]
+  },
+  {
+    "name": "R57 stream A2 1>&2 2>/dev/null both",
+    "question": "I ran the published Node demo. I ran node demo.js 1>&2 2>/dev/null. I need both the decision record and the application reply.",
+    "expected": "node_reply_orig_stderr_decision_discarded",
+    "includes": [
+      "original stderr destination",
+      "decision record was discarded"
+    ]
+  },
+  {
+    "name": "R57 stream A3 2>&1 >/dev/null replyOnStderr reply",
+    "question": "I ran the published Node demo. I ran node demo.js 2>&1 >/dev/null. My application printed its reply to stderr. I need the application reply.",
+    "expected": "reply_original_stdout",
+    "includes": [
+      "original stdout destination",
+      "application printed the reply to stderr"
+    ]
+  },
+  {
+    "name": "R57 stream N3 2>/dev/null replyOnStderr both",
+    "question": "I ran the published Node demo. I ran node demo.js 2>/dev/null. My application printed its reply to stderr. I need both the decision record and the application reply.",
+    "expected": "node_both_stderr_discarded",
+    "includes": [
+      "written to stderr and discarded"
+    ]
+  },
+  {
+    "name": "R57 stream N4 2>&1 token count",
+    "question": "I ran the published Node demo. I ran node demo.js 2>&1. I need the token count.",
+    "expected": "console_stdout",
+    "includes": [
+      "Inspect retained stdout"
+    ]
+  },
+  {
+    "name": "R57 stream N5 1>&2 what went to stderr",
+    "question": "I ran the published Node demo. I ran node demo.js 1>&2. What was printed to stderr?",
+    "expected": "node_both_stderr",
+    "includes": [
+      "retained stderr log for application reply text and SDK decision JSON"
+    ]
+  },
+  {
+    "name": "R57 stream N6 replyOnStderr what went to stdout",
+    "question": "I ran the published Node demo. I printed my reply to stderr. What was printed to stdout?",
+    "expected": "node_stdout_neither",
+    "includes": [
+      "Neither the application reply nor the SDK decision record"
+    ]
+  },
+  {
+    "name": "R57 stream A5 replyOnStderr decision",
+    "question": "I ran the published Node demo. My application printed its reply to stderr. I need the decision record.",
+    "expected": "node_console_stderr_reply",
+    "includes": [
+      "reported application printed its reply to stderr"
+    ]
+  },
+  {
+    "name": "R57 stream N7 what went to stderr",
+    "question": "I ran the published Node demo. What went to stderr?",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr"
+    ]
+  },
+  {
+    "name": "R57 stream N8 either local decision or hosted run",
+    "question": "I ran the published Node demo. I need either the local decision or the hosted run, but I am unsure which.",
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for"
+    ]
+  },
+  {
+    "name": "R57 stream N9 example in README",
+    "question": "I ran the published Node demo. Node demo.js 2>/dev/null was the example in the README. I need the decision record.",
+    "expected": "node_console",
+    "includes": [
+      "Inspect retained stderr"
+    ]
+  },
+  {
+    "name": "R57 stream A4 env prefix 2>/dev/null",
+    "question": "I ran the published Node demo. I ran env NODE_ENV=production node demo.js 2>/dev/null. I need the decision record.",
+    "expected": "node_discarded_decision",
+    "includes": [
+      "other saved copy"
+    ]
+  },
+  {
+    "name": "R57 stream N10 cd app prefix 2>/dev/null",
+    "question": "I ran the published Node demo. I ran cd app && node demo.js 2>/dev/null. I need the decision record.",
+    "expected": "node_discarded_decision",
+    "includes": [
+      "other saved copy"
     ]
   }
 ]

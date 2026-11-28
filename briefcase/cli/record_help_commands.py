@@ -1,6 +1,7 @@
 """Local, session-only guidance for finding a decision from an earlier run."""
 from __future__ import annotations
 
+import argparse
 import ast
 from functools import lru_cache
 import json
@@ -27,8 +28,9 @@ def register(sub) -> None:
                     "as an argument or pipe the question and any answer on separate lines. Input stays local.",
         epilog="To report a lookup in a terminal or pipe, put SOURCE RESULT READER SOURCE_MATCH TARGET_MATCH "
                "[COVERAGE] on one line. For a complete JSONL search with no match, enter jsonl no-match me "
-               "original original complete. If the command asks a follow-up about that lookup, add evidence "
-               "VALUE on a final line. Use yes, no or unsure for VALUE.",
+               "original original complete. If the command displays a lookup summary to review, add a final "
+               "line with summary key=value ... (using reader, source-match, target-match, count and optional "
+               "coverage) or summary unresolved.",
     )
 
     def private_syntax_error(_message: str) -> None:
@@ -37,8 +39,7 @@ def register(sub) -> None:
     parser.error = private_syntax_error
     parser.add_argument("question", nargs="?", help="Question and known facts about the original run.")
     parser.add_argument("--answer", action="append", help="Answer to the guide's one clarification.")
-    parser.add_argument("--evidence-reply", action="append", metavar="{yes,no,unsure}",
-                        help="Answer to the follow-up about your reported lookup. Use only if the command asks.")
+    parser.add_argument("--evidence-reply", action="append", help=argparse.SUPPRESS)
     parser.add_argument("--verify-jsonl", metavar="FILE", action="append",
                         help="Check a local JSONL file for the original decision ID. Enter the ID at the hidden prompt "
                              "or send it as one line on stdin.")
@@ -54,8 +55,20 @@ def register(sub) -> None:
          "Whether you looked up the original decision ID or unique marker."),
         ("coverage", "complete,partial,unverified",
          "How much of the source you searched. Report complete to establish no match."),
+        ("summary-reader", "me,another,unsure",
+         "Confirm or update who performed the lookup when reviewing a lookup summary."),
+        ("summary-source-match", "original,different,unsure",
+         "Confirm or update whether you checked the source used by the original run when reviewing a lookup summary."),
+        ("summary-target-match", "exact_original,different,unsure",
+         "Confirm or update which decision ID or unique marker was checked when reviewing a lookup summary."),
+        ("summary-count", "one,zero,multiple,unsure",
+         "Confirm or update how many matching records were found when reviewing a lookup summary."),
+        ("summary-coverage", "complete,partial,unsure",
+         "Confirm or update how much of the source was searched when reviewing a lookup summary."),
     ):
         parser.add_argument("--" + flag, metavar="{" + values + "}", action="append", help=meaning)
+    parser.add_argument("--leave-unresolved", action="store_true",
+                        help="Leave an unresolved lookup summary unconfirmed without making an original-record claim.")
     parser.set_defaults(func=cmd_record_help)
 
 
@@ -711,6 +724,17 @@ def _python_exporter_call(table, clause):
     return clause[:start.start()] + "briefcase." + call + clause[end + 1:]
 
 
+def _command_prefix(table: Dict[str, Any], raw_prefix: str) -> str:
+    """Strip env, cd &&, and VAR=val launch wrappers before checking command context."""
+    prefix = raw_prefix
+    while True:
+        stripped = re.sub(table["streamAssignmentPrefix"], "", prefix).rstrip()
+        stripped = re.sub(table["launchPrefixTokens"], "", stripped).rstrip()
+        if stripped == prefix:
+            return stripped.strip()
+        prefix = stripped
+
+
 def _original_commands(table: Dict[str, Any], text: str) -> str:
     """Keep an original launch and its arguments, without attributing later shell commands to it."""
     text = _before_capture(table, text)
@@ -769,7 +793,7 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
         if candidate and re.search(owner["other"], prefix, re.I):
             parts[index] = " original exporter unknown "
             continue
-        original = re.fullmatch(table["commandContext"], prefix, re.I) and re.search(
+        original = re.fullmatch(table["commandContext"], _command_prefix(table, prefix), re.I) and re.search(
             table["launchAttribution"], prefix, re.I)
         if launch and example_next and not original:
             parts[index] = " original exporter unknown "
@@ -784,7 +808,7 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
             parts[index] = clause[:launch.start()] + " "
             continue
         if launch and not hypothetical:
-            prefix = re.sub(table["streamAssignmentPrefix"], "", clause[:launch.start()]).strip()
+            prefix = _command_prefix(table, clause[:launch.start()])
             if (re.fullmatch(table["commandContext"], prefix, re.I)
                     or re.fullmatch(table["originalCommandPrefix"], prefix, re.I)):
                 operands = list(re.finditer(table["streamSinkToken"], parts[index][launch.end():]))
@@ -809,9 +833,12 @@ def _original_commands(table: Dict[str, Any], text: str) -> str:
             parts[index] = clause[:hypothetical.start()]
         else:
             wrapper = re.search(table["inlineNode"]["wrapperCommand"], parts[index])
-            active_wrapper = wrapper and re.fullmatch(table["commandContext"], parts[index][:wrapper.start()], re.I)
+            active_wrapper = wrapper and re.fullmatch(
+                table["commandContext"], _command_prefix(table, parts[index][:wrapper.start()]), re.I
+            )
             command = None if active_wrapper else re.search(table["inlineNode"]["command"], parts[index])
-            if command and (not re.fullmatch(table["commandContext"], parts[index][:command.start()], re.I)
+            if command and (not re.fullmatch(table["commandContext"],
+                                             _command_prefix(table, parts[index][:command.start()]), re.I)
                             or not (_command_register(table["inlineNode"], command) or inherited_register)):
                 prefix = parts[index][:command.start()]
                 parts[index] = prefix
@@ -865,7 +892,9 @@ def _execution_evidence(table, source, inherited=None, guide_origin=None):
     ambient = (inherited or {}).get("REGISTER_FROM_NODE_OPTIONS")
     for clause in clauses:
         wrapper = re.search(inline["wrapperCommand"], clause)
-        if wrapper and not re.fullmatch(table["commandContext"], clause[:wrapper.start()], re.I):
+        if wrapper and not re.fullmatch(
+            table["commandContext"], _command_prefix(table, clause[:wrapper.start()]), re.I
+        ):
             wrapper = None
         if wrapper:
             prefix, flags, child_path = wrapper.groups()
@@ -943,7 +972,7 @@ def _execution_evidence(table, source, inherited=None, guide_origin=None):
         previous_count = len(commands)
         for match in re.finditer(inline["command"], clause):
             if (_command_register(inline, match) or ambient) and re.fullmatch(
-                table["commandContext"], clause[:match.start()], re.I
+                table["commandContext"], _command_prefix(table, clause[:match.start()]), re.I
             ):
                 commands.append(match)
         if wrapper and len(commands) == previous_count:
@@ -1122,6 +1151,10 @@ def _report_clauses(table, turns):
                 separated.append(clause)
         clauses = separated
         for index, clause in enumerate(clauses):
+            stripped_clause = clause.strip()
+            if (re.fullmatch(spec["rowStages"]["singleNamed"], stripped_clause, re.I)
+                    or re.fullmatch(spec["rowStages"]["definiteSingleNamed"], stripped_clause, re.I)):
+                continue
             for production in spec["reportProductions"]:
                 parsed = re.fullmatch(production["pattern"], clause, re.I)
                 if parsed:
@@ -1465,7 +1498,7 @@ def _context_statement(table, clause):
     wrapper = re.search(table["inlineNode"]["wrapperCommand"], clause)
     command = wrapper or re.search(table["inlineNode"]["command"], clause)
     if command:
-        return bool(re.fullmatch(table["commandContext"], clause[:command.start()], re.I))
+        return bool(re.fullmatch(table["commandContext"], _command_prefix(table, clause[:command.start()]), re.I))
     remaining = re.sub(table["fileMentions"], " file ", remaining, flags=re.I)
     for pattern in spec["namedInstances"].values():
         for match in reversed(list(re.finditer(pattern, remaining, re.I))):
@@ -1521,9 +1554,34 @@ def _stage_row_detail(spec, clause, named, previous, current, attempts, original
     if single and original_ids and len(original_ids) == 1:
         value = quoted_values.get(single[1], single[1])
         for check in owners:
+            if check.sole_row_bound and value in check.sole_row_ids:
+                continue
+            check.sole_row_ids.add(value)
+            check.sole_row_bound = True
             matched = value in original_ids
             check.add_object("match" if matched else "miss")
             check.outcome = "matched" if matched else "no-match"
+        return True
+    definite_single = re.fullmatch(stages["definiteSingleNamed"], clause, re.I)
+    if definite_single and original_ids and len(original_ids) == 1 and any(c.sole_row_bound for c in owners):
+        value = quoted_values.get(definite_single[1], definite_single[1])
+        additive = bool(re.search(spec["returnAdditiveNamed"], clause, re.I))
+        for check in owners:
+            if check.sole_row_bound and not additive:
+                if value not in check.sole_row_ids:
+                    check.conflicting_results = True
+                    check.sole_row_ids.add(value)
+                continue
+            matched = value in original_ids
+            if matched:
+                check.matching_rows += 1
+                if check.matching_rows > 1:
+                    check.ambiguous = True
+                check.outcome = "matched"
+            else:
+                check.other_objects += 1
+                if not check.matching_rows and not check.anonymous_match:
+                    check.outcome = "no-match"
         return True
     if re.search(stages["personalGap"], clause, re.I):
         for check in owners:
@@ -1630,9 +1688,12 @@ def _scope_constraints(spec, reports, quoted_values, source, result):
     """Keep explicit restrictions on the reported lookup independent of result order."""
     active = {source}
     restrictions = {}
+    subsequent = set()
+    sourceless_partial = False
+    stages = spec["rowStages"]
     for clauses in reports:
         for raw in clauses:
-            _, clause = _report_roles(spec, raw, quoted_values)
+            roles, clause = _report_roles(spec, raw, quoted_values)
             clause = clause.strip()
             named = {kind for kind, pattern in spec["sources"].items() if re.search(pattern, clause, re.I)}
             corrected = re.search(spec["correctedInspection"], clause, re.I)
@@ -1641,49 +1702,78 @@ def _scope_constraints(spec, reports, quoted_values, source, result):
                     prior = restrictions.setdefault(kind, set())
                     if re.search(spec["exhaustiveCoverage"], clause, re.I):
                         prior.discard("confirmation_partial")
+                        if kind == source:
+                            sourceless_partial = False
                     if re.search(spec["ledger"]["subsequentPersonalRead"], clause, re.I):
-                        prior.discard("confirmation_unchecked")
+                        subsequent.add(kind)
                     if corrected and re.search(spec["original"], clause, re.I):
                         prior.difference_update(("confirmation_other_source", "confirmation_other_file"))
-            provider = re.fullmatch(spec["rowStages"]["providerResult"], clause, re.I)
-            if (re.fullmatch(spec["rowStages"]["exclusiveResultOwner"], clause, re.I)
+            elif not named and re.search(spec["exhaustiveCoverage"], clause, re.I):
+                sourceless_partial = False
+            completed = (_returned_result(spec, clause, roles) in ("match", "miss", "zero", "mixed_match")
+                         or re.search(spec["personalBoundReturn"], clause, re.I)
+                         or re.fullmatch(spec["ledger"]["completedReturn"], clause, re.I))
+            if completed:
+                for kind in subsequent & (named or active):
+                    restrictions[kind].discard("confirmation_unchecked")
+                    subsequent.discard(kind)
+            provider = re.fullmatch(stages["providerResult"], clause, re.I)
+            if (re.fullmatch(stages["exclusiveResultOwner"], clause, re.I)
                     or (provider and re.search(spec["ledger"]["exclusiveProvider"], clause, re.I))):
+                for kind in set(spec["sources"]) - named:
+                    restrictions.setdefault(kind, set()).add("confirmation_other_source")
+                continue
+            reference = re.match(stages["resultReference"], clause, re.I)
+            attributed = (named and not corrected and (
+                (reference and re.match(stages["originPredicate"], clause[reference.end():], re.I))
+                or re.search(stages["sourceOfResult"], clause, re.I)
+            ))
+            if attributed and not re.search(spec["lookupPerformed"], clause, re.I):
                 for kind in set(spec["sources"]) - named:
                     restrictions.setdefault(kind, set()).add("confirmation_other_source")
                 continue
             reason = None
             if re.fullmatch(spec["ledger"]["differentInstance"], clause, re.I):
                 reason = "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
-            elif (re.fullmatch(spec["rowStages"]["delegatedRead"], clause, re.I)
+            elif (re.fullmatch(stages["delegatedRead"], clause, re.I)
                   or re.fullmatch(spec["ledger"]["exclusiveReader"], clause, re.I)):
                 reason = "confirmation_unchecked"
-            elif re.fullmatch(spec["ledger"]["deniedSource"], clause, re.I):
+            elif (re.fullmatch(spec["ledger"]["deniedSource"], clause, re.I)
+                  or re.fullmatch(spec["ledger"]["uninspectedSource"], clause, re.I)):
                 reason = "confirmation_unchecked"
             elif re.fullmatch(spec["ledger"]["deniedIdentity"], clause, re.I):
                 reason = "confirmation_inconsistent"
-            elif (result == "no-match" or source == "jsonl") and re.fullmatch(
-                    spec["ledger"]["partialExtent"], clause, re.I
+            elif (result == "no-match" or source == "jsonl") and (
+                re.fullmatch(spec["ledger"]["partialExtent"], clause, re.I)
+                or (not named and re.search(spec["partialCoverage"], clause, re.I)
+                    and not re.search(spec["exhaustiveCoverage"], clause, re.I))
             ):
                 reason = "confirmation_partial"
+                if not named:
+                    sourceless_partial = True
             if reason:
                 for kind in named or active:
                     restrictions.setdefault(kind, set()).add(reason)
+                    subsequent.discard(kind)
             elif named and re.search(spec["lookupPerformed"], clause, re.I):
                 active = named
+    if sourceless_partial and (result == "no-match" or source == "jsonl"):
+        restrictions.setdefault(source, set()).add("confirmation_partial")
     priority = ("confirmation_other_source", "confirmation_other_file", "confirmation_unchecked",
                 "confirmation_inconsistent", "confirmation_partial")
     return next((reason for reason in priority if reason in restrictions.get(source, ())), None)
 
 
-def _confirmation_conflict(table, source, result, turns, action, facts, guide_origin, eligible):
+def _confirmation_conflict(table, source, result, turns, action, facts, guide_origin, eligible,
+                           summary_out: Optional[Dict[str, Any]] = None):
     """Bind an observation to its source and target before interpreting a structured outcome."""
     spec = table["confirmation"]["attribution"]
-    active = set()
-    mentioned = set()
+    active: Set[str] = set()
+    mentioned: Set[str] = set()
     original_marker = False
     disowned_report = set()
     launch_files = guide_origin.files
-    destinations = {name: set() for name in spec["sources"]}
+    destinations: Dict[str, Set[str]] = {name: set() for name in spec["sources"]}
     destinations["jsonl"].update(launch_files)
     destinations["receiver"].update(guide_origin.receivers)
     reports, quoted_values = _report_clauses(table, turns)
@@ -1707,10 +1797,10 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
     attempts = {key: _SourceCheck() for key in origin.values()}
     current = dict(origin)
     latest = dict(origin)
-    foreign_context = set()
+    foreign_context: Set[str] = set()
     unbound_details = []
-    unresolved_stages = set()
-    inspected_sources = set()
+    unresolved_stages: Set[str] = set()
+    inspected_sources: Set[str] = set()
     background_sources = set()
     narrative_gap = False
     if "readDifferentPath" in facts:
@@ -1755,7 +1845,7 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                             or re.search(spec["unseenResult"], source_scope, re.I))
             reported = checked or re.search(spec["resultActor"], source_scope, re.I)
             other_reader = _other_reader(spec, source_scope, reported)
-            original = re.search(spec["original"], source_scope, re.I)
+            original = bool(re.search(spec["original"], source_scope, re.I))
             qualified = not re.search(spec["uncertain"], source_scope, re.I)
             if re.search(spec["originalMarker"], source_scope, re.I) and qualified:
                 original_marker = True
@@ -1790,13 +1880,17 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     attempts[origin[other]].unchecked = True
             if other_reader:
                 foreign_context = named or active or set(origin)
+                delegated = bool(re.search(
+                    r"\b(?:on\s+(?:my|our)\s+behalf|for\s+(?:me|us)|instead\s+of\s+(?:me|us))\s*$",
+                    source_scope.strip(), re.I,
+                ))
                 for target in foreign_context:
                     prior = attempts[origin[target]]
                     if re.search(spec["rowStages"]["remainingPortion"], source_scope, re.I):
                         prior.personal_gap = True
                     prior.clarification_veto = True
                     excluded_reader = re.search(spec["readerExcluded"], source_scope, re.I)
-                    if exclusive_subject or excluded_reader or not prior.original_target or (
+                    if exclusive_subject or excluded_reader or delegated or not prior.original_target or (
                         not checked and prior.outcome is None
                     ):
                         prior.foreign_reader_only = True
@@ -1859,8 +1953,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                 if not _accounted_read(table, source_scope, known_ids):
                     unbound_details.append((named, source_scope))
                 linked = re.split(spec["coordinateDetail"], source_scope, flags=re.I)[1:]
-                target = re.search(spec["lookupSuffixAnchor"], source_scope[checked.end():], re.I)
-                trailing = source_scope[checked.end() + target.end():].strip(" ,") if target else ""
+                target_anchor = re.search(spec["lookupSuffixAnchor"], source_scope[checked.end():], re.I)
+                trailing = source_scope[checked.end() + target_anchor.end():].strip(" ,") if target_anchor else ""
                 tail_parts = re.split(spec["coordinateDetail"], trailing, maxsplit=1, flags=re.I)
                 if len(tail_parts) == 2 and re.fullmatch(spec["neutralLookupTail"], tail_parts[0], re.I):
                     trailing = tail_parts[1]
@@ -1880,7 +1974,8 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
             if (bound_before and source_scope.strip() and not inquiry
                     and not roles["declaredIdentifier"]):
                 for name in named or active:
-                    permitted = _permitted_continuation(spec, source_scope)
+                    permitted = (_permitted_continuation(spec, source_scope)
+                                 or re.fullmatch(spec["ledger"]["uninspectedSource"], source_scope.strip(), re.I))
                     if not permitted:
                         checks[name].unaccounted = True
                         checks[name].clarification_veto = True
@@ -2103,9 +2198,9 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                         checks[target].foreign_reader_only = False
             attribution = re.sub(spec["readerContext"], "", source_scope, flags=re.I)
             attribution = re.sub(spec["notForeign"], "", attribution, flags=re.I)
-            foreign = re.search(spec["foreign"], attribution, re.I)
-            explicit = (re.search(spec["reportedForeign"], clause, re.I)
-                        or re.search(spec["foreignLookup"], clause, re.I))
+            foreign = bool(re.search(spec["foreign"], attribution, re.I))
+            explicit = bool(re.search(spec["reportedForeign"], clause, re.I)
+                            or re.search(spec["foreignLookup"], clause, re.I))
             query_ids = set(sought)
             if subject:
                 query_ids.add(quoted_values.get(subject.group(1), subject.group(1)))
@@ -2148,6 +2243,13 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
                     if miss:
                         check.outcome = "no-match"
                     elif qualified and len(unique_ids or original_ids) == 1 and row_ids:
+                        additive = (bool(re.search(spec["returnAdditiveNamed"], clause, re.I))
+                                    or bool(re.match(spec["additionalResult"], clause, re.I)))
+                        if check.sole_row_bound and not additive:
+                            if row_ids - check.sole_row_ids:
+                                check.conflicting_results = True
+                                check.sole_row_ids.update(row_ids)
+                            continue
                         count = sum(value in (unique_ids or original_ids) for value in roles["returnedIdentifier"])
                         check.matching_rows += count
                         if check.matching_rows > 1:
@@ -2173,22 +2275,32 @@ def _confirmation_conflict(table, source, result, turns, action, facts, guide_or
         elif "storageIDMismatch" in facts:
             check.outcome = "no-match"
     conflict = check.compare(source, result, action, facts)
-    if source in unresolved_stages and conflict in (None, "ask_evidence") and result != "unverified":
+    if summary_out is not None:
+        summary_out.update({
+            "check": check,
+            "inspected_sources": inspected_sources,
+            "narrative_gap": narrative_gap,
+            "exhaustive": any(
+                re.search(spec["exhaustiveCoverage"], c, re.I)
+                for turn in turns for c in re.split(table["split"], turn or "", flags=re.I)
+            ),
+        })
+    if source in unresolved_stages and conflict in (None, "review_summary") and result != "unverified":
         return "confirmation_unresolved_lookup"
-    if result != "unverified" and conflict in (None, "ask_evidence", "confirmation_unresolved_lookup"):
+    if result != "unverified" and conflict in (None, "review_summary", "confirmation_unresolved_lookup"):
         restriction = _scope_constraints(spec, reports, quoted_values, source, result)
         if restriction:
             return restriction
     accounted_result = check.original_target and check.outcome == result
     needs_binding = narrative_gap or (check.referenced_check and check.outcome is None)
     unexplained = any(not kinds or source in kinds for kinds, _ in unbound_details)
-    if (check.clarification_veto or unexplained) and (conflict == "ask_evidence" or (
+    if (check.clarification_veto or unexplained) and (conflict == "review_summary" or (
         needs_binding and not accounted_result
     )):
-        return "confirmation_unresolved_lookup" if conflict in (None, "ask_evidence") else conflict
+        return "confirmation_unresolved_lookup" if conflict in (None, "review_summary") else conflict
     if needs_binding and not conflict and result != "unverified" and not accounted_result:
-        conflict = "ask_evidence"
-    if eligible and result in ("matched", "no-match") and conflict in (None, "ask_evidence"):
+        conflict = "review_summary"
+    if eligible and result in ("matched", "no-match") and conflict in (None, "review_summary"):
         located, exclusive, linked, unresolved, completed = _located_results(table, reports, quoted_values)
         own_result = source in linked[result] and (source in completed[result]
                                                    or (check.original_target and check.outcome == result))
@@ -2213,6 +2325,11 @@ def _observation_action(report):
         return "confirmation_details"
     if result == "no-match" and report.get("coverage") != "complete":
         return "confirmation_partial"
+    if source == "jsonl" and result == "matched":
+        if report.get("coverage") == "partial":
+            return "jsonl_partial_observed"
+        if report.get("coverage") == "unverified":
+            return "jsonl_partial"
     return None
 
 
@@ -2234,6 +2351,8 @@ def _partial_file_action(table, turns):
 
 def _reply_stream(facts):
     """Follow the app's known output stream through the original launch's redirections."""
+    if "stderrAtOriginalStdout" in facts and "replyOnStderr" in facts:
+        return "reply_original_stdout"
     if "stdoutAtOriginalStderr" in facts and "replyOnStderr" not in facts:
         return "reply_original_stderr"
     if "stdoutMergedIntoStderr" in facts:
@@ -2247,10 +2366,197 @@ def _reply_stream(facts):
     return "reply_stdout_discarded" if "discardedStdout" in facts else "reply"
 
 
-def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
-          shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
-          confirmation: Optional[Union[Tuple[str, str], Dict[str, str]]] = None,
-          privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
+def _resolve_demo_streams(facts: Set[str], goal: str) -> str:
+    """Resolve physical stdout/stderr destinations left-to-right for each requested demo artifact."""
+    if "stderrAtOriginalStdout" in facts:
+        stderr_dest = "stdout"
+        stdout_dest = "discarded" if "discardedStdout" in facts else "stdout_redirected"
+    elif "stdoutAtOriginalStderr" in facts:
+        stdout_dest = "stderr"
+        discarded = "discardedStderr" in facts or "unretainedStderr" in facts
+        stderr_dest = "discarded" if discarded else "stderr_redirected"
+    elif "stderrMergedIntoStdout" in facts:
+        both_dest = "discarded" if "discardedStdout" in facts else "stdout"
+        stdout_dest = both_dest
+        stderr_dest = both_dest
+    elif "stdoutMergedIntoStderr" in facts:
+        both_dest = "discarded" if ("discardedStderr" in facts or "unretainedStderr" in facts) else "stderr"
+        stdout_dest = both_dest
+        stderr_dest = both_dest
+    else:
+        stdout_dest = "discarded" if "discardedStdout" in facts else "stdout"
+        stderr_dest = "discarded" if ("discardedStderr" in facts or "unretainedStderr" in facts) else "stderr"
+    reply_dest = stderr_dest if "replyOnStderr" in facts else stdout_dest
+    decision_dest = stdout_dest if ("decisionOnStdout" in facts or "consoleStdout" in facts) else stderr_dest
+    if goal == "both":
+        if reply_dest == "discarded" and decision_dest == "discarded":
+            if "replyOnStderr" in facts and stderr_dest == "discarded":
+                return "node_both_stderr_discarded"
+            return "node_both_discarded"
+        if reply_dest == "stdout" and decision_dest == "stdout":
+            return "node_both_stdout"
+        if reply_dest == "stderr" and decision_dest == "stderr":
+            return "node_both_stderr"
+        if decision_dest == "stdout" and reply_dest == "discarded":
+            if "stderrAtOriginalStdout" in facts:
+                return "node_decision_orig_stdout_reply_discarded"
+            return "node_stdout_only_outputs"
+        if reply_dest == "stderr" and decision_dest == "discarded":
+            if "stdoutAtOriginalStderr" in facts:
+                return "node_reply_orig_stderr_decision_discarded"
+            return "node_stderr_only_outputs"
+        if decision_dest == "stderr" and reply_dest == "discarded":
+            return "node_stderr_only_outputs"
+        if reply_dest == "stdout" and decision_dest == "discarded":
+            return "node_stdout_only_outputs"
+        return "node_console_stderr_reply" if "replyOnStderr" in facts else "node_console"
+    if goal == "decision":
+        if decision_dest == "discarded":
+            return "node_discarded_decision"
+        if decision_dest == "stdout":
+            return "decision_original_stdout" if "stderrAtOriginalStdout" in facts else "console_stdout"
+        return "node_console_stderr_reply" if "replyOnStderr" in facts else "node_console"
+    if goal == "reply":
+        if ("replyOnStdout" in facts and "replyOnStderr" in facts
+                and stdout_dest != "discarded" and stderr_dest != "discarded"):
+            return "reply_streams"
+        if reply_dest == "discarded":
+            return "reply_stdout_discarded"
+        if reply_dest == "stdout":
+            return "reply_original_stdout" if "stderrAtOriginalStdout" in facts else "reply"
+        return "reply_original_stderr" if "stdoutAtOriginalStderr" in facts else "reply_stderr"
+    if goal == "explicitStderr":
+        if stderr_dest == "discarded" and "stdoutAtOriginalStderr" in facts and reply_dest == "stderr":
+            return "node_reply_orig_stderr_decision_discarded"
+        if decision_dest == "stderr" and reply_dest == "stderr":
+            return "node_both_stderr"
+        if decision_dest == "stderr":
+            return "node_console_stderr_reply" if "replyOnStderr" in facts else "node_console"
+        if reply_dest == "stderr":
+            return "reply_stderr"
+        if "discardedStderr" in facts or "unretainedStderr" in facts:
+            return "node_both_stderr_discarded" if "replyOnStderr" in facts else "node_discarded_decision"
+        return "console_stdout" if decision_dest == "stdout" else "node_console"
+    if stdout_dest == "discarded" and "stderrAtOriginalStdout" in facts and decision_dest == "stdout":
+        return "node_decision_orig_stdout_reply_discarded"
+    if "replyOnStderr" not in facts and reply_dest == "discarded":
+        return "reply_stdout_discarded"
+    if "replyOnStderr" not in facts and reply_dest == "stderr" and stdout_dest == "stderr":
+        return "reply_stderr"
+    if reply_dest == "stdout" and decision_dest == "stdout":
+        return "node_both_stdout"
+    if reply_dest == "stdout":
+        return "reply_original_stdout" if "stderrAtOriginalStdout" in facts else "reply"
+    if decision_dest == "stdout":
+        return "decision_original_stdout" if "stderrAtOriginalStdout" in facts else "console_stdout"
+    return "node_stdout_neither"
+
+
+def _candidate_summary(table: Dict[str, Any], source: str, result: str, facts: Set[str],
+                       summary_state: Dict[str, Any], account: Optional[_LookupAccount],
+                       roles: Set[str], sources: Set[str], results: List[str]) -> Dict[str, Optional[str]]:
+    """Build the editable candidate summary using only prose-verified facts."""
+    check: Optional[_SourceCheck] = summary_state.get("check")
+    inspected: Set[str] = summary_state.get("inspected_sources", set())
+    narrative_gap: bool = bool(summary_state.get("narrative_gap"))
+    exhaustive: bool = bool(summary_state.get("exhaustive"))
+    account_for_source = bool(account and account.source == source)
+    has_reader = (
+        (check is not None and not check.unchecked and not check.pending and not check.foreign_reader_only)
+        and (source in inspected or account_for_source or ("reader" in roles and source in sources)
+             or (source == "receiver" and "retainedReceiverEntry" in facts)
+             or (source == "storage" and ("linkedStoreReadback" in facts or "durableStoreQuery" in facts)))
+    )
+    has_origin = (
+        (check is not None and check.correct_instance is True)
+        or account_for_source
+        or ("origin" in roles and source in sources)
+        or (source == "receiver" and "retainedReceiverEntry" in facts)
+        or (source == "storage" and ("linkedStoreReadback" in facts or "durableStoreQuery" in facts))
+    )
+    has_exact_target = (
+        check is not None and check.original_target and check.outcome in ("matched", "no-match")
+        and not check.returned_unbound and not check.unlinked_record and not narrative_gap
+        and not (account and account.result == "unlinked")
+        and not (check.referenced_check and check.outcome is None)
+    )
+    observed_count: Optional[str] = None
+    if check is not None and (check.ambiguous or check.matched_objects + check.matching_rows > 1):
+        observed_count = "multiple"
+    elif check is not None and (check.zero_matches or check.outcome == "no-match"):
+        observed_count = "zero"
+    elif (
+        (check is not None and (
+            check.matched_objects == 1 or check.matching_rows == 1 or check.outcome == "matched"
+            or check.unlinked_record or check.returned_unbound
+        ))
+        or (account and account.result in ("match", "unlinked"))
+        or ("unlinked" in results and source in sources)
+    ):
+        observed_count = "one"
+    candidate: Dict[str, Optional[str]] = {
+        "reader": "me" if has_reader else None,
+        "sourceMatch": "original" if has_origin else None,
+        "targetMatch": "exact_original" if has_exact_target else None,
+        "observedCount": observed_count,
+    }
+    if result == "no-match" or source == "jsonl":
+        if check is not None and (check.partial or check.personal_gap):
+            candidate["coverage"] = "partial"
+        elif exhaustive or (account and account.accounted and account.result == "miss") or "complete" in roles:
+            candidate["coverage"] = "complete"
+        else:
+            candidate["coverage"] = None
+    return candidate
+
+
+def _resolve_summary_outcome(source: str, result: str, outcome: str,
+                             candidate: Dict[str, Optional[str]],
+                             submitted: Dict[str, Any]) -> str:
+    if submitted.get("unresolved") is True:
+        return "confirmation_unresolved_lookup"
+    merged = dict(candidate)
+    for field_name, value in submitted.items():
+        if field_name in merged and value is not None:
+            merged[field_name] = value
+    if merged.get("reader") == "another":
+        return "confirmation_unchecked"
+    if merged.get("sourceMatch") == "different":
+        return "confirmation_other_file" if source == "jsonl" else "confirmation_other_source"
+    if merged.get("targetMatch") == "different":
+        return "confirmation_other_run"
+    if merged.get("observedCount") == "multiple":
+        return "confirmation_ambiguous"
+    if ((merged.get("observedCount") == "zero" and result == "matched")
+            or (merged.get("observedCount") == "one" and result == "no-match")):
+        return "confirmation_inconsistent"
+    if merged.get("coverage") == "partial":
+        return "jsonl_partial_observed" if (source == "jsonl" and result == "matched") else "confirmation_partial"
+    if "unsure" in merged.values():
+        if (source == "jsonl" and result == "matched" and merged.get("coverage") == "unsure"
+                and merged.get("reader") == "me" and merged.get("sourceMatch") == "original"
+                and merged.get("targetMatch") == "exact_original" and merged.get("observedCount") == "one"):
+            return "jsonl_partial"
+        return "confirmation_unresolved_lookup"
+    required = ("reader", "sourceMatch", "targetMatch", "observedCount")
+    if any(merged.get(name) is None for name in required):
+        return "confirmation_unresolved_lookup"
+    if result == "no-match" and merged.get("coverage") != "complete":
+        return "confirmation_partial"
+    expected_count = "one" if result == "matched" else "zero"
+    if (merged.get("reader") == "me" and merged.get("sourceMatch") == "original"
+            and merged.get("targetMatch") == "exact_original"
+            and merged.get("observedCount") == expected_count):
+        return outcome
+    return "confirmation_unresolved_lookup"
+
+
+def _evaluate_route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
+                    shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
+                    confirmation: Optional[Union[Tuple[str, str], Dict[str, Any]]] = None,
+                    privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
+    if isinstance(confirmation, dict) and "evidenceReply" in confirmation:
+        raise TypeError("Legacy evidenceReply is no longer supported; use summary.")
     origin = _GuideOrigin()
     key, facts = _next_step(table, question, answer, shell, inherited, privacy_notes, origin)
     turns = (question, answer)
@@ -2298,34 +2604,36 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
     elif "ranDefaultNodeDemo" in facts:
         if "ambiguousArtifacts" in roles:
             key = "ask_subject"
-        elif "wantsBothStreams" in roles:
-            if {"discardedStderr", "discardedStdout"} <= facts:
-                key = "node_both_discarded"
-            elif "stdoutMergedIntoStderr" in facts and facts.intersection(("retainedCombinedStream", "shellCombined")):
-                key = "node_both_stderr"
-            elif "stderrMergedIntoStdout" in facts and facts.intersection(("retainedCombinedStream", "shellCombined")):
-                key = "node_both_stdout"
-            elif "onlyStdout" in roles or "discardedStderr" in facts:
-                key = "node_stdout_only_outputs"
-        elif "wantsDecisionRecord" in roles or "requestedLocalRecord" in facts or "explicitStderr" in roles:
-            if "stderrAtOriginalStdout" in facts:
-                key = "decision_original_stdout"
-            elif "discardedStderr" in facts:
-                key = "node_discarded_decision"
-            elif "replyOnStderr" in facts and "explicitStderr" in roles:
-                key = "node_both_stderr"
-            elif "stderrMergedIntoStdout" in facts:
-                key = "console_stdout"
-            else:
-                key = "node_console"
-        elif "explicitStdout" in roles or "wantsApplicationReply" in roles:
-            key = _reply_stream(facts)
+        else:
+            stream_facts = set(facts)
+            if "onlyStderr" in roles and facts.isdisjoint(("stderrMergedIntoStdout", "stdoutAtOriginalStderr")):
+                stream_facts.add("discardedStdout")
+            if "onlyStdout" in roles and facts.isdisjoint(("stdoutMergedIntoStderr", "stderrAtOriginalStdout")):
+                stream_facts.add("discardedStderr")
+            stream_goal: Optional[str] = None
+            if "wantsBothStreams" in roles:
+                stream_goal = "both"
+            elif "explicitStdout" in roles or "explicitDemoStdout" in facts:
+                stream_goal = "explicitStdout"
+            elif "explicitStderr" in roles or "explicitDemoStderr" in facts:
+                stream_goal = "explicitStderr"
+            elif ("wantsDecisionRecord" in roles or "requestedLocalRecord" in facts
+                  or "wantMeta" in facts or "wantsMetadata" in roles):
+                stream_goal = "decision"
+            elif "wantsApplicationReply" in roles or "wantReply" in facts:
+                stream_goal = "reply"
+            if stream_goal is not None:
+                resolved = _resolve_demo_streams(stream_facts, stream_goal)
+                if not (resolved == "node_discarded_decision" and key == "console_discarded_metadata"
+                        and "wantsDecisionRecord" not in roles and "requestedLocalRecord" not in facts):
+                    key = resolved
     if {"unavailableOriginal", "reusedTicket"} <= roles and key in ("ask_path", "ask_subject"):
         key = "ask_id"
     if "explicitWorkerConsole" in roles and "redirectErr" in facts and key in ("ask_exporter", "ask_subject"):
         key = "console"
     if ("wantsMetadata" in roles and roles.intersection(("retainedNodeStreams", "ownNodeDecision"))
-            and "decisionOnStderr" in facts and "discardedStderr" not in facts):
+            and "decisionOnStderr" in facts and "discardedStderr" not in facts
+            and "stderrMergedIntoStdout" not in facts and "stderrAtOriginalStdout" not in facts):
         key = "node_console"
     if ("wantsApplicationReply" in roles and "node" in facts and key == "fallback" and answer
             and ("stdout" in facts or {"consoleJob", "separateAppReply"} <= roles
@@ -2338,8 +2646,11 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         key = "node_discarded_decision"
     if {"uniqueMarker", "absentID"} <= roles and key in ("ask_id", "fallback", "jsonl_candidates"):
         key = "surviving_marker"
-        if ("unavailableOriginal" in roles and
-                re.search(table["lookupLanguage"]["phraseRoles"]["unboundCopy"], question, re.I)):
+        if "unavailableOriginal" in roles and (
+            "unboundOwnership" in roles
+            or any(re.search(table["lookupLanguage"]["phraseRoles"]["unboundCopy"], turn or "", re.I)
+                   for turn in turns)
+        ):
             key = "recover_marker_original"
     sources = roles.intersection(("jsonl", "receiver", "storage"))
     if (not unknown and "contraryID" not in roles and len(sources) == 1 and len(results) == len(target_ids) == 1
@@ -2355,6 +2666,7 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
         if not account.disputed and ((account.accounted and account.result != "unknown")
                                      or key in language["missingActions"]):
             key = language["routes"][account.source][account.result if account.accounted else "unknown"]
+    candidate_summary: Optional[Dict[str, Optional[str]]] = None
     if confirmation:
         report = confirmation if isinstance(confirmation, dict) else dict(zip(("source", "result"), confirmation))
         source, result = report["source"], report["result"]
@@ -2366,8 +2678,9 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                     _source_text(table, turn, aliases)
                 origin.files = {original for path in origin.files for original in aliases.get(path, {path})}
             missing = _observation_action(report)
+            summary_state: Dict[str, Any] = {}
             conflict = _confirmation_conflict(table, source, result, (question, answer), key, facts, origin,
-                                              eligible=not missing)
+                                              eligible=not missing, summary_out=summary_state)
             attribution = table["confirmation"]["attribution"]
             if (conflict == "confirmation_partial" and source == "jsonl" and result == "matched"
                     and any(re.search(attribution["partialCoverage"], clause, re.I)
@@ -2383,33 +2696,55 @@ def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
                 conflict = "confirmation_ambiguous"
             elif account and account.unknown_clause and account.result != "unknown" and result != "unverified":
                 # A recognized record cannot resolve an unconsumed qualification of that lookup.
-                if conflict in (None, "ask_evidence"):
+                if conflict in (None, "review_summary"):
                     conflict = "confirmation_unresolved_lookup"
             elif (account and account.accounted and account.result != "unknown" and result != "unverified"
-                  and conflict in (None, "ask_evidence", "confirmation_unresolved_lookup")):
+                  and conflict in (None, "review_summary", "confirmation_unresolved_lookup")):
                 # Only a fully consumed account can resolve a previously unknown observation.
                 # A separately established conflict in source, target, multiplicity or scope always stands.
                 kind, observed = account.source, account.result
                 if source != kind:
                     conflict = "confirmation_unchecked"
                 elif observed == "unlinked":
-                    conflict = "ask_evidence" if result == "matched" else "confirmation_unresolved_lookup"
+                    conflict = "review_summary" if result == "matched" else "confirmation_unresolved_lookup"
                 else:
                     agrees = (result == "matched") == (observed == "match")
                     conflict = None if agrees else "confirmation_inconsistent"
-            disposition = ("needs_clarification" if conflict == "ask_evidence" and not missing
+            disposition = ("needs_clarification" if conflict == "review_summary" and not missing
                            else "contradicts" if conflict or missing else "supports")
-            reply = report.get("evidenceReply")
-            followup = table["confirmation"]["clarification"]
-            if reply is not None and (disposition != "needs_clarification" or reply not in followup["choices"]):
-                raise _SessionError("Invalid record-help arguments. See record-help --help.")
+            submitted = report.get("summary")
             if disposition == "needs_clarification":
-                if reply is None:
-                    prompt = followup["match" if result == "matched" else "miss"]
-                    return "ask_evidence", prompt.format(source=followup["sources"][source])
-                key = outcome if reply == "yes" else "confirmation_unresolved_lookup"
+                candidate_summary = _candidate_summary(
+                    table, source, result, facts, summary_state, account, roles, sources, results
+                )
+                if submitted is None:
+                    return "review_summary", candidate_summary
+                if not isinstance(submitted, dict):
+                    raise _SessionError(table["confirmation"]["summary"]["errors"]["invalid"])
+                key = _resolve_summary_outcome(source, result, outcome, candidate_summary, submitted)
             else:
-                key = missing if conflict == "ask_evidence" else conflict or missing or outcome
+                key = missing if conflict == "review_summary" else conflict or missing or outcome
+    return key, candidate_summary
+
+
+def lookup_summary(table: Dict[str, Any], question: str, answer: Optional[str] = None,
+                   shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
+                   confirmation: Optional[Union[Tuple[str, str], Dict[str, Any]]] = None,
+                   privacy_notes: Tuple[str, ...] = ()) -> Optional[Dict[str, Optional[str]]]:
+    """Return editable summary candidate fields when a lookup needs review, else None."""
+    if not confirmation:
+        return None
+    base_confirmation = ({k: v for k, v in confirmation.items() if k != "summary"}
+                         if isinstance(confirmation, dict) else confirmation)
+    action, candidate = _evaluate_route(table, question, answer, shell, inherited, base_confirmation, privacy_notes)
+    return candidate if action == "review_summary" else None
+
+
+def route(table: Dict[str, Any], question: str, answer: Optional[str] = None,
+          shell: Optional[str] = None, inherited: Optional[Dict[str, str]] = None,
+          confirmation: Optional[Union[Tuple[str, str], Dict[str, Any]]] = None,
+          privacy_notes: Tuple[str, ...] = ()) -> Tuple[str, str]:
+    key, _ = _evaluate_route(table, question, answer, shell, inherited, confirmation, privacy_notes)
     return key, table["actions"][key]["text"]
 
 
@@ -2913,13 +3248,47 @@ class _SessionError(ValueError):
     """All messages are public constant diagnostics."""
 
 
+def _parse_summary_line(line: str, fields_spec: Dict[str, Any], errors: Dict[str, str]) -> Tuple[Dict[str, str], bool]:
+    tokens = line.split()[1:]
+    if not tokens:
+        raise _SessionError(errors["invalid"])
+    if len(tokens) == 1 and tokens[0].lower() == "unresolved":
+        return {}, True
+    if any(token.lower() == "unresolved" for token in tokens):
+        raise _SessionError(errors["contradictory"])
+    key_map = {
+        "reader": "reader",
+        "source-match": "sourceMatch",
+        "target-match": "targetMatch",
+        "count": "observedCount",
+        "coverage": "coverage",
+    }
+    updates: Dict[str, str] = {}
+    for token in tokens:
+        if "=" not in token:
+            raise _SessionError(errors["invalid"])
+        raw_key, raw_val = token.split("=", 1)
+        field_key = key_map.get(raw_key)
+        if not field_key or raw_val not in fields_spec[field_key]["options"]:
+            raise _SessionError(errors["invalid"])
+        if field_key in updates:
+            raise _SessionError(errors["duplicate"])
+        updates[field_key] = raw_val
+    return updates, False
+
+
 def _session(table, args, turns):
+    summary_spec = table["confirmation"]["summary"]
+    errors = summary_spec["errors"]
+    fields_spec = summary_spec["fields"]
+    if getattr(args, "evidence_reply", None):
+        raise _SessionError(errors["legacy"])
     if bool(args.source) != bool(args.result):
         raise _SessionError("Confirmation needs both --source and --result.")
     if args.answer and len(args.answer) != 1:
         raise _SessionError("Supply one clarification answer, once.")
     answer = args.answer[0] if args.answer else None
-    pair = None
+    pair: Optional[Dict[str, Any]] = None
     options = {"reader": args.reader, "sourceMatch": args.source_match,
                "targetMatch": args.target_match, "coverage": args.coverage}
     if any(options.values()) and not args.source:
@@ -2935,18 +3304,53 @@ def _session(table, args, turns):
                     raise _SessionError("Choose one supported value for each observation field. See --help.")
                 pair[option] = values[0]
     lines = ([args.question] if args.question is not None else []) + [line for line in turns if line.strip()]
-    replies = list(getattr(args, "evidence_reply", None) or [])
-    # A final bare response is valid only after the observation it answers.
-    if len(lines) >= 2 and lines[-1] in table["confirmation"]["clarification"]["choices"] and (
+    for line in lines:
+        if re.match(r"^evidence(?:\s|$)", line, re.I):
+            raise _SessionError(errors["legacy"])
+    if len(lines) >= 2 and lines[-1].strip().lower() in ("yes", "no", "unsure") and (
         pair or _confirmation(table, lines[-2])
     ):
-        replies.append(lines.pop())
-    for index, line in enumerate(list(lines)):
-        if re.match(r"^evidence(?:\s|$)", line, re.I):
-            if index != len(lines) - 1 or len(line.split()) != 2:
-                raise _SessionError("Invalid record-help arguments. See record-help --help.")
-            replies.append(line.split()[1])
-            lines.pop()
+        raise _SessionError(errors["legacy"])
+    summary_indices = [i for i, line in enumerate(lines) if re.match(r"^summary(?:\s|$)", line, re.I)]
+    if len(summary_indices) > 1:
+        raise _SessionError(errors["duplicate"])
+    line_updates: Dict[str, str] = {}
+    line_unresolved = False
+    if summary_indices:
+        if summary_indices[0] != len(lines) - 1:
+            raise _SessionError(errors["invalid"])
+        line_updates, line_unresolved = _parse_summary_line(lines.pop(), fields_spec, errors)
+    flag_updates: Dict[str, str] = {}
+    flag_map = (
+        ("reader", getattr(args, "summary_reader", None)),
+        ("sourceMatch", getattr(args, "summary_source_match", None)),
+        ("targetMatch", getattr(args, "summary_target_match", None)),
+        ("observedCount", getattr(args, "summary_count", None)),
+        ("coverage", getattr(args, "summary_coverage", None)),
+    )
+    for field_key, values in flag_map:
+        if values:
+            if len(values) > 1:
+                raise _SessionError(errors["duplicate"])
+            if values[0] not in fields_spec[field_key]["options"]:
+                raise _SessionError(errors["invalid"])
+            flag_updates[field_key] = values[0]
+    flag_unresolved = bool(getattr(args, "leave_unresolved", False))
+    has_updates = bool(flag_updates or line_updates)
+    has_unresolved = flag_unresolved or line_unresolved
+    if has_updates and has_unresolved:
+        raise _SessionError(errors["contradictory"])
+    if flag_unresolved and line_unresolved:
+        raise _SessionError(errors["duplicate"])
+    for key in set(flag_updates) & set(line_updates):
+        if flag_updates[key] != line_updates[key]:
+            raise _SessionError(errors["contradictory"])
+        raise _SessionError(errors["duplicate"])
+    summary_submission: Optional[Dict[str, Any]] = None
+    if has_unresolved:
+        summary_submission = {"unresolved": True}
+    elif has_updates:
+        summary_submission = {**flag_updates, **line_updates}
     reports = [(index, item) for index, line in enumerate(lines) if (item := _confirmation(table, line))]
     if ((answer and _confirmation(table, answer)) or
             (reports and (pair or len(reports) != 1 or reports[0][0] != len(lines) - 1))):
@@ -2954,11 +3358,12 @@ def _session(table, args, turns):
     if reports:
         pair = reports[0][1]
         lines.pop()
-    if replies:
-        choices = table["confirmation"]["clarification"]["choices"]
-        if args.static or not pair or len(replies) != 1 or replies[0] not in choices:
-            raise _SessionError("Invalid record-help arguments. See record-help --help.")
-        pair["evidenceReply"] = replies[0]
+    if summary_submission is not None:
+        if args.static or not pair:
+            raise _SessionError(errors["unsolicited"])
+        if "coverage" in summary_submission and pair["source"] != "jsonl" and pair["result"] != "no-match":
+            raise _SessionError(errors["invalid"])
+        pair["summary"] = summary_submission
     if len(lines) > (1 if answer is not None else 2):
         raise _SessionError("Supply one clarification answer, once.")
     return (lines[0] if lines else ""), (answer if answer is not None else next(iter(lines[1:]), None)), pair
@@ -3006,7 +3411,8 @@ def _verify_local_file(table, args):
     from briefcase.cli._record_file import verify
 
     incompatible = ("static", "answer", "source", "result", "reader", "source_match", "target_match",
-                    "coverage", "evidence_reply")
+                    "coverage", "evidence_reply", "summary_reader", "summary_source_match",
+                    "summary_target_match", "summary_count", "summary_coverage", "leave_unresolved")
     if (len(args.verify_jsonl) != 1 or args.question is not None
             or any(getattr(args, opt, None) for opt in incompatible)):
         raise _SessionError("Invalid record-help arguments. See record-help --help.")
@@ -3118,6 +3524,22 @@ def _guide_session(args) -> int:
         if action in table["localFileCheck"]["eligibleActions"]:
             print(table["localFileCheck"]["cliDiscovery"], flush=True)
 
+    def show_summary(candidate: Dict[str, Optional[str]]) -> None:
+        summary_spec = table["confirmation"]["summary"]
+        print(summary_spec["cliHeader"], flush=True)
+        for field_key, value in candidate.items():
+            field_info = summary_spec["fields"][field_key]
+            rendered = field_info["options"][value] if value else summary_spec["unconfirmed"]
+            print(f"  {field_info['shortLabel']}: {rendered}", flush=True)
+        print(summary_spec["cliHelp"], flush=True)
+
+    def check_summary_allowed(conf: Optional[Dict[str, Any]]) -> None:
+        if conf and "summary" in conf:
+            base = {k: v for k, v in conf.items() if k != "summary"}
+            base_action, _ = route(table, question, answer, shell, inherited, base, tuple(turns))
+            if base_action != "review_summary":
+                raise _SessionError(table["confirmation"]["summary"]["errors"]["unsolicited"])
+
     if not confirmation and not args.answer and table["actions"][key]["kind"] == "ask":
         show_action(key, text)
         if answer is None:
@@ -3126,6 +3548,7 @@ def _guide_session(args) -> int:
             question, answer, confirmation = read_turn("Answer (or unknown): ")
     if answer is not None and table["actions"][key]["kind"] == "ask":
         shell, inherited = _session_environment(table, question + "\n" + answer)
+    check_summary_allowed(confirmation)
     key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
     prompted = not confirmation and interactive and not eof and key in table["confirmation"]["next"]
     previous_key = key
@@ -3139,8 +3562,9 @@ def _guide_session(args) -> int:
                 show_action(applied, instruction)
                 previous_key = applied
             question, answer, confirmation = read_turn(f"Confirm what you found or end input ({eof_hint}): ")
+        check_summary_allowed(confirmation)
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
-    if sys.stdin.isatty() and confirmation and not turns and not (interactive and key == "ask_evidence"):
+    if sys.stdin.isatty() and confirmation and not turns and not (interactive and key == "review_summary"):
         queued = _queued_terminal_lines(sys.stdin)
         if queued:
             turns.extend(queued)
@@ -3148,31 +3572,38 @@ def _guide_session(args) -> int:
             shell, inherited = _session_environment(table, question)
             if answer and table["actions"][route(table, question, None, shell, inherited)[0]]["kind"] == "ask":
                 shell, inherited = _session_environment(table, question + "\n" + answer)
+            check_summary_allowed(confirmation)
             key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
             # A completed flag invocation consumes submitted input without
             # waiting for a second end-of-input gesture.
-            eof = key != "ask_evidence"
-    evidence_prompted = False
-    if interactive and confirmation and (turns or key == "ask_evidence"):
-        if key == "ask_evidence" and not eof:
-            print(text, flush=True)
-            evidence_prompted = True
-            print(table["confirmation"]["clarification"]["help"], flush=True)
+            eof = key != "review_summary"
+    summary_prompted = False
+    if interactive and confirmation and (turns or key == "review_summary"):
+        if key == "review_summary" and not eof:
+            show_action(key, text)
+            candidate = lookup_summary(table, question, answer, shell, inherited, confirmation, tuple(turns))
+            if candidate is not None:
+                show_summary(candidate)
+            summary_prompted = True
+            print(table["confirmation"]["summary"]["cliPrompt"].format(eof_hint=eof_hint), end="", flush=True)
             raw = sys.stdin.readline()
             if raw:
                 value = raw.strip()
-                if value in table["confirmation"]["clarification"]["choices"]:
-                    value = "evidence " + value
                 if value:
                     turns.append(value)
+                else:
+                    eof = True
             else:
                 eof = True
         question, answer, confirmation = finish_report()
+        check_summary_allowed(confirmation)
         key, text = route(table, question, answer, shell, inherited, confirmation, tuple(turns))
-    if (not prompted or confirmation or key != previous_key) and not (evidence_prompted and key == "ask_evidence"):
+    if (not prompted or confirmation or key != previous_key) and not (summary_prompted and key == "review_summary"):
         show_action(key, text)
-        if key == "ask_evidence":
-            print(table["confirmation"]["clarification"]["help"])
+        if key == "review_summary":
+            candidate = lookup_summary(table, question, answer, shell, inherited, confirmation, tuple(turns))
+            if candidate is not None:
+                show_summary(candidate)
     if not prompted and key in table["confirmation"]["next"]:
         print(table["confirmation"]["instruction"])
     if key == table["fallback"]:

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 
 @dataclass
@@ -41,6 +41,8 @@ class SourceCheck:
     invalid_members: bool = False
     unresolved_population: bool = False
     pending_relation: Optional[str] = None
+    sole_row_ids: Set[str] = field(default_factory=set)
+    sole_row_bound: bool = False
 
     def record_multiple_matches(self) -> None:
         """A new search declaration cannot erase observed matching rows."""
@@ -98,7 +100,8 @@ class SourceCheck:
                 return "confirmation_unresolved_lookup"
             if sum(self.members.values()) > 1:
                 return "confirmation_ambiguous"
-        if self.conflicting_results or (self.zero_matches and (self.matched_objects or self.matching_rows)):
+        if (len(self.sole_row_ids) > 1 or self.conflicting_results
+                or (self.zero_matches and (self.matched_objects or self.matching_rows))):
             return "confirmation_inconsistent"
         if self.ambiguous or self.matched_objects + self.matching_rows > 1:
             return "confirmation_ambiguous"
@@ -109,7 +112,7 @@ class SourceCheck:
         if observed and result != observed:
             return "confirmation_inconsistent"
         if self.unlinked_record and self.returned_unbound and self.original_target and not self.unaccounted:
-            return "ask_evidence" if result == "matched" else "confirmation_unresolved_lookup"
+            return "review_summary" if result == "matched" else "confirmation_unresolved_lookup"
         if self.unaccounted or self.returned_unbound:
             return "confirmation_unresolved_lookup"
         return None

@@ -16,12 +16,7 @@ def test_shared_record_guidance(case):
     confirmation = case.get("confirmation")
     action, text = route(TABLE, case["question"], case.get("answer"), case.get("shell"), confirmation=confirmation)
     assert action == case["expected"]
-    if action == "ask_evidence":
-        followup = TABLE["confirmation"]["clarification"]
-        outcome = "match" if confirmation["result"] == "matched" else "miss"
-        assert text == followup[outcome].format(source=followup["sources"][confirmation["source"]])
-    else:
-        assert text == TABLE["actions"][action]["text"]
+    assert text == TABLE["actions"][action]["text"]
     assert "{" not in text and "}" not in text
     for fragment in case["includes"]:
         assert fragment in text
@@ -606,8 +601,14 @@ def test_one_eof_finishes_optional_observation(monkeypatch, capsys, details):
 
 
 @pytest.mark.parametrize("terminal", [True, False])
-@pytest.mark.parametrize("reply", ["yes", "no", "unsure", None])
-def test_one_evidence_reply(terminal, reply, monkeypatch, capsys):
+@pytest.mark.parametrize("reply,expected_out", [
+    ("summary target-match=exact_original count=one", 1),
+    ("summary target-match=different count=one", 0),
+    ("summary target-match=unsure count=one", 0),
+    ("summary unresolved", 0),
+    (None, 0),
+])
+def test_one_summary_review_reply(terminal, reply, expected_out, monkeypatch, capsys):
     from io import StringIO
     from briefcase.cli import _ux
     from briefcase.cli.__main__ import main
@@ -616,43 +617,57 @@ def test_one_evidence_reply(terminal, reply, monkeypatch, capsys):
     detail = "My written notes do not specify which identifier I searched."
     lines = [question, detail, "storage matched me original original"]
     if reply:
-        lines.append(reply if terminal else "evidence " + reply)
+        lines.append(reply)
     stream = StringIO("\n".join(lines) + "\n")
     monkeypatch.setattr(stream, "isatty", lambda: terminal)
     monkeypatch.setattr(_ux, "is_interactive", lambda: terminal)
     monkeypatch.setattr("sys.stdin", stream)
     assert main(["record-help"]) == 0
     output = capsys.readouterr().out
-    assert output.count("You reported") == int(reply == "yes")
+    assert output.count("You reported") == expected_out
     if not reply or terminal:
-        assert output.count("Did you personally search the intended downstream store") == 1
+        assert output.count("Lookup summary (review before confirming):") == 1
 
 
-@pytest.mark.parametrize("reply,detail,tail,valid", [
-    ("yes", "My written notes do not specify which identifier I searched.", "", True),
-    ("no", "My written notes do not specify which identifier I searched.", "", True),
-    ("yes", "My colleague queried the store without me.", "", False),
-    ("yes", "The query returned a full matching record.", "", False),
-    ("yes", "My written notes do not specify which identifier I searched.", "evidence yes", False),
-    ("private-19", "My written notes do not specify which identifier I searched.", "", False),
+@pytest.mark.parametrize("flag_args,detail,tail,valid,confirmed", [
+    (["--summary-target-match", "exact_original", "--summary-count", "one"],
+     "My written notes do not specify which identifier I searched.", "", True, True),
+    (["--leave-unresolved"],
+     "My written notes do not specify which identifier I searched.", "", True, False),
+    (["--summary-target-match", "exact_original", "--summary-count", "one"],
+     "My colleague queried the store without me.", "", False, False),
+    (["--summary-target-match", "exact_original", "--summary-count", "one"],
+     "The query returned a full matching record.", "", False, False),
+    (["--summary-target-match", "exact_original", "--summary-count", "one"],
+     "My written notes do not specify which identifier I searched.",
+     "summary target-match=exact_original", False, False),
+    (["--leave-unresolved", "--summary-reader", "me"],
+     "My written notes do not specify which identifier I searched.", "", False, False),
+    (["--summary-target-match", "private-19"],
+     "My written notes do not specify which identifier I searched.", "", False, False),
 ])
-def test_evidence_reply_flags_validate_entire_session(reply, detail, tail, valid, monkeypatch, capsys):
+def test_summary_flags_validate_entire_session(flag_args, detail, tail, valid, confirmed, monkeypatch, capsys):
     from io import StringIO
     from briefcase.cli.__main__ import main
 
     question = "I queried the intended downstream store for the original decision ID."
     monkeypatch.setattr("sys.stdin", StringIO(tail))
     args = ["record-help", question, "--answer", detail, "--source", "storage", "--result", "matched",
-            "--reader", "me", "--source-match", "original", "--target-match", "original", "--evidence-reply", reply]
+            "--reader", "me", "--source-match", "original", "--target-match", "original", *flag_args]
     assert main(args) == (0 if valid else 2)
     output = capsys.readouterr()
-    assert output.out.count("You reported") == int(valid and reply == "yes")
+    assert output.out.count("You reported") == int(valid and confirmed)
     assert "private-19" not in output.err + output.out
 
 
-@pytest.mark.parametrize("reply", ["yes", "no", "unsure"])
+@pytest.mark.parametrize("reply", [
+    "summary target-match=exact_original",
+    "summary target-match=different",
+    "summary target-match=unsure",
+    "summary unresolved",
+])
 @pytest.mark.parametrize("read_only_row", [True, False])
-def test_piped_answer_to_displayed_evidence_question(reply, read_only_row, monkeypatch, capsys):
+def test_piped_answer_to_displayed_summary_review(reply, read_only_row, monkeypatch, capsys):
     from io import StringIO
     from briefcase.cli.__main__ import main
 
@@ -661,7 +676,9 @@ def test_piped_answer_to_displayed_evidence_question(reply, read_only_row, monke
                detail, "storage matched me original original", reply]
     monkeypatch.setattr("sys.stdin", StringIO("\n".join(session)))
     assert main(["record-help"]) == (0 if read_only_row else 2)
-    assert capsys.readouterr().out.count("You reported") == int(read_only_row and reply == "yes")
+    assert capsys.readouterr().out.count("You reported") == int(
+        read_only_row and reply == "summary target-match=exact_original"
+    )
 
 
 @pytest.mark.parametrize("conflict", [
@@ -698,3 +715,303 @@ def test_completed_flag_report_validates_queued_input(terminal, extra, monkeypat
             "--source-match", "original", "--target-match", "original"]
     assert main(args) == (2 if extra.strip() else 0)
     assert capsys.readouterr().out.count("You reported") == int(not extra.strip())
+
+
+@pytest.mark.parametrize("followup,expected", [
+    ("I then independently queried downstream storage for the original decision ID and found a matching record.",
+     "confirmed_storage_matched"),
+    ("I then independently queried downstream storage for the original decision ID. "
+     "The query returned one matching record.",
+     "confirmed_storage_matched"),
+    ("I then independently queried downstream storage for the original decision ID.",
+     "confirmation_unchecked"),
+    ("I then independently queried downstream storage for the original decision ID. My query was pending.",
+     "confirmation_unchecked"),
+    ("My colleague independently queried downstream storage for the original decision ID and found a matching record.",
+     "confirmation_unchecked"),
+])
+def test_r57_recovery_variants(followup, expected):
+    question = ("The original exporter was OTLP. I checked only the receiver. "
+                "Downstream storage has never been checked. " + followup)
+    report = {"source": "storage", "result": "matched", "reader": "me",
+              "sourceMatch": "original", "targetMatch": "original"}
+    assert route(TABLE, question, confirmation=report)[0] == expected
+
+
+@pytest.mark.parametrize("question,confirmation,expected", [
+    ("I checked only the first two pages. I queried the intended downstream store for the original decision ID. "
+     "The query returned zero matching records.",
+     {"source": "storage", "result": "no-match", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original", "coverage": "complete"},
+     "confirmation_partial"),
+    ("I checked only the first page. I queried the intended downstream store for the original decision ID. "
+     "The query returned zero matching records.",
+     {"source": "storage", "result": "no-match", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original", "coverage": "complete"},
+     "confirmation_partial"),
+    ("I only searched yesterday's records. I queried the intended downstream store for the original decision ID. "
+     "The query returned zero matching records.",
+     {"source": "storage", "result": "no-match", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original", "coverage": "complete"},
+     "confirmation_partial"),
+    ("I never checked that the IDs matched. I queried the intended downstream store for the original decision ID "
+     "and returned a row.",
+     {"source": "storage", "result": "matched", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original"},
+     "confirmation_inconsistent"),
+    ("I queried the intended downstream store for the original decision ID. The query returned one matching record. "
+     "My manager searched it for me.",
+     {"source": "storage", "result": "matched", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original"},
+     "confirmation_unchecked"),
+    ("I queried the intended downstream store for the original decision ID. The query returned one matching record. "
+     "My colleague looked up it for me.",
+     {"source": "storage", "result": "matched", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original"},
+     "confirmation_unchecked"),
+    ("The returned record was from the receiver. I queried the intended downstream store for the original decision ID. "
+     "The query returned one matching record.",
+     {"source": "storage", "result": "matched", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original"},
+     "confirmation_other_source"),
+    ("My original decision ID was Fern. I searched rows.jsonl for the original decision ID. "
+     "The only returned row bore ID fern. The only returned row bore ID Fern.",
+     {"source": "jsonl", "result": "matched", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original"},
+     "confirmation_inconsistent"),
+    ("My original decision ID was Fern. I searched rows.jsonl for the original decision ID. "
+     "The only returned row bore ID Fern. The only returned row bore ID fern.",
+     {"source": "jsonl", "result": "matched", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original"},
+     "confirmation_inconsistent"),
+    ("My original decision ID was Fern. I searched rows.jsonl for the original decision ID. "
+     "The only returned row bore ID Fern. The returned row had decision ID Fern.",
+     {"source": "jsonl", "result": "matched", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original"},
+     "confirmed_jsonl_matched"),
+    ("I searched rows.jsonl for the original decision ID.",
+     {"source": "jsonl", "result": "matched", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original", "coverage": "partial"},
+     "jsonl_partial_observed"),
+    ("I searched rows.jsonl for the original decision ID.",
+     {"source": "jsonl", "result": "matched", "reader": "me",
+      "sourceMatch": "original", "targetMatch": "original", "coverage": "unverified"},
+     "jsonl_partial"),
+])
+def test_r57_reader_report_regressions(question, confirmation, expected):
+    assert route(TABLE, question, confirmation=confirmation)[0] == expected
+
+
+def test_r57_claude_c1_unbound_export_across_turns():
+    question = ("I want to be able to pick out the first of two SDK decisions made for the same delivery docket. "
+                "We can't access the original JSONL volume just now. There is a hand-me-down export, and nobody "
+                "can tie the export to the writer. What should I get from the original handoff?")
+    answer = ("I have camber-957, the run marker from the original handoff. We checked that no other invocation "
+              "used it. I cannot supply the original SDK decision ID.")
+    assert route(TABLE, question, answer=answer)[0] == "recover_marker_original"
+    q_split = ("I want to be able to pick out the first of two SDK decisions made for the same delivery docket. "
+               "We can't access the original JSONL volume just now. What should I get from the original handoff?")
+    a_split = ("I have camber-957, the run marker from the original handoff. We checked that no other invocation "
+               "used it. I cannot supply the original SDK decision ID. "
+               "There is an export, and nobody can tie the export to the writer.")
+    assert route(TABLE, q_split, answer=a_split)[0] == "recover_marker_original"
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("I ran the published Node demo. I ran node demo.js 2>&1 >/dev/null. "
+     "I need both the decision record and the application reply.",
+     "node_decision_orig_stdout_reply_discarded"),
+    ("I ran the published Node demo. I ran node demo.js 1>&2 2>/dev/null. "
+     "I need both the decision record and the application reply.",
+     "node_reply_orig_stderr_decision_discarded"),
+    ("I ran the published Node demo. I ran node demo.js 2>&1 >/dev/null. "
+     "My application printed its reply to stderr. I need the application reply.",
+     "reply_original_stdout"),
+    ("I ran the published Node demo. I ran node demo.js 2>/dev/null. "
+     "My application printed its reply to stderr. I need both the decision record and the application reply.",
+     "node_both_stderr_discarded"),
+    ("I ran the published Node demo. I ran node demo.js 2>&1. I need the token count.",
+     "console_stdout"),
+    ("I ran the published Node demo. I ran node demo.js 1>&2. What was printed to stderr?",
+     "node_both_stderr"),
+    ("I ran the published Node demo. I printed my reply to stderr. What was printed to stdout?",
+     "node_stdout_neither"),
+    ("I ran the published Node demo. My application printed its reply to stderr. I need the decision record.",
+     "node_console_stderr_reply"),
+    ("I ran the published Node demo. What went to stderr?",
+     "node_console"),
+    ("I ran the published Node demo. I need either the local decision or the hosted run, but I am unsure which.",
+     "ask_subject"),
+    ("I ran the published Node demo. Node demo.js 2>/dev/null was the example in the README. "
+     "I need the decision record.",
+     "node_console"),
+    ("I ran the published Node demo. I ran env NODE_ENV=production node demo.js 2>/dev/null. "
+     "I need the decision record.",
+     "node_discarded_decision"),
+    ("I ran the published Node demo. I ran env -i FOO=bar node demo.js 2>/dev/null. "
+     "I need the decision record.",
+     "node_discarded_decision"),
+    ("I ran the published Node demo. I ran cd app && node demo.js 2>/dev/null. "
+     "I need the decision record.",
+     "node_discarded_decision"),
+])
+def test_r57_node_stream_regressions(question, expected):
+    assert route(TABLE, question)[0] == expected
+
+
+def test_r57_lookup_summary_and_acceptance_examples(monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli import record_help_commands as guidance
+    from briefcase.cli.__main__ import main
+
+    # Acceptance 1: Unclear ID comparison -> review_summary -> lookup_summary -> confirmed_storage_matched
+    q1 = ("I made an independent downstream query after the process stopped and obtained a full record. "
+          "I used the store identified by the original deployment settings. "
+          "My original decision receipt says larch-701. What can this readback tell me?")
+    c1 = {"source": "storage", "result": "matched", "reader": "me",
+          "sourceMatch": "original", "targetMatch": "original"}
+    assert route(TABLE, q1, confirmation=c1)[0] == "review_summary"
+    summary1 = guidance.lookup_summary(TABLE, q1, confirmation=c1)
+    assert summary1 == {
+        "reader": "me",
+        "sourceMatch": "original",
+        "targetMatch": None,
+        "observedCount": "one",
+    }
+    assert route(TABLE, q1, confirmation={**c1, "summary": {
+        "reader": "me", "sourceMatch": "original", "targetMatch": "exact_original", "observedCount": "one",
+    }})[0] == "confirmed_storage_matched"
+
+    # Acceptance 2: different / unsure -> no original-record claim
+    assert route(TABLE, q1, confirmation={**c1, "summary": {
+        "reader": "me", "sourceMatch": "original", "targetMatch": "different", "observedCount": "one",
+    }})[0] == "confirmation_other_run"
+    assert route(TABLE, q1, confirmation={**c1, "summary": {
+        "reader": "me", "sourceMatch": "original", "targetMatch": "unsure", "observedCount": "one",
+    }})[0] == "confirmation_unresolved_lookup"
+    assert route(TABLE, q1, confirmation={**c1, "summary": {"unresolved": True}})[0] == "confirmation_unresolved_lookup"
+
+    # Acceptance 3: prose partial scope overrides summary complete
+    q3 = ("I checked only the first two pages. I queried the intended downstream store for the original decision ID. "
+          "The query returned zero matching records.")
+    c3 = {"source": "storage", "result": "no-match", "reader": "me",
+          "sourceMatch": "original", "targetMatch": "original", "coverage": "complete"}
+    assert guidance.lookup_summary(TABLE, q3, confirmation=c3) is None
+    assert route(TABLE, q3, confirmation={**c3, "summary": {
+        "reader": "me", "sourceMatch": "original", "targetMatch": "exact_original",
+        "observedCount": "zero", "coverage": "complete",
+    }})[0] == "confirmation_partial"
+
+    # Acceptance 4: partial JSONL observation
+    q4 = "I searched page 1 of 2 of rows.jsonl for the original decision ID. The query returned a row."
+    c4 = {"source": "jsonl", "result": "matched", "reader": "me",
+          "sourceMatch": "original", "targetMatch": "original", "coverage": "partial"}
+    assert route(TABLE, q4, confirmation=c4)[0] == "jsonl_partial_observed"
+
+    # Acceptance 5: CLI flags + pipe summary + legacy rejection
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    assert main(["record-help", q1, "--source", "storage", "--result", "matched",
+                 "--reader", "me", "--source-match", "original", "--target-match", "original",
+                 "--summary-target-match", "exact_original"]) == 0
+    out = capsys.readouterr().out
+    assert "You reported a matching record in the intended store" in out
+    assert "larch-701" not in out
+
+    # Legacy --evidence-reply and evidence line rejected with exit 2
+    assert main(["record-help", q1, "--source", "storage", "--result", "matched",
+                 "--reader", "me", "--source-match", "original", "--target-match", "original",
+                 "--evidence-reply", "yes"]) == 2
+    assert "legacy evidence reply" in capsys.readouterr().err.lower()
+    monkeypatch.setattr("sys.stdin", StringIO(q1 + "\nstorage matched me original original\nevidence yes\n"))
+    assert main(["record-help"]) == 2
+    assert "legacy evidence reply" in capsys.readouterr().err.lower()
+
+    # Pipe summary line
+    monkeypatch.setattr("sys.stdin", StringIO(
+        q1 + "\nstorage matched me original original\nsummary target-match=exact_original\n"
+    ))
+    assert main(["record-help"]) == 0
+    assert "You reported a matching record in the intended store" in capsys.readouterr().out
+
+    # Legacy evidenceReply in Python confirmation rejected
+    with pytest.raises(TypeError):
+        route(TABLE, q1, confirmation={**c1, "evidenceReply": "yes"})
+
+
+def test_r57_summary_cli_errors_and_acceptance_5_6(monkeypatch, capsys):
+    from io import StringIO
+    from briefcase.cli import _ux, record_help_commands as guidance
+    from briefcase.cli.__main__ import main
+
+    q_open = ("I made an independent downstream query after the process stopped and obtained a full record. "
+              "I used the store identified by the original deployment settings. "
+              "My original decision receipt says larch-701. What can this readback tell me?")
+    c_open = {"source": "storage", "result": "matched", "reader": "me",
+              "sourceMatch": "original", "targetMatch": "original"}
+    assert guidance.lookup_summary(TABLE, q_open, confirmation=c_open) is not None
+
+    # Acceptance 5: Changing source or incident invalidates stale summary / unsolicited summary rejected
+    q_changed = ("I queried the intended receiver for the original decision ID. "
+                 "The query returned one matching record.")
+    c_changed = {"source": "receiver", "result": "matched", "reader": "me",
+                 "sourceMatch": "original", "targetMatch": "original"}
+    assert guidance.lookup_summary(TABLE, q_changed, confirmation=c_changed) is None
+    monkeypatch.setattr("sys.stdin", StringIO(""))
+    assert main(["record-help", q_changed, "--source", "receiver", "--result", "matched",
+                 "--reader", "me", "--source-match", "original", "--target-match", "original",
+                 "--summary-target-match", "exact_original"]) == 2
+    assert "Summary updates apply only when" in capsys.readouterr().err
+
+    # Unsolicited summary on hard-blocked partial report is rejected with exit 2
+    q_partial = ("I checked only the first two pages. I queried the intended downstream store for the original "
+                 "decision ID. The query returned zero matching records.")
+    assert main(["record-help", q_partial, "--source", "storage", "--result", "no-match",
+                 "--reader", "me", "--source-match", "original", "--target-match", "original",
+                 "--coverage", "complete", "--summary-coverage", "complete"]) == 2
+    assert "Summary updates apply only when" in capsys.readouterr().err
+
+    # Acceptance 6: Only marker and export of unknown origin stays manual (no --verify-jsonl prompt/suggestion)
+    q_au02 = ("I want to be able to pick out the first of two SDK decisions made for the same delivery docket. "
+              "We can't access the original JSONL volume just now. There is a hand-me-down export, and nobody "
+              "can tie the export to the writer. What should I get from the original handoff?")
+    a_au02 = ("I have camber-957, the run marker from the original handoff. We checked that no other invocation "
+              "used it. I cannot supply the original SDK decision ID.")
+    monkeypatch.setattr("sys.stdin", StringIO(q_au02 + "\n" + a_au02 + "\n"))
+    assert main(["record-help"]) == 0
+    au02_out = capsys.readouterr().out
+    assert "Only the unique run marker survives" in au02_out
+    assert "--verify-jsonl" not in au02_out and "camber-957" not in au02_out
+
+    # CLI summary error paths (exit 2, zero private-value echo)
+    base_flags = [q_open, "--source", "storage", "--result", "matched",
+                  "--reader", "me", "--source-match", "original", "--target-match", "original"]
+    # Duplicate flag
+    assert main(["record-help", *base_flags,
+                 "--summary-reader", "me", "--summary-reader", "another"]) == 2
+    assert "at most once" in capsys.readouterr().err
+    # Contradictory flags
+    assert main(["record-help", *base_flags, "--leave-unresolved", "--summary-reader", "me"]) == 2
+    assert "without conflicting values" in capsys.readouterr().err
+    # Invalid summary pipe syntax / unknown key / coverage on storage matched
+    for bad_line in ("summary", "summary foo=bar", "summary unresolved reader=me", "summary coverage=complete"):
+        monkeypatch.setattr("sys.stdin", StringIO(
+            q_open + "\nstorage matched me original original\n" + bad_line + "\n"
+        ))
+        assert main(["record-help"]) == 2
+        assert capsys.readouterr().err.strip()
+    # Duplicate key in summary line
+    monkeypatch.setattr("sys.stdin", StringIO(
+        q_open + "\nstorage matched me original original\nsummary reader=me reader=me\n"
+    ))
+    assert main(["record-help"]) == 2
+    assert "at most once" in capsys.readouterr().err
+    # Interactive TTY empty input / EOF makes no claim and exits 0
+    for tty_tail in ("\n", ""):
+        stream = StringIO(tty_tail)
+        monkeypatch.setattr(stream, "isatty", lambda: True)
+        monkeypatch.setattr(_ux, "is_interactive", lambda: True)
+        monkeypatch.setattr("sys.stdin", stream)
+        assert main(["record-help", *base_flags]) == 0
+        tty_out = capsys.readouterr().out
+        assert "Lookup summary (review before confirming):" in tty_out
+        assert "You reported" not in tty_out
