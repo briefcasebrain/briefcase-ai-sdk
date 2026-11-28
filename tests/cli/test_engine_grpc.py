@@ -257,7 +257,7 @@ def test_unimplemented_rpc_says_upgrade(engine, capsys):
     engine.unimplemented.add("Fsck")
     assert main(["verify", "--graph", "cand"]) == 1
     err = capsys.readouterr().err
-    assert "not available on this engine" in err and "Fix: briefcase-ai engine upgrade" in err
+    assert "not available on this engine" in err and "Fix: Contact your managed workspace administrator" in err
 
 
 def test_wrong_token_is_explained(engine, capsys, monkeypatch):
@@ -296,9 +296,14 @@ def test_vendored_contract_matches_the_proto_files():
     assert used <= methods
 
 
-def test_env_push_learns_the_namespace_from_whoami(engine, capsys):
+def test_env_push_learns_the_namespace_from_whoami(engine, capsys, monkeypatch):
+    from briefcase.engine.install import save_state
+
+    legacy = {"tenant": "stale-tenant", "version": "legacy", "gateway": "unrelated.example"}
+    save_state({"current": "legacy", "installs": {"legacy": legacy}})
+    monkeypatch.setenv("BRIEFCASE_ENGINE_GATEWAY", "registry.example")
     assert main(["env", "push", "my-env:1", "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "docker push 127.0.0.1:8080/acme/my-env:1" in out
-    assert "docker login 127.0.0.1:8080 --username briefcase --password-stdin" in out
+    assert "docker push registry.example/acme/my-env:1" in out
+    assert "docker login registry.example --username briefcase --password-stdin" in out
     assert _req(engine, "WhoAmI")

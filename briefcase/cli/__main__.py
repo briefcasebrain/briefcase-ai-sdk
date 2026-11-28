@@ -112,6 +112,14 @@ class _GroupedParser(argparse.ArgumentParser):
         ])
 
 
+class _CommandParser(argparse.ArgumentParser):
+    def error(self, message):
+        # Invalid legacy options may carry an install code or a licence token.
+        if self.prog == "briefcase-ai engine" or self.prog.startswith("briefcase-ai engine "):
+            message = "Unsupported engine argument. See briefcase-ai engine --help."
+        super().error(message)
+
+
 def build_parser() -> _GroupedParser:
     from briefcase import __version__
 
@@ -132,7 +140,7 @@ def build_parser() -> _GroupedParser:
         "--no-input", action="store_true",
         help="Never prompt; a bare `briefcase-ai` prints status and this list (or set BRIEFCASE_NO_INPUT=1).",
     )
-    sub = parser.add_subparsers(dest="command", metavar="<command>", parser_class=argparse.ArgumentParser)
+    sub = parser.add_subparsers(dest="command", metavar="<command>", parser_class=_CommandParser)
     parser.subparsers = sub
     # Every briefcase/cli/*_commands.py with a register(subparsers); one broken module is
     # skipped, not fatal.
@@ -284,9 +292,19 @@ def main(argv=None, store=None, engine=None, stack=None) -> int:
     if _IMPORT_ERROR is not None:  # not a hook: the failure is the error
         raise _IMPORT_ERROR
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args, extra = parser.parse_known_args(argv)
+    if extra:
+        if args.command == "record-help":
+            print("Unexpected record-help argument. Quote the question or pipe it on one line.", file=sys.stderr)
+            return 2
+        if args.command == "engine":
+            parser.error("Unsupported engine argument. See briefcase-ai engine --help.")
+        parser.error("unrecognized arguments: " + " ".join(extra))
     _ux.set_debug(args.debug)
     _ux.set_no_input(args.no_input)
+    if args.command == "record-help":
+        # Free text and pasted launch commands must never enter general exception or debug diagnostics.
+        return _run(lambda: args.func(args, None, None, None), (), private=True)
     if _ux.debug_enabled():
         for line in _discovery.warnings(parser.modules):
             print(line, file=sys.stderr)
@@ -323,7 +341,7 @@ def _scrub_argv(argv):
     return out
 
 
-def _run(call, argv) -> int:
+def _run(call, argv, *, private=False) -> int:
     """Run a handler. An unexpected exception becomes one ``error:`` line and exit 1; the
     traceback is shown only with ``--debug``."""
     try:
@@ -340,6 +358,9 @@ def _run(call, argv) -> int:
             pass
         return 0
     except Exception as exc:  # noqa: BLE001
+        if private:
+            print("Record guidance could not finish. Retry briefcase-ai record-help --static.", file=sys.stderr)
+            return 1
         if _ux.debug_enabled():
             raise
         message = " ".join(str(exc).split())

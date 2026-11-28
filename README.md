@@ -179,7 +179,7 @@ one-click install link for the MCP server. Per-tool details:
 | `langchain` / `crewai` / `llamaindex` / `autogen` / `ag2` / `pageindex` / `openai-agents` | Framework auto-instrumentation via `briefcase.auto` (each adds its framework) |
 | `mcp` | MCP server (`briefcase-ai-mcp`) exposing the SDK to AI agents |
 | `run` | gRPC client for the `briefcase-ai` evaluation-run CLI (adds `grpcio`, `grpcio-reflection`, `protobuf`) |
-| `engine` | gRPC client for `briefcase-ai engine`, `graph` and `env` against the licensed Briefcase engine (adds `grpcio`, `protobuf`, `cryptography`; the engine itself is installed with `briefcase-ai engine install`) |
+| `engine` | gRPC client for `briefcase-ai engine`, `graph` and `env` against the licensed Briefcase engine (adds `grpcio`, `protobuf`, `cryptography`; Briefcase AI operates the proprietary engine) |
 | `receiver` | OTLP/protobuf decoding for `briefcase-ai receive` (adds `opentelemetry-proto`; OTLP/JSON needs no extra) |
 | `budgets-redis` / `budgets-postgres` / `budgets-mysql` | Shared stores for `briefcase.budgets` (each adds its client: `redis`, `psycopg`, `pymysql`) |
 | `dev` | Dev tooling: pytest, mypy, flake8, moto (not part of `all`) |
@@ -201,21 +201,11 @@ not part of `all`.
 
 ## Managed platform
 
-Every library feature runs against infrastructure you own: storage
-backends (in-memory, SQLite, pyiceberg, Glue-authenticated Iceberg, kdb+),
-KMS-signed examiner bundles, guardrails, RBAC/ABAC/OPA policy evaluation,
-routing, replay, framework auto-instrumentation (`briefcase.auto`), lakeFS
-branching and lineage, vector-store and VCS adapters, event transports, and
-the controls layer, in both Python and TypeScript
-(`@briefcase-ai/controls` and `@briefcase-ai/runtime`).
+The free SDK captures decisions, enforces controls, and supports local replay and storage on your own infrastructure. The proprietary engine runs in Briefcase AI’s managed service. A paid entitlement grants access to the service. Engine binaries and images stay with Briefcase AI.
 
-The commercial offering is the hosted platform, not gated code: a managed
-control plane, catalog provisioning and credential brokering, operational
-runbooks (DR failover, catalog migration, key rotation), certified retention
-and regulator attestations, licensed market-data ingest (Bloomberg BPIPE,
-Refinitiv, ICE), and SOC 2 / FedRAMP posture with SLA support.
+![Free SDK capture and optional managed engine access](docs/features/managed-engine.svg)
 
-Contact sales@briefcasebrain.com for the managed platform.
+Request [managed engine access](https://observe.briefcasebrain.io/engine). If you previously installed a local engine, follow the [migration guide](docs/features/engine.md) before stopping it.
 
 ## Telemetry
 

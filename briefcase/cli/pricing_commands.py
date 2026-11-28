@@ -480,7 +480,7 @@ def status() -> Dict[str, Any]:
     try:
         table = pr.load()
     except pr.PricingError as exc:
-        return dict(base, state="attention", summary=f"pricing file invalid: {exc.errors[0]}")
+        return dict(base, state="attention", detail=f"pricing file invalid: {exc.errors[0]}")
     age = table.age_days(_today())
     summary = (f"{len(table.models)} models priced, {len(table.unverified())} unverified, "
                f"data is {age if age is not None else '?'} days old")
@@ -494,7 +494,7 @@ def status() -> Dict[str, Any]:
             pass
     if unpriced:
         return dict(base, state="attention", unpriced=unpriced,
-                    summary=f"{summary}; {len(unpriced)} model(s) in your records have no price: "
-                            f"{', '.join(unpriced[:3])}",
+                    detail=f"{summary}; {len(unpriced)} model(s) in your records have no price: "
+                           f"{', '.join(unpriced[:3])}",
                     next=f"briefcase-ai pricing check --records {records}")
-    return dict(base, state="ok", summary=summary, unpriced=[])
+    return dict(base, state="on", detail=summary, unpriced=[])

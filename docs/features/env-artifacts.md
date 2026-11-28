@@ -4,13 +4,15 @@ Put container environments into the engine and work with them as versioned objec
 image, assemble a stack from existing refs, plan what a sparse checkout or lazy mount would
 fetch, and move bookmarks with an undo that never rewrites history.
 
-## The one command
+## Push an image
+
+Use the managed endpoint, registry and credentials supplied for the same workspace. Set `BRIEFCASE_ENGINE_ADDR` and `BRIEFCASE_ENGINE_GATEWAY` before running the command.
 
 ```bash
 briefcase-ai env push my-env:latest
 ```
 
-Real output against an engine built from oci-jj be043d9 (`briefcase-ai engine up`):
+Historical output from the legacy local test environment at oci-jj be043d9. A managed push displays your workspace registry and tenant instead.
 
 ```text
 $ briefcase-ai env push rl-env:base
@@ -60,8 +62,7 @@ removed by `docker logout` right after. The other commands send only their argum
 
 ## Defaults and how to change them
 
-Repository `OCI_JJ_REPO` / `--repo`; gateway `BRIEFCASE_ENGINE_GATEWAY` (default: the install's,
-127.0.0.1:8080); address, token and TLS as in [engine.md](engine.md).
+Select a repository using `OCI_JJ_REPO` or `--repo`. For managed image pushes, `BRIEFCASE_ENGINE_GATEWAY` must identify the workspace registry. Use the endpoint and credentials from the [managed access guide](engine.md).
 
 ## How to turn it off or undo it
 
@@ -76,16 +77,15 @@ Repository `OCI_JJ_REPO` / `--repo`; gateway `BRIEFCASE_ENGINE_GATEWAY` (default
 - A real lazy mount needs the engine's snapshotter (Linux, FUSE); `env mount` shows its plan.
 - The engine's own "undo the last operation" is not always the newest operation id, so
   `env undo` without `--op` shows the newest one and asks (`--yes` to skip), then names it.
-- The gateway refuses pushes outside your namespace and pushes with a read-only token
-  (`docker push failed`, see `briefcase-ai engine logs gateway`).
+- A push requires write access to the repository in your workspace registry. Check the tenant namespace and token permissions if the registry denies it.
 
 ## Troubleshooting
 
 | Symptom | Do this |
 | --- | --- |
-| `engine not installed` (exit 3) | `briefcase-ai engine install` |
-| `docker login ... failed` | `briefcase-ai engine status`: is the gateway up? Is `OCI_JJ_AUTH_TOKEN` a tenant token? |
-| `docker push failed` | Name it `<your tenant>/<image>`; use a tenant (not read-only) token |
+| `engine not installed` (exit 3) | [Configure managed access](https://observe.briefcasebrain.io/engine) |
+| `registry login failed` | Verify your workspace’s `BRIEFCASE_ENGINE_GATEWAY` value and `OCI_JJ_AUTH_TOKEN` credentials. |
+| `docker push failed` | Use `<your tenant>/<image>` and a tenant token with write access. |
 | `cannot tell your registry namespace` | `--as <tenant>/<image>:<tag>` |
-| `requires a newer engine` | `briefcase-ai engine upgrade` once a release adds it |
-| `the oci-bai client ... is not installed` | `briefcase-ai engine install` (it installs `oci-bai`) |
+| `requires a newer engine` | Contact your workspace administrator about service availability |
+| `the oci-bai client ... is not installed` | Contact the workspace administrator |

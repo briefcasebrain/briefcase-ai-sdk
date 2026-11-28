@@ -91,7 +91,7 @@ class DescriptorTransport(ReflectionTransport):
         if name == "UNAVAILABLE":
             return TransportUnavailable(
                 f"the engine is not reachable at {self.endpoint} ({_rpc_detail(exc)}); "
-                "start it with `briefcase-ai engine up`, or check BRIEFCASE_ENGINE_ADDR"
+                "check the managed endpoint in BRIEFCASE_ENGINE_ADDR"
             )
         if _is_unauthenticated(exc):
             return TransportUnavailable(
@@ -211,7 +211,7 @@ class EngineClient:
         detail = _rpc_detail(exc)
         if name == "UNIMPLEMENTED":
             raise EngineError(f"{method} is not available on this engine ({detail}); "
-                              "upgrade with `briefcase-ai engine upgrade`", code=name) from exc
+                              "contact your managed workspace administrator", code=name) from exc
         if name == "PERMISSION_DENIED":
             raise EngineError(f"{method} was refused: {detail}", code=name) from exc
         if name in ("NOT_FOUND", "INVALID_ARGUMENT", "FAILED_PRECONDITION"):

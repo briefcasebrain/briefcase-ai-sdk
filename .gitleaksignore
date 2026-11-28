@@ -27,3 +27,5 @@ df0ac74d0ef6b9a053ff15615d9b56fd6bf84145:tests/guardrails/test_content_detectors
 adb196de4ca3a1741646db6fb959af41d0033bd0:.gitleaksignore:aws-access-token:13
 3df79ec72714384a17faf6c5e2c27bf116fa2a4f:tests/test_lakefs_client.py:generic-api-key:1
 fc50a4aa7055f6aad6a5c775dc8ce79ada33a597:js/auto/test/helpers.ts:generic-api-key:16
+# Synthetic exporter token in the record-help fixture for a reserved example domain.
+39efcc116d2f0c21c06eb83b6a9474db0fef4dd5:tests/cli/fixtures/record_guidance_v1.json:generic-api-key:4388

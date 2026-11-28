@@ -36,7 +36,7 @@ docs all use the same five steps:
 
 `briefcase-ai --help` adds two groups around them: "Start here" (`setup`, `status`,
 `features`, `doctor`, `engine`, `completion`) and "Evaluate" (`dataset`, `secret`, `run`, `stack`).
-The engine (installed with `briefcase-ai engine install`, licensed separately) and how the
+The Briefcase-operated, licensed engine and how the
 Evaluate commands use it: [engine.md](engine.md); its commands: [graph.md](graph.md) (Review)
 and [env-artifacts.md](env-artifacts.md) (Capture).
 

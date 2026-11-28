@@ -1,0 +1,742 @@
+[
+  {
+    "name": "Hosted workspace assignment",
+    "question": "I need the hosted dashboard run. The receipt lists {label}{join}{value}, agent Billing and run ID lookup-802.",
+    "expected": "hosted",
+    "includes": [
+      "receiving workspace"
+    ],
+    "variants": {
+      "label": [
+        "workspace",
+        "Workspace",
+        "WORKSPACE"
+      ],
+      "join": [
+        " is ",
+        " was named ",
+        ": ",
+        " = "
+      ],
+      "value": [
+        "lake"
+      ],
+      "display": [
+        "lake"
+      ]
+    },
+    "omits": [
+      "{display}"
+    ]
+  },
+  {
+    "name": "Delimited multiword workspace",
+    "question": "I submitted the hosted job to workspace {name}. Its run ID is req-64.",
+    "expected": "hosted",
+    "includes": [
+      "receiving workspace"
+    ],
+    "variants": {
+      "name": [
+        "\"Team Lake\"",
+        "'Team Lake'",
+        "`Team Lake`",
+        "(Team Lake)",
+        "“Team Lake”",
+        "‘Team Lake’"
+      ]
+    },
+    "omits": [
+      "req-64",
+      "Team Lake"
+    ]
+  },
+  {
+    "name": "Original identifier binding",
+    "question": "Two rows in tasks.jsonl have the same input. My original {label}{join}{token}. Which is mine?",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ],
+    "variants": {
+      "label": [
+        "decision ID",
+        "DECISION_ID",
+        "identifier"
+      ],
+      "join": [
+        " is ",
+        ": ",
+        " was recorded as ",
+        " = "
+      ],
+      "token": [
+        "rose-880",
+        "(rose-880)",
+        "\"rose-880\"",
+        "'rose-880'",
+        "`rose-880`",
+        "“rose-880”"
+      ]
+    },
+    "omits": [
+      "rose-880",
+      "tasks.jsonl"
+    ]
+  },
+  {
+    "name": "Completed local missing readback",
+    "question": "I {scan} tasks.jsonl. The lookup {miss} the original marker rose-880. Did the file establish persistence?",
+    "expected": "scanned_missing",
+    "includes": [
+      "original JSONL file",
+      "found no matching"
+    ],
+    "variants": {
+      "scan": [
+        "reopened",
+        "inspected",
+        "checked",
+        "parsed"
+      ],
+      "miss": [
+        "found no record matching",
+        "returned zero rows for",
+        "yielded no entry with",
+        "found no line for"
+      ]
+    },
+    "omits": [
+      "rose-880",
+      "tasks.jsonl"
+    ]
+  },
+  {
+    "name": "Hypothetical local readback",
+    "question": "The original marker is rose-880. I have not checked tasks.jsonl. If the lookup {miss} the original ID, what should I check?",
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ],
+    "variants": {
+      "miss": [
+        "found no record matching",
+        "returned zero rows for",
+        "yielded no line for"
+      ]
+    },
+    "omits": [
+      "rose-880",
+      "tasks.jsonl"
+    ]
+  },
+  {
+    "name": "Missing or uncertain hosted slot",
+    "question": "I submitted a hosted job. The workspace {missing}. Its run ID is req-64.",
+    "expected": "hosted",
+    "includes": [
+      "receiving workspace"
+    ],
+    "variants": {
+      "missing": [
+        "is unknown",
+        "was never recorded",
+        "might be lake",
+        "was not retained",
+        "could be one of two",
+        "is listed on the receipt",
+        "is possibly lake"
+      ]
+    },
+    "omits": [
+      "req-64"
+    ]
+  },
+  {
+    "name": "Hosted reply provides authoritative slot",
+    "question": "A local SDK job and a hosted dashboard run are both possible. Where can I find it?",
+    "answer": "I mean the hosted run. Its workspace{join}{token} and its run ID is proof-650.",
+    "expected": "hosted",
+    "includes": [
+      "receiving workspace"
+    ],
+    "variants": {
+      "join": [
+        " is ",
+        " was named ",
+        ": "
+      ],
+      "token": [
+        "North",
+        "(North)",
+        "“North”"
+      ]
+    },
+    "omits": [
+      "proof-650",
+      "North"
+    ]
+  },
+  {
+    "name": "Receiver mismatch",
+    "question": "My {origin} was origin-530. The {source} {verb} trace ID other-91.",
+    "expected": "receipt_unknown",
+    "includes": [
+      "Receipt is still unkno"
+    ],
+    "variants": {
+      "origin": [
+        "original trace ID",
+        "original decision ID"
+      ],
+      "source": [
+        "collector",
+        "receiver"
+      ],
+      "verb": [
+        "logged",
+        "received",
+        "recorded"
+      ]
+    },
+    "omits": [
+      "origin-530"
+    ]
+  },
+  {
+    "name": "Confirmed downstream observation",
+    "question": "My {origin} was origin-530. The {source} returned a row with ID origin-530.",
+    "expected": "stored",
+    "includes": [
+      "Compare the returned r"
+    ],
+    "variants": {
+      "origin": [
+        "original decision ID",
+        "original trace ID"
+      ],
+      "source": [
+        "database",
+        "warehouse",
+        "downstream archive"
+      ]
+    },
+    "omits": [
+      "origin-530"
+    ]
+  },
+  {
+    "name": "Actual downstream mismatch",
+    "question": "My {origin} was origin-530. The {source} returned a row with ID other-91.",
+    "expected": "store_missing",
+    "includes": [
+      "unverified"
+    ],
+    "variants": {
+      "origin": [
+        "original decision ID",
+        "original trace ID"
+      ],
+      "source": [
+        "database",
+        "warehouse",
+        "downstream archive"
+      ]
+    },
+    "omits": [
+      "origin-530"
+    ]
+  },
+  {
+    "name": "Rejected alternate destination",
+    "question": "I used JSONL. Which file should I inspect?",
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "variants": {
+      "denial": [
+        "ruled out",
+        "excluded",
+        "discarded",
+        "rejected",
+        "crossed off"
+      ]
+    },
+    "answer": "I {denial} stale.jsonl."
+  },
+  {
+    "name": "Origin modifies identifier after its name",
+    "question": "The exporter wrote repeated ticket data to batch.jsonl. The {entity} {relation} {origin} {bind} proof-673. Which row is mine?",
+    "variants": {
+      "entity": [
+        "decision ID",
+        "trace ID",
+        "RUN_ID"
+      ],
+      "relation": [
+        "for",
+        "from",
+        "recorded for",
+        "associated with",
+        "assigned to"
+      ],
+      "origin": [
+        "my original run",
+        "our particular invocation",
+        "this failed attempt"
+      ],
+      "bind": [
+        "was",
+        "is",
+        "was reported as"
+      ]
+    },
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ],
+    "omits": [
+      "proof-673",
+      "batch.jsonl"
+    ]
+  },
+  {
+    "name": "Explicit returned text overrides exporter clues",
+    "question": "The {runtime} job {dest}. The program saved stdout in answer.log. I {goal} {object}. Which artifact should I inspect?",
+    "variants": {
+      "runtime": [
+        "Node",
+        "Python"
+      ],
+      "dest": [
+        "wrote records to accounting.jsonl",
+        "configured an HTTP receiver",
+        "selected the console exporter",
+        "submitted a hosted dashboard run"
+      ],
+      "goal": [
+        "want",
+        "need",
+        "am looking for"
+      ],
+      "object": [
+        "the text my application printed as its reply",
+        "the words that the caller received",
+        "the message the client saw"
+      ]
+    },
+    "expected": "reply",
+    "includes": [
+      "retained stdout"
+    ],
+    "omits": [
+      "answer.log"
+    ]
+  },
+  {
+    "name": "Reported match determines receipt before asking protocol",
+    "question": "The {source} {observed} for the original decision ID event-665. No separate downstream readback exists.",
+    "variants": {
+      "source": [
+        "receiver",
+        "collector",
+        "received HTTP batch",
+        "received OTLP span"
+      ],
+      "observed": [
+        "has a matching entry",
+        "holds a record matching our original ID",
+        "shows an event with the same decision ID",
+        "includes a message matched to the original ID"
+      ]
+    },
+    "expected": "storage",
+    "includes": [
+      "receipt",
+      "A receiver entry that "
+    ],
+    "omits": [
+      "event-665"
+    ]
+  },
+  {
+    "name": "Two artifact meanings with no requested type",
+    "question": "The {runtime} app printed a reply to stdout and wrote SDK decision metadata to {file}. Where is my result?",
+    "variants": {
+      "runtime": [
+        "Node",
+        "Python"
+      ],
+      "file": [
+        "meta.jsonl",
+        "trace.jsonl"
+      ]
+    },
+    "expected": "ask_subject",
+    "includes": [
+      "Are you looking for th",
+      "Are you looking for th"
+    ]
+  },
+  {
+    "name": "Explicit metadata over negated app text",
+    "question": "The Node demo uses the console exporter. I need the {metadata} rather than my application reply. stderr was saved in counts.log.",
+    "variants": {
+      "metadata": [
+        "token count",
+        "decision type",
+        "token usage"
+      ]
+    },
+    "expected": "node_console",
+    "includes": [
+      "retained stderr",
+      "token_usage"
+    ],
+    "omits": [
+      "counts.log"
+    ]
+  },
+  {
+    "name": "Challenged claim of same-ID receipt",
+    "question": "My original trace ID is source-93. The {description} that the receiver recorded trace ID source-93 {denial}.",
+    "variants": {
+      "description": [
+        "claim",
+        "statement",
+        "assertion",
+        "report"
+      ],
+      "denial": [
+        "is false",
+        "was disputed",
+        "was retracted",
+        "is unsubstantiated"
+      ]
+    },
+    "expected": "receipt_unknown",
+    "includes": [
+      "Receipt is still unkno"
+    ],
+    "omits": [
+      "source-93"
+    ]
+  },
+  {
+    "name": "Challenged claim of same-ID storage",
+    "question": "My decision ID is source-93. The {description} that the database returned the row with ID source-93 {denial}.",
+    "variants": {
+      "description": [
+        "claim",
+        "statement",
+        "assertion",
+        "report"
+      ],
+      "denial": [
+        "is false",
+        "was denied",
+        "was retracted",
+        "is unsubstantiated"
+      ]
+    },
+    "expected": "query_storage",
+    "includes": [
+      "Search the downstream "
+    ],
+    "omits": [
+      "source-93"
+    ]
+  },
+  {
+    "name": "Unconfirmed path phrased as free prose",
+    "question": "Which JSONL path holds marker run-93?",
+    "answer": "{prose} old.jsonl",
+    "variants": {
+      "prose": [
+        "I can’t verify",
+        "I cannot vouch for",
+        "I searched",
+        "Someone suggested",
+        "There might have been",
+        "I have a note that mentions"
+      ]
+    },
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ]
+  },
+  {
+    "name": "Confirmed path value forms",
+    "question": "Which JSONL path holds marker run-93?",
+    "answer": "{form}",
+    "variants": {
+      "form": [
+        "audit/replies.jsonl",
+        "\"audit/replies.jsonl\"",
+        "'audit/replies.jsonl'",
+        "The path was audit/replies.jsonl.",
+        "File path: audit/replies.jsonl",
+        "The original exporter used audit/replies.jsonl."
+      ]
+    },
+    "expected": "jsonl",
+    "includes": [
+      "original JSONL file"
+    ],
+    "omits": [
+      "run-93",
+      "audit/replies.jsonl"
+    ]
+  },
+  {
+    "name": "Direct non-loopback URL refused",
+    "question": "My Node process used observe({url}). Check the original destination.",
+    "variants": {
+      "url": [
+        "'http://example.invalid/log'",
+        "\"http://example.invalid/log\"",
+        "'http://192.0.2.8:8080/log'",
+        "\"http://192.0.2.8:8080/log\""
+      ]
+    },
+    "expected": "invalid_web",
+    "includes": [
+      "initialization error"
+    ]
+  },
+  {
+    "name": "Positive observed console fallback",
+    "question": "Python selected OTLP for ordinary export. The actual initialization log says it {verb} the console exporter. stderr went to saved.err.",
+    "variants": {
+      "verb": [
+        "fell back to",
+        "switched to",
+        "reverted to",
+        "defaulted to"
+      ]
+    },
+    "expected": "runtime_console",
+    "includes": [
+      "retained stderr",
+      "console"
+    ],
+    "omits": [
+      "saved.err"
+    ]
+  },
+  {
+    "name": "Original destination over other app",
+    "question": "My original application used OTLP. {owner} selected observe(\"other.jsonl\").",
+    "variants": {
+      "owner": [
+        "A different application",
+        "Another workflow",
+        "An unrelated job",
+        "The other engine"
+      ]
+    },
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ]
+  },
+  {
+    "name": "Original destination over other app",
+    "question": "{owner} selected observe(\"other.jsonl\"), and my original application used OTLP.",
+    "variants": {
+      "owner": [
+        "A different application",
+        "Another workflow",
+        "An unrelated job",
+        "The other engine"
+      ]
+    },
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ]
+  },
+  {
+    "name": "Zero receiver events",
+    "question": "The original marker was unit-42.prod. The receiver received marker unit-42.prod {count}.",
+    "variants": {
+      "count": [
+        "0 times",
+        "zero times",
+        "on no occasion",
+        "not once",
+        "zero occurrences"
+      ]
+    },
+    "expected": "receipt_unknown",
+    "includes": [
+      "original"
+    ],
+    "omits": [
+      "unit-42.prod"
+    ]
+  },
+  {
+    "name": "Exact receiver opaque identifier",
+    "question": "The original marker was {marker}. The receiver received marker {marker}.",
+    "variants": {
+      "marker": [
+        "trace-17.prod",
+        "deploy-55:alpha.prod",
+        "A-15/team.v4",
+        "qa-66+release"
+      ]
+    },
+    "expected": "storage",
+    "includes": [
+      "original decision ID"
+    ],
+    "omits": [
+      "{marker}"
+    ]
+  },
+  {
+    "name": "Exact receiver opaque identifier",
+    "question": "The original marker was {marker}. The receiver received marker {marker}.dev.",
+    "variants": {
+      "marker": [
+        "trace-17.prod",
+        "deploy-55:alpha.prod",
+        "A-15/team.v4",
+        "qa-66+release"
+      ]
+    },
+    "expected": "receipt_unknown",
+    "includes": [
+      "original"
+    ],
+    "omits": [
+      "{marker}"
+    ]
+  },
+  {
+    "name": "Zero database events",
+    "question": "The original marker was unit-42.prod. The database returned marker unit-42.prod {count}.",
+    "variants": {
+      "count": [
+        "0 times",
+        "zero times",
+        "on no occasion",
+        "not once",
+        "zero occurrences"
+      ]
+    },
+    "expected": "store_missing",
+    "includes": [
+      "original"
+    ],
+    "omits": [
+      "unit-42.prod"
+    ]
+  },
+  {
+    "name": "Exact database opaque identifier",
+    "question": "The original marker was {marker}. The database returned marker {marker}.",
+    "variants": {
+      "marker": [
+        "trace-17.prod",
+        "deploy-55:alpha.prod",
+        "A-15/team.v4",
+        "qa-66+release"
+      ]
+    },
+    "expected": "stored",
+    "includes": [
+      "Compare the returned r"
+    ],
+    "omits": [
+      "{marker}"
+    ]
+  },
+  {
+    "name": "Exact database opaque identifier",
+    "question": "The original marker was {marker}. The database returned marker {marker}.dev.",
+    "variants": {
+      "marker": [
+        "trace-17.prod",
+        "deploy-55:alpha.prod",
+        "A-15/team.v4",
+        "qa-66+release"
+      ]
+    },
+    "expected": "store_missing",
+    "includes": [
+      "original"
+    ],
+    "omits": [
+      "{marker}"
+    ]
+  },
+  {
+    "name": "Path sentence is uncertain",
+    "question": "Where is the JSONL for marker form-13?",
+    "variants": {
+      "prefix": [
+        "Maybe it was",
+        "I only recall",
+        "Perhaps it used",
+        "I have seen",
+        "Try looking under"
+      ]
+    },
+    "expected": "fallback",
+    "includes": [
+      "unidentified"
+    ],
+    "answer": "{prefix} logs/old.jsonl"
+  },
+  {
+    "name": "Inline preload destination outranks stderr file",
+    "question": "BRIEFCASE_EXPORTER={value} node --import @briefcase-ai/auto/register app.js 2> saved.jsonl",
+    "variants": {
+      "value": [
+        "memory",
+        "\"memory\"",
+        "'memory'"
+      ]
+    },
+    "expected": "memory_only",
+    "includes": [
+      "before exit"
+    ]
+  },
+  {
+    "name": "Inline Node protocol selects stderr",
+    "question": "{environment} node --import=@briefcase-ai/auto/register app.js 2> saved.jsonl",
+    "variants": {
+      "environment": [
+        "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_PROTOCOL=grpc",
+        "OTEL_EXPORTER_OTLP_PROTOCOL=grpc BRIEFCASE_EXPORTER=\"otel\"",
+        "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=grpc OTEL_EXPORTER_OTLP_PROTOCOL=http/json BRIEFCASE_EXPORTER=otlp"
+      ]
+    },
+    "expected": "node_console",
+    "includes": [
+      "retained stderr"
+    ],
+    "omits": [
+      "saved.jsonl"
+    ]
+  },
+  {
+    "name": "Inline Node traces protocol wins",
+    "question": "{environment} node --import @briefcase-ai/auto/register app.js 2> saved.jsonl",
+    "variants": {
+      "environment": [
+        "BRIEFCASE_EXPORTER=otlp OTEL_EXPORTER_OTLP_PROTOCOL=grpc OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/json",
+        "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/json BRIEFCASE_EXPORTER=otel OTEL_EXPORTER_OTLP_PROTOCOL=grpc"
+      ]
+    },
+    "expected": "otlp",
+    "includes": [
+      "collector"
+    ]
+  }
+]

@@ -62,19 +62,19 @@ one takes `--json` (bytes fields such as digests come out as hex) and `--repo`.
 ## What it writes or sends, and where
 
 Reads only, except `graph optimize --apply` (the engine may commit a rewrite). Requests go to
-the engine address (the local install, or `BRIEFCASE_ENGINE_ADDR` / `OCI_JJ_SERVER`) with your
+the provisioned engine address (`BRIEFCASE_ENGINE_ADDR` / `OCI_JJ_SERVER`) with your
 bearer token. Nothing is written under `~/.briefcase`.
 
 ## Defaults and how to change them
 
 Repository: `OCI_JJ_REPO` or `--repo` (default `rl-gym-env`; with the engine's registry
 namespaces, repositories are `<tenant>/<image>`, e.g. `local/rl-env`). Address, token and TLS:
-see [engine.md](engine.md#defaults-and-how-to-change-them).
+see [engine.md](engine.md).
 
 ## How to turn it off
 
 Nothing runs in the background. Without the engine every `graph` command prints
-"engine not installed — `briefcase-ai engine install`" and exits 3.
+"managed engine access is not configured" and exits 3.
 
 ## Limits and failure modes
 
@@ -84,13 +84,13 @@ Nothing runs in the background. Without the engine every `graph` command prints
 - `Diff` takes ref names, not commit ids; `explain` looks the parent's ref up and says so when
   the parent has none.
 - An RPC the engine does not implement prints "... is not available on this engine" with
-  `Fix: briefcase-ai engine upgrade`.
+  `Fix: contact your managed workspace administrator`.
 
 ## Troubleshooting
 
 | Symptom | Do this |
 | --- | --- |
-| `engine not installed` (exit 3) | `briefcase-ai engine install` |
+| `engine not installed` (exit 3) | [Configure managed access](https://observe.briefcasebrain.io/engine) |
 | `no commits for 'X'` | Push first: `briefcase-ai env push IMAGE`; check `--repo` |
 | `the engine is not reachable` | `briefcase-ai engine status` |
 | `refused the call (missing or invalid bearer token)` | Unset a stale `OCI_JJ_AUTH_TOKEN`, or set the right one |

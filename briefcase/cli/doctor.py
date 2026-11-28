@@ -1,7 +1,7 @@
 """``briefcase-ai doctor`` — a preflight for the evaluation-run engine.
 
 Runs ordered checks (Docker → server reflection + the structural API floor) and prints the
-compatibility matrix. Engine images come from ``briefcase-ai engine install`` and are checked by
+compatibility matrix. Legacy engine images remain local and are checked by
 ``briefcase-ai engine doctor``. Docker calls go through an injected
 ``runner`` and reflection through an injected ``probe`` so the whole thing unit-tests with fakes — no
 Docker, no live server. Exit 0 on ok/expected-warn, 1 on a broken install / floor violation; ``--strict``
@@ -68,7 +68,7 @@ class Doctor:
                 # Reachable but secured (oci-jj OCI_JJ_AUTH_TOKENS): not a "stack down" problem.
                 out.append((FAIL, "server", f"{server} requires a bearer token; set OCI_JJ_AUTH_TOKEN"))
             else:
-                out.append((WARN, "server", f"unreachable at {server}; is the engine running? (briefcase-ai engine up)"))  # noqa: E501
+                out.append((WARN, "server", f"unreachable at {server}; check the managed endpoint and credentials"))  # noqa: E501
 
         return out
 
@@ -180,8 +180,7 @@ def cmd_doctor(args, store, engine, stack=None) -> int:
     print("\nresolved compatibility matrix:")
     print(f"  briefcase_ai: {__version__}")
     print(f"  oci_jj_api_min: {OCI_JJ_API_MIN}")
-    print("  engine images: installed by `briefcase-ai engine install` "
-          "(https://observe.briefcasebrain.io/engine); check them with `briefcase-ai engine doctor`")
+    print("  managed engine: https://observe.briefcasebrain.io/engine")
     # The plugins section appears only when a package declares a briefcase plugin, so the
     # output above is unchanged on a machine without plugins.
     try:

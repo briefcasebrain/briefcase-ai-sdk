@@ -177,15 +177,7 @@ def _known_integrations() -> List[str]:
     return sorted(_SUPPORTED)
 
 
-def preflight(command: Sequence[str], env: Mapping[str, str],
-              allow_uninstrumented: bool = False) -> Optional[str]:
-    """The error to stop on before running ``command`` with ``env``, or
-    None. See the module docstring for what is checked."""
-    from briefcase._observe import check_environment
-
-    problem = check_environment(env)
-    if problem:
-        return problem
+def _capture_configuration_problem(env: Mapping[str, str]) -> Optional[str]:
     known = _known_integrations()
     unknown = [
         name.strip() for name in (env.get(ENV_SKIP) or "").split(",")
@@ -200,6 +192,21 @@ def preflight(command: Sequence[str], env: Mapping[str, str],
     dedupe = (env.get(ENV_DEDUPE) or "").strip().lower()
     if dedupe and dedupe not in ("none", "provider", "framework"):
         return f"${ENV_DEDUPE}={dedupe!r} is not one of none, provider, framework."
+    return None
+
+
+def preflight(command: Sequence[str], env: Mapping[str, str],
+              allow_uninstrumented: bool = False) -> Optional[str]:
+    """The error to stop on before running ``command`` with ``env``, or
+    None. See the module docstring for what is checked."""
+    from briefcase._observe import check_environment
+
+    problem = check_environment(env)
+    if problem:
+        return problem
+    problem = _capture_configuration_problem(env)
+    if problem:
+        return problem
     reasons = uninstrumentable(command, env)
     if reasons:
         message = (

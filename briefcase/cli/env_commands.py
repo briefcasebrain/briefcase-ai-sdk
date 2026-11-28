@@ -7,7 +7,7 @@
 Most subcommands are one ``oci_jj.v1.VcsService`` call over gRPC (named in their ``--help``).
 Two do heavy work on this machine instead: ``push`` (``docker push`` through the engine's
 registry gateway, which records the commit) and ``cohort`` (the ``oci-bai`` client chunks the
-images locally and uploads only new segments). Needs the engine (``briefcase-ai engine install``).
+images locally and uploads only new segments). Needs managed engine access.
 """
 from __future__ import annotations
 
@@ -112,13 +112,18 @@ def _namespace(args) -> str:
     """The caller's registry namespace: the local install's tenant, else ``VcsService.WhoAmI``."""
     from briefcase import engine as _engine
 
-    record = _engine.current_install()
+    remote = getattr(args, "server", None) or _engine.configured_address()
+    record = None if remote else _engine.current_install()
     if record is not None:
         return record.get("tenant") or "local"
     try:
         from briefcase.engine.client import EngineClient
 
-        return EngineClient(server=getattr(args, "server", None)).call("WhoAmI", {}).get("registry_namespace") or ""
+        client = EngineClient(server=getattr(args, "server", None))
+        try:
+            return client.call("WhoAmI", {}).get("registry_namespace") or ""
+        finally:
+            client.close()
     except Exception:  # noqa: BLE001 - the caller then has to name the namespace
         return ""
 
@@ -129,7 +134,10 @@ def cmd_push(args, store, engine, stack) -> int:
     rc = _engine.gate(args, engine)
     if rc is not None:
         return rc
-    gateway = _engine.gateway_address()
+    gateway = _engine.gateway_address(server=getattr(args, "server", None))
+    if not gateway:
+        return _ux.fail("managed registry gateway is not configured",
+                        fix="Set BRIEFCASE_ENGINE_GATEWAY to the registry supplied for your workspace.", code=2)
     name = args.target or args.image.rsplit("/", 1)[-1]
     if ":" not in name.rsplit("/", 1)[-1]:
         name += ":latest"
@@ -157,14 +165,14 @@ def cmd_push(args, store, engine, stack) -> int:
     except FileNotFoundError:
         return _ux.fail("docker is not installed", fix="install Docker, then re-run")
     if login.returncode != 0:
-        return _ux.fail(f"docker login {gateway} failed: {(login.stderr or '').strip()[:200]}",
-                        fix="briefcase-ai engine status   # is the gateway up, is the token right?")
+        return _ux.fail("registry login failed",
+                        fix="Check the workspace registry address and tenant token permissions.")
     try:
         for argv in plan[1:3]:
             code = _run(argv)
             if code != 0:
                 return _ux.fail(f"{' '.join(argv[:2])} failed (exit {code})",
-                                fix="briefcase-ai engine logs gateway")
+                                fix="Check the workspace registry, tenant namespace and token permissions.")
     finally:
         try:
             subprocess.run(plan[3], capture_output=True)
@@ -187,15 +195,15 @@ def cmd_cohort(args, store, engine, stack) -> int:
                         code=2)
     sub = OciJJEngine(server=getattr(args, "server", None),
                       repo=getattr(args, "engine_repo", None) or getattr(args, "repo", None))
-    argv = sub._base() + ["cohort", "push", os.path.abspath(args.dir) if sub.container else args.dir]
+    argv = sub._base() + ["cohort", "push", args.dir]
     if getattr(args, "env_dry_run", False) or getattr(args, "dry_run", False):
-        print(" ".join(sub.command(argv)))
+        print(" ".join(argv))
         return 0
     try:
         result = sub.exec(argv)
     except FileNotFoundError:
-        return _ux.fail(f"the oci-bai client ({'docker' if sub.container else sub.binary}) is not installed",
-                        fix="briefcase-ai engine install   # installs it under ~/.briefcase/engine")
+        return _ux.fail(f"the oci-bai client ({sub.binary}) is not installed",
+                        fix="Contact your managed workspace administrator")
     code = getattr(result, "returncode", 1)
     if code != 0:
         return _ux.fail(f"oci-bai cohort push failed (exit {code})", fix="briefcase-ai engine doctor")

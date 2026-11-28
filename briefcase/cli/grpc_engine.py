@@ -372,7 +372,7 @@ class ReflectionTransport(Transport):
                 ) from e
             raise TransportUnavailable(
                 f"oci-jj-server reflection unreachable at {self.endpoint} ({e}); "
-                f"is the engine running? try 'briefcase-ai engine up', or set BRIEFCASE_ENGINE=cli."
+                f"check your managed engine endpoint and credentials."
             ) from e
 
     def _info(self, **kw):

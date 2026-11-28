@@ -229,7 +229,7 @@ def test_top_level_help_groups_commands_under_the_flow_verbs(capsys):
         return [line.split()[0] for line in section(heading).splitlines()[1:]
                 if line.startswith("  ") and not line.startswith("   ") and not line.startswith("  (")]
 
-    assert listed("Start here:") == ["setup", "status", "features", "doctor", "engine", "completion"]
+    assert listed("Start here:") == ["setup", "status", "record-help", "features", "doctor", "engine", "completion"]
     assert set(listed("Connect:")) == {"connect", "receive", "exec", "mcp", "hook", "plugins"}
     assert set(listed("Evaluate:")) == {"dataset", "secret", "run"}
     assert listed("Capture:") == ["env"] and "briefcase-ai features --verb capture" in section("Capture:")

@@ -27,6 +27,8 @@ REQUIRED = [
     "briefcase.replay",
     "briefcase.decorators",
     "briefcase.config",
+    "briefcase.cli.record_help_commands",
+    "briefcase.cli._record_file",
     "briefcase.hardware",
     "briefcase.auto",
     "briefcase.bitemporal",

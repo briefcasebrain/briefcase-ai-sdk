@@ -46,7 +46,7 @@ def register(sub) -> None:
                    help="Chained SQLite store, chain JSONL, or bundle .zip.")
     p.add_argument("--graph", metavar="REF",
                    help="Instead of a file: have the engine re-hash REF's environment graph and check every "
-                        "segment it references (VcsService.Fsck; needs `briefcase-ai engine install`).")
+                        "segment it references (VcsService.Fsck; requires managed engine access).")
     p.add_argument("--repo", dest="engine_repo", metavar="REPO", help="Engine repository for --graph.")
     p.add_argument("--against", metavar="CHECKPOINT.json",
                    help="A checkpoint kept outside the store (from --save-checkpoint). The only way to "

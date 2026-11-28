@@ -1,17 +1,4 @@
-"""``briefcase-ai engine``: install and run the Briefcase engine (oci-jj) on this machine.
-
-    briefcase-ai engine install --code bci_...     # the one command the portal shows you
-    briefcase-ai engine up
-    briefcase-ai engine status
-
-The engine is proprietary and is not in this package. Entitled accounts get it from the gated
-portal (https://observe.briefcasebrain.io/engine): either the one-command install with a
-single-use install code, a licence token for automation, or an offline bundle. Everything is
-verified against the release key pinned in this SDK (``briefcase/engine/keys``) before it is
-installed. Every other subcommand works on that local install.
-
-Exit codes: 0 ok, 1 failed, 2 usage, 3 engine not installed.
-"""
+"""Inspect and retire legacy engine installations. New engine access is managed by Briefcase AI."""
 from __future__ import annotations
 
 import argparse
@@ -22,10 +9,9 @@ import shutil
 import socket
 import subprocess
 import sys
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from briefcase.cli import _ux
 
@@ -33,14 +19,7 @@ GROUP = "start"
 ORDER = 45
 
 _RAW = argparse.RawDescriptionHelpFormatter
-ENV_HELP = (
-    "environment:\n"
-    "  BRIEFCASE_LICENSE_TOKEN   licence token for automation (platform: Engine page, Licence tokens)\n"
-    "  BRIEFCASE_PLATFORM_URL    the Briefcase platform (default https://observe.briefcasebrain.io)\n"
-    "  BRIEFCASE_ENGINE_ADDR     use an engine running elsewhere instead of a local install\n"
-    "exit codes: 0 ok, 1 failed, 2 usage, 3 engine not installed"
-)
-PORTAL_HINT = "get the engine at {portal} and copy the one-command install"
+ENV_HELP = "Managed engine access: https://observe.briefcasebrain.io/engine"
 
 
 def _sub(sp, name: str, help_text: str, example: str):
@@ -49,28 +28,9 @@ def _sub(sp, name: str, help_text: str, example: str):
 
 
 def register(sub) -> None:
-    from briefcase import engine as _engine
-
-    p = sub.add_parser(
-        "engine",
-        help=_engine.help_text("Install and run the Briefcase engine (oci-jj) locally."),
-        description="Install the engine from the Briefcase portal (one-command install code, licence "
-                    "token or offline bundle), verify it, then start, check and upgrade it.",
-        epilog="example:\n  briefcase-ai engine install --code bci_...   "
-               "# from https://observe.briefcasebrain.io/engine\n\n" + ENV_HELP,
-        formatter_class=_RAW,
-    )
+    p = sub.add_parser("engine", help="Managed engine access and legacy migration.",
+                       description="Inspect or safely retire an existing installation. " + ENV_HELP)
     sp = p.add_subparsers(dest="engine_sub", metavar="<subcommand>")
-
-    inst = _sub(sp, "install", "Install the engine: one-command code, licence token, or offline bundle.",
-                "briefcase-ai engine install --code bci_...   # copy it from https://observe.briefcasebrain.io/engine")
-    _install_flags(inst)
-    inst.set_defaults(func=cmd_install)
-
-    upg = _sub(sp, "upgrade", "Install the newest engine release and restart onto it.",
-               "briefcase-ai engine upgrade --token bcl_...")
-    _install_flags(upg)
-    upg.set_defaults(func=cmd_upgrade)
 
     ver = _sub(sp, "verify", "Verify a downloaded engine file against the release key pinned in this SDK.",
                "briefcase-ai engine verify engine-images-0.4.0-x86_64.tar --manifest engine-manifest.json")
@@ -81,12 +41,6 @@ def register(sub) -> None:
     _ux.add_json_flag(ver)
     ver.set_defaults(func=cmd_verify)
 
-    up = _sub(sp, "up", "Start the installed engine (docker compose up).", "briefcase-ai engine up")
-    up.add_argument("--wait", action="store_true", help="Wait until every service is healthy.")
-    up.add_argument("--dry-run", dest="engine_dry_run", action="store_true",
-                    help="Show the command that would run; start nothing.")
-    up.set_defaults(func=cmd_up)
-
     down = _sub(sp, "down", "Stop the engine. Data is kept unless --volumes.", "briefcase-ai engine down")
     down.add_argument("--volumes", action="store_true", help="Also delete the engine's data (asks first).")
     down.add_argument("--yes", "-y", action="store_true", help="Do not ask for confirmation.")
@@ -96,8 +50,6 @@ def register(sub) -> None:
 
     st = _sub(sp, "status", "Show what is installed, the key it was verified with, and whether it runs.",
               "briefcase-ai engine status --json")
-    st.add_argument("--token", metavar="T",
-                    help="Licence token to check for a newer release (default $BRIEFCASE_LICENSE_TOKEN).")
     _ux.add_json_flag(st)
     st.set_defaults(func=cmd_status)
 
@@ -120,38 +72,6 @@ def register(sub) -> None:
     un.add_argument("--dry-run", dest="engine_dry_run", action="store_true", help="Show the plan; change nothing.")
     un.add_argument("--yes", "-y", action="store_true", help="Do not ask for confirmation.")
     un.set_defaults(func=cmd_uninstall)
-
-
-def _install_flags(p) -> None:
-    online = p.add_argument_group("online (from the portal)")
-    online.add_argument("--code", metavar="bci_...",
-                        help="Single-use install code from the portal's 'Install with one command' box.")
-    online.add_argument("--token", metavar="bcl_...",
-                        help="Licence token, for automation (default $BRIEFCASE_LICENSE_TOKEN).")
-    online.add_argument("--version", dest="engine_version", metavar="X",
-                        help="Engine release with --token (default: newest). A code is bound to its version.")
-    online.add_argument("--platform-url", metavar="URL",
-                        help="Platform URL (default $BRIEFCASE_PLATFORM_URL, else https://observe.briefcasebrain.io).")
-    offline = p.add_argument_group("offline (air-gapped)")
-    offline.add_argument("--bundle", metavar="FILE", help="engine-images-<version>-<arch>.tar from the portal.")
-    offline.add_argument("--manifest", metavar="FILE", help="engine-manifest.json of the same version.")
-    offline.add_argument("--signature", metavar="FILE", help="The manifest's signature (default MANIFEST.sig).")
-    offline.add_argument("--binary", metavar="FILE",
-                         help="The oci-bai-<version>-<os>-<arch>.tar.gz download (default: next to the manifest).")
-    tls = p.add_mutually_exclusive_group()
-    tls.add_argument("--tls", action="store_true",
-                     help="Serve gRPC over TLS with a self-signed certificate (needs openssl). An upgrade keeps the "
-                          "installed setting unless you pass this or --no-tls.")
-    tls.add_argument("--no-tls", action="store_true", help="Serve gRPC without TLS (an upgrade of a TLS install).")
-    p.add_argument("--no-images", action="store_true",
-                   help="Only the oci-bai client binary; no Docker images (for an engine run elsewhere).")
-    p.add_argument("--dry-run", dest="engine_dry_run", action="store_true",
-                   help="Show the plan; change nothing (an install code is not redeemed).")
-    p.add_argument("--yes", "-y", action="store_true", help="Do not ask for confirmation.")
-    _ux.add_json_flag(p)
-
-
-# --------------------------------------------------------------------------- helpers
 
 
 def _dry(args) -> bool:
@@ -314,35 +234,7 @@ def foreign_volumes_message(names: List[str]) -> str:
     remove = " and ".join(f"`docker volume rm {n}`" for n in names)
     return (f"the volume(s) {', '.join(names)} already exist and were not created by this engine (they lack the "
             f"{_compose.ENGINE_LABEL} label), so they may hold another stack's data: look with {inspect}; if you "
-            f"do not need that data, remove them with {remove}, then run `briefcase-ai engine up` again")
-
-
-def guard_start(record: Dict[str, Any]) -> Optional[int]:
-    """The checks every command that starts containers runs first (``up``, an upgrade's restart): the images are
-    the verified ones, no 4.4 stack is running on the same ports, and every volume that would be mounted was
-    created by this engine. Returns an exit code to stop with, or ``None``."""
-    drift = image_drift(record)
-    if drift:
-        for line in drift:
-            print(f"  {line}")
-        return _ux.fail("an engine image changed since it was verified at install; not starting it",
-                        fix=_reinstall_fix(record))
-    legacy = legacy_stack()
-    if legacy["projects"]:
-        first = next(iter(legacy["projects"]))
-        return _ux.fail(legacy_stack_message(legacy),
-                        fix=f"docker compose -p {first} down   # then: briefcase-ai engine up")
-    if legacy.get("errors"):
-        return _ux.fail("could not check whether a 4.4 stack is running on the same ports (docker failed), so "
-                        "nothing was started", fix="briefcase-ai engine doctor")
-    foreign, unknown = volume_ownership()
-    if foreign:
-        return _ux.fail(foreign_volumes_message(foreign), fix="briefcase-ai engine doctor")
-    if unknown:
-        return _ux.fail(f"could not establish who owns the volume(s) {', '.join(unknown)} (docker is missing, "
-                        "failed or refused to inspect them), so nothing was started: Compose would mount them "
-                        "without asking", fix="briefcase-ai engine doctor")
-    return None
+            f"do not need that data, remove them with {remove}, contact Briefcase for migration")
 
 
 def _volume_state(name: str) -> Tuple[str, str]:
@@ -565,14 +457,6 @@ def _need_token(confirmed: Any) -> None:
         raise TypeError("deleting needs a Confirmed token")
 
 
-def restart_removing_orphans(record: Dict[str, Any], confirmed: Optional[Confirmed]) -> int:
-    """The upgrade's restart: ``up -d --remove-orphans`` recreates what changed and removes the containers of services
-    the new release no longer has, so it needs the confirmation the install asked for."""
-    if not isinstance(confirmed, Confirmed):
-        raise TypeError("restarting onto another release removes containers, which needs a Confirmed token")
-    return _rc(_run(_compose(record, "up", "-d", "--remove-orphans")))
-
-
 def teardown(record: Dict[str, Any], remove_volumes: bool, confirmed: Optional[Confirmed] = None) -> int:
     """``compose down`` without ever passing ``-v`` (it would take a same-named volume of another stack with
     it). With ``remove_volumes``, remove only the volumes carrying this engine's label, check they are gone, and
@@ -621,399 +505,6 @@ def port_open(addr: str, timeout: float = 0.3) -> bool:
 # --------------------------------------------------------------------------- install / upgrade
 
 
-class _Usage(Exception):
-    pass
-
-
-def _options(args):
-    """InstallOptions from the flags, or ``_Usage(message, fix)``."""
-    from briefcase import engine as _engine
-    from briefcase.engine import install as _inst
-
-    platform = _inst.platform_url(getattr(args, "platform_url", None))
-    portal = _inst.portal(platform)
-    code = getattr(args, "code", None)
-    token_flag = getattr(args, "token", None)
-    bundle, manifest = getattr(args, "bundle", None), getattr(args, "manifest", None)
-    version = getattr(args, "engine_version", None)
-    if bundle or manifest:
-        if not (bundle and manifest):
-            raise _Usage("an offline install needs both --bundle and --manifest",
-                         "briefcase-ai engine install --bundle engine-images-<version>-<arch>.tar "
-                         "--manifest engine-manifest.json")
-        if code or token_flag:
-            raise _Usage("--bundle installs offline; it takes no --code or --token",
-                         "briefcase-ai engine install --bundle FILE --manifest FILE")
-        return _inst.InstallOptions(platform_url=platform, bundle=Path(bundle), manifest=Path(manifest),
-                                    signature=Path(args.signature) if getattr(args, "signature", None) else None,
-                                    binary=Path(args.binary) if getattr(args, "binary", None) else None,
-                                    tls=bool(getattr(args, "tls", False)),
-                                    skip_images=bool(getattr(args, "no_images", False)))
-    if code and token_flag:
-        raise _Usage("give either --code or --token, not both", "briefcase-ai engine install --code bci_...")
-    if code:
-        if not code.startswith("bci_"):
-            hint = " (that looks like a licence token: use --token)" if code.startswith("bcl_") else ""
-            raise _Usage(f"install codes start with bci_{hint}", f"copy the command from {portal}")
-        if version:
-            raise _Usage("an install code is bound to the version picked in the portal; --version is for --token",
-                         f"pick the version at {portal}, then run the command it shows")
-        token = None
-    else:
-        token = token_flag or os.environ.get(_engine.ENV_LICENSE)
-        if not token:
-            raise _Usage("no install code, licence token or offline bundle given",
-                         PORTAL_HINT.format(portal=portal) + " (briefcase-ai engine install --code bci_...)")
-        if token.startswith("bci_"):
-            raise _Usage("that is an install code, not a licence token",
-                         f"briefcase-ai engine install --code {token[:8]}...")
-    return _inst.InstallOptions(platform_url=platform, code=code, token=token, version=version,
-                                tls=bool(getattr(args, "tls", False)),
-                                skip_images=bool(getattr(args, "no_images", False)))
-
-
-def _preflight(opts) -> None:
-    """Everything checkable before an install code is redeemed."""
-    from briefcase.engine import install as _inst
-    from briefcase.engine import trust as _trust
-
-    _trust.require_keys()
-    if not _trust.crypto_available() and shutil.which("cosign") is None:
-        raise _trust.TrustError("cannot check signatures: neither the `cryptography` package nor `cosign` is "
-                                "installed", fix="pip install 'briefcase-ai[engine]'")
-    if not opts.skip_images and _inst.Docker(_runner()).available() is None:
-        raise _inst.InstallError(
-            "Docker is not installed or its daemon is not running",
-            fix="install Docker (https://docs.docker.com/get-docker/), start it, then re-run "
-                "(or --no-images for the client binary only)")
-
-
-def _show_plan(args, opts, upgrading: bool, manifest=None) -> None:
-    from briefcase.engine import install as _inst
-
-    if getattr(args, "json", False):
-        return
-    what = f"engine {manifest.version}" if manifest else "the engine"
-    where = "the offline bundle" if opts.mode == "bundle" else opts.platform_url
-    print(f"{'Upgrade to' if upgrading else 'Install'} {what} from {where}:")
-    for step in _inst.plan_steps(opts, manifest):
-        print(f"  - {step}")
-    if manifest is not None and manifest.data.get("notes"):
-        print(f"release notes: {manifest.data['notes'].strip().splitlines()[0]}")
-
-
-def _install(args, upgrading: bool) -> int:
-    from briefcase import engine as _engine
-    from briefcase.engine import bundle as _bundle
-    from briefcase.engine import install as _inst
-    from briefcase.engine import trust as _trust
-
-    errors = (_inst.InstallError, _trust.TrustError, _bundle.BundleError, _engine.StateUnreadable)
-    as_json = bool(getattr(args, "json", False))
-    try:
-        opts = _options(args)
-    except _Usage as exc:
-        return _ux.fail(str(exc.args[0]), fix=exc.args[1], code=2)
-    try:
-        from briefcase.engine import compose as _compose
-
-        used = _engine.compose_history(_engine.load_state_strict())
-        if not getattr(args, "no_images", False):  # a client-only install writes no secrets
-            _compose.check_secrets(_engine.secrets_path(), volumes_may_exist=used)
-        else:
-            _engine.read_env_file(_engine.secrets_path(), strict=True)
-    except _engine.StateUnreadable as exc:
-        return _ux.fail(str(exc), fix=exc.fix)
-    previous = _engine.current_install()
-    previous_compose = None
-    if previous and previous.get("compose"):
-        try:
-            previous_compose = Path(previous["compose"]).read_bytes()
-        except OSError:
-            previous_compose = None
-    if upgrading and previous and not getattr(args, "tls", False) and not getattr(args, "no_tls", False):
-        opts.tls = bool(previous.get("tls"))  # an upgrade keeps what was installed unless told otherwise
-    # Which release is current is decided after the install, under the install lock, from what actually runs
-    # (see _settle); until then an upgrade, or an install next to compose releases, leaves current alone.
-    opts.make_current = False  # _settle publishes current after checking the selected daemon
-    state_before = _engine.load_state_strict()
-    uses_compose_before = any(isinstance(r, dict) and r.get("compose")
-                              for r in (state_before.get("installs") or {}).values())
-    daemons_before = list(state_before.get("docker_contexts") or [])
-    log = (lambda line: None) if as_json else print
-    portal = _inst.portal(opts.platform_url)
-    used_up = f"this install code is now used up; get a new one at {portal} and run the command it shows"
-    try:
-        _preflight(opts)
-    except errors as exc:
-        return _ux.fail(str(exc), fix=exc.fix)
-
-    prepared = verified = manifest = None
-    try:
-        if opts.mode == "token":
-            prepared = _inst.prepare_online(opts)
-            manifest = prepared.manifest
-        elif opts.mode == "bundle":
-            verified = _inst.verify_offline(opts)
-            manifest = verified[0]
-    except errors as exc:
-        code = exc.code if isinstance(exc, _inst.InstallError) else 1
-        return _ux.fail(str(exc), fix=exc.fix, code=code)
-
-    if _dry(args):
-        if as_json:
-            return _ux.print_json({"dry_run": True, "mode": opts.mode,
-                                   "version": manifest.version if manifest else None,
-                                   "key_id": manifest.key_id if manifest else None,
-                                   "steps": _inst.plan_steps(opts, manifest)})
-        _show_plan(args, opts, upgrading, manifest)
-        print("dry run: nothing was downloaded or written"
-              + ("; the install code was not redeemed." if opts.mode == "code" else "."))
-        _ux.print_next(_rerun(opts), "to do it")
-        return 0
-    _show_plan(args, opts, upgrading, manifest)
-    if previous and manifest is not None and previous.get("version") == manifest.version and not upgrading:
-        log(f"engine {manifest.version} is already installed; re-checking files and images")
-    answer = _ux.confirm("Go ahead?", assume_yes=bool(getattr(args, "yes", False)))
-    confirmed = _mint("Go ahead?", answer) if answer else None
-    if answer is None:
-        return _ux.fail("installing the engine needs confirmation",
-                        fix="re-run with --yes (or --dry-run to only look)", code=2)
-    if not answer:
-        print("cancelled; nothing was changed"
-              + (" and the install code was not used." if opts.mode == "code" else "."))
-        return 1
-
-    preflight_daemon: Optional[str] = None
-    if upgrading and daemons_before and (uses_compose_before or not getattr(args, "no_images", False)):
-        # before anything is written: a stack may be running, or this upgrade installs the images that need the daemon
-        here = _inst.docker_identity(_runner())
-        preflight_daemon = here
-        if here is None or not all(_inst.daemon_matches(entry, here) for entry in daemons_before):
-            return _ux.fail("the Docker daemon is not the one the installed engine ran on (it ran on "
-                            f"{', '.join(daemons_before)}; now {here or 'unknown'}), so nothing was installed",
-                            fix="briefcase-ai engine doctor")
-    try:
-        if opts.mode == "bundle":
-            record = _inst.offline_install(opts, runner=_runner(), log=log, verified=verified)
-        elif opts.mode == "token":
-            assert prepared is not None
-            record = _inst.complete_online(opts, prepared, runner=_runner(), log=log)
-        else:
-            response = _inst.request_install(opts.platform_url, code=opts.code, target=_inst.host_target())
-            try:
-                prepared = _inst.prepare_online(opts, response=response)
-                record = _inst.complete_online(opts, prepared, runner=_runner(), log=log)
-            except errors + (RuntimeError,) as exc:
-                return _ux.fail(str(exc), fix=used_up)
-    except errors as exc:
-        fix = exc.fix
-        if opts.mode == "token" and fix is None:
-            fix = "briefcase-ai engine install --token ...   # re-run; verified downloads are reused"
-        elif opts.mode == "bundle" and fix is None:
-            fix = "briefcase-ai engine verify " + str(opts.bundle) + " --manifest " + str(opts.manifest)
-        return _ux.fail(str(exc), fix=fix)
-    except RuntimeError as exc:  # --tls without openssl
-        return _ux.fail(str(exc), fix="install openssl, or install without --tls")
-    stop_code = _settle(opts, record, previous, upgrading, log, previous_compose, daemons_before, confirmed,
-                        preflight_daemon=preflight_daemon)
-    if stop_code is not None:
-        return stop_code
-    if as_json:
-        return _ux.print_json({"installed": record})
-    where = Path(record["compose"]).parent if record.get("compose") else Path(record["manifest"]).parent
-    print(f"engine {record['version']} installed in {where} (verified with key {record['key_id']})")
-    if record.get("binary"):
-        print(f"  client: {record['binary']}")
-    _ux.print_next("briefcase-ai engine status" if upgrading else "briefcase-ai engine up")
-    return 0
-
-
-def _settle(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
-            previous_compose: Optional[bytes] = None, daemons_before: Optional[List[str]] = None,
-            confirmed: Optional["Confirmed"] = None,
-            preflight_daemon: Optional[str] = None) -> Optional[int]:
-    """After an install or upgrade wrote ``record``: decide, under the install lock and from what actually runs,
-    which release is current, and restart onto ``record`` when an upgrade (or a TLS change) needs it. Current is
-    what runs. Anything docker cannot establish (an error, an engine that matches no install, two installs that fit)
-    fails the command and leaves current as it was. Returns an exit code to stop with, or ``None``."""
-    from briefcase import engine as _engine
-    from briefcase.engine import install as _inst
-
-    try:
-        with _inst.engine_lock(opts.env):
-            return _settle_locked(opts, record, previous, upgrading, log, previous_compose, daemons_before or [],
-                                  confirmed, preflight_daemon)
-    except _engine.StateUnreadable as exc:
-        return _ux.fail(f"{exc}; engine {record['version']} was installed but not made current", fix=exc.fix)
-
-
-def _settle_locked(opts, record: Dict[str, Any], previous: Optional[Dict[str, Any]], upgrading: bool, log,
-                   previous_compose: Optional[bytes], daemons_before: List[str],
-                   confirmed: Optional["Confirmed"] = None,
-                   preflight_daemon: Optional[str] = None) -> Optional[int]:
-    """The body of :func:`_settle`, run under the install lock."""
-    from briefcase import engine as _engine
-    from briefcase.engine import install as _inst
-
-    state = _engine.load_state_strict(opts.env)
-    installs = state.get("installs") or {}
-    if not record.get("compose") and not any(isinstance(r, dict) and r.get("compose") for r in installs.values()):
-        # Client-only installs: there is no stack to ask docker about, so this works without docker.
-        _inst.set_current(record["version"], opts.env, locked=True)
-        return None
-    tls_differs = bool(previous and previous.get("version") == record["version"]
-                       and bool(previous.get("tls")) != bool(record.get("tls")))
-
-    def commit_history() -> None:
-        """The daemon this outcome verified is recorded as the owner of the stack's volumes, under the lock that decided
-        it, and only then (an install writes no history of its own, so a refusal has nothing to undo), and only when
-        the operation put a stack on it: a client-only install uses no daemon, so it establishes no ownership."""
-        if not record.get("compose") or not _inst.has_id(daemon):
-            return  # a client-only install loads no image and creates no volume on whatever daemon is selected
-        fresh = _engine.load_state_strict(opts.env)
-        known = list(fresh.get("docker_contexts") or [])
-        merged = _inst._merge_daemon(known, str(daemon))
-        active = fresh.get("installs", {}).get(record["version"])
-        conversion = bool(active and not active.get("compose"))
-        if conversion:
-            fresh["installs"][record["version"]] = record
-        if conversion or merged != known or not _engine.compose_history(fresh):
-            fresh["compose_used"] = True
-            fresh["docker_contexts"] = merged
-            _inst.save_state(fresh, opts.env)
-
-    def restore() -> None:
-        """The install already wrote the new transport (record and Compose file) and its daemon-history change; put
-        back what is running. Reads the state strictly: a record that cannot be read is not rewritten from nothing."""
-        if tls_differs and previous:
-            try:
-                fresh = _engine.load_state_strict(opts.env)
-                fresh.setdefault("installs", {})[record["version"]] = previous
-                _inst.save_state(fresh, opts.env)
-                if previous_compose is not None and previous.get("compose") == record.get("compose"):
-                    Path(previous["compose"]).write_bytes(previous_compose)
-            except (_engine.StateUnreadable, OSError) as exc:
-                print(f"error: could not put the previous transport back ({exc}); the engine record and the "
-                      "running server may disagree: run `briefcase-ai engine install` again", file=sys.stderr)
-
-    daemon = _inst.docker_identity(_runner(), opts.env)
-    if daemon is None or (record.get("compose") and not _inst.has_id(daemon)):
-        restore()
-        return _ux.fail("could not tell which Docker daemon this is, so what runs could not be checked and engine "
-                        f"{record['version']} was installed but not made current", fix="briefcase-ai engine doctor")
-
-    if preflight_daemon is not None and not _inst.same_daemon_id(preflight_daemon, daemon):
-        restore()
-        return _ux.fail(f"the Docker daemon is not the one that was verified before the install ({preflight_daemon}; "
-                        f"now {daemon}), so engine {record['version']} was installed but not made current",
-                        fix="briefcase-ai engine doctor")
-    owners = set(daemons_before).union(state.get("docker_contexts") or [])
-    different_daemon = any(not _inst.daemon_matches(owner, daemon) for owner in owners)
-    current_version = state.get("current")
-    secondary_install = not upgrading and not tls_differs and current_version and current_version != record["version"]
-    if different_daemon and not secondary_install:
-        restore()
-        was = (previous or {}).get("version", "the old release")
-        return _ux.fail(f"the Docker daemon is not the one engine {was} ran on (it ran on "
-                        f"{', '.join(sorted(owners))}; now {daemon}), so what runs there could not be checked and "
-                        f"engine {record['version']} was installed but not made current",
-                        fix="briefcase-ai engine doctor")
-    try:
-        with _pinned(daemon):  # what runs is read on the daemon the restart would use
-            status, running, why = running_releases()
-    except Exception as exc:  # noqa: BLE001 - the install already wrote the new transport
-        restore()
-        return _ux.fail(f"{type(exc).__name__}: {exc}", fix="briefcase-ai engine doctor")
-    current = _engine.current_install(opts.env) or previous
-    keep = current["version"] if current else "the old release"
-    if status != "ok":
-        restore()
-        return _ux.fail(f"{why}, so engine {record['version']} was installed but not made current; {keep} is "
-                        "still current", fix="briefcase-ai engine doctor")
-    if different_daemon:
-        if any(version != current_version for version in running):
-            return _ux.fail(f"the selected daemon runs another release; {current_version} stays current",
-                            fix="briefcase-ai engine doctor")
-        log(f"engine {record['version']} installed alongside {current_version}; the selected daemon cannot "
-            f"verify the current stack, so {current_version} stays current")
-        return None
-    others = [v for v in running if v != record["version"]]
-    tls_changed = bool(previous and previous.get("version") == record["version"]
-                       and bool(previous.get("tls")) != bool(record.get("tls")) and running)
-    if upgrading and (others or tls_changed):
-        if not record.get("compose"):
-            restore()
-            return _ux.fail(f"engine {(others or running)[0]} is running and {record['version']} was installed "
-                            "without images, so it cannot take over", fix="briefcase-ai engine down")
-        try:
-            with _pinned(daemon):  # the checks, the record and the start all reach the same daemon
-                stop = guard_start(record)
-                if stop is not None:
-                    restore()
-                    return stop
-                services = compose_services(record)
-                invalid = check_service_images(record, services) if services else "could not read Compose services"
-                if invalid:
-                    restore()
-                    return _ux.fail(invalid, fix=_reinstall_fix(record))
-                if not still_the_daemon(daemon):  # the daemon at the pinned endpoint is the one that was identified
-                    restore()
-                    return _ux.fail("the Docker daemon at the verified endpoint is not the one that was identified "
-                                    "(it changed during the checks), so the engine was not restarted",
-                                    fix="briefcase-ai engine doctor")
-                if _inst.note_daemon(_runner(), opts.env, identity=daemon) is None:  # before compose can create one
-                    restore()
-                    return _ux.fail("the Docker daemon did not state its id, so the engine was not restarted",
-                                    fix="briefcase-ai engine doctor")
-                log(f"restarting onto {record['version']}" + (" (TLS changed) " if tls_changed else " ")
-                    + "(data volumes are kept)...")
-                owner = previous if tls_changed else (state.get("installs") or {}).get(others[0])
-                if not owner:
-                    raise RuntimeError("the running release has no install record")
-                require_owned_containers(owner)
-                started = restart_removing_orphans(record, confirmed) == 0
-        except Exception as exc:  # noqa: BLE001 - whatever failed, the new transport must not stay half-applied
-            restore()
-            return _ux.fail(f"{type(exc).__name__}: {exc}", fix="briefcase-ai engine doctor")
-        if not started:
-            restore()
-            return _ux.fail("the new engine did not start", fix="briefcase-ai engine logs")
-        commit_history()
-        _inst.set_current(record["version"], opts.env, locked=True)
-        return None
-    if not upgrading and others:  # an install next to a running release leaves that one current
-        commit_history()
-        _inst.set_current(others[0], opts.env, locked=True)
-        log(f"engine {others[0]} is running and stays current; `briefcase-ai engine upgrade` moves to "
-            f"{record['version']}")
-        return None
-    commit_history()
-    _inst.set_current(record["version"], opts.env, locked=True)
-    return None
-
-
-def _rerun(opts) -> str:
-    if opts.mode == "bundle":
-        return f"briefcase-ai engine install --bundle {opts.bundle} --manifest {opts.manifest} --yes"
-    if opts.mode == "code":
-        return "briefcase-ai engine install --code <your install code> --yes"
-    return "briefcase-ai engine install --yes   # with BRIEFCASE_LICENSE_TOKEN set"
-
-
-def cmd_install(args, store, engine, stack) -> int:
-    return _install(args, upgrading=False)
-
-
-def cmd_upgrade(args, store, engine, stack) -> int:
-    if _require_local(args) is None:
-        return 3
-    return _install(args, upgrading=True)
-
-
-# --------------------------------------------------------------------------- verify
-
-
 def _is_index_envelope(path: Path) -> bool:
     """Is ``path`` a release index (one object with its own signature, no ``.sig`` next to it)?"""
     try:
@@ -1042,7 +533,7 @@ def cmd_verify(args, store, engine, stack) -> int:
             msig = mpath.with_name(mpath.name + ".sig")
             if not mpath.is_file() or not msig.is_file():
                 return _ux.fail(f"{mpath if not mpath.is_file() else msig} does not exist",
-                                fix="download engine-manifest.json and engine-manifest.json.sig from the portal",
+                                fix="supply the retained manifest and its original signature",
                                 code=2)
             manifest = _trust.load_manifest(mpath.read_bytes(), msig.read_bytes(), keys)
             result.update(manifest=str(mpath), version=manifest.version, key_id=manifest.key_id,
@@ -1054,7 +545,7 @@ def cmd_verify(args, store, engine, stack) -> int:
                 if entry is None:
                     raise _trust.TrustError(f"{path.name} is not a file of engine {manifest.version} "
                                             "(neither its name nor its sha256 is in the signed manifest)",
-                                            fix="download it again from the portal; do not install it")
+                                            fix="use the matching file from the retained archive")
                 sig = sig_path.read_bytes() if sig_path.is_file() else None
                 if sig is None:
                     other = path.with_name(entry["signature"])
@@ -1086,7 +577,7 @@ def cmd_verify(args, store, engine, stack) -> int:
                 key = _trust.verify_with_any(path, raw_sig, keys)
                 if key is None:
                     raise _trust.TrustError(f"{path.name}: the signature does not verify with any key pinned in "
-                                            "this SDK", fix="download the file and its .sig again; do not use it")
+                                            "this SDK", fix="use the original retained file and matching signature")
                 result.update(ok=True, key_id=key.key_id, key_file=key.label, checked=["signature"])
     except (_trust.TrustError, _inst.InstallError) as exc:
         result["error"] = str(exc)
@@ -1100,8 +591,6 @@ def cmd_verify(args, store, engine, stack) -> int:
     print(f"verified: {path.name}{version}")
     print(f"  key:     {result['key_id']} ({result['key_file']})")
     print(f"  checked: {', '.join(result['checked'])}")
-    _ux.print_next("briefcase-ai engine install --bundle FILE --manifest engine-manifest.json",
-                   "install a verified offline bundle")
     return 0
 
 
@@ -1220,7 +709,7 @@ def _require_stack(args) -> Optional[Dict[str, Any]]:
     record = _require_local(args)
     if record is not None and not record.get("compose"):
         _ux.fail(f"engine {record['version']} was installed without images (--no-images); there is no "
-                 "local stack to run", fix="briefcase-ai engine install --code bci_...   # without --no-images")
+                 "local stack to run", fix="Contact your managed workspace administrator")
         return None
     return record
 
@@ -1268,15 +757,6 @@ def verified_fallback(record: Dict[str, Any]) -> bool:
     return tags == record.get("images") and digests == record.get("image_digests") and not image_drift(record)
 
 
-def _reinstall_fix(record: Dict[str, Any]) -> str:
-    if record.get("source") == "bundle":
-        return "briefcase-ai engine install --bundle FILE --manifest engine-manifest.json --yes"
-    if record.get("source") == "token":
-        return "briefcase-ai engine install --yes   # with BRIEFCASE_LICENSE_TOKEN set"
-    portal = (record.get("platform_url") or "https://observe.briefcasebrain.io").rstrip("/") + "/engine"
-    return f"get a new install code at {portal} and run the command it shows"
-
-
 def record_key(recorded: Dict[str, Any], service: str) -> Optional[str]:
     """The key ``recorded`` (a record's ``image_ids``, which keeps the manifest's spelling, hyphens included) uses for
     a Compose service, or ``None`` when the release does not pin it. The one place service names are mapped."""
@@ -1288,242 +768,12 @@ def record_key(recorded: Dict[str, Any], service: str) -> Optional[str]:
 TRANSPORT_SERVICES = ("oci-jj-server", "gateway", "workers", "reconstructor", "verdict-worker")
 
 
-def _container_tls(service: str, env: List[str], want_tls: bool) -> Optional[bool]:
-    """Does this container's own configuration say gRPC runs over TLS? The server says it by serving a certificate
-    (or by allowing plaintext). A client says it by the address it dials, which must be exactly the server's address
-    for that transport (the file the release wrote has no other), so a client sent elsewhere counts as the other
-    transport. ``None`` when the container says nothing."""
-    values = dict(e.partition("=")[::2] for e in env)
-    if service == "oci-jj-server":
-        if "OCI_JJ_TLS_CERT" in values:
-            return True
-        return False if values.get("OCI_JJ_ALLOW_PLAINTEXT") == "1" else None
-    target = values.get("OCI_JJ_SERVER_GRPC")
-    if target is None:
-        return None
-    wanted = ("https://" if want_tls else "") + "oci-jj-server:50051"
-    return want_tls if target == wanted else not want_tls
-
-
-def compose_services(record: Dict[str, Any]) -> Optional[Dict[str, Optional[str]]]:
-    """``{service: image reference or None}`` for every service of the engine's Compose file, as Compose itself reads it
-    (``compose config --format json``: structured, interpolated, whatever style the file is written in). ``None`` when
-    Compose could not say: a caller that needs the inventory must not guess."""
-    res = _run(_compose(record, "config", "--format", "json"), capture_output=True, text=True)
-    if res is None or _rc(res) != 0:
-        return None
-    try:
-        services = json.loads(getattr(res, "stdout", "") or "")["services"]
-    except (ValueError, KeyError, TypeError):
-        return None
-    if not isinstance(services, dict) or not services:
-        return None
-    return {str(name): (spec.get("image") if isinstance(spec, dict) and isinstance(spec.get("image"), str) else None)
-            for name, spec in services.items()}
-
-
-def check_service_images(record: Dict[str, Any], services: Dict[str, Optional[str]]) -> Optional[str]:
-    from briefcase.engine import compose, install
-
-    recorded = record.get("image_ids") or {}
-    sidecars = {"minio": compose.MINIO_IMAGE, "registry": compose.REGISTRY_IMAGE}
-    names = {"server": "oci-jj-server", "verdict_worker": "verdict-worker", "verdict-worker": "verdict-worker",
-             **{name: name for name in ("gateway", "workers", "postgres", "reconstructor", "minio", "registry")}}
-    expected = {names[key] for key in recorded if key in names}
-    if set(install.REQUIRED_IMAGES) <= set(recorded):
-        expected.update(sidecars)
-    missing = expected.difference(services)
-    if missing:
-        return "Compose configuration omits recorded services: " + ", ".join(sorted(missing))
-    for service, reference in services.items():
-        if service not in expected and service not in sidecars:
-            return f"Compose names an unexpected service: {service}"
-        if not (reference and reference.strip()):
-            return f"there is no local image to compare {service} with (its Compose service names no image)"
-        key = record_key(recorded, service)
-        if key is None:
-            if reference != sidecars.get(service):
-                return f"Compose names an unverified image for {service}"
-        elif reference != (record.get("images") or {}).get(key):
-            if install.Docker(_runner()).image_id(reference) != recorded[key]:
-                return f"Compose names an unverified image for {service}"
-    return None
-
-
-def existing_containers_state(record: Dict[str, Any], services: Dict[str, Optional[str]],
-                              surplus_is_a_problem: bool = True) -> Tuple[Optional[str], Set[str]]:
-    """``(problem, services that have a container)`` for the containers that already exist, running or stopped.
-
-    ``up`` keeps what exists, so what exists must be what ``record`` describes: a container made from another
-    release's image, or serving the other transport, would be reused and reported as started. ``problem`` is ``None``
-    when nothing is wrong."""
-    ok, rows = project_containers(stopped=True)
-    if not ok:
-        return "docker could not list the engine's containers", set()
-    present = {row["service"] for row in rows}
-    recorded = record.get("image_ids") or {}
-    want_tls = bool(record.get("tls"))
-    counts: Dict[str, int] = {}
-    stale: List[str] = []
-    for row in rows:
-        service = row["service"]
-        if service in services and row.get("config") != record.get("compose"):
-            stale.append(f"{service} was created from a different Compose file")
-        counts[service] = counts.get(service, 0) + 1
-        key = record_key(recorded, service)
-        if key is None:
-            if service not in services:
-                continue  # not a service of this file (an orphan): not one this release starts
-            ref = services[service]  # a sidecar the release does not record: the image Compose resolves is the check
-            from briefcase.engine import install as _inst
-
-            expected = _inst.Docker(_runner()).image_id(ref) if ref else None
-            if expected is None:
-                stale.append(f"there is no local image to compare {service} with"
-                             + (f" ({ref} is not available)" if ref else " (its Compose service names no image)"))
-            elif row["image"] != expected:
-                stale.append(f"{service} runs a different image than the one the Compose file names")
-            continue
-        if row["image"] != recorded[key]:
-            stale.append(f"{service} runs a different image than engine {record['version']} verified")
-        if service not in TRANSPORT_SERVICES:
-            continue
-        try:
-            env = [e for e in json.loads(row.get("env") or "[]") if isinstance(e, str)]
-        except ValueError:
-            env = []
-        has_tls = _container_tls(service, env, want_tls)
-        if has_tls is None:
-            stale.append(f"the transport {service} was created for could not be read from docker")
-        elif has_tls != want_tls:
-            stale.append(f"{service} was created for {'TLS' if has_tls else 'plaintext'} but engine "
-                         f"{record['version']} is installed {'with' if want_tls else 'without'} TLS")
-    if stale:
-        return "; ".join(stale), present
-    extra = sorted(f"{service} ({n})" for service, n in counts.items() if n > 1)
-    if extra and surplus_is_a_problem:
-        return (f"more than one container exists for {', '.join(extra)}, which `up` does not touch but the engine "
-                "was not made to run"), present
-    return None, present
-
-
-def _start_argv(record: Dict[str, Any], present: Set[str], services: Set[str],
-                wait: bool) -> Tuple[Optional[List[str]], str, Set[str]]:
-    """The Compose command that starts the engine without being able to delete anything, or ``(None, why)``.
-
-    With every service already having a container, ``compose start``: it only starts containers that exist (Compose
-    v5.5.0 start.go, startService), so a replica another client adds meanwhile is left alone. ``compose up`` runs
-    the scale-down of reconcile.go (reconcileService) first, and removes the extra container with its writable
-    layer. ``up --no-recreate`` is used only when no service has a container at all, so there is nothing to scale
-    down. A partial stack would need both and is refused."""
-    if not present:
-        wait_flags = ["--wait", "--wait-timeout", "300"] if wait else []
-        return _compose(record, "up", "-d", "--no-recreate", *wait_flags), "", services
-    missing = sorted(services - present)
-    if missing:
-        return None, (f"the stack is partial (no container for {', '.join(missing)}); starting it would need Compose "
-                      "to create containers beside existing ones, which can remove containers"), services
-    return _compose(record, "start"), "", services  # `start` has no --wait before Compose 2.24.7: cmd_up waits
-
-
-def wait_running(record: Dict[str, Any], services: Set[str], timeout: float = 300.0, interval: float = 2.0) -> bool:
-    """Wait until every one of ``services`` has a container, and each of its containers is running and, where it has a
-    health check, healthy. One-off containers (`compose run` leftovers) are not the service."""
-    deadline = time.monotonic() + timeout
-    while True:
-        rows = [r for r in (_services(record, detail=True) or []) if not r.get("oneoff")]
-        if services and all(
-                any(r["service"] == name for r in rows)
-                and all(r["state"] == "running" and r["health"] in ("", "healthy") for r in rows
-                        if r["service"] == name) for name in services):
-            return True
-        if time.monotonic() >= deadline:
-            return False
-        time.sleep(interval)
-
-
 def _locked(args):
     """The install lock for a command that changes something; a dry run takes none (it would create the lock file
     and the engine directory on a clean home) and reads state as it is."""
     from briefcase.engine import install as _inst
 
     return contextlib.nullcontext() if _dry(args) else _inst.engine_lock()
-
-
-def cmd_up(args, store, engine, stack) -> int:
-    from briefcase import engine as _engine
-    from briefcase.engine import install as _inst
-
-    if _require_stack(args) is None:
-        return 3 if _local_install() is None else 1
-    with _locked(args):  # not while an upgrade is moving current: the release is chosen under the lock
-        record = _require_stack(args)
-        if record is None:
-            return 1
-        # Starting changes nothing that exists (a recreated or removed container loses its writable layer): see
-        # _start_argv. Moving to another release is an upgrade, which asks.
-        if _dry(args):
-            shown = _compose(record, "up", "-d", "--no-recreate") + (
-                ["--wait", "--wait-timeout", "300"] if getattr(args, "wait", False) else [])
-            print("dry run: would run `docker compose start` over existing containers, or " + " ".join(shown)
-                  + " on a fresh stack\nnothing was started, recreated or removed.")
-            return 0
-        daemon = _inst.docker_identity(_runner())
-        if daemon is None:
-            return _ux.fail("could not tell which Docker daemon this is, so the engine was not started (its volumes "
-                            "could not be traced to a daemon afterwards)", fix="briefcase-ai engine doctor")
-        with _pinned(daemon):  # the start checks, the record and compose all reach the daemon that was identified
-            stop = guard_start(record)
-            if stop is not None:
-                return stop
-            services = compose_services(record)
-            if services is None:
-                return _ux.fail("docker compose could not describe the engine's services (`compose config`), so "
-                                "nothing was inspected or started", fix="briefcase-ai engine doctor")
-            invalid = check_service_images(record, services)
-            if invalid:
-                return _ux.fail(invalid, fix=_reinstall_fix(record))
-            problem, present = existing_containers_state(record, services)
-            if problem:
-                return _ux.fail(f"{problem}; nothing was started, because `up` would reuse them as they are",
-                                fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
-            command, why, expected = _start_argv(record, present, set(services), bool(getattr(args, "wait", False)))
-            if command is None:
-                return _ux.fail(why, fix="briefcase-ai engine down --yes   # removes the containers, keeps the volumes")
-            try:
-                if _inst.note_daemon(_runner(), identity=daemon) is None:  # before compose can create a volume
-                    return _ux.fail("the Docker daemon did not state its id, so it cannot be told from another one "
-                                    "at the same address and nothing was started", fix="briefcase-ai engine doctor")
-            except _engine.StateUnreadable as exc:
-                return _ux.fail(str(exc), fix=exc.fix)
-            if not still_the_daemon(daemon):  # the last look before Compose opens its own connection
-                return _ux.fail("the Docker daemon at the verified endpoint is not the one that was inspected (it "
-                                "changed after the inventory), so nothing was started",
-                                fix="briefcase-ai engine doctor")
-            rc = _rc(_run(command))
-            if not still_the_daemon(daemon):
-                return _ux.fail("the Docker daemon at the verified endpoint changed during the start, so what the "
-                                "inventory says cannot be trusted", fix="briefcase-ai engine status")
-            if rc == 0:
-                # What Compose created or started is checked against the record: every expected service has its
-                # container, image and transport. A container another Compose client made Compose remove while it
-                # reconciled (v5.5.0 reconcile.go scales a service down to its expected count) is not detected beyond
-                # this: the SDK watches nothing and creates or removes nothing of its own.
-                # a surplus container is not ours to judge here
-                after, now = existing_containers_state(record, services, surplus_is_a_problem=False)
-                missing = sorted(expected - now)
-                if after or missing:
-                    return _ux.fail(("after the start, " + after if after else
-                                     f"after the start, no container exists for {', '.join(missing)}")
-                                    + "; the engine is not in the state it should be", fix="briefcase-ai engine status")
-            if rc == 0 and getattr(args, "wait", False) and "start" in command \
-                    and not wait_running(record, expected):  # on the pinned daemon, for the services of the file
-                return _ux.fail("the engine did not become healthy within 300 seconds", fix="briefcase-ai engine logs")
-    if rc != 0:
-        return _ux.fail("docker compose up failed (see above)", fix="briefcase-ai engine doctor")
-    print(f"engine {record['version']} started: gRPC {record['grpc_addr']}, registry gateway {record['gateway']}")
-    _ux.print_next("briefcase-ai engine status")
-    return 0
 
 
 def cmd_down(args, store, engine, stack) -> int:
@@ -1563,7 +813,7 @@ def cmd_down(args, store, engine, stack) -> int:
     if rc != 0:
         return _ux.fail("docker compose down failed, or an engine volume could not be removed (see above)",
                         fix="briefcase-ai engine doctor")
-    _ux.print_next("briefcase-ai engine up", "to start it again")
+    print(ENV_HELP)
     return 0
 
 
@@ -1627,22 +877,6 @@ def engine_state() -> Dict[str, Any]:
     }
 
 
-def update_check(record: Dict[str, Any], token: Optional[str]) -> Dict[str, Any]:
-    """``{"checked": bool, "latest", "update_available", "reason"}``. Only with a licence token:
-    an install code is single-use, so status never spends one."""
-    from briefcase.engine import install as _inst
-
-    if not token:
-        return {"checked": False, "reason": "no licence token (BRIEFCASE_LICENSE_TOKEN); install codes are single-use"}
-    platform = _inst.platform_url(None)
-    try:
-        latest = _inst.latest_version(platform, token)
-    except Exception as exc:  # noqa: BLE001 - status must always render
-        return {"checked": False, "reason": str(exc)}
-    return {"checked": True, "latest": latest["version"],
-            "update_available": _inst.newer(latest["version"], record["version"])}
-
-
 def cmd_status(args, store, engine, stack) -> int:
     from briefcase import engine as _engine
 
@@ -1650,8 +884,7 @@ def cmd_status(args, store, engine, stack) -> int:
     record = state["install"]
     if record is not None:
         state["services"] = _services(record)
-        token = getattr(args, "token", None) or os.environ.get(_engine.ENV_LICENSE)
-        state["update"] = update_check(record, token)
+        state["update"] = {"checked": False, "reason": "Engine updates are managed by Briefcase AI."}
     if getattr(args, "json", False):
         shown = _ux.print_json(state)
         return _engine.EXIT_NOT_INSTALLED if record is None and not state["remote"] else shown
@@ -1664,7 +897,7 @@ def cmd_status(args, store, engine, stack) -> int:
         print(f"  verified with: {record.get('key_id') or 'unknown (installed by an older SDK)'}")
         client = record.get("client") or {}
         if client.get("mode") == "container":
-            print(f"  oci-bai:       runs from {client.get('image')} (no build for this OS)")
+            print("  oci-bai:       legacy container client retired; use the managed endpoint")
         elif record.get("binary"):
             print(f"  client binary: {record['binary']}")
         if record.get("compose"):
@@ -1678,20 +911,8 @@ def cmd_status(args, store, engine, stack) -> int:
             for row in services:
                 health = f" ({row['health']})" if row["health"] else ""
                 print(f"  {row['service']:<16} {row['state']}{health}")
-        update = state["update"]
-        if update.get("checked"):
-            print(f"  newest:        {update['latest']}"
-                  + (" (newer than this install)" if update["update_available"] else " (up to date)"))
-        else:
-            print(f"  newest:        not checked ({update['reason']})")
     print(f"  gRPC:          {state['addr']} ({state['addr_source']}) "
           f"{'reachable' if state['reachable'] else 'not reachable'}")
-    if record is not None and (state.get("update") or {}).get("update_available"):
-        _ux.print_next("briefcase-ai engine upgrade", "a newer engine release is available")
-    elif record is not None and record.get("compose") and not state["reachable"]:
-        _ux.print_next("briefcase-ai engine up")
-    else:
-        _ux.print_next("briefcase-ai graph log <ref>", "look at what the engine has recorded")
     return 0
 
 
@@ -1738,15 +959,15 @@ def doctor_checks(record: Optional[Dict[str, Any]], client_factory=None) -> List
         client = record.get("client") or {}
         binary = Path(record.get("binary") or "")
         if client.get("mode") == "container":
-            out.append((OK, "client binary", f"none for this OS; oci-bai runs from {client.get('image')}"))
+            out.append((OK, "client binary", "legacy container client retired; use the managed endpoint"))
         else:
             out.append((OK, "client binary", str(binary)) if record.get("binary") and binary.exists()
                        and os.access(binary, os.X_OK)
-                       else (FAIL, "client binary", f"missing: {binary} (re-run briefcase-ai engine install)"))
+                       else (FAIL, "client binary", f"missing: {binary} (contact Briefcase for migration)"))
         env_file = Path(record.get("env_file", ""))
         if record.get("compose"):
             if not env_file.exists():
-                out.append((FAIL, "secrets", f"missing: {env_file} (re-run briefcase-ai engine install)"))
+                out.append((FAIL, "secrets", f"missing: {env_file} (contact Briefcase for migration)"))
             elif os.name == "posix" and env_file.stat().st_mode & 0o077:
                 out.append((WARN, "secrets", f"{env_file} is readable by others; chmod 600 it"))
             else:
@@ -1756,16 +977,16 @@ def doctor_checks(record: Optional[Dict[str, Any]], client_factory=None) -> List
             for name, ref in sorted((record.get("images") or {}).items()):
                 actual = docker.image_id(ref)
                 if actual is None:
-                    out.append((FAIL, f"image {name}", f"{ref} missing ({_reinstall_fix(record)})"))
+                    out.append((FAIL, f"image {name}", f"{ref} missing ({ENV_HELP})"))
                 elif ids.get(name) and actual != ids[name]:
                     out.append((FAIL, f"image {name}", f"{ref} is not the image verified at install "
-                                                       f"({_reinstall_fix(record)})"))
+                                                       f"({ENV_HELP})"))
                 else:
                     digest = (record.get("image_digests") or {}).get(name, "")
                     out.append((OK, f"image {name}", f"{ref} {digest[:19]}"))
     settings = _engine.client_settings()
     if not port_open(settings["addr"]):
-        out.append((WARN, "gRPC", f"{settings['addr']} not reachable (briefcase-ai engine up)"))
+        out.append((WARN, "gRPC", f"{settings['addr']} not reachable; check the managed endpoint"))
         return out
     try:
         from briefcase.engine.client import EngineClient, EngineError
@@ -1967,7 +1188,7 @@ def cmd_uninstall(args, store, engine, stack) -> int:
     if note:
         print(note)
     if plan.record:
-        _ux.print_next("briefcase-ai engine install", "to install it again")
+        print(ENV_HELP)
     return 0
 
 
@@ -1993,7 +1214,7 @@ def status_row() -> Dict[str, Any]:
     if record is not None and not reachable and not remote:
         return {"id": "engine", "title": "Engine (oci-jj)", "state": "attention",
                 "detail": f"engine {record['version']} installed, not running",
-                "next": "briefcase-ai engine up", "data": {"version": record["version"], "addr": addr}}
+                "next": "briefcase-ai engine status", "data": {"version": record["version"], "addr": addr}}
     detail = (f"engine {record['version']} at {addr}" if record and not remote else f"using the engine at {addr}")
     if not reachable:
         detail += " (not reachable)"
